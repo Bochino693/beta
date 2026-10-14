@@ -72,22 +72,37 @@ func jogar(sensor: String) -> void:
 
 
 func _rodar() -> void:
-	# Bob STRIKE (replay + jatos) | Mia 9 + spare (1) | fim
-	Jogada.forcar = [10, 9, 1] if cena != "curto" else [10]
+	# Atração passando pelos cenários -> START -> Bob -> SORRIA! (foto) ->
+	# 3 rodadas com STRIKE: replay no 1º, "PEGANDO FOGO!" no 2º e bola de
+	# fogo no 3º, cada rodada num cenário -> fim de jogo com a foto e recorde.
+	var replay_antes = Ajustes.valor("jogo", "replay_strike")
+	var rodadas_antes = Ajustes.valor("jogo", "rodadas")
+	Ajustes.definir("jogo", "rodadas", 3 if cena != "curto" else 1)
+	Ajustes.definir("jogo", "replay_strike", true)
+	Jogada.forcar = [10, 10, 10] if cena != "curto" else [10]
 	await esperar_estado("ATRACAO", 10.0)
-	await esperar(2.6)
+	principal.mundo.aplicar_tema("dinos")
+	await esperar(2.2)
+	principal.hud.flash(Color.WHITE, 0.8, 0.5)
+	principal.mundo.aplicar_tema("mar")
+	await esperar(2.0)
 	await apertar("input_start")
-	await esperar(0.4)
+	await esperar_estado("PERSONAGEM", 10.0)
+	await esperar(1.0)
 	await apertar("input_start")
 	await jogar("input_c")
+	# depois do primeiro replay, sem replay (o vídeo fica curto)
+	await esperar_estado("REPLAY", 30.0)
+	await esperar_estado("RESULTADO", 30.0)
+	Ajustes.definir("jogo", "replay_strike", false)
 	if cena != "curto":
 		await jogar("input_v")
-		await jogar("input_z")
-	await esperar_estado("PRONTO", 40.0)
-	await esperar(0.4)
-	principal._fim_de_jogo()
-	await esperar(7.0)
+		await jogar("input_c")
+	await esperar_estado("FIM", 60.0)
+	await esperar(8.0)
 	gravando = false
+	Ajustes.definir("jogo", "replay_strike", replay_antes)
+	Ajustes.definir("jogo", "rodadas", rodadas_antes)
 	var f := FileAccess.open(pasta + "/sons.json", FileAccess.WRITE)
 	f.store_string(JSON.stringify({"registro": Sons.registro, "quadros": quadro}))
 	f.close()

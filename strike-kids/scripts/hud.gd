@@ -61,6 +61,17 @@ var _inativo_texto: Label
 var _tempo := 0.0
 var _convite := false
 var _retratos := {}
+# fotos das crianças (câmera da máquina)
+var _foto_tela: Control
+var _foto_fundo: ColorRect
+var _foto_titulo: Label
+var _foto_sub: Label
+var _foto_circulo: TextureRect
+var _foto_selo: TextureRect
+var _foto_numero: Label
+var _foto_destaque: TextureRect
+var _rec_foto: TextureRect
+var _shader_foto: Shader
 
 
 func montar(textura_3d: Texture2D) -> void:
@@ -91,6 +102,7 @@ func montar(textura_3d: Texture2D) -> void:
 	_fim.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_fim)
 	_montar_inatividade()
+	_montar_fotos()
 	_flash = ColorRect.new()
 	_flash.color = Color(1, 1, 1, 0)
 	_flash.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -157,6 +169,12 @@ func _montar_placar() -> void:
 		av.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		av.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		p.add_child(av)
+		var selo := TextureRect.new()
+		selo.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		selo.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		selo.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		selo.visible = false
+		p.add_child(selo)
 		var nome := rotulo("", 34, Color.WHITE, 8)
 		nome.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 		p.add_child(nome)
@@ -167,7 +185,7 @@ func _montar_placar() -> void:
 		rod.alignment = BoxContainer.ALIGNMENT_BEGIN
 		rod.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		p.add_child(rod)
-		_cartoes.append({"painel": p, "avatar": av, "nome": nome, "pontos": pts, "rodadas": rod, "cor": cor, "valor": 0.0, "alvo": 0})
+		_cartoes.append({"painel": p, "avatar": av, "selo": selo, "nome": nome, "pontos": pts, "rodadas": rod, "cor": cor, "valor": 0.0, "alvo": 0})
 	_info = rotulo("", 34, Color.WHITE, 9)
 	add_child(_info)
 	_bolas_box = HBoxContainer.new()
@@ -194,8 +212,13 @@ func configurar_placar(personagens: Array) -> void:
 		if i < personagens.size():
 			var p: String = personagens[i]
 			c["nome"].text = p.to_upper()
-			c["avatar"].texture = _retratos.get(p)
 			var cor := COR_BOB if p == "bob" else COR_MIA
+			var ft: Texture2D = Fotos.foto("j%d" % i)
+			c["foto"] = ft != null
+			c["avatar"].texture = ft if ft != null else _retratos.get(p)
+			c["avatar"].material = material_foto(Color.WHITE) if ft != null else null
+			c["selo"].texture = _retratos.get(p)
+			c["selo"].visible = ft != null
 			c["cor"] = cor
 			(c["painel"] as Panel).add_theme_stylebox_override("panel", caixa(cor, 34 * u, 6 * u))
 			c["valor"] = 0.0
@@ -521,17 +544,22 @@ func _montar_faixa() -> void:
 	_faixa.add_child(_faixa_texto)
 
 
-func faixa(personagem: String, texto: String, sub := "") -> void:
+func faixa(personagem: String, texto: String, sub := "", foto: Texture2D = null) -> void:
 	var cor := COR_BOB if personagem == "bob" else COR_MIA
 	_faixa.add_theme_stylebox_override("panel", caixa(cor, 40 * u, 7 * u))
-	_faixa_avatar.texture = _retratos.get(personagem)
+	_faixa_avatar.texture = foto if foto != null else _retratos.get(personagem)
+	_faixa_avatar.material = material_foto(Color.WHITE) if foto != null else null
 	_faixa_texto.text = texto + ("\n" + sub if sub != "" else "")
 	var T := size
 	var h := 210 * u
 	var w: float = min(T.x * 0.92, 980 * u)
 	_faixa.size = Vector2(w, h)
-	_faixa_avatar.size = Vector2(h * 1.25, h * 1.25)
-	_faixa_avatar.position = Vector2(-h * 0.15, -h * 0.35)
+	if foto != null:
+		_faixa_avatar.size = Vector2(h * 1.05, h * 1.05)
+		_faixa_avatar.position = Vector2(-h * 0.05, -h * 0.12)
+	else:
+		_faixa_avatar.size = Vector2(h * 1.25, h * 1.25)
+		_faixa_avatar.position = Vector2(-h * 0.15, -h * 0.35)
 	_faixa_texto.size = Vector2(w - h * 1.1, h)
 	_faixa_texto.position = Vector2(h * 1.05, 0)
 	_tamanho_rotulo(_faixa_texto, (70 if sub == "" else 58) * u)
@@ -602,13 +630,27 @@ func _montar_atracao() -> void:
 	_atracao.add_child(_recorde)
 	_creditos = rotulo("", 34, Color.WHITE, 9)
 	_atracao.add_child(_creditos)
+	_rec_foto = TextureRect.new()
+	_rec_foto.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_rec_foto.stretch_mode = TextureRect.STRETCH_SCALE
+	_rec_foto.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_rec_foto.material = material_foto(Color("#FFD43B"))
+	_rec_foto.visible = false
+	_atracao.add_child(_rec_foto)
 	_atracao.visible = false
 
 
-func atracao(ligado: bool, recorde := "", creditos := "") -> void:
+func atracao(ligado: bool, recorde := "", creditos := "", foto_recorde: Texture2D = null) -> void:
 	_atracao.visible = ligado
 	_recorde.text = recorde
 	_creditos.text = creditos
+	_rec_foto.texture = foto_recorde
+	_rec_foto.visible = foto_recorde != null and recorde != ""
+	if _rec_foto.visible:
+		var larg := _recorde.label_settings.font.get_string_size(recorde, HORIZONTAL_ALIGNMENT_LEFT, -1, _recorde.label_settings.font_size).x
+		var d := 110 * u
+		_rec_foto.size = Vector2(d, d)
+		_rec_foto.position = Vector2((size.x - larg) / 2 - d - 14 * u, _recorde.position.y + _recorde.size.y / 2 - d / 2)
 	if ligado:
 		mostrar_placar(false)
 		mostrar_sensores(false)
@@ -717,6 +759,18 @@ func tela_fim(ligado: bool, dados := {}) -> void:
 		nome.size = Vector2(larg_card, 70 * u)
 		nome.position = Vector2(0, 18 * u)
 		c.add_child(nome)
+		var ft: Texture2D = j.get("foto")
+		if ft != null:
+			var fr := TextureRect.new()
+			fr.texture = ft
+			fr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+			fr.stretch_mode = TextureRect.STRETCH_SCALE
+			fr.material = material_foto(Color.WHITE)
+			fr.size = Vector2(150, 150) * u
+			fr.position = Vector2(larg_card - 116 * u, -70 * u)
+			fr.pivot_offset = fr.size / 2
+			fr.rotation = 0.12
+			c.add_child(fr)
 		var pts := rotulo("0", 120 * u, Color("#FFF6A8"), 22 * u, ROXO, fonte_titulo)
 		pts.size = Vector2(larg_card, 140 * u)
 		pts.position = Vector2(0, 90 * u)
@@ -798,6 +852,149 @@ func inatividade(ligado: bool, segundos := 10) -> void:
 	_inativo_texto.text = "AINDA ESTÁ AÍ?\n\nRole a bola para continuar!\n\n%d" % segundos
 
 
+# ================================================================ fotos (câmera da máquina)
+func material_foto(cor_aro: Color) -> ShaderMaterial:
+	if _shader_foto == null:
+		_shader_foto = load("res://shaders/foto_redonda.gdshader")
+	var m := ShaderMaterial.new()
+	m.shader = _shader_foto
+	m.set_shader_parameter("cor_aro", cor_aro)
+	return m
+
+
+func _montar_fotos() -> void:
+	_foto_tela = Control.new()
+	_foto_tela.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_foto_tela.visible = false
+	add_child(_foto_tela)
+	_foto_fundo = ColorRect.new()
+	_foto_fundo.color = Color(0.08, 0.02, 0.2, 0.55)
+	_foto_fundo.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_foto_tela.add_child(_foto_fundo)
+	_foto_titulo = rotulo("SORRIA!", 110, Color("#FFF6A8"), 24, ROXO, fonte_titulo)
+	_foto_tela.add_child(_foto_titulo)
+	_foto_circulo = TextureRect.new()
+	_foto_circulo.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_foto_circulo.stretch_mode = TextureRect.STRETCH_SCALE
+	_foto_circulo.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_foto_tela.add_child(_foto_circulo)
+	_foto_selo = TextureRect.new()
+	_foto_selo.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_foto_selo.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	_foto_selo.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_foto_tela.add_child(_foto_selo)
+	_foto_numero = rotulo("", 280, Color.WHITE, 44, ROXO, fonte_titulo)
+	_foto_tela.add_child(_foto_numero)
+	_foto_sub = rotulo("", 46, Color.WHITE, 12, ROXO)
+	_foto_sub.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_foto_tela.add_child(_foto_sub)
+	_foto_destaque = TextureRect.new()
+	_foto_destaque.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_foto_destaque.stretch_mode = TextureRect.STRETCH_SCALE
+	_foto_destaque.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_foto_destaque.visible = false
+	add_child(_foto_destaque)
+
+
+func _layout_fotos() -> void:
+	var T := size
+	_foto_fundo.size = T
+	var d: float = minf(T.x * 0.7, T.y * 0.44)
+	var cy := T.y * (0.47 if retrato else 0.52)
+	_foto_circulo.size = Vector2(d, d)
+	_foto_circulo.position = Vector2((T.x - d) / 2, cy - d / 2)
+	_foto_circulo.pivot_offset = _foto_circulo.size / 2
+	var sd := d * 0.42
+	_foto_selo.size = Vector2(sd, sd)
+	_foto_selo.position = _foto_circulo.position + Vector2(d * 0.74, d * 0.66)
+	_tamanho_rotulo(_foto_titulo, 110 * u)
+	_foto_titulo.label_settings.outline_size = int(24 * u)
+	_foto_titulo.size = Vector2(T.x, 150 * u)
+	_foto_titulo.position = Vector2(0, cy - d / 2 - 190 * u)
+	_foto_titulo.pivot_offset = _foto_titulo.size / 2
+	_tamanho_rotulo(_foto_numero, 280 * u)
+	_foto_numero.label_settings.outline_size = int(44 * u)
+	_foto_numero.size = Vector2(T.x, 360 * u)
+	_foto_numero.position = Vector2(0, cy - 180 * u)
+	_foto_numero.pivot_offset = _foto_numero.size / 2
+	_tamanho_rotulo(_foto_sub, 46 * u)
+	_foto_sub.label_settings.outline_size = int(12 * u)
+	_foto_sub.size = Vector2(T.x * 0.9, 140 * u)
+	_foto_sub.position = Vector2(T.x * 0.05, cy + d / 2 + 30 * u)
+
+
+## Tela "SORRIA!": a câmera ao vivo num círculo, com o mascote do lado.
+func foto_tela(ligado: bool, textura: Texture2D = null, personagem := "", titulo := "SORRIA!", sub := "") -> void:
+	_foto_tela.visible = ligado
+	if not ligado:
+		return
+	_layout_fotos()
+	var cor := COR_BOB if personagem == "bob" else COR_MIA
+	_foto_circulo.texture = textura
+	_foto_circulo.material = material_foto(cor.lightened(0.35))
+	_foto_selo.texture = _retratos.get(personagem)
+	_foto_titulo.text = titulo
+	_foto_sub.text = sub
+	_foto_numero.text = ""
+	_foto_circulo.scale = Vector2.ZERO
+	var tw := create_tween()
+	tw.tween_property(_foto_circulo, "scale", Vector2.ONE, 0.45).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	_pular(_foto_titulo)
+
+
+func foto_contagem(n: int) -> void:
+	_foto_numero.text = str(n) if n > 0 else ""
+	if n > 0:
+		_foto_numero.scale = Vector2.ONE * 1.6
+		_foto_numero.modulate.a = 1.0
+		var tw := create_tween()
+		tw.tween_property(_foto_numero, "scale", Vector2.ONE, 0.35).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		tw.parallel().tween_property(_foto_numero, "modulate:a", 0.75, 0.6)
+
+
+## A foto tirada (ou o mascote, se a câmera não mandou imagem).
+func foto_pronta(foto: Texture2D, personagem: String) -> void:
+	_foto_numero.text = ""
+	if foto != null:
+		_foto_circulo.texture = foto
+		_foto_titulo.text = "QUE FOTO LINDA!"
+		_foto_sub.text = ""
+	else:
+		_foto_circulo.texture = _retratos.get(personagem)
+		_foto_titulo.text = "VAMOS JOGAR!"
+		_foto_sub.text = "(a câmera não mandou imagem)"
+	_pular(_foto_titulo)
+	_foto_circulo.scale = Vector2.ONE * 1.12
+	create_tween().tween_property(_foto_circulo, "scale", Vector2.ONE, 0.4).set_trans(Tween.TRANS_ELASTIC).set_ease(Tween.EASE_OUT)
+	_estrelas_2d(_foto_circulo.position + _foto_circulo.size / 2, 26)
+
+
+## Foto da criança pulando na tela (no strike).
+func foto_destaque(foto: Texture2D, cor: Color, dur := 1.6) -> void:
+	if foto == null:
+		return
+	var T := size
+	var d: float = minf(T.x * 0.36, 360.0 * u)
+	_foto_destaque.texture = foto
+	_foto_destaque.material = material_foto(cor.lightened(0.3))
+	_foto_destaque.size = Vector2(d, d)
+	_foto_destaque.position = Vector2((T.x - d) / 2, T.y * (0.56 if retrato else 0.58) - d / 2)
+	_foto_destaque.pivot_offset = _foto_destaque.size / 2
+	_foto_destaque.visible = true
+	_foto_destaque.scale = Vector2.ZERO
+	_foto_destaque.rotation = -0.6
+	_foto_destaque.modulate.a = 1.0
+	var tw := create_tween()
+	tw.tween_property(_foto_destaque, "scale", Vector2.ONE, 0.5).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tw.parallel().tween_property(_foto_destaque, "rotation", 0.08, 0.5).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tw.tween_property(_foto_destaque, "rotation", -0.08, 0.4).set_trans(Tween.TRANS_SINE)
+	tw.tween_property(_foto_destaque, "rotation", 0.0, 0.3).set_trans(Tween.TRANS_SINE)
+	tw.tween_interval(maxf(dur - 1.2, 0.1))
+	tw.tween_property(_foto_destaque, "scale", Vector2.ZERO, 0.3).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_IN)
+	tw.tween_callback(func(): _foto_destaque.visible = false)
+	_estrelas_2d(_foto_destaque.position + _foto_destaque.size / 2, 22)
+
+
 # ================================================================ layout responsivo
 func layout() -> void:
 	var T := Tela.tamanho()
@@ -837,8 +1034,16 @@ func layout() -> void:
 		p.position = Vector2(x, margem + 40 * u)
 		p.pivot_offset = p.size / 2
 		var av: TextureRect = c["avatar"]
-		av.size = Vector2(alt * 1.15, alt * 1.15)
-		av.position = Vector2(-alt * 0.12, -alt * 0.32)
+		if c.get("foto", false):
+			# foto da criança dentro do cartão + o mascote de "selo"
+			av.size = Vector2(alt * 0.86, alt * 0.86)
+			av.position = Vector2(alt * 0.07, alt * 0.07)
+			var selo: TextureRect = c["selo"]
+			selo.size = Vector2(alt * 0.5, alt * 0.5)
+			selo.position = Vector2(alt * 0.55, alt * 0.52)
+		else:
+			av.size = Vector2(alt * 1.15, alt * 1.15)
+			av.position = Vector2(-alt * 0.12, -alt * 0.32)
 		var nome: Label = c["nome"]
 		_tamanho_rotulo(nome, 42 * u)
 		nome.label_settings.outline_size = int(10 * u)
@@ -963,6 +1168,10 @@ func layout() -> void:
 	_inativo_texto.label_settings.outline_size = int(12 * u)
 	_inativo_texto.size = _inativo.size
 	_inativo_texto.position = Vector2.ZERO
+	if _foto_tela.visible:
+		_layout_fotos()
+	if _atracao.visible:
+		atracao(true, _recorde.text, _creditos.text, _rec_foto.texture)
 
 
 func _process(delta: float) -> void:

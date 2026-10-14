@@ -21,6 +21,9 @@ const ITENS := [
 	["Replay do strike", "jogo", "replay_strike", "bool", []],
 	["Demonstração na tela inicial", "jogo", "demo", "bool", []],
 	["Modo livre (sem ficha)", "jogo", "modo_livre", "bool", []],
+	["Foto das crianças (câmera)", "jogo", "foto", "bool", []],
+	["Giro da câmera", "jogo", "camera_giro", "lista", [0, 90, 180, 270]],
+	["Espelhar a câmera", "jogo", "camera_espelho", "bool", []],
 	["Fichas por partida", "jogo", "creditos_por_partida", "int", [1, 5]],
 	["Tempo sem jogar até o aviso (s)", "jogo", "tempo_inatividade", "int", [20, 180]],
 	["Volume da música", "som", "musica", "vol", []],
@@ -29,13 +32,15 @@ const ITENS := [
 	["Qualidade gráfica", "video", "qualidade", "lista", ["auto", "alta", "media", "baixa"]],
 	["Giro da tela", "tela", "giro", "lista", [1, -1, 0]],
 	["> TESTE DOS SENSORES", "", "teste", "acao", []],
+	["> TESTE DA CÂMERA", "", "camera", "acao", []],
 	["> CONFIGURAR BOTÕES DA PLACA", "", "botoes", "acao", []],
 	["> ZERAR RECORDES", "", "recordes", "acao", []],
 	["> RESTAURAR PADRÃO DE FÁBRICA", "", "padrao", "acao", []],
 	["> VOLTAR AO JOGO", "", "voltar", "acao", []],
 ]
 const NOMES := {"facil": "FÁCIL", "normal": "NORMAL", "dificil": "DIFÍCIL", "auto": "AUTOMÁTICA", "alta": "ALTA",
-	"media": "MÉDIA", "baixa": "BAIXA", 1: "1 (topo à esquerda)", -1: "-1 (topo à direita)", 0: "0 (sem giro)"}
+	"media": "MÉDIA", "baixa": "BAIXA", 1: "1 (topo à esquerda)", -1: "-1 (topo à direita)", 0: "0 (sem giro)",
+	90: "90°", 180: "180°", 270: "270°"}
 
 var _sel := 0
 var _linhas: Array[Label] = []
@@ -44,6 +49,8 @@ var _info: Label
 var _teste := false
 var _teste_contagem := [0, 0, 0, 0, 0]
 var _teste_rotulo: Label
+var _camera := false
+var _camera_tela: TextureRect
 var u := 1.0
 
 
@@ -72,6 +79,15 @@ func _ready() -> void:
 	_teste_rotulo = _rotulo("", Vector2(0, T.y * 0.35), 54 * u, Color.WHITE)
 	_teste_rotulo.size = Vector2(T.x, 500 * u)
 	_teste_rotulo.visible = false
+	_camera_tela = TextureRect.new()
+	_camera_tela.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_camera_tela.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	var lado: float = minf(T.x * 0.8, T.y * 0.5)
+	_camera_tela.size = Vector2(lado, lado)
+	_camera_tela.position = Vector2((T.x - lado) / 2, T.y * 0.3)
+	_camera_tela.visible = false
+	add_child(_camera_tela)
+	Fotos.mudou.connect(_atualizar)
 	_atualizar()
 
 
@@ -115,8 +131,8 @@ func _atualizar() -> void:
 		l.text = ("▶ " if i == _sel else "   ") + str(item[0]) + ("" if v == "" else ":   " + v)
 		l.label_settings.font_color = Color("#FFD43B") if i == _sel else Color(1, 1, 1, 0.85)
 	_info.text = "X sobe · V desce · Z diminui · B aumenta · C/START escolhe · CONFIGURAÇÃO volta\n" + \
-		"Partidas: %d   ·   Strikes: %d   ·   Moedas: %d   ·   Arduino: %s" % [Ajustes.contador("partidas"),
-		Ajustes.contador("strikes"), Ajustes.contador("moedas"), ArduinoBridge.status]
+		"Partidas: %d   ·   Strikes: %d   ·   Moedas: %d   ·   Arduino: %s\nCâmera: %s" % [Ajustes.contador("partidas"),
+		Ajustes.contador("strikes"), Ajustes.contador("moedas"), ArduinoBridge.status, Fotos.texto_status()]
 
 
 func _input(event: InputEvent) -> void:
@@ -141,10 +157,21 @@ func _input(event: InputEvent) -> void:
 		cmd = {KEY_UP: "sobe", KEY_DOWN: "desce", KEY_LEFT: "menos", KEY_RIGHT: "mais", KEY_ENTER: "ok", KEY_ESCAPE: "sair"}.get((event as InputEventKey).keycode, "")
 	if cmd == "":
 		return
-	if _teste:
+	if _camera and (cmd == "menos" or cmd == "mais"):
+		# no teste da câmera, Z / B giram a imagem (câmera montada de lado)
+		var g := (int(Ajustes.valor("jogo", "camera_giro")) + (90 if cmd == "mais" else 270)) % 360
+		Ajustes.definir("jogo", "camera_giro", g)
+		Sons.tocar("selecao")
+		return
+	if _teste or _camera:
 		if cmd == "sair" or cmd == "ok":
 			_teste = false
+			_camera = false
 			_teste_rotulo.visible = false
+			_teste_rotulo.position.y = Tela.tamanho().y * 0.35
+			_teste_rotulo.size.y = 500 * u
+			_camera_tela.visible = false
+			Fotos.desligar(2.0)
 			for l in _linhas:
 				l.visible = true
 		return
@@ -185,6 +212,8 @@ func _mudar(d: int) -> void:
 		get_tree().reload_current_scene.call_deferred()
 		return
 	Ajustes.definir(item[1], item[2], v)
+	if item[2] == "foto":
+		Fotos.iniciar()
 	Sons.atualizar_volume()
 	Sons.tocar("selecao")
 
@@ -201,6 +230,19 @@ func _acao() -> void:
 				l.visible = false
 			_teste_rotulo.visible = true
 			_mostrar_teste("")
+		"camera":
+			_camera = true
+			for l in _linhas:
+				l.visible = false
+			_teste_rotulo.visible = true
+			if Fotos.ligar():
+				_camera_tela.texture = Fotos.ao_vivo()
+				_camera_tela.visible = true
+				_teste_rotulo.position.y = 40 * u
+				_teste_rotulo.size.y = Tela.tamanho().y * 0.25
+				_teste_rotulo.text = "TESTE DA CÂMERA\n%s\nZ / B giram a imagem · START sai" % Fotos.nome_camera
+			else:
+				_teste_rotulo.text = "TESTE DA CÂMERA\n\nCâmera: %s\n\nConfira o cabo USB da câmera e se a\nTV Box mostra a câmera no Android.\n\nSTART ou CONFIGURAÇÃO para sair" % Fotos.texto_status()
 		"botoes":
 			get_tree().change_scene_to_file.call_deferred(BOTOES)
 		"recordes":

@@ -3,14 +3,15 @@ extends Node
 ## STRIKE KIDS — CONTROLE DO JOGO
 ##
 ## Estados: ABERTURA -> ATRACAO (demo) -> JOGADORES (1 ou 2) -> PERSONAGEM
-## (1 jogador escolhe Bob ou Mia) -> a partida (PRONTO -> ARREMESSO ->
-## ROLANDO -> RESULTADO, com REPLAY no strike) -> FIM -> ATRACAO.
+## (1 jogador escolhe Bob ou Mia) -> FOTO (câmera da máquina, se tiver) ->
+## a partida (PRONTO -> ARREMESSO -> ROLANDO -> RESULTADO, com REPLAY no
+## strike) -> FIM -> ATRACAO.
 ##
 ## As 5 jogadas vêm dos sensores (placa Zero Delay: input_z .. input_b).
 ## Teclado no PC: A S D F G = sensores, 1/Espaço = START, 5 = crédito,
 ## 9 = configuração. Também dá para clicar/tocar nas 5 luzes da tela.
 
-enum E { ABERTURA, ATRACAO, JOGADORES, PERSONAGEM, PRONTO, ARREMESSO, ROLANDO, RESULTADO, REPLAY, FIM, DEMO }
+enum E { ABERTURA, ATRACAO, JOGADORES, PERSONAGEM, PRONTO, ARREMESSO, ROLANDO, RESULTADO, REPLAY, FIM, DEMO, FOTO }
 
 const Z_INICIO := 3.15
 const X_MAO := 0.28            # a mão direita fica 0,28 m à direita do corpo
@@ -287,7 +288,7 @@ func _atualizar_atracao() -> void:
 	if int(r1.get("pontos", 0)) > 0:
 		txt = "RECORDE: %d PONTOS (%s)" % [int(r1["pontos"]), str(r1.get("quem", "")).to_upper()]
 	var cred := "MODO LIVRE" if Ajustes.modo_livre() else "CRÉDITOS: %d" % Ajustes.creditos
-	hud.atracao(true, txt, cred + "    ·    Lazer & Sport Games")
+	hud.atracao(true, txt, cred + "    ·    Lazer & Sport Games", Fotos.foto_recorde(1))
 
 
 # ================================================================ escolha
@@ -369,14 +370,63 @@ func _comecar(lista: Array) -> void:
 	Ajustes.gastar_creditos()
 	Ajustes.contar("partidas")
 	placar.comecar(lista, Ajustes.rodadas(), Ajustes.tentativas())
-	hud.configurar_placar(lista)
-	hud.atualizar_placar(placar)
 	mundo.definir_protecao(Ajustes.protecao_canaleta())
-	Sons.musica("musica_jogo")
 	maquina.instantaneo()
 	_tema_base = (_tema_base + 1) % Temas.ORDEM.size()
+	Fotos.limpar_partida()
+	if Fotos.pronta() and bool(Ajustes.valor("jogo", "foto")):
+		if not await _sessao_de_fotos(lista):
+			return
+	hud.configurar_placar(lista)
+	hud.atualizar_placar(placar)
+	Sons.musica("musica_jogo")
 	hud.sequencia(0)
 	_vez(true)
+
+
+## "SORRIA!": cada jogador tira uma foto com a câmera da máquina (3, 2, 1).
+func _sessao_de_fotos(lista: Array) -> bool:
+	estado = E.FOTO
+	var s := _novo_seq()
+	Fotos.ligar()
+	var t: Personagem = personagens["bob"]
+	var r: Personagem = personagens["mia"]
+	t.posicionar(Vector3(-0.62, 0, 2.5), 0)
+	r.posicionar(Vector3(0.62, 0, 2.5), 0)
+	t.destaque(0.0)
+	r.destaque(0.0)
+	cam.ir(Vector3(0, 1.05, 6.1), Vector3(0, 0.78, 2.5), 32, 52, 3.0)
+	for i in lista.size():
+		var p: String = lista[i]
+		var a: Personagem = personagens[p]
+		var sub := "olhe para a câmera da máquina!"
+		if lista.size() > 1:
+			sub = "quem joga com %s %s: olhe para a câmera!" % ["o" if p == "bob" else "a", "BOB" if p == "bob" else "MIA"]
+		a.tocar("acenar", 0.2, true)
+		hud.foto_tela(true, Fotos.ao_vivo(), p, "SORRIA!", sub)
+		Sons.tocar("vez")
+		if not await _esperar(1.9, s, false):
+			return false
+		for n in [3, 2, 1]:
+			hud.foto_contagem(n)
+			Sons.tocar("tique", 0.9, 1.0 + (3 - n) * 0.15)
+			if not await _esperar(0.85, s, false):
+				return false
+		hud.foto_contagem(0)
+		hud.flash(Color.WHITE, 0.95, 0.45)
+		Sons.tocar("brilho")
+		Sons.tocar("pop", 0.8, 0.8)
+		var foto: Texture2D = await Fotos.tirar("j%d" % i)
+		if s != _seq:
+			return false
+		hud.foto_pronta(foto, p)
+		a.tocar("feliz", 0.2, true)
+		a.expressao("empolgado")
+		if not await _esperar(1.5, s, false):
+			return false
+	hud.foto_tela(false)
+	Fotos.desligar()
+	return true
 
 
 func _tema_da_rodada() -> String:
@@ -432,7 +482,7 @@ func _vez(nova_rodada: bool) -> void:
 	if nova_rodada:
 		var artigo := "DO" if _ativo == "bob" else "DA"
 		var sub := "RODADA %d" % (placar.rodada_atual + 1)
-		hud.faixa(_ativo, "VEZ %s %s!" % [artigo, _ativo.to_upper()], sub)
+		hud.faixa(_ativo, "VEZ %s %s!" % [artigo, _ativo.to_upper()], sub, Fotos.foto("j%d" % placar.jogador_atual))
 		Sons.tocar("vez")
 		ArduinoBridge.send_led("BLUE" if _ativo == "bob" else "RED")
 		if not await _esperar(1.6, s, false):
@@ -655,6 +705,10 @@ func _finalizar_jogada() -> void:
 			Sons.tocar("strike")
 			Sons.tocar("torcida", 0.8)
 			ArduinoBridge.send_led("STRIKE")
+			if not demo:
+				var ft: Texture2D = Fotos.foto("j%d" % placar.jogador_atual)
+				if ft != null:
+					hud.foto_destaque(ft, Hud.COR_BOB if _ativo == "bob" else Hud.COR_MIA, 1.4)
 			efeitos.estrelas(Vector3(0, 0.6, Mundo.Z_PINO1 - 0.4), 40, 1.3)
 			efeitos.confete(Vector3(0, 0.3, Mundo.Z_PINO1 + 1.5), 1.6, 90)
 			mundo.lampadas(1)
@@ -848,15 +902,20 @@ func _fim_de_jogo() -> void:
 	ArduinoBridge.send_led("MENU")
 	var dados := {"jogadores": [], "vencedor": placar.vencedor(), "recorde": false}
 	var melhor := 0
+	var melhor_i := 0
 	var quem := ""
 	for i in placar.jogadores.size():
 		var j: Dictionary = placar.jogadores[i]
 		dados["jogadores"].append({"personagem": j["personagem"], "pontos": j["pontos"], "estrelas": placar.estrelas(i),
-			"strikes": j["strikes"], "spares": j["spares"]})
+			"strikes": j["strikes"], "spares": j["spares"], "foto": Fotos.foto("j%d" % i)})
 		if int(j["pontos"]) > melhor:
 			melhor = int(j["pontos"])
+			melhor_i = i
 			quem = j["personagem"]
 	if Ajustes.registrar_pontos(placar.jogadores.size(), melhor, quem) and melhor > 0:
+		var caminho := Fotos.salvar_recorde("j%d" % melhor_i, placar.jogadores.size())
+		if caminho != "":
+			Ajustes.definir_foto_recorde(placar.jogadores.size(), caminho)
 		dados["recorde"] = true
 		dados["recorde_valor"] = melhor
 		get_tree().create_timer(3.3).timeout.connect(func(): Sons.tocar("recorde"))
@@ -1017,6 +1076,8 @@ func _limpar() -> void:
 	bola.guardar()
 	hud.modo_replay(false)
 	hud.inatividade(false)
+	hud.foto_tela(false)
+	Fotos.desligar()
 	_modal_inativo = 0.0
 	for nome in personagens:
 		var p: Personagem = personagens[nome]

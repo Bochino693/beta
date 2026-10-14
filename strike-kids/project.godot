@@ -29,6 +29,7 @@ Ajustes="*res://autoload/Ajustes.gd"
 Sons="*res://autoload/Sons.gd"
 ArcadeControls="*res://autoload/ArcadeControls.gd"
 ArduinoBridge="*res://autoload/ArduinoBridge.gd"
+Fotos="*res://autoload/Fotos.gd"
 
 [input]
 

@@ -2,9 +2,10 @@
 
 Boliche infantil 3D para máquina arcade de 5 sensores, com dois mascotes
 originais e fofinhos: **Bob** (o cachorrinho) e **Mia** (a gatinha).
-Tema unissex, 4 cenários e física de verdade. Mesma plataforma do Dragon
-Bowling Pro Ultra: **Godot 4.6.1**, renderizador **Compatibility** (OpenGL
-ES 3, roda em TV Box Android 10), física **Jolt**.
+Tema unissex, 4 cenários, física de verdade e a **foto da criança** tirada
+pela câmera da máquina. **Godot 4.6.1**, renderizador **Compatibility**
+(OpenGL ES 3, TV Box Android — Proeletronic SmartPro 4K 2 GB ou a Pro Ultra
+do Dragon Bowling), física **Jolt**, câmera USB (Sigma) pelo CameraServer.
 
 ## 1. A proposta
 
@@ -49,6 +50,9 @@ acenar, andar, vitória (pulinhos), escolhido.
 3. **START** → "QUANTOS VÃO JOGAR?" (3 s; START de novo = 2 jogadores).
 4. 1 jogador: **escolha do amigo** rolando a bola para a esquerda (Bob) ou
    direita (Mia), ou START.
+4b. **SORRIA!** (se tiver câmera): a imagem ao vivo aparece num círculo com
+   o mascote do lado, contagem 3-2-1, flash e "QUE FOTO LINDA!". Com 2
+   jogadores, uma foto para cada um.
 5. **Partida**: em cada rodada nova, **cenário novo** (clarão, letreiro
    "FUNDO DO MAR!" e um passeio de câmera pelo lugar) → faixa "VEZ DA MIA!
    RODADA 2" → mascote pronto com a bola ("ROLE A BOLA! mire no STRIKE!") →
@@ -95,7 +99,23 @@ lados 2–3%.
 
 Pontos: 10 por pino, +50 strike, +20 spare.
 
-## 5. Máquina de pinos (`scripts/maquina.gd`)
+## 5. Foto da criança (`autoload/Fotos.gd`)
+
+- Câmera USB (ex.: Sigma) na TV Box, lida pelo **CameraServer** do Godot
+  4.6 (Android: permissão CAMERA, pedida uma vez). Escolhe a câmera externa
+  (USB) e a resolução mais perto de 640×480 (leve para a placa).
+- A imagem (RGB ou YCbCr, conforme a câmera) é convertida num shader,
+  recortada no quadrado do meio e espelhada; a foto (384×384) sai de uma
+  SubViewport. A câmera só fica ligada na hora da foto (e desliga uns
+  segundos depois — webcam não gosta de liga-desliga seguido).
+- Onde aparece: cartão do placar (foto redonda + mascote de selo), faixa
+  "VEZ DE", estouro da foto no STRIKE, cartões da tela final e quadro de
+  recorde na atração.
+- Privacidade: fotos só na TV Box; as da partida ficam na memória; só a do
+  recorde é gravada e some ao zerar recordes. Opção no menu do operador
+  para desligar, e "TESTE DA CÂMERA" para a instalação.
+
+## 6. Máquina de pinos (`scripts/maquina.gd`)
 
 Depois de cada bola, como num boliche de verdade:
 1. A **barra** desce na frente dos pinos (proteção).
@@ -106,7 +126,7 @@ Depois de cada bola, como num boliche de verdade:
 4. A mesa desce e devolve os pinos; na rodada nova ela desce com os
    **10 pinos novinhos**. Barra sobe e a pista está pronta.
 
-## 6. Cenários (`scripts/temas.gd`)
+## 7. Cenários (`scripts/temas.gd`)
 
 | Cenário | Céu e luz | Destaques |
 | --- | --- | --- |
@@ -120,7 +140,7 @@ cores da pista (divisórias, faixas, canaletas), fundo dos pinos e letreiro.
 Cada partida começa num cenário diferente (rodízio), e cada rodada passa
 para o próximo.
 
-## 7. Arte e técnica
+## 8. Arte e técnica
 
 - **Modelagem por SDF** (`tools/modelos/`): formas lisas soldadas (estilo
   vinil/massinha) → malha por Surface Nets → recursos nativos do Godot com
@@ -139,7 +159,7 @@ para o próximo.
 - **Leve**: render 3D numa SubViewport com escala de resolução; qualidade
   automática (alta/média/baixa); só o cenário da vez fica ativo.
 
-## 8. Ferramentas de produção
+## 9. Ferramentas de produção
 
 | Ferramenta | O que faz |
 | --- | --- |
@@ -151,8 +171,9 @@ para o próximo.
 | `python3 tools/sons/gerar_sons.py` | efeitos e músicas originais |
 | `godot --headless --path . --fixed-fps 120 res://tools/testes/calibrar.tscn` | calibra a tabela de jogadas (`-- --validar=normal` confere) |
 | `godot --path . -- --roteiro=pasta` | teste automático: joga sozinho e tira fotos |
+| `godot --path . -- --camera-falsa` | simula a câmera no PC (imagem de teste) |
 
-## 9. LEDs no Android (plugin USB)
+## 10. LEDs no Android (plugin USB)
 
 O APK padrão (como no Pro Ultra) usa o modelo pronto do Godot, sem Gradle,
 e por isso não leva o plugin USB do Arduino. Para LEDs: no editor, Projeto >

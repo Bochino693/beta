@@ -1,7 +1,8 @@
 STRIKE KIDS - BOLICHE INFANTIL 3D (Bob & Mia)
 =============================================
 Godot 4.6.1 - renderizador Compatibility (OpenGL ES 3) - fisica Jolt
-Mesma plataforma do Dragon Bowling Pro Ultra (TV Box Android 10).
+TV Box Android (Proeletronic SmartPro 4K, 2 GB; ou a Pro Ultra do Dragon
+Bowling), placa Zero Delay, LEDs no Arduino e camera USB (Sigma).
 
 
 O QUE E
@@ -25,6 +26,9 @@ meio-direita, direita) vira a jogada na tela, em 3D:
   * 4 CENARIOS, um por rodada (cada partida comeca num diferente):
     Parque de Diversoes, Viagem ao Espaco, Fundo do Mar e Selva dos Dinos.
   * 2 ou mais strikes seguidos: "PEGANDO FOGO!" e a bola vira bola de fogo.
+  * FOTO DA CRIANCA: com a camera da maquina ligada, no comeco da partida
+    cada jogador tira uma foto ("SORRIA!" 3, 2, 1). O rostinho aparece no
+    placar, na faixa "VEZ DO BOB", no strike, na tela final e no recorde.
 
 Na tela NAO tem setas nem alvo: a mira e sempre o STRIKE.
 
@@ -41,6 +45,7 @@ COMO TESTAR NO PC
    - START: 1 ou Espaco    - Credito: 5    - Configuracao/operador: 9
    - Tambem da para CLICAR/TOCAR na tela: a tela e dividida em 5 faixas
      (da esquerda para a direita), cada faixa vale um sensor.
+   - Sem webcam no PC: rode com -- --camera-falsa para ver a tela da foto.
 3. No PC a tela nao gira. Para simular o monitor em pe da maquina, deixe a
    janela em pe (o jogo se adapta a qualquer tamanho: em pe ou deitado).
 
@@ -84,8 +89,9 @@ C ou START escolhe, CONFIGURACAO volta ao jogo.
   Qualidade grafica (automatica/alta/media/baixa)
   Giro da tela (1, -1, 0)
   Teste dos sensores (conta cada sensor acionado)
+  Foto das criancas (camera) - Teste da camera
   Zerar recordes - Restaurar padrao de fabrica
-  Contadores: partidas, strikes, moedas, estado do Arduino
+  Contadores: partidas, strikes, moedas, estado do Arduino e da camera
 
 Qualidade AUTOMATICA: se a TV Box nao segurar ~40 quadros por segundo na
 tela inicial, o jogo baixa a qualidade sozinho (sombras, brilho, resolucao).
@@ -113,6 +119,47 @@ Se mexer na fisica (pista, pinos, bola), refaca a tabela:
 e confira:  ... calibrar.tscn -- --validar=normal
 
 
+CAMERA (FOTO DAS CRIANCAS) - camera USB Sigma na TV Box
+-----------------------------------------------------------
+1. Ligue a camera USB na TV Box ANTES de abrir o jogo e deixe-a virada
+   para quem joga (em cima ou embaixo da tela).
+2. Na primeira vez o Android pergunta se o Strike Kids pode usar a camera:
+   responda PERMITIR (fica gravado).
+3. Menu do operador > TESTE DA CAMERA: aparece a imagem ao vivo. Se ela
+   estiver de lado ou de ponta-cabeca, aperte Z ou B para girar (fica
+   gravado em "Giro da camera"; "Espelhar a camera" liga/desliga o efeito
+   espelho). A linha de baixo do menu mostra "Camera: OK (nome)".
+4. Para desligar as fotos: menu do operador > "Foto das criancas" = NAO.
+Sem camera (ou se ela nao mandar imagem) o jogo segue normal, com os
+mascotes no lugar das fotos.
+
+Onde ficam as fotos: SO na TV Box. As da partida ficam na memoria e somem
+quando comeca outra partida; so a foto de quem fez o RECORDE fica gravada
+(user://fotos/recorde_j1.png e recorde_j2.png) e e apagada em
+"ZERAR RECORDES". Nada vai para a internet. Como sao fotos de criancas,
+deixe um aviso na maquina ("este jogo tira uma foto para o placar").
+
+Se o teste mostrar "nenhuma camera encontrada" com a camera ligada: a TV
+Box nao entrega a webcam USB para os apps como camera do Android (algumas
+placas nao tem esse suporte). Nesse caso e preciso o plugin USB de camera
+(como o do Super Boxing) - me avise que eu adapto.
+
+No PC (sem webcam), para testar: godot --path . -- --camera-falsa
+
+
+TV BOX PROELETRONIC SMARTPRO 4K (2 GB)
+-------------------------------------
+O jogo e feito para Android com placa de video OpenGL ES 3 (toda TV Box
+com Android 10 ou mais novo, como a Pro Ultra, tem). Para conferir a sua:
+instale o app "AIDA64" (ou "CPU-Z") pela Play Store e veja em "Display" /
+"GPU": Mali-G31, Mali-G52, Mali-T720, PowerVR GE8300 etc. = OK.
+Se aparecer Mali-400 ou Mali-450 (so OpenGL ES 2.0), o Godot 4 nao abre
+nessa placa (e o caso da S905L do DragonBowling1-android7.1) e seria
+preciso a versao em Godot 3 - me avise o resultado.
+Com 2 GB de memoria o jogo cabe folgado. A qualidade grafica AUTOMATICA
+(menu do operador) baixa sombras e resolucao sozinha se a placa for fraca.
+
+
 LEDS (ARDUINO) - igual ao Dragon Bowling
 ----------------------------------------
 Mesmo protocolo (READY/PONG:DRAGON_BOWLING:1) e mesmos comandos: MENU,
@@ -138,7 +185,7 @@ PASTAS
   scripts/    o jogo (principal, mundo, temas, maquina, personagem,
               animacoes, pinos, bola, jogada, placar, camera_cine, hud...)
   autoload/   Tela (responsiva + giro), Ajustes, Sons, ArcadeControls,
-              ArduinoBridge
+              ArduinoBridge, Fotos (camera)
   dados/      tabela de jogadas calibrada (vai no APK)
   modelos/    mascotes, pinos e cenarios 3D (gerados pelas ferramentas)
   texturas/ ui/ fontes/ sons/ shaders/

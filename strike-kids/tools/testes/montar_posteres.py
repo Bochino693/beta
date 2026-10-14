@@ -137,9 +137,9 @@ def cenarios(pasta):
         x, y = 13 + (i % 2) * (cw + 14), 13 + (i // 2) * (ch + 40) + 20
         img.paste(r, (x, y), m)
         lt = Image.open(os.path.join(UI, "cen_%s.png" % t)).convert("RGBA")
-        lw = 420
+        lw = 380
         lt = lt.resize((lw, int(lw * lt.height / lt.width)), Image.LANCZOS)
-        img.alpha_composite(lt, (x + 20, y + ch - lt.height - 10))
+        img.alpha_composite(lt, (x + 14, y + 8))
     img.convert("RGB").save(os.path.join(SAIDA, "cenarios.png"))
 
 

@@ -19,6 +19,7 @@ divulgação é exatamente o que a criança vê na máquina.
 - **Strike Kids: o boliche onde o Bob e a Mia jogam com você!**
 - Role a bola e faça STRIKE no espaço, no fundo do mar, na selva dos dinos e no parque!
 - Pinos que caem de verdade, câmera lenta e replay do strike.
+- Sorria! A foto da criança aparece no placar e no quadro de recordes.
 - Boliche infantil 3D com 5 sensores: diversão para meninos e meninas, do primeiro ao último pino.
 
 ## Legenda para Instagram / Facebook
@@ -29,6 +30,8 @@ divulgação é exatamente o que a criança vê na máquina.
 > queda com física de verdade, câmera lenta e **REPLAY do strike**! 🐶🐱
 > A cada rodada um cenário novo: **Espaço** 🚀, **Fundo do Mar** 🐠,
 > **Selva dos Dinos** 🦕 e **Parque de Diversões** 🎡.
+> E tem mais: a máquina tira a **foto da criança**, que aparece no placar,
+> no strike e no quadro de recordes! 📸
 > 1 ou 2 jogadores · 5 sensores · placar com estrelas e recorde.
 > Leve para o seu parque, shopping ou buffet infantil!
 
@@ -40,7 +43,8 @@ divulgação é exatamente o que a criança vê na máquina.
 
 ## Ficha técnica (para propostas)
 
-- Plataforma: TV Box Android 10 (mesma do Dragon Bowling Pro Ultra), Godot 4.6.
+- Plataforma: TV Box Android (Proeletronic SmartPro 4K 2 GB ou a do Dragon Bowling Pro Ultra), Godot 4.6.
+- Câmera USB (Sigma) para a foto dos jogadores (opcional).
 - Entradas: 5 sensores de posição + START + crédito (placa Zero Delay); LEDs no Arduino.
 - Tela: monitor em pé (imagem girada) ou TV deitada — o layout se adapta.
 - Modos: 1 jogador (escolhe o Bob ou a Mia) ou 2 jogadores (Bob x Mia); modo livre ou ficha.
