@@ -4,7 +4,7 @@ extends SceneTree
 ##
 ## Lê o que o tools/modelos/modelos.py gravou em tools/modelos/saida
 ## (.bin + .json) e salva recursos nativos do Godot em res://modelos/:
-##   * leo.scn / lia.scn  — personagem montado (juntas + malhas)
+##   * bob.scn / mia.scn  — personagem montado (juntas + malhas)
 ##   * pino.res + pino_colisao.res
 ##   * cenario/<objeto>.res, terreno.res
 ## Cada malha ganha níveis de detalhe (LOD) automáticos: de longe o Godot
@@ -19,15 +19,24 @@ const SAIDA := "res://modelos/"
 
 func _init() -> void:
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(SAIDA + "cenario"))
-	for nome in ["turbo", "rosi"]:
+	var so := OS.get_cmdline_user_args()   # ex.: -- temas  (só esse pacote)
+	for nome in ["bob", "mia"]:
+		if not so.is_empty() and not so.has(nome):
+			continue
 		if FileAccess.file_exists(ENTRADA + nome + ".json"):
 			_assar_personagem(nome)
-	if FileAccess.file_exists(ENTRADA + "pino.json"):
-		_assar_pino()
-	if FileAccess.file_exists(ENTRADA + "cenario.json"):
-		_assar_soltos("cenario", SAIDA + "cenario/")
-	if FileAccess.file_exists(ENTRADA + "terreno.json"):
-		_assar_soltos("terreno", SAIDA)
+	for pac in ["pino", "cenario", "temas", "terreno"]:
+		if not so.is_empty() and not so.has(pac):
+			continue
+		if not FileAccess.file_exists(ENTRADA + pac + ".json"):
+			continue
+		match pac:
+			"pino":
+				_assar_pino()
+			"cenario", "temas":
+				_assar_soltos(pac, SAIDA + "cenario/")
+			"terreno":
+				_assar_soltos(pac, SAIDA)
 	quit()
 
 
@@ -126,6 +135,6 @@ func _assar_soltos(arquivo: String, pasta: String) -> void:
 	var info: Dictionary = dados[0]
 	var blob: PackedByteArray = dados[1]
 	for parte in info["partes"]:
-		var m := _malha(parte, blob, parte["nome"] != "terreno")
+		var m := _malha(parte, blob, not str(parte["nome"]).begins_with("terreno"))
 		var r := ResourceSaver.save(m, pasta + parte["nome"] + ".res", ResourceSaver.FLAG_COMPRESS)
 		print(arquivo, "/", parte["nome"], " -> ", r)

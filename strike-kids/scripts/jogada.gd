@@ -1,106 +1,93 @@
 class_name Jogada
 extends RefCounted
 
-## O PLANEJADOR DA JOGADA.
+## O PLANEJADOR DA JOGADA — ele só escolhe a LINHA da bola. Quem derruba os
+## pinos é a física de verdade (Jolt): a bola bate, os pinos voam, batem uns
+## nos outros, nas paredes, e caem. Nenhum pino é empurrado "de mentira".
 ##
-## O sensor diz POR ONDE a bola passou (5 posições). A partir disso e da
-## dificuldade escolhida pelo operador, o jogo decide quantos pinos caem
-## (tabela de chances abaixo), escolhe QUAIS (os mais perto do caminho da
-## bola, do jeito que cairiam de verdade) e calcula a linha da bola. A
-## física faz o resto; os pinos "planejados" que resistirem levam um
-## empurrãozinho e os outros ficam "teimosos". Assim o resultado é justo,
-## ajustável e sempre bonito de ver.
+## A mira é sempre o STRIKE (o "bolso" entre os pinos 1 e 3, ou 1 e 2). O
+## sensor diz POR ONDE a bola passou (5 posições): no centro é mais fácil
+## acertar o bolso; nas pontas a bola chega torta. A dificuldade escolhida
+## pelo operador define o quanto a bola "erra" o bolso.
+##
+## Para o resultado ser justo e ajustável, as linhas vêm de uma tabela de
+## jogadas simuladas com a mesma física (tools/testes/calibrar.gd ->
+## dados/tabela_jogadas.json): o jogo sorteia quão boa foi a jogada e pega
+## uma linha que, na simulação, rendeu aquilo. Na hora, a física pode dar um
+## pino a mais ou a menos — como no boliche de verdade.
 ##
 ##   Z = esquerda   X = meio-esquerda   C = CENTRO   V = meio-direita   B = direita
 
 const LINHA := {"Z": -0.43, "X": -0.21, "C": 0.0, "V": 0.21, "B": 0.43}
+const ARQUIVO := "res://dados/tabela_jogadas.json"
 
 ## Chance (%) de cada resultado na 1ª bola, por posição e dificuldade.
 ## Chave = pinos derrubados.
 const TABELA := {
 	"facil": {
-		"C": {10: 58, 9: 16, 8: 12, 7: 9, 6: 5},
-		"X": {10: 16, 9: 16, 8: 20, 7: 20, 6: 14, 5: 9, 4: 5},
-		"Z": {5: 8, 4: 14, 3: 30, 2: 28, 1: 14, 0: 6},
+		"C": {10: 60, 9: 14, 8: 10, 7: 8, 6: 5, 5: 3},
+		"X": {10: 34, 9: 17, 8: 15, 7: 13, 6: 10, 5: 7, 4: 4},
+		"Z": {10: 14, 9: 12, 8: 14, 7: 15, 6: 14, 5: 12, 4: 10, 3: 6, 2: 3},
 	},
 	"normal": {
-		"C": {10: 40, 9: 20, 8: 16, 7: 12, 6: 8, 5: 4},
-		"X": {10: 9, 9: 14, 8: 18, 7: 20, 6: 18, 5: 12, 4: 9},
-		"Z": {4: 10, 3: 26, 2: 30, 1: 20, 0: 14},
+		"C": {10: 42, 9: 18, 8: 14, 7: 11, 6: 8, 5: 5, 4: 2},
+		"X": {10: 22, 9: 16, 8: 16, 7: 15, 6: 12, 5: 10, 4: 6, 3: 3},
+		"Z": {10: 7, 9: 9, 8: 12, 7: 14, 6: 15, 5: 14, 4: 12, 3: 9, 2: 6, 1: 2},
 	},
 	"dificil": {
-		"C": {10: 25, 9: 22, 8: 18, 7: 15, 6: 12, 5: 8},
-		"X": {10: 5, 9: 10, 8: 16, 7: 20, 6: 20, 5: 16, 4: 13},
-		"Z": {3: 20, 2: 32, 1: 28, 0: 20},
+		"C": {10: 28, 9: 18, 8: 16, 7: 14, 6: 10, 5: 8, 4: 6},
+		"X": {10: 12, 9: 13, 8: 15, 7: 16, 6: 15, 5: 12, 4: 9, 3: 8},
+		"Z": {10: 4, 9: 6, 8: 9, 7: 12, 6: 14, 5: 15, 4: 14, 3: 12, 2: 9, 1: 5},
 	},
 }
 
-## Chance (%) de derrubar TODOS os que sobraram (spare), conforme a bola
-## passa perto do grupo de pinos.
-const SPARE := {"facil": [70, 35, 8], "normal": [55, 25, 5], "dificil": [40, 15, 3]}
+## Chance (%) da bola acertar em cheio o que sobrou (spare), conforme a
+## linha do sensor passa perto do grupo de pinos.
+const SPARE := {"facil": [72, 45, 20], "normal": [58, 32, 12], "dificil": [42, 22, 7]}
+
+## Sem para-choques: chance (%) de canaleta na 1ª bola, por posição.
+const CANALETA := {"C": 0, "X": 4, "Z": 12}
 
 var zona := "C"
-var derrubar: Array = []    # números dos pinos planejados para cair
-var origem_x := 0.0         # onde a bola sai (linha de falta)
-var alvo_x := 0.0           # para onde ela vai (nos pinos)
-var velocidade := 7.6
-var efeito := 0.0           # gancho
-var canaleta := false       # bola vai para a canaleta
-var strike_planejado := false
+var origem_x := 0.0         # por onde a bola passa na linha de falta (z = 0,35)
+var alvo_x := 0.0           # para onde ela vai (na altura do pino 1)
+var velocidade := 7.9
+var efeito := 0.0           # gancho (força lateral)
+var esperado := -1          # quantos pinos a simulação derrubou com essa linha
+var canaleta := false
 
-## Só para testes e para gravar o vídeo de divulgação: resultados forçados
+## Só para testes e para gravar o vídeo de divulgação: resultados desejados
 ## em sequência (quantos pinos caem). Vazio = sorteio normal.
 static var forcar: Array = []
+
+static var _grupos := {}    # zona -> [{xt, v, e, resultados: [n...], entrada}]
+
+
+var strike_provavel: bool:
+	get:
+		return esperado == 10
 
 
 static func planejar(z: String, em_pe: Array, primeira_bola: bool, dificuldade: String, protecao: bool) -> Jogada:
 	var j := Jogada.new()
 	j.zona = z
 	var linha: float = LINHA.get(z, 0.0)
-	var tab_zona := "C" if z == "C" else ("X" if z in ["X", "V"] else "Z")
-	var n := 0
-	if primeira_bola and em_pe.size() == 10:
-		n = _sortear(TABELA.get(dificuldade, TABELA["facil"])[tab_zona])
-	else:
-		n = _sortear_resto(linha, em_pe, dificuldade)
+	var grupo := "C" if z == "C" else ("X" if z in ["X", "V"] else "Z")
+	var dif: String = dificuldade if TABELA.has(dificuldade) else "facil"
+	var desejado := -1
 	if not forcar.is_empty():
-		n = int(forcar.pop_front())
-		if n < 0 or n > em_pe.size():
-			n = em_pe.size()
-	n = clampi(n, 0, em_pe.size())
-	if n == 0 and protecao:
-		# com para-choques a bola sempre volta para a pista: ao menos 1
-		n = min(1, em_pe.size())
-	j.derrubar = _escolher(linha, em_pe, n)
-	j.strike_planejado = primeira_bola and n == 10
-	j.velocidade = randf_range(7.2, 8.2) if z == "C" else randf_range(6.6, 7.6)
-	if n == 0:
-		j.canaleta = true
-		j.origem_x = linha * 0.9 + 0.1 * signf(linha if linha != 0.0 else 1.0)
-		var lado: float = signf(linha) if linha != 0.0 else (1.0 if randf() < 0.5 else -1.0)
-		j.alvo_x = lado * 0.95
-		j.velocidade = randf_range(6.2, 7.0)
-		return j
-	if j.strike_planejado:
-		# entra no "bolso" entre o pino 1 e o 3 (ou 1 e 2), com um leve gancho
-		var bolso := 0.075 if randf() < 0.65 else -0.075
-		j.origem_x = clamp(linha + bolso * 2.5, -0.35, 0.35)
-		j.alvo_x = bolso
-		j.efeito = -signf(j.origem_x - bolso) * 0.25
-		return j
-	# alvo: centro dos pinos planejados, puxado para os da frente
-	var soma := 0.0
-	var peso := 0.0
-	for num in j.derrubar:
-		var p := Pinos.posicao_do_pino(num)
-		var fileira := int(round((Mundo.Z_PINO1 - p.z) / Mundo.FILEIRA))
-		var w := 1.0 / (1.0 + fileira * 1.5)
-		soma += p.x * w
-		peso += w
-	j.alvo_x = soma / max(peso, 0.0001)
-	j.origem_x = clamp(linha, -0.45, 0.45)
-	# a bola não pode mirar "dentro" de pino que deve ficar: desvia um pouco
-	j.alvo_x = clamp(j.alvo_x, -0.5, 0.5)
+		desejado = clampi(int(forcar.pop_front()), 0, em_pe.size())
+	if primeira_bola and em_pe.size() == 10:
+		if desejado < 0:
+			desejado = _sortear(TABELA[dif][grupo])
+			if not protecao and randi() % 100 < int(CANALETA[grupo]):
+				desejado = 0
+		if desejado == 0 and not protecao:
+			_canaleta(j, linha)
+			return j
+		if _da_tabela(j, z, desejado, protecao):
+			return j
+	_resto(j, linha, em_pe, dif, desejado, protecao)
 	return j
 
 
@@ -116,44 +103,140 @@ static func _sortear(tabela: Dictionary) -> int:
 	return 0
 
 
-static func _sortear_resto(linha: float, em_pe: Array, dificuldade: String) -> int:
+static func _canaleta(j: Jogada, linha: float) -> void:
+	var lado: float = signf(linha) if linha != 0.0 else (1.0 if randf() < 0.5 else -1.0)
+	j.canaleta = true
+	j.esperado = 0
+	j.origem_x = clampf(linha + lado * 0.08, -0.5, 0.5)
+	j.alvo_x = lado * 0.95
+	j.velocidade = randf_range(6.8, 7.4)
+
+
+# ---------------------------------------------------------------- 1ª bola
+static func _carregar() -> void:
+	if not _grupos.is_empty():
+		return
+	if not FileAccess.file_exists(ARQUIVO):
+		push_warning("Jogada: sem tabela de calibração (%s)" % ARQUIVO)
+		return
+	var dados = JSON.parse_string(FileAccess.get_file_as_string(ARQUIVO))
+	if typeof(dados) != TYPE_DICTIONARY:
+		return
+	var idx := {}
+	for r in dados.get("jogadas", []):
+		# [zona, x0, xt, v, efeito, n, caidos, x_entrada]
+		var chave := _chave(str(r[0]), float(r[2]), float(r[3]), float(r[4]))
+		if not idx.has(chave):
+			idx[chave] = {"zona": str(r[0]), "xt": float(r[2]), "v": float(r[3]), "e": float(r[4]),
+				"resultados": [], "entrada": float(r[7]) if r.size() > 7 else float(r[2])}
+			if not _grupos.has(str(r[0])):
+				_grupos[str(r[0])] = []
+			_grupos[str(r[0])].append(idx[chave])
+		idx[chave]["resultados"].append(int(r[5]))
+	# a física é caótica: um tiquinho de diferença muda o resultado. Por isso
+	# cada linha olha também as vizinhas (2 cm para cada lado): só conta como
+	# "linha de strike" a que derruba tudo mesmo errando um pouquinho.
+	for chave in idx:
+		var g: Dictionary = idx[chave]
+		var amostra: Array = g["resultados"].duplicate()
+		for dx in [-0.02, 0.02]:
+			var viz := _chave(g["zona"], float(g["xt"]) + dx, g["v"], g["e"])
+			if idx.has(viz):
+				amostra.append_array(idx[viz]["resultados"])
+		g["amostra"] = amostra
+
+
+static func _chave(z: String, xt: float, v: float, e: float) -> String:
+	return "%s|%.2f|%.1f|%.2f" % [z, snappedf(xt, 0.01), v, e]
+
+
+## Pega na tabela uma linha da zona que costuma render `n` pinos (a mais
+## "garantida", contando as vizinhas).
+static func _da_tabela(j: Jogada, z: String, n: int, protecao: bool) -> bool:
+	_carregar()
+	var lista: Array = _grupos.get(z, [])
+	if lista.is_empty():
+		return false
+	var melhor := -1.0
+	var opcoes := []
+	for g in lista:
+		if not protecao and (absf(float(g["entrada"])) > 0.5 or absf(float(g["xt"])) > 0.5):
+			continue  # essa linha encostava no para-choque
+		var amostra: Array = g["amostra"]
+		var nota := 0.0
+		for r in amostra:
+			var dif := absi(int(r) - n)
+			nota += 1.0 if dif == 0 else (0.35 if dif == 1 else 0.0)
+		nota /= float(amostra.size())
+		if nota > melhor + 0.001:
+			melhor = nota
+			opcoes = [g]
+		elif absf(nota - melhor) <= 0.001:
+			opcoes.append(g)
+	if opcoes.is_empty():
+		return false
+	var g: Dictionary = opcoes[randi() % opcoes.size()]
+	j.origem_x = LINHA[z]
+	j.alvo_x = g["xt"]
+	j.velocidade = g["v"]
+	j.efeito = g["e"]
+	j.esperado = n
+	return true
+
+
+static func _media(a: Array) -> float:
+	var s := 0.0
+	for x in a:
+		s += float(x)
+	return s / maxf(a.size(), 1.0)
+
+
+# ---------------------------------------------------------------- bolas seguintes
+## Mira no que sobrou: o pino da frente do grupo, batendo do lado que joga
+## ele em cima dos outros. Errou a mira? A bola passa raspando ou de lado.
+static func _resto(j: Jogada, linha: float, em_pe: Array, dif: String, desejado: int, protecao: bool) -> void:
+	j.origem_x = clampf(linha, -0.45, 0.45)
+	j.velocidade = randf_range(8.0, 8.8)
+	j.efeito = 0.0
 	if em_pe.is_empty():
-		return 0
+		j.alvo_x = 0.0
+		return
+	# centro do grupo e o pino "chave" (o mais da frente; empate: o mais central)
+	var cx := 0.0
+	var chave: int = em_pe[0]
 	var xmin := 9.0
 	var xmax := -9.0
 	for n in em_pe:
-		var x := Pinos.posicao_do_pino(n).x
-		xmin = min(xmin, x)
-		xmax = max(xmax, x)
+		var p := Pinos.posicao_do_pino(n)
+		cx += p.x
+		xmin = minf(xmin, p.x)
+		xmax = maxf(xmax, p.x)
+		var pc := Pinos.posicao_do_pino(chave)
+		if p.z > pc.z + 0.01 or (absf(p.z - pc.z) < 0.01 and absf(p.x) < absf(pc.x)):
+			chave = n
+	cx /= float(em_pe.size())
+	var pk := Pinos.posicao_do_pino(chave)
+	var lado := signf(cx - pk.x)
+	var mira := pk.x - lado * 0.07 if absf(cx - pk.x) > 0.03 else pk.x + randf_range(-0.03, 0.03)
 	var dist := 0.0
 	if linha < xmin:
 		dist = xmin - linha
 	elif linha > xmax:
 		dist = linha - xmax
-	var chances: Array = SPARE.get(dificuldade, SPARE["facil"])
+	var chances: Array = SPARE[dif]
 	var chance: int = chances[0] if dist < 0.12 else (chances[1] if dist < 0.32 else chances[2])
-	if randi() % 100 < chance:
-		return em_pe.size()
-	# parte: os que estão ao alcance
-	var alcance := 0
-	for n in em_pe:
-		if abs(Pinos.posicao_do_pino(n).x - linha) < 0.42:
-			alcance += 1
-	if alcance == 0:
-		return 0 if randi() % 100 < 55 else 1
-	return randi_range(max(1, alcance - 2), alcance) if alcance < em_pe.size() else randi_range(1, em_pe.size() - 1)
-
-
-## Os n pinos mais "naturais" de cair: perto da linha da bola e na frente.
-static func _escolher(linha: float, em_pe: Array, n: int) -> Array:
-	var lista := []
-	for num in em_pe:
-		var p := Pinos.posicao_do_pino(num)
-		var fileira := (Mundo.Z_PINO1 - p.z) / Mundo.FILEIRA
-		var custo: float = abs(p.x - linha) * 1.0 + fileira * 0.08 + randf() * 0.06
-		lista.append([custo, num])
-	lista.sort_custom(func(a, b): return a[0] < b[0])
-	var r := []
-	for i in min(n, lista.size()):
-		r.append(lista[i][1])
-	return r
+	var acertou := randi() % 100 < chance
+	if desejado >= 0:
+		acertou = desejado >= em_pe.size()
+	if acertou:
+		j.alvo_x = mira + randf_range(-0.015, 0.015)
+		j.esperado = em_pe.size()
+	else:
+		# erra para o lado de fora do grupo (raspando ou passando direto)
+		var fora := signf(mira) if mira != 0.0 else (1.0 if randf() < 0.5 else -1.0)
+		var erro := randf_range(0.1, 0.32)
+		if desejado == 0:
+			erro = 0.45
+		j.alvo_x = mira + fora * erro
+		j.esperado = -1
+	j.alvo_x = clampf(j.alvo_x, -0.58 if protecao else -0.62, 0.58 if protecao else 0.62)

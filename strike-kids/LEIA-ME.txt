@@ -1,5 +1,5 @@
-STRIKE KIDS - BOLICHE INFANTIL 3D (Turbo & Rosi)
-=================================================
+STRIKE KIDS - BOLICHE INFANTIL 3D (Bob & Mia)
+=============================================
 Godot 4.6.1 - renderizador Compatibility (OpenGL ES 3) - fisica Jolt
 Mesma plataforma do Dragon Bowling Pro Ultra (TV Box Android 10).
 
@@ -10,17 +10,26 @@ Boliche infantil para maquina de 5 sensores. A crianca rola a bola de
 verdade; o sensor que a bola acionar (esquerda, meio-esquerda, centro,
 meio-direita, direita) vira a jogada na tela, em 3D:
 
-  * O robozinho da vez (TURBO, o menino-robo, ou ROSI, a menina-robo
-    rosinha) faz a passada de boliche, balanca o braco e solta a bola na
-    linha do sensor.
-  * A camera segue a bola, vai para os pinos (que fazem cara de medo!),
-    treme no impacto e mostra os pinos voando com fisica de verdade.
+  * O mascote da vez (BOB, o cachorrinho, ou MIA, a gatinha) faz a
+    passada de boliche, balanca o braco e solta a bola na linha do sensor.
+  * A camera segue a bola, vai para os pinos (que fazem cara de medo!) e
+    mostra a queda com FISICA DE VERDADE: a bola bate, os pinos voam, um
+    derruba o outro, batem nas paredes e voltam. Nada e empurrado de
+    mentira.
   * STRIKE tem camera lenta, REPLAY com camera colada nos pinos, e o
-    personagem comemora voando com as botas a jato.
-  * Pinos caidos ficam tontos (estrelinhas girando) e somem com um "puf".
+    mascote comemora com um pulo girando e uma chuva de estrelas.
+  * A MAQUINA DE PINOS trabalha como num boliche de verdade: a barra desce
+    e varre os pinos caidos para o fosso, a mesa levanta os que ficaram em
+    pe e devolve cada um no lugar; na rodada nova a mesa desce com os 10
+    pinos novinhos.
+  * 4 CENARIOS, um por rodada (cada partida comeca num diferente):
+    Parque de Diversoes, Viagem ao Espaco, Fundo do Mar e Selva dos Dinos.
+  * 2 ou mais strikes seguidos: "PEGANDO FOGO!" e a bola vira bola de fogo.
 
-1 jogador (escolhe o Turbo ou a Rosi) ou 2 jogadores (Turbo x Rosi,
-vezes alternadas). Placar com pontos (10 por pino, +50 strike, +20 spare),
+Na tela NAO tem setas nem alvo: a mira e sempre o STRIKE.
+
+1 jogador (escolhe o Bob ou a Mia) ou 2 jogadores (Bob x Mia, vezes
+alternadas). Placar com pontos (10 por pino, +50 strike, +20 spare),
 estrelas no fim, recorde gravado na TV Box.
 
 
@@ -30,7 +39,8 @@ COMO TESTAR NO PC
 2. Abra o project.godot desta pasta e aperte F5.
    - Sensores: A S D F G  (esquerda ... direita)
    - START: 1 ou Espaco    - Credito: 5    - Configuracao/operador: 9
-   - Tambem da para CLICAR nas 5 luzes coloridas embaixo da tela.
+   - Tambem da para CLICAR/TOCAR na tela: a tela e dividida em 5 faixas
+     (da esquerda para a direita), cada faixa vale um sensor.
 3. No PC a tela nao gira. Para simular o monitor em pe da maquina, deixe a
    janela em pe (o jogo se adapta a qualquer tamanho: em pe ou deitado).
 
@@ -81,23 +91,32 @@ Qualidade AUTOMATICA: se a TV Box nao segurar ~40 quadros por segundo na
 tela inicial, o jogo baixa a qualidade sozinho (sombras, brilho, resolucao).
 
 
-COMO A JOGADA E DECIDIDA (justo e ajustavel)
---------------------------------------------
-O sensor diz POR ONDE a bola passou. O jogo sorteia quantos pinos caem
-pela tabela de chances da dificuldade (scripts/jogada.gd, TABELA), escolhe
-QUAIS (os mais perto do caminho da bola, como cairia de verdade) e calcula
-a linha da bola. A fisica faz o resto: os pinos planejados que resistirem
-levam um empurraozinho, os outros ficam "teimosos" (balancam e ficam).
+COMO A JOGADA E DECIDIDA (fisica de verdade, justa e ajustavel)
+---------------------------------------------------------------
+O sensor diz POR ONDE a bola passou. O jogo sorteia "quao boa" foi a
+jogada pela tabela da dificuldade (scripts/jogada.gd, TABELA) e escolhe a
+LINHA da bola (direcao, velocidade e efeito) numa tabela de 3.834 jogadas
+simuladas com a mesma fisica do jogo (dados/tabela_jogadas.json). Quem
+derruba os pinos e so a fisica: a mira e sempre o bolso do strike; quanto
+mais longe do centro, mais torta a bola chega.
 
-  Facil:  centro ~58% strike | meio ~16% | lados 1 a 5 pinos
-  Normal: centro ~40% strike | meio ~9%  | lados 0 a 4 pinos
-  Dificil: centro ~25% strike | meio ~5% | lados 0 a 3 pinos
+Medido em 400 jogadas simuladas por dificuldade (1a bola, com
+para-choques), strikes:
+  Facil:   centro 58% | meio 33 a 41% | lados 12 a 17%
+  Normal:  centro 32% | meio 18 a 22% | lados  8 a 12%
+  Dificil: centro 26% | meio 11 a 13% | lados  2 a  3%
+Na 2a e 3a bola a mira e o grupo de pinos que sobrou (o pino da frente,
+pelo lado que joga ele em cima dos outros).
+
+Se mexer na fisica (pista, pinos, bola), refaca a tabela:
+  godot --headless --path . --fixed-fps 120 res://tools/testes/calibrar.tscn
+e confira:  ... calibrar.tscn -- --validar=normal
 
 
 LEDS (ARDUINO) - igual ao Dragon Bowling
 ----------------------------------------
 Mesmo protocolo (READY/PONG:DRAGON_BOWLING:1) e mesmos comandos: MENU,
-BLUE (vez do Turbo), RED (vez da Rosi), IDLE, NORMAL, STRIKE, SPARE, MISS.
+BLUE (vez do Bob), RED (vez da Mia), IDLE, NORMAL, STRIKE, SPARE, MISS.
 O sketch esta em arduino/leds_boliche. Como no Pro Ultra, o APK padrao
 usa o modelo pronto do Godot (sem Gradle) e por isso NAO leva o plugin
 USB: para LEDs no Android, ative o plugin DragonUsbSerial (addons/) e o
@@ -116,11 +135,12 @@ codigo.
 PASTAS
 ------
   cenas/      cenas do Godot (principal, operador, configuracao dos botoes)
-  scripts/    o jogo (principal, mundo, personagem, animacoes, pinos, bola,
-              jogada, placar, camera_cine, hud, efeitos...)
+  scripts/    o jogo (principal, mundo, temas, maquina, personagem,
+              animacoes, pinos, bola, jogada, placar, camera_cine, hud...)
   autoload/   Tela (responsiva + giro), Ajustes, Sons, ArcadeControls,
               ArduinoBridge
-  modelos/    personagens, pinos e cenario 3D (gerados pelas ferramentas)
+  dados/      tabela de jogadas calibrada (vai no APK)
+  modelos/    mascotes, pinos e cenarios 3D (gerados pelas ferramentas)
   texturas/ ui/ fontes/ sons/ shaders/
   tools/      ferramentas de producao (NAO vao no APK):
               modelos/ (modelador 3D), arte/ (artes 2D), sons/, testes/

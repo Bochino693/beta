@@ -30,7 +30,8 @@ func _ready() -> void:
 
 
 func foto(nome: String) -> void:
-	if poucas and not (nome in ["atracao", "escolha_robo", "pronto_0", "rolando_1", "resultado_1", "reacao_1", "fim"]):
+	if poucas and not (nome in ["atracao", "escolha_robo", "pronto_0", "rolando_1", "pinos_1", "resultado_1", "reacao_1",
+			"maquina_1", "maquina_b_1", "maquina_c_1", "depois_1", "fim"]):
 		return
 	await RenderingServer.frame_post_draw
 	var img := get_viewport().get_texture().get_image()
@@ -88,7 +89,7 @@ func _rodar() -> void:
 		await foto("escolha_robo")
 		await apertar("input_v")
 		await esperar(0.8)
-		await foto("escolha_rosi")
+		await foto("escolha_mia")
 		await apertar("input_start")
 		await esperar(0.7)
 		await foto("escolhido")
@@ -127,6 +128,14 @@ func _rodar() -> void:
 			await foto("reacao_%d" % i)
 			await esperar(1.2)
 			await foto("reacao_b_%d" % i)
+			await esperar(1.0)
+			await foto("maquina_%d" % i)
+			await esperar(1.0)
+			await foto("maquina_b_%d" % i)
+			await esperar(1.0)
+			await foto("maquina_c_%d" % i)
+			await esperar(1.3)
+			await foto("depois_%d" % i)
 	await esperar_estado("FIM", 60.0)
 	await esperar(3.8)
 	await foto("fim")

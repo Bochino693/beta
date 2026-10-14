@@ -1,20 +1,23 @@
 extends Node
 
-## CENA DO PÔSTER (sem HUD): Turbo voando com os jatos, Rosi pulando e os
+## CENA DO PÔSTER (sem HUD): Bob voando com os jatos, Mia pulando e os
 ## pinos explodindo atrás. Renderiza a imagem "crua" que o
 ## tools/testes/montar_posteres.py transforma em pôster/banner.
 ##   godot --path . --fixed-fps 30 --resolution 1080x1920 res://tools/testes/poster.tscn -- --saida=arquivo.png --formato=vertical
+## --tema=parque|espaco|mar|dinos escolhe o cenário. --formato=cenario faz
+## um plano aberto do cenário (para a folha dos 4 cenários).
 
 var saida := "/tmp/poster.png"
 var formato := "vertical"
+var tema := "parque"
 var quadro := 0
 var cam: Camera3D
 var mundo: Mundo
 var pinos: Pinos
 var efeitos: Efeitos
 var bola: Bola
-var turbo: Personagem
-var rosi: Personagem
+var bob: Personagem
+var mia: Personagem
 
 
 func _ready() -> void:
@@ -23,10 +26,13 @@ func _ready() -> void:
 			saida = a.substr(8)
 		elif a.begins_with("--formato="):
 			formato = a.substr(10)
+		elif a.begins_with("--tema="):
+			tema = a.substr(7)
 	mundo = Mundo.new()
 	add_child(mundo)
 	mundo.construir()
 	mundo.aplicar_qualidade("alta")
+	mundo.aplicar_tema(tema)
 	mundo.lampadas(1)
 	pinos = Pinos.new()
 	add_child(pinos)
@@ -35,26 +41,34 @@ func _ready() -> void:
 	add_child(efeitos)
 	bola = Bola.new()
 	add_child(bola)
-	bola.vestir("turbo")
+	bola.vestir("bob")
 	bola.guardar()
-	turbo = Personagem.new()
-	add_child(turbo)
-	turbo.montar("turbo")
-	rosi = Personagem.new()
-	add_child(rosi)
-	rosi.montar("rosi")
+	bob = Personagem.new()
+	add_child(bob)
+	bob.montar("bob")
+	mia = Personagem.new()
+	add_child(mia)
+	mia.montar("mia")
 	var v := formato == "vertical"
-	turbo.posicionar(Vector3(-0.6 if v else -1.15, 0, -9.3), 16)
-	rosi.posicionar(Vector3(0.62 if v else 1.15, 0, -9.0), -14)
+	bob.posicionar(Vector3(-0.6 if v else -1.15, 0, -9.3), 16)
+	mia.posicionar(Vector3(0.62 if v else 1.15, 0, -9.0), -14)
 	mundo.ambiente.tonemap_exposure = 0.9
-	turbo.tocar("vitoria", 0.01, true)
-	turbo.jatos(true)
-	turbo.expressao("empolgado")
-	rosi.tocar("parado", 0.01, true)
+	bob.tocar("vitoria", 0.01, true)
+	bob.jatos(true)
+	bob.expressao("empolgado")
+	mia.tocar("parado", 0.01, true)
 	cam = Camera3D.new()
 	add_child(cam)
 	cam.current = true
-	if v:
+	if formato == "cenario":
+		bob.posicionar(Vector3(-0.75, 0, 1.4), 12)
+		mia.posicionar(Vector3(0.75, 0, 1.4), -12)
+		bob.jatos(false)
+		bob.tocar("danca", 0.01, true)
+		mia.tocar("danca", 0.01, true)
+		cam.fov = 52
+		cam.look_at_from_position(Vector3(0.0, 2.3, 5.2), Vector3(0, 1.6, -12.0))
+	elif v:
 		cam.fov = 50
 		cam.look_at_from_position(Vector3(0.0, 1.5, -4.7), Vector3(0, 0.95, -12.4))
 	else:
@@ -65,18 +79,18 @@ func _ready() -> void:
 func _process(_d: float) -> void:
 	quadro += 1
 	if quadro == 12:
-		rosi.tocar("feliz", 0.01, true)
-	if quadro == 16:
-		pinos.preparar([1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
-		pinos.estourar(Vector3(0.05, 0, -13.75))
+		mia.tocar("feliz", 0.01, true)
+	if quadro == 16 and formato != "cenario":
+		pinos.soltar_todos()
 		for p in pinos.pinos:
+			p.sleeping = false
 			p.apply_impulse(Vector3(randf_range(-0.6, 0.6), randf_range(0.5, 1.6), randf_range(-0.6, 0.2)), Vector3(0, 0.35, 0))
 		bola.lancar(Vector3(0.04, Bola.RAIO, -13.2), Vector3(0, 0, -3.0))
 		bola.acender(0.6)
 		efeitos.estrelas(Vector3(0, 0.7, -14.2), 40, 1.2)
 		efeitos.confete(Vector3(0, 1.8, -10.5), 2.2, 120)
 	if quadro == 27:
-		rosi.expressao("risada")
+		mia.expressao("risada")
 	if quadro == 28:
 		await RenderingServer.frame_post_draw
 		get_viewport().get_texture().get_image().save_png(saida)

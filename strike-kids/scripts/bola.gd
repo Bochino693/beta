@@ -1,13 +1,15 @@
 class_name Bola
 extends RigidBody3D
 
-## A BOLA: corpo físico (Jolt), textura do personagem (estrelas do Turbo,
-## corações da Rosi), rastro de arco-íris no chão e brilhinhos.
+## A BOLA: corpo físico (Jolt), textura do personagem (patinhas do Bob,
+## estrelas da Mia), rastro de arco-íris no chão e brilhinhos. Com 2 ou
+## mais strikes seguidos ela vira BOLA DE FOGO (rastro e chamas).
 
 signal bateu(corpo: Node, velocidade: float)
 
 const RAIO := 0.14
 const MASSA := 6.5
+const FOGO := [Color("#FFF3B0"), Color("#FFD43B"), Color("#FF9F2E"), Color("#FF5A1E"), Color("#E0301E")]
 
 var malha: MeshInstance3D
 var _sombra: MeshInstance3D
@@ -15,6 +17,10 @@ var _rastro: MeshInstance3D
 var _im: ImmediateMesh
 var _pontos: Array[Vector3] = []
 var _brilhos: CPUParticles3D
+var _chamas: CPUParticles3D
+var _fogo := false
+var _grad_arco: Gradient
+var _grad_fogo: Gradient
 var curva := 0.0              # força lateral (efeito "gancho")
 var rolando := false
 var _mat: ShaderMaterial
@@ -39,7 +45,7 @@ func _init() -> void:
 	max_contacts_reported = 6
 	can_sleep = false
 	collision_layer = Mundo.CAMADA_BOLA
-	collision_mask = Mundo.CAMADA_MUNDO | Mundo.CAMADA_PINOS
+	collision_mask = Mundo.CAMADA_MUNDO | Mundo.CAMADA_PINOS | Mundo.CAMADA_PISO_BOLA
 	var pm := PhysicsMaterial.new()
 	pm.friction = 0.12
 	pm.bounce = 0.12
@@ -104,6 +110,38 @@ func _init() -> void:
 	_brilhos.mesh = qm
 	_brilhos.top_level = false
 	add_child(_brilhos)
+	_chamas = CPUParticles3D.new()
+	_chamas.amount = 46
+	_chamas.lifetime = 0.45
+	_chamas.emitting = false
+	_chamas.local_coords = false
+	_chamas.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE
+	_chamas.emission_sphere_radius = RAIO * 0.8
+	_chamas.direction = Vector3(0, 1, 0)
+	_chamas.spread = 25.0
+	_chamas.initial_velocity_min = 0.6
+	_chamas.initial_velocity_max = 1.4
+	_chamas.gravity = Vector3(0, 1.5, 0)
+	_chamas.scale_amount_min = 0.7
+	_chamas.scale_amount_max = 1.3
+	var ce := Curve.new()
+	ce.add_point(Vector2(0, 0.6))
+	ce.add_point(Vector2(0.3, 1.0))
+	ce.add_point(Vector2(1, 0.0))
+	_chamas.scale_amount_curve = ce
+	var gc := Gradient.new()
+	gc.offsets = PackedFloat32Array([0.0, 0.35, 1.0])
+	gc.colors = PackedColorArray([Color(1.0, 0.95, 0.6, 1.0), Color(1.0, 0.55, 0.12, 0.9), Color(0.9, 0.15, 0.05, 0.0)])
+	_chamas.color_ramp = gc
+	var qc := QuadMesh.new()
+	qc.size = Vector2(0.2, 0.2)
+	qc.material = Materiais.particula("fumaca", true)
+	_chamas.mesh = qc
+	add_child(_chamas)
+	_grad_arco = _arco_iris()
+	_grad_fogo = Gradient.new()
+	_grad_fogo.offsets = PackedFloat32Array([0.0, 0.25, 0.5, 0.75, 1.0])
+	_grad_fogo.colors = PackedColorArray(FOGO)
 	body_entered.connect(_ao_bater)
 
 
@@ -134,6 +172,7 @@ func lancar(origem: Vector3, velocidade: Vector3, efeito := 0.0) -> void:
 	rolando = true
 	_pontos.clear()
 	_brilhos.emitting = true
+	_chamas.emitting = _fogo
 
 
 func guardar() -> void:
@@ -146,6 +185,15 @@ func guardar() -> void:
 	_pontos.clear()
 	_im.clear_surfaces()
 	_brilhos.emitting = false
+	_chamas.emitting = false
+
+
+## Bola de fogo (sequência de strikes): rastro de fogo e chamas.
+func fogo(ligar: bool) -> void:
+	_fogo = ligar
+	_brilhos.color_initial_ramp = _grad_fogo if ligar else _grad_arco
+	if not ligar:
+		_chamas.emitting = false
 
 
 func _physics_process(_delta: float) -> void:
@@ -168,6 +216,7 @@ func _process(_delta: float) -> void:
 			_pontos.pop_back()
 		if global_position.z < -13.6:
 			_brilhos.emitting = false
+			_chamas.emitting = false
 	_desenhar_rastro()
 
 
@@ -175,7 +224,7 @@ func _desenhar_rastro() -> void:
 	_im.clear_surfaces()
 	if _pontos.size() < 2:
 		return
-	var g := _arco_iris()
+	var g := _grad_fogo if _fogo else _grad_arco
 	_im.surface_begin(Mesh.PRIMITIVE_TRIANGLE_STRIP)
 	var n := _pontos.size()
 	for i in n:
@@ -190,8 +239,8 @@ func _desenhar_rastro() -> void:
 			d = Vector3(0, 0, -1)
 		var lado := d.normalized().cross(Vector3.UP)
 		var f := 1.0 - float(i) / float(n - 1)
-		var w := RAIO * 0.95 * (0.35 + 0.65 * f)
-		var c := g.sample(fposmod(float(i) / 10.0, 1.0))
+		var w := RAIO * (1.2 if _fogo else 0.95) * (0.35 + 0.65 * f)
+		var c := g.sample(float(i) / float(n - 1) if _fogo else fposmod(float(i) / 10.0, 1.0))
 		c.a = f * 0.75
 		_im.surface_set_color(c)
 		_im.surface_add_vertex(p + lado * w)

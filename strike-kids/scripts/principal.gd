@@ -3,7 +3,7 @@ extends Node
 ## STRIKE KIDS — CONTROLE DO JOGO
 ##
 ## Estados: ABERTURA -> ATRACAO (demo) -> JOGADORES (1 ou 2) -> PERSONAGEM
-## (1 jogador escolhe Turbo ou Rosi) -> a partida (PRONTO -> ARREMESSO ->
+## (1 jogador escolhe Bob ou Mia) -> a partida (PRONTO -> ARREMESSO ->
 ## ROLANDO -> RESULTADO, com REPLAY no strike) -> FIM -> ATRACAO.
 ##
 ## As 5 jogadas vêm dos sensores (placa Zero Delay: input_z .. input_b).
@@ -23,6 +23,7 @@ var vp: SubViewport
 var cam: CameraCine
 var mundo: Mundo
 var pinos: Pinos
+var maquina: Maquina
 var bola: Bola
 var efeitos: Efeitos
 var hud: Hud
@@ -37,12 +38,11 @@ var _pendente_ms := 0
 var _ultima_jogada_ms := -100000
 var _inativo := 0.0
 var _modal_inativo := 0.0
-var _ativo := "turbo"
-var _plateia := "rosi"
+var _ativo := "bob"
+var _plateia := "mia"
 var _em_pe_antes: Array[int] = []
 var _t_jogada := 0.0
 var _t_impacto := -1.0
-var _ajudou := false
 var _deck_cam := false
 var _cam_baixa := false
 var _gravando := false
@@ -59,6 +59,7 @@ var _fim_t := 0.0
 var _demo_t := 0.0
 var _demo_vez := 0
 var _ultimo_som_pino := 0
+var _tema_base := -1          # cada partida começa num cenário diferente
 var _qualidade := "media"
 var _fps_soma := 0.0
 var _fps_n := 0
@@ -114,13 +115,17 @@ func _montar_3d() -> void:
 	vp.add_child(pinos)
 	pinos.montar()
 	pinos.batida.connect(_batida_pino)
+	maquina = Maquina.new()
+	vp.add_child(maquina)
+	maquina.montar(pinos)
+	maquina.som.connect(_som_maquina)
 	bola = Bola.new()
 	vp.add_child(bola)
 	bola.guardar()
 	bola.bateu.connect(_bola_bateu)
 	efeitos = Efeitos.new()
 	vp.add_child(efeitos)
-	for nome in ["turbo", "rosi"]:
+	for nome in ["bob", "mia"]:
 		var p := Personagem.new()
 		vp.add_child(p)
 		p.montar(nome)
@@ -248,7 +253,7 @@ func _atracao() -> void:
 	hud.inatividade(false)
 	_modal_inativo = 0.0
 	bola.guardar()
-	pinos.repor_todos(false)
+	maquina.instantaneo()
 	_posicionar_atracao()
 	_atualizar_atracao()
 	Sons.musica("musica_menu")
@@ -258,8 +263,8 @@ func _atracao() -> void:
 
 
 func _posicionar_atracao() -> void:
-	var t: Personagem = personagens["turbo"]
-	var r: Personagem = personagens["rosi"]
+	var t: Personagem = personagens["bob"]
+	var r: Personagem = personagens["mia"]
 	t.posicionar(Vector3(-0.6, 0, 1.6), 0)
 	r.posicionar(Vector3(0.6, 0, 1.6), 0)
 	t.segurar_bola(false)
@@ -291,7 +296,7 @@ func _escolher_jogadores() -> void:
 	_novo_seq()
 	_limpar()
 	demo = false
-	pinos.repor_todos(false)
+	maquina.instantaneo()
 	Sons.tocar("start")
 	Sons.mudo_demo = false
 	Sons.atualizar_volume()
@@ -307,7 +312,7 @@ func _escolher_jogadores() -> void:
 func _confirmar_jogadores() -> void:
 	hud.modal(false)
 	if _escolha_n == 2:
-		_comecar(["turbo", "rosi"])
+		_comecar(["bob", "mia"])
 	else:
 		_escolher_personagem()
 
@@ -316,8 +321,8 @@ func _escolher_personagem() -> void:
 	estado = E.PERSONAGEM
 	_novo_seq()
 	_escolha_t = 8.0
-	var t: Personagem = personagens["turbo"]
-	var r: Personagem = personagens["rosi"]
+	var t: Personagem = personagens["bob"]
+	var r: Personagem = personagens["mia"]
 	t.posicionar(Vector3(-0.62, 0, 2.5), 0)
 	r.posicionar(Vector3(0.62, 0, 2.5), 0)
 	t.tocar("acenar", 0.3, true)
@@ -330,8 +335,8 @@ func _marcar_destaque(i: int) -> void:
 	if i != _destaque:
 		Sons.tocar("selecao")
 	_destaque = i
-	var t: Personagem = personagens["turbo"]
-	var r: Personagem = personagens["rosi"]
+	var t: Personagem = personagens["bob"]
+	var r: Personagem = personagens["mia"]
 	t.tocar("acenar" if i == 0 else "parado", 0.25)
 	r.tocar("acenar" if i == 1 else "parado", 0.25)
 	t.destaque(0.12 if i == 0 else 0.0)
@@ -344,8 +349,8 @@ func _confirmar_personagem() -> void:
 		return
 	estado = E.RESULTADO
 	var s := _novo_seq()
-	var escolhido := "turbo" if _destaque == 0 else "rosi"
-	var outro := "rosi" if _destaque == 0 else "turbo"
+	var escolhido := "bob" if _destaque == 0 else "mia"
+	var outro := "mia" if _destaque == 0 else "bob"
 	hud.selecao(false)
 	Sons.tocar("escolha")
 	(personagens[escolhido] as Personagem).tocar("escolhido", 0.15, true)
@@ -354,8 +359,8 @@ func _confirmar_personagem() -> void:
 	efeitos.estrelas((personagens[escolhido] as Personagem).global_position + Vector3(0, 1.2, 0), 26)
 	if not await _esperar(1.5, s):
 		return
-	personagens["turbo"].destaque(0.0)
-	personagens["rosi"].destaque(0.0)
+	personagens["bob"].destaque(0.0)
+	personagens["mia"].destaque(0.0)
 	_comecar([escolhido])
 
 
@@ -368,8 +373,14 @@ func _comecar(lista: Array) -> void:
 	hud.atualizar_placar(placar)
 	mundo.definir_protecao(Ajustes.protecao_canaleta())
 	Sons.musica("musica_jogo")
-	pinos.repor_todos(true)
+	maquina.instantaneo()
+	_tema_base = (_tema_base + 1) % Temas.ORDEM.size()
+	hud.sequencia(0)
 	_vez(true)
+
+
+func _tema_da_rodada() -> String:
+	return Temas.ORDEM[(maxi(_tema_base, 0) + placar.rodada_atual) % Temas.ORDEM.size()]
 
 
 ## Começo da vez de um jogador (ou da próxima bola dele).
@@ -378,7 +389,7 @@ func _vez(nova_rodada: bool) -> void:
 	var s := _novo_seq()
 	_pular = false
 	_ativo = placar.atual()["personagem"]
-	_plateia = "rosi" if _ativo == "turbo" else "turbo"
+	_plateia = "mia" if _ativo == "bob" else "bob"
 	var a: Personagem = personagens[_ativo]
 	var p: Personagem = personagens[_plateia]
 	a.jatos(false)
@@ -390,7 +401,7 @@ func _vez(nova_rodada: bool) -> void:
 	a.tocar("pronto", 0.15, true)
 	a.expressao("feliz")
 	a.olhar_alvo = null
-	var lado := 1.0 if _ativo == "turbo" else -1.0
+	var lado := 1.0 if _ativo == "bob" else -1.0
 	p.posicionar(Vector3(lado * 1.85, 0, 1.0), 180 - lado * 38)
 	p.tocar("torcida" if placar.jogadores.size() == 1 else "parado", 0.2, true)
 	p.olhar_alvo = null
@@ -398,13 +409,32 @@ func _vez(nova_rodada: bool) -> void:
 	hud.atualizar_placar(placar)
 	hud.mostrar_mapa(pinos.em_pe())
 	hud.mostrar_sensores(true)
-	_plano_pronto(false)
+	hud.sequencia(int(placar.atual()["seguidos"]))
+	bola.fogo(int(placar.atual()["seguidos"]) >= 2)
+	var comeco := placar.rodada_atual == 0 and placar.jogador_atual == 0
+	if nova_rodada and (_tema_da_rodada() != mundo.tema or comeco):
+		# cenário novo: clarão, troca e um passeio de câmera pelo lugar
+		var tema := _tema_da_rodada()
+		hud.flash(Color.WHITE, 0.95, 0.6)
+		mundo.aplicar_tema(tema)
+		Sons.tocar("brilho")
+		Sons.tocar("whoosh", 0.6)
+		hud.anunciar_cenario(tema, 1.7)
+		cam.trilho([
+			[Vector3(-2.6, 4.6, Mundo.Z_PINO1 + 1.0), Vector3(0, 2.2, Mundo.Z_FUNDO - 3.0), 0.0],
+			[Vector3(2.2, 3.4, -5.0), Vector3(0, 1.4, Mundo.Z_FUNDO), 1.4],
+			[Vector3(0.95, 2.15, Z_INICIO + 3.1), Vector3(-0.12, 0.05, -7.0), 1.3],
+		], 50, 40)
+		if not await _esperar(2.9, s, false):
+			return
+	else:
+		_plano_pronto(false)
 	if nova_rodada:
-		var artigo := "DO" if _ativo == "turbo" else "DA"
+		var artigo := "DO" if _ativo == "bob" else "DA"
 		var sub := "RODADA %d" % (placar.rodada_atual + 1)
 		hud.faixa(_ativo, "VEZ %s %s!" % [artigo, _ativo.to_upper()], sub)
 		Sons.tocar("vez")
-		ArduinoBridge.send_led("BLUE" if _ativo == "turbo" else "RED")
+		ArduinoBridge.send_led("BLUE" if _ativo == "bob" else "RED")
 		if not await _esperar(1.6, s, false):
 			return
 	_pronto()
@@ -468,17 +498,20 @@ func _soltou_bola(pos: Vector3) -> void:
 		return
 	var a: Personagem = personagens[_ativo]
 	bola.vestir(_ativo)
-	var origem := Vector3(pos.x, Bola.RAIO + 0.04, minf(pos.z, 0.45))
+	# a bola segue a linha planejada (a mesma da calibração): passa por
+	# origem_x na linha de falta (z = 0,35) e vai até alvo_x nos pinos
+	var z0 := minf(pos.z, 0.45)
+	var u := (0.35 - z0) / (0.35 - Mundo.Z_PINO1)
+	var origem := Vector3(lerpf(jogada.origem_x, jogada.alvo_x, u), Bola.RAIO + 0.04, z0)
 	var alvo := Vector3(jogada.alvo_x, Bola.RAIO, Mundo.Z_PINO1)
 	var dir := (alvo - origem)
 	dir.y = 0
 	dir = dir.normalized()
 	bola.lancar(origem, dir * jogada.velocidade, jogada.efeito)
-	pinos.preparar(jogada.derrubar)
+	pinos.soltar_todos()
 	estado = E.ROLANDO
 	_t_jogada = 0.0
 	_t_impacto = -1.0
-	_ajudou = false
 	_deck_cam = false
 	_gravacao.clear()
 	_gravando = true
@@ -502,9 +535,9 @@ func _process(delta: float) -> void:
 			_contar_inatividade(delta)
 		E.JOGADORES:
 			_escolha_t -= delta
-			var txt := "1 JOGADOR\n\nAperte START de novo para\n2 JOGADORES (Turbo x Rosi)"
+			var txt := "1 JOGADOR\n\nAperte START de novo para\n2 JOGADORES (Bob x Mia)"
 			if _escolha_n == 2:
-				txt = "2 JOGADORES!\n\nTurbo x Rosi"
+				txt = "2 JOGADORES!\n\nBob x Mia"
 			hud.modal(true, "QUANTOS VÃO JOGAR?", txt, _escolha_t / 3.0)
 			if _escolha_t <= 0.0:
 				_confirmar_jogadores()
@@ -551,9 +584,6 @@ func _rolando(delta: float) -> void:
 	# impacto
 	if _t_impacto < 0.0 and b.z < Mundo.Z_PINO1 + 0.22 and abs(b.x) < Mundo.MEIA_LARGURA:
 		_impacto(b)
-	if _t_impacto >= 0.0 and not _ajudou and _t_jogada - _t_impacto > 0.5:
-		_ajudou = true
-		pinos.ajudar(jogada.derrubar, Vector3(jogada.alvo_x, 0, Mundo.Z_PINO1 + 0.2))
 	var fim := false
 	if _t_impacto >= 0.0:
 		var dt := _t_jogada - _t_impacto
@@ -568,16 +598,16 @@ func _rolando(delta: float) -> void:
 
 func _impacto(b: Vector3) -> void:
 	_t_impacto = _t_jogada
-	var forte := jogada.derrubar.size()
-	cam.tremer(0.035 + forte * 0.006, 0.4)
-	cam.soco(4.0 if jogada.strike_planejado else 2.0)
+	var cheio := absf(b.x) < 0.2 and _em_pe_antes.size() >= 6
+	var forte := 8 if cheio else 3
+	cam.tremer(0.03 + forte * 0.005, 0.4)
+	cam.soco(3.5 if cheio else 1.8)
 	efeitos.poeira(Vector3(b.x, 0.05, b.z), 1.0 + forte * 0.08)
-	if forte >= 6:
+	if cheio:
 		Sons.tocar("pinos_queda", 0.9)
-	if jogada.strike_planejado:
-		pinos.estourar(Vector3(b.x, 0, b.z + 0.1))
+	if jogada.strike_provavel:
 		mundo.lampadas(1)
-		_camera_lenta(0.32, 0.55)
+		_camera_lenta(0.4, 0.5)
 
 
 func _camera_lenta(escala: float, dur_real: float) -> void:
@@ -655,6 +685,13 @@ func _finalizar_jogada() -> void:
 		hud.pontos_voando(int(res["pontos"]), placar.jogador_atual)
 	if tipo == "strike":
 		Ajustes.contar("strikes")
+		var seguidos := int(placar.atual()["seguidos"]) if not demo else 0
+		if seguidos >= 2:
+			hud.sequencia(seguidos)
+			get_tree().create_timer(1.0).timeout.connect(func():
+				if estado == E.RESULTADO or estado == E.REPLAY:
+					hud.letreiro("pegando_fogo", "%d STRIKES SEGUIDOS!" % seguidos, 1.6, 0.55)
+					Sons.tocar("brilho"))
 	# replay do strike
 	if tipo == "strike" and bool(Ajustes.valor("jogo", "replay_strike")) and _gravacao.size() > 20:
 		if not await _esperar(1.5, s, false):
@@ -696,23 +733,28 @@ func _finalizar_jogada() -> void:
 		return
 	var proximo := placar.avancar(bool(res["fim_rodada"]))
 	bola.guardar()
-	match proximo:
-		"bola":
-			var pufs := pinos.varrer()
-			for q in pufs:
-				efeitos.puf(q)
-			if pufs.size() > 0:
-				Sons.tocar("pop")
-			hud.mostrar_mapa(pinos.em_pe())
-			_vez(false)
-			_plano_pronto(true)
-		"rodada":
-			pinos.repor_todos(true)
-			Sons.tocar("pop")
-			_vez(true)
-			_plano_pronto(true)
-		"fim":
-			_fim_de_jogo()
+	if proximo == "fim":
+		_fim_de_jogo()
+		return
+	# a máquina de pinos: barra varre os caídos, a mesa recoloca / desce rack novo
+	_plano_maquina()
+	if proximo == "bola":
+		maquina.reposicionar()
+	else:
+		maquina.rack_novo()
+	if not await _esperar(0.3, s, false):
+		return
+	while maquina.trabalhando:
+		if not await _esperar(0.1, s, false):
+			return
+	hud.mostrar_mapa(pinos.em_pe())
+	_vez(proximo == "rodada")
+
+
+## Câmera de frente para os pinos, baixinha, para ver a máquina trabalhar.
+func _plano_maquina() -> void:
+	cam.corte(Vector3(0.55, 0.62, Mundo.Z_PINO1 + 2.5), Vector3(0, 0.5, Mundo.Z_PINO1 - 0.45), 40, 40)
+	cam.ir(Vector3(-0.35, 0.72, Mundo.Z_PINO1 + 2.2), Vector3(0, 0.5, Mundo.Z_PINO1 - 0.45), 40, 40, 0.4)
 
 
 # ================================================================ replay
@@ -820,8 +862,8 @@ func _fim_de_jogo() -> void:
 		get_tree().create_timer(3.3).timeout.connect(func(): Sons.tocar("recorde"))
 	hud.tela_fim(true, dados)
 	# personagens no "pódio"
-	var t: Personagem = personagens["turbo"]
-	var r: Personagem = personagens["rosi"]
+	var t: Personagem = personagens["bob"]
+	var r: Personagem = personagens["mia"]
 	bola.guardar()
 	t.segurar_bola(false)
 	r.segurar_bola(false)
@@ -830,13 +872,13 @@ func _fim_de_jogo() -> void:
 	t.posicionar(Vector3(-0.62, 0, 2.3), 0)
 	r.posicionar(Vector3(0.62, 0, 2.3), 0)
 	var venc: int = dados["vencedor"]
-	var jogou_turbo := false
-	var jogou_rosi := false
+	var jogou_bob := false
+	var jogou_mia := false
 	for j in placar.jogadores:
-		if j["personagem"] == "turbo":
-			jogou_turbo = true
+		if j["personagem"] == "bob":
+			jogou_bob = true
 		else:
-			jogou_rosi = true
+			jogou_mia = true
 	if placar.jogadores.size() == 2 and venc >= 0:
 		var ganhador: Personagem = personagens[placar.jogadores[venc]["personagem"]]
 		var outro: Personagem = r if ganhador == t else t
@@ -847,7 +889,7 @@ func _fim_de_jogo() -> void:
 	else:
 		for pp in [t, r]:
 			pp.tocar("danca", 0.3, true)
-		var protagonista: Personagem = t if jogou_turbo and not jogou_rosi else (r if jogou_rosi and not jogou_turbo else null)
+		var protagonista: Personagem = t if jogou_bob and not jogou_mia else (r if jogou_mia and not jogou_bob else null)
 		if protagonista and placar.estrelas(0) >= 2:
 			protagonista.tocar("vitoria", 0.3, true)
 			protagonista.jatos(true)
@@ -863,16 +905,16 @@ func _jogada_demo() -> void:
 	Sons.mudo_demo = not bool(Ajustes.valor("som", "som_na_demo"))
 	Sons.atualizar_volume()
 	var s := _novo_seq()
-	_ativo = "turbo" if _demo_vez % 2 == 0 else "rosi"
-	_plateia = "rosi" if _ativo == "turbo" else "turbo"
+	_ativo = "bob" if _demo_vez % 2 == 0 else "mia"
+	_plateia = "mia" if _ativo == "bob" else "bob"
 	_demo_vez += 1
-	pinos.repor_todos(true)
+	maquina.instantaneo()
 	var a: Personagem = personagens[_ativo]
 	var p: Personagem = personagens[_plateia]
 	a.posicionar(Vector3(-X_MAO, 0, Z_INICIO), 180)
 	a.segurar_bola(true)
 	a.tocar("pronto", 0.1, true)
-	var lado := 1.0 if _ativo == "turbo" else -1.0
+	var lado := 1.0 if _ativo == "bob" else -1.0
 	p.posicionar(Vector3(lado * 1.85, 0, 1.0), 180 - lado * 38)
 	p.tocar("torcida", 0.2, true)
 	_plano_pronto(true)
@@ -887,6 +929,9 @@ func _jogada_demo() -> void:
 func _fim_demo() -> void:
 	demo = false
 	_atracao()
+	# a atração vai mostrando os 4 cenários
+	hud.flash(Color.WHITE, 0.8, 0.5)
+	mundo.aplicar_tema(Temas.proximo(mundo.tema))
 
 
 # ================================================================ inatividade
@@ -931,6 +976,21 @@ func _bola_bateu(corpo: Node, vel: float) -> void:
 		cam.tremer(0.012, 0.15)
 
 
+func _som_maquina(nome: String) -> void:
+	if estado == E.ATRACAO or demo:
+		return
+	match nome:
+		"varrer":
+			Sons.tocar("whoosh", 0.45, 0.7)
+		"mesa":
+			Sons.tocar("whoosh", 0.25, 1.3)
+		"pousar":
+			Sons.tocar("pinos_queda", 0.3, 1.25)
+			Sons.tocar("pop", 0.4, 0.9)
+		"barra":
+			Sons.tocar("tique", 0.35, 0.7)
+
+
 func _som_personagem(nome: String) -> void:
 	match nome:
 		"passo":
@@ -945,12 +1005,15 @@ func _som_personagem(nome: String) -> void:
 ## Interrompe o que estiver acontecendo (demo, replay, câmera lenta...).
 func _limpar() -> void:
 	_replay_ativo = false
+	if maquina:
+		maquina.instantaneo()
 	_gravando = false
 	Engine.time_scale = 1.0
 	Sons.rolando(false)
 	mundo.acender_pista(false)
 	mundo.lampadas(0)
 	bola.acender(0.0)
+	bola.fogo(false)
 	bola.guardar()
 	hud.modo_replay(false)
 	hud.inatividade(false)

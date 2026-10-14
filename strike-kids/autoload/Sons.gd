@@ -5,7 +5,7 @@ extends Node
 ## Efeitos: res://sons/<nome>.wav (vários tocam juntos, pelo "pool").
 ## Músicas: res://sons/<nome>.ogg, em loop, com troca suave.
 ## Vozes opcionais: se existir res://sons/voz/<nome>.wav (ex.: strike.wav,
-## spare.wav, vez_turbo.wav), ela toca junto do efeito — basta gravar e
+## spare.wav, vez_bob.wav), ela toca junto do efeito — basta gravar e
 ## colocar o arquivo na pasta, sem mexer no código.
 
 const PASTA := "res://sons/"

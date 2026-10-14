@@ -1,9 +1,10 @@
 class_name Personagem
 extends Node3D
 
-## UM PERSONAGEM (Turbo ou Rosi): modelo articulado + animação por poses +
-## rosto com expressões + piscar + olhar para a bola + jatos nas botas +
-## bola na mão (solta no momento certo do arremesso).
+## UM PERSONAGEM (Bob, o cachorrinho, ou Mia, a gatinha): modelo articulado
+## + animação por poses + rosto com expressões + piscar + olhar para a bola
+## + rabinho que abana + brilhos de festa + bola na mão (solta no momento
+## certo do arremesso).
 
 signal soltou_bola(posicao: Vector3)
 signal som(nome: String)
@@ -13,7 +14,7 @@ const EXPRESSOES := ["feliz", "piscando", "empolgado", "triste", "concentrado", 
 const JUNTAS := ["corpo", "cabeca", "braco_e", "antebraco_e", "braco_d", "antebraco_d", "coxa_e", "canela_e", "coxa_d", "canela_d"]
 const ALTURA_QUADRIL := 0.40
 
-var nome_modelo := "turbo"
+var nome_modelo := "bob"
 var modelo: Node3D
 var juntas := {}
 var _pos_repouso := {}
@@ -21,8 +22,9 @@ var _mat_cabeca: ShaderMaterial
 var _mats: Array[ShaderMaterial] = []
 var bola_mao: MeshInstance3D
 var _sombra: MeshInstance3D
-var _jatos: Array[CPUParticles3D] = []
-var _luz_jatos: Array[OmniLight3D] = []
+var _festa: CPUParticles3D
+var _rabo: Node3D
+var _alegria := 0.5           # abana mais rápido quando está feliz
 
 var _clip := {}
 var _nome_clip := ""
@@ -64,7 +66,7 @@ func montar(nome: String) -> void:
 				parametros["rosto_tamanho"] = Vector2(meta["tamanho"][0], meta["tamanho"][1])
 		var m := Materiais.toon(true, 0.0032, parametros)
 		mi.material_override = m
-		# detalhe alto até de longe (as pontas do cabelo não podem sumir)
+		# detalhe alto até de longe (orelhas e focinho não podem sumir)
 		mi.lod_bias = 6.0
 		_mats.append(m)
 		if j == "cabeca":
@@ -91,46 +93,44 @@ func montar(nome: String) -> void:
 	_sombra.material_override = Materiais.sombra_blob(0.5)
 	_sombra.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(_sombra)
-	# jatos nas botas
-	for lado in ["e", "d"]:
-		var canela := juntas["canela_" + lado] as Node3D
-		var p := CPUParticles3D.new()
-		p.amount = 26
-		p.lifetime = 0.32
-		p.local_coords = false
-		p.emitting = false
-		p.direction = Vector3(0, -1, 0)
-		p.spread = 12.0
-		p.initial_velocity_min = 2.2
-		p.initial_velocity_max = 3.2
-		p.gravity = Vector3.ZERO
-		p.scale_amount_min = 0.55
-		p.scale_amount_max = 0.85
-		var curva := Curve.new()
-		curva.add_point(Vector2(0, 1.0))
-		curva.add_point(Vector2(1, 0.15))
-		p.scale_amount_curve = curva
-		var grad := Gradient.new()
-		grad.set_color(0, Color(1.0, 1.0, 0.85, 1.0))
-		grad.set_color(1, Color(1.0, 0.25, 0.05, 0.0))
-		grad.add_point(0.35, Color(1.0, 0.7, 0.15, 0.9))
-		p.color_ramp = grad
-		var qm := QuadMesh.new()
-		qm.size = Vector2(0.16, 0.16)
-		qm.material = Materiais.particula("brilho")
-		p.mesh = qm
-		var x := 0.09 if lado == "e" else -0.09
-		p.position = Vector3(x, 0.0, 0.02) - Vector3(x, 0.232, 0.0)
-		canela.add_child(p)
-		_jatos.append(p)
-		var luz := OmniLight3D.new()
-		luz.light_color = Color(1.0, 0.6, 0.2)
-		luz.light_energy = 0.0
-		luz.omni_range = 1.4
-		luz.shadow_enabled = false
-		luz.position = p.position + Vector3(0, -0.08, 0)
-		canela.add_child(luz)
-		_luz_jatos.append(luz)
+	# rabinho (abana sozinho)
+	_rabo = modelo.find_child("rabo", true, false) as Node3D
+	if _rabo:
+		var mr := _rabo.get_node("malha") as MeshInstance3D
+		var m2 := Materiais.toon(true, 0.0032, {"borda": 0.22, "faixa": 0.15, "luz_minima": 0.32})
+		mr.material_override = m2
+		_mats.append(m2)
+	# brilhos de festa (estrelinhas e faíscas subindo em volta) para as comemorações
+	_festa = CPUParticles3D.new()
+	_festa.amount = 36
+	_festa.lifetime = 0.9
+	_festa.local_coords = false
+	_festa.emitting = false
+	_festa.emission_shape = CPUParticles3D.EMISSION_SHAPE_RING
+	_festa.emission_ring_axis = Vector3.UP
+	_festa.emission_ring_radius = 0.42
+	_festa.emission_ring_inner_radius = 0.25
+	_festa.emission_ring_height = 0.1
+	_festa.direction = Vector3.UP
+	_festa.spread = 25.0
+	_festa.initial_velocity_min = 1.0
+	_festa.initial_velocity_max = 2.2
+	_festa.gravity = Vector3(0, -1.5, 0)
+	_festa.angular_velocity_min = -300
+	_festa.angular_velocity_max = 300
+	_festa.scale_amount_min = 0.6
+	_festa.scale_amount_max = 1.2
+	var curva := Curve.new()
+	curva.add_point(Vector2(0, 1.0))
+	curva.add_point(Vector2(1, 0.0))
+	_festa.scale_amount_curve = curva
+	_festa.color_initial_ramp = Bola._arco_iris()
+	var qm := QuadMesh.new()
+	qm.size = Vector2(0.09, 0.09)
+	qm.material = Materiais.particula("estrela", false)
+	_festa.mesh = qm
+	_festa.position = Vector3(0, 0.25, 0)
+	add_child(_festa)
 	tocar("parado")
 	_piscar_em = randf_range(1.0, 3.0)
 
@@ -282,16 +282,18 @@ func _aplicar(pose: Dictionary, delta: float) -> void:
 		var pitch := -rad_to_deg(atan2(local.y - 0.6, Vector2(local.x, local.z).length()))
 		alvo = Vector2(clamp(yaw, -55.0, 55.0), clamp(pitch, -25.0, 30.0))
 	_olhar = _olhar.lerp(alvo, min(1.0, delta * 6.0))
-	# luz dos jatos tremendo
-	for l in _luz_jatos:
-		if l.light_energy > 0.0:
-			l.light_energy = randf_range(1.2, 2.0)
+	# rabinho abanando (mais rápido quando está feliz)
+	if _rabo:
+		var vel := 7.0 + _alegria * 9.0
+		_rabo.rotation = Vector3(sin(_tempo * vel * 0.5) * 0.12, sin(_tempo * vel) * (0.35 + _alegria * 0.35), 0)
 
 
 # ---------------------------------------------------------------- rosto
 func expressao(nome: String) -> void:
 	_expressao = nome
 	_definir_celula(nome)
+	_alegria = {"empolgado": 1.0, "risada": 1.0, "feliz": 0.7, "piscadinha": 0.8, "triste": 0.0, "concentrado": 0.25,
+		"surpreso": 0.5}.get(nome, 0.5)
 
 
 func _definir_celula(nome: String) -> void:
@@ -315,12 +317,11 @@ func _rosto(delta: float) -> void:
 			_definir_celula("piscando")
 
 
-# ---------------------------------------------------------------- jatos
+# ---------------------------------------------------------------- festa
+## Estrelinhas subindo em volta (comemorações). O nome antigo "jatos" ficou
+## nas animações e chamadas por compatibilidade.
 func jatos(ligar: bool) -> void:
-	for p in _jatos:
-		p.emitting = ligar
-	for l in _luz_jatos:
-		l.light_energy = 1.5 if ligar else 0.0
+	_festa.emitting = ligar
 
 
 func segurar_bola(sim: bool) -> void:

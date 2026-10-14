@@ -13,7 +13,7 @@ uniform float bola_z = 100.0;
 uniform float luz = 0.0;            // 0..1 (acende durante a jogada)
 uniform float fase = 0.0;           // fase das luzes que correm (vem da CPU)
 uniform vec3 cor_luz : source_color = vec3(0.35, 0.85, 1.0);
-uniform vec3 cor_seta : source_color = vec3(0.86, 0.22, 0.42);
+uniform vec3 cor_seta : source_color = vec3(0.45, 0.27, 0.16);   // marcas discretas, como numa pista de verdade
 uniform float brilho_verniz = 0.55;
 
 varying vec3 pm;

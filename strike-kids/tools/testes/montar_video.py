@@ -60,7 +60,7 @@ def cartao_final(pasta, inicio, n, largura, altura):
     fonte = ImageFont.truetype(os.path.join(RAIZ, "fontes", "fredoka_700.ttf"), int(min(largura, altura) * 0.05))
     fonte2 = ImageFont.truetype(os.path.join(RAIZ, "fontes", "fredoka_600.ttf"), int(min(largura, altura) * 0.037))
     retratos = []
-    for p in ("turbo", "rosi"):
+    for p in ("bob", "mia"):
         c = os.path.join(RAIZ, "ui", "retrato_%s_empolgado.png" % p)
         if os.path.exists(c):
             retratos.append(Image.open(c).convert("RGBA"))
@@ -83,7 +83,7 @@ def cartao_final(pasta, inicio, n, largura, altura):
             x = int(largura * (0.27 if k == 0 else 0.73) - rs / 2)
             img.alpha_composite(rr, (x, int(altura * 0.42)))
         d = ImageDraw.Draw(img)
-        for (txt, f, y) in (("Boliche infantil 3D com Turbo e Rosi", fonte, 0.76),
+        for (txt, f, y) in (("Boliche infantil 3D com Bob e Mia", fonte, 0.76),
                             ("5 sensores  ·  1 ou 2 jogadores  ·  replay do strike", fonte2, 0.82),
                             ("Lazer & Sport Games", fonte2, 0.9)):
             w = d.textlength(txt, font=f)

@@ -313,17 +313,52 @@ def gerar_terreno():
     N = np.stack([-dx, np.ones_like(H), -dz], -1)
     N /= np.linalg.norm(N, axis=-1, keepdims=True)
     N = N.reshape(-1, 3)
-    # cores: gramado em faixas (corte de grama) + manchas de flores
+    # cores de cada cenário (mesmo relevo, outra "pele")
+    alt = H.reshape(-1)
+    Xf, Zf = X.reshape(-1), Z.reshape(-1)
+    variantes = {}
+    # parque: gramado em faixas (corte de grama) + manchas de flores
     g1 = np.array([0.42, 0.80, 0.36])
     g2 = np.array([0.36, 0.72, 0.31])
     faixa = (np.floor((Z + X * 0.15) / 2.2) % 2).reshape(-1)
     C = np.where(faixa[:, None] > 0, g1, g2)
-    alt = H.reshape(-1)
     C = C * (1.0 + 0.10 * np.clip(alt / 4.0, 0, 1))[:, None]
     flor = rng.random(len(C))
     C[flor > 0.985] = [1.0, 0.62, 0.82]
     C[(flor > 0.975) & (flor <= 0.985)] = [1.0, 0.92, 0.45]
-    C = np.concatenate([np.clip(C, 0, 1), np.zeros((len(C), 1))], -1)
+    variantes["terreno"] = C
+    # espaço: chão de lua lilás com crateras (anéis mais escuros) e poeira brilhante
+    base = np.array([0.66, 0.62, 0.84])
+    C = np.tile(base, (len(alt), 1)) * (0.92 + 0.12 * np.clip(alt / 4.0, 0, 1))[:, None]
+    rng2 = np.random.default_rng(5)
+    for _ in range(70):
+        cx, cz, r = rng2.uniform(-32, 32), rng2.uniform(-68, 16), rng2.uniform(0.8, 3.2)
+        d = np.sqrt((Xf - cx) ** 2 + (Zf - cz) ** 2) / r
+        C[(d < 1.0)] *= 0.86
+        C[(d >= 1.0) & (d < 1.18)] *= 1.12
+    brilho = rng2.random(len(C))
+    C[brilho > 0.988] = [0.85, 0.95, 1.0]
+    variantes["terreno_lua"] = C
+    # mar: areia com ondinhas e conchinhas
+    a1 = np.array([0.98, 0.86, 0.62])
+    a2 = np.array([0.93, 0.79, 0.55])
+    onda = 0.5 + 0.5 * np.sin(Xf * 1.6 + np.sin(Zf * 0.35) * 2.0)
+    C = a1 * (1 - onda[:, None]) + a2 * onda[:, None]
+    pont = rng2.random(len(C))
+    C[pont > 0.99] = [1.0, 0.7, 0.62]
+    C[(pont > 0.982) & (pont <= 0.99)] = [0.62, 0.86, 0.9]
+    variantes["terreno_areia"] = C
+    # selva: verde fechado com manchas de terra e flores laranja
+    v1 = np.array([0.27, 0.64, 0.30])
+    v2 = np.array([0.33, 0.72, 0.28])
+    mancha = np.sin(Xf * 0.45 + 1.3) * np.sin(Zf * 0.38) + 0.5 * np.sin(Xf * 1.1 - Zf * 0.9)
+    C = np.where((mancha > 0.0)[:, None], v1, v2)
+    terra = np.array([0.66, 0.48, 0.30])
+    C[mancha > 1.05] = terra
+    fl = rng2.random(len(C))
+    C[fl > 0.988] = [1.0, 0.62, 0.2]
+    C[(fl > 0.981) & (fl <= 0.988)] = [1.0, 0.92, 0.35]
+    variantes["terreno_selva"] = C
     idx = np.arange(nx * nz).reshape(nx, nz)
     a = idx[:-1, :-1].reshape(-1)
     b = idx[1:, :-1].reshape(-1)
@@ -337,19 +372,21 @@ def gerar_terreno():
     errado = ng[:, 1] < 0
     T[errado] = T[errado][:, ::-1]
     from sdf import Malha
-    m = Malha(V.astype(np.float32), N.astype(np.float32), C.astype(np.float32), T.astype(np.int32))
     pac = Pacote()
-    pac.adicionar("terreno", m)
+    for nome, C in variantes.items():
+        C = np.concatenate([np.clip(C, 0, 1), np.zeros((len(C), 1))], -1)
+        m = Malha(V.astype(np.float32), N.astype(np.float32), C.astype(np.float32), T.astype(np.int32))
+        pac.adicionar(nome, m)
     pac.gravar(os.path.join(SAIDA, "terreno"))
 
 
 if __name__ == "__main__":
     import personagens
-    alvo = sys.argv[1:] or ["turbo", "rosi", "pino", "cenario", "terreno"]
-    if "turbo" in alvo:
-        personagens.gerar_personagem("turbo", personagens.turbo, SAIDA)
-    if "rosi" in alvo:
-        personagens.gerar_personagem("rosi", personagens.rosi, SAIDA)
+    alvo = sys.argv[1:] or ["bob", "mia", "pino", "cenario", "terreno"]
+    if "bob" in alvo:
+        personagens.gerar_personagem("bob", personagens.bob, SAIDA)
+    if "mia" in alvo:
+        personagens.gerar_personagem("mia", personagens.mia, SAIDA)
     if "pino" in alvo:
         gerar_pino()
     if "cenario" in alvo:

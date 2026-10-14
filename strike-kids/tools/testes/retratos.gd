@@ -1,6 +1,6 @@
 extends Node
 
-## Gera os retratos (busto) do Turbo e da Rosi com fundo transparente:
+## Gera os retratos (busto) do Bob e da Mia com fundo transparente:
 ## ui/retrato_turbo.png, ui/retrato_rosi.png (placar, faixas, divulgação).
 ## godot --path . res://tools/testes/retratos.tscn
 
@@ -11,7 +11,7 @@ var vps := []
 
 
 func _ready() -> void:
-	for nome in ["turbo", "rosi"]:
+	for nome in ["bob", "mia"]:
 		for expr in ["feliz", "empolgado"]:
 			vps.append(_montar(nome, expr))
 
@@ -46,11 +46,11 @@ func _montar(nome: String, expr: String) -> Array:
 	p.tocar("parado", 0.01, true)
 	p.expressao(expr)
 	p.set_process(false)
-	p._aplicar({"braco_e": Vector3(0, 0, 12), "braco_d": Vector3(-20, 0, -14), "antebraco_d": Vector3(-60, 0, 0), "cabeca": Vector3(-4, 12 if nome == "turbo" else -12, 4 if nome == "turbo" else -4)}, 0.0)
+	p._aplicar({"braco_e": Vector3(0, 0, 12), "braco_d": Vector3(-20, 0, -14), "antebraco_d": Vector3(-60, 0, 0), "cabeca": Vector3(-4, 12 if nome == "bob" else -12, 4 if nome == "bob" else -4)}, 0.0)
 	var cam := Camera3D.new()
 	cam.fov = 30
 	vp.add_child(cam)
-	cam.look_at_from_position(Vector3(0.35 if nome == "turbo" else -0.35, 1.05, 2.25), Vector3(0, 0.92, 0))
+	cam.look_at_from_position(Vector3(0.35 if nome == "bob" else -0.35, 1.05, 2.25), Vector3(0, 0.92, 0))
 	return [vp, nome, expr]
 
 

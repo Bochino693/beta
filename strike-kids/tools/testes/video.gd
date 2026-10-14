@@ -72,7 +72,7 @@ func jogar(sensor: String) -> void:
 
 
 func _rodar() -> void:
-	# Turbo STRIKE (replay + jatos) | Rosi 9 + spare (1) | fim
+	# Bob STRIKE (replay + jatos) | Mia 9 + spare (1) | fim
 	Jogada.forcar = [10, 9, 1] if cena != "curto" else [10]
 	await esperar_estado("ATRACAO", 10.0)
 	await esperar(2.6)

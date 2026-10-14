@@ -61,7 +61,10 @@ EXPR_PINO = ["normal", "piscando", "medo", "tonto", "feliz", "surpreso", "triste
 class Rosto:
     def __init__(self, celula, iris, sobrancelha, boca_borda="#3A1420", cilios=False, bochecha="#FF7A9A",
                  olho_x=0.215, olho_y=0.455, olho_rx=0.094, olho_ry=0.132, boca_y=0.71, boca_l=0.2,
-                 bochecha_x=0.36, bochecha_y=0.64, sobr_y=0.25):
+                 bochecha_x=0.36, bochecha_y=0.64, sobr_y=0.25, bicho=False, gato=False, nariz_y=0.62):
+        self.bicho = bicho
+        self.gato = gato
+        self.nariz_y = nariz_y
         self.c = celula
         self.iris = iris
         self.sobr = sobrancelha
@@ -112,6 +115,31 @@ def desenhar_olho(d, R, cx, cy, tipo="aberto", lado=1, escala=1.0, olhar=(0.0, 0
             r = rx * 0.9 * (i / 59)
             pts.append((cx + math.cos(t) * r, cy + math.sin(t) * r))
         d.line(pts, fill=contorno, width=w, joint="curve")
+        return
+    if R.bicho:
+        # olho de bichinho: grande, escuro e brilhante (sem "branco do olho")
+        elipse(d, cx, cy, rx, ry, fill=contorno)
+        ix, iy = cx + olhar[0] * rx * 0.15, cy + olhar[1] * ry * 0.12
+        elipse(d, ix, iy, rx * 0.86, ry * 0.9, fill=cor(R.iris))
+        clara = tuple(min(255, int(v * 1.45 + 25)) for v in cor(R.iris)[:3]) + (255,)
+        elipse(d, ix, iy + ry * 0.38, rx * 0.6, ry * 0.42, fill=clara)
+        if R.gato:
+            elipse(d, ix, iy + ry * 0.05, rx * 0.3, ry * 0.68, fill=cor("#140C10"))
+        else:
+            elipse(d, ix, iy + ry * 0.05, rx * 0.62, ry * 0.66, fill=cor("#140C10"))
+        if tipo == "brilho":
+            estrela(d, ix, iy + ry * 0.05, rx * 0.62, rx * 0.27, cor("#FFE14D"))
+        elipse(d, ix - rx * 0.3, iy - ry * 0.36, rx * 0.36, ry * 0.3, fill=cor("#FFFFFF"))
+        elipse(d, ix + rx * 0.32, iy + ry * 0.36, rx * 0.16, ry * 0.13, fill=cor("#FFFFFF"))
+        elipse(d, ix + rx * 0.1, iy - ry * 0.55, rx * 0.09, ry * 0.07, fill=cor("#FFFFFF"))
+        if R.cilios:
+            w = max(2, int(R.L(0.014)))
+            for k in range(2):
+                a = -55 - k * 25 if lado > 0 else -125 + k * 25
+                ar = math.radians(a)
+                x0 = cx + math.cos(ar) * rx * 0.95
+                y0 = cy + math.sin(ar) * ry * 0.95
+                d.line([x0, y0, cx + math.cos(ar) * rx * 1.3, cy + math.sin(ar) * ry * 1.22], fill=contorno, width=w)
         return
     # olho aberto: contorno, branco pequeno, íris grande, brilhos
     elipse(d, cx, cy, rx, ry, fill=contorno)
@@ -214,6 +242,69 @@ def boca(d, R, tipo):
         d.arc([cx - L * 0.35, cy + L * 0.05, cx + L * 0.35, cy + L * 0.55], 200, 340, fill=borda, width=w)
 
 
+def boca_bicho(d, R, tipo):
+    """Boquinha de bichinho: risquinho do nariz + "ω", aberta quando feliz."""
+    cx = R.c * 0.5
+    cy = R.P(0.5, R.by)[1]
+    L = R.L(R.bl)
+    borda = cor(R.boca_borda)
+    w = max(2, int(R.L(0.017)))
+    interior = cor("#7A1E33")
+    lingua = cor("#FF7A8C")
+    ny = R.P(0.5, R.nariz_y)[1]
+
+    def omega(y, abre=1.0):
+        d.line([cx, ny, cx, y], fill=borda, width=w)
+        for s in (-1, 1):
+            d.arc([cx + (s - 1) * L * 0.27 if s > 0 else cx - L * 0.54, y - L * 0.22 * abre,
+                   cx + L * 0.54 if s > 0 else cx, y + L * 0.22 * abre], 0, 180, fill=borda, width=w)
+
+    if tipo in ("sorriso", "reta"):
+        omega(cy - L * 0.12)
+    elif tipo == "sorriso_aberto":
+        omega(cy - L * 0.18)
+        bb = [cx - L * 0.25, cy - L * 0.05, cx + L * 0.25, cy + L * 0.38]
+        d.chord(bb, 0, 180, fill=borda)
+        d.chord([bb[0] + w, bb[1] + w * 0.5, bb[2] - w, bb[3] - w], 0, 180, fill=interior)
+        elipse(d, cx, cy + L * 0.24, L * 0.13, L * 0.08, fill=lingua)
+    elif tipo == "grande":
+        omega(cy - L * 0.2)
+        bb = [cx - L * 0.36, cy - L * 0.1, cx + L * 0.36, cy + L * 0.6]
+        d.chord(bb, 0, 180, fill=borda)
+        d.chord([bb[0] + w, bb[1] + w * 0.5, bb[2] - w, bb[3] - w], 0, 180, fill=interior)
+        elipse(d, cx, cy + L * 0.4, L * 0.18, L * 0.1, fill=lingua)
+    elif tipo == "o":
+        d.line([cx, ny, cx, cy - L * 0.12], fill=borda, width=w)
+        elipse(d, cx, cy + L * 0.08, L * 0.12, L * 0.15, fill=borda)
+        elipse(d, cx, cy + L * 0.08, L * 0.12 - w, L * 0.15 - w, fill=interior)
+    elif tipo == "triste":
+        d.line([cx, ny, cx, cy - L * 0.05], fill=borda, width=w)
+        d.arc([cx - L * 0.3, cy - L * 0.02, cx + L * 0.3, cy + L * 0.3], 200, 340, fill=borda, width=w)
+    elif tipo == "lingua":
+        omega(cy - L * 0.12)
+        elipse(d, cx + L * 0.12, cy + L * 0.12, L * 0.1, L * 0.12, fill=borda)
+        elipse(d, cx + L * 0.12, cy + L * 0.12, L * 0.1 - w * 0.8, L * 0.12 - w * 0.8, fill=lingua)
+    elif tipo == "ondulada":
+        pts = []
+        for i in range(17):
+            t = i / 16 - 0.5
+            pts.append((cx + t * L * 0.7, cy + math.sin(t * math.pi * 4) * L * 0.06))
+        d.line(pts, fill=borda, width=w, joint="curve")
+    else:
+        omega(cy - L * 0.12)
+
+
+def bigodes(d, R):
+    w = max(2, int(R.L(0.009)))
+    for s in (-1, 1):
+        for k in range(3):
+            x0 = R.c * (0.5 + s * 0.17)
+            y0 = R.c * (R.by - 0.03 + k * 0.035)
+            x1 = R.c * (0.5 + s * 0.42)
+            y1 = y0 + R.c * (-0.04 + k * 0.04)
+            d.line([x0, y0, (x0 + x1) / 2, (y0 + y1) / 2 - R.c * 0.008, x1, y1], fill=cor("#6E7488", 200), width=w, joint="curve")
+
+
 def bochechas(d, R, forte=1.0):
     for s in (-1, 1):
         cx, cy = R.P(0.5 + s * R.bx, R.byc)
@@ -253,7 +344,12 @@ def desenhar_rosto(R, expr):
     tipo_boca = {"feliz": "sorriso_aberto", "piscando": "sorriso", "empolgado": "grande", "triste": "triste",
                  "concentrado": "reta", "surpreso": "o", "risada": "grande", "piscadinha": "lingua",
                  "normal": "sorriso", "medo": "ondulada", "tonto": "ondulada", "bravo": "bravo"}[expr]
-    boca(d, R, tipo_boca)
+    if R.bicho:
+        if R.gato:
+            bigodes(d, R)
+        boca_bicho(d, R, tipo_boca)
+    else:
+        boca(d, R, tipo_boca)
     if expr == "triste":  # lagriminha
         cx, cy = R.P(oxd, oy + 0.1)
         d.polygon([(cx, cy - R.L(0.03)), (cx - R.L(0.022), cy + R.L(0.02)), (cx + R.L(0.022), cy + R.L(0.02))], fill=cor("#7FD3FF"))
@@ -278,10 +374,14 @@ def gerar_atlas(nome, R, exprs, colunas=4, celula_final=512):
 
 def rostos():
     c = 512 * SS
-    turbo = Rosto(c, iris="#1E6BFF", sobrancelha="#1C2255")
-    rosi = Rosto(c, iris="#D6338A", sobrancelha="#E0408F", cilios=True, bochecha="#FF5C9A")
-    gerar_atlas("rosto_turbo", turbo, EXPR_PERSONAGEM)
-    gerar_atlas("rosto_rosi", rosi, EXPR_PERSONAGEM)
+    bob = Rosto(c, iris="#4A2A18", sobrancelha="#8A4E22", bicho=True, olho_x=0.205, olho_y=0.395,
+                olho_rx=0.1, olho_ry=0.128, boca_y=0.725, boca_l=0.2, bochecha_x=0.335, bochecha_y=0.6,
+                sobr_y=0.2, nariz_y=0.655, bochecha="#FF8FA8")
+    mia = Rosto(c, iris="#3DBE7A", sobrancelha="#7D8599", bicho=True, gato=True, cilios=True, olho_x=0.205,
+                olho_y=0.395, olho_rx=0.102, olho_ry=0.132, boca_y=0.725, boca_l=0.19, bochecha_x=0.33,
+                bochecha_y=0.58, sobr_y=0.2, nariz_y=0.655, bochecha="#FF8FA8")
+    gerar_atlas("rosto_bob", bob, EXPR_PERSONAGEM)
+    gerar_atlas("rosto_mia", mia, EXPR_PERSONAGEM)
     # pino: rosto menor e mais simples (olhos grandes, sem sobrancelha grossa)
     pino = Rosto(256 * SS, iris="#2A2A55", sobrancelha="#2A1A30", olho_x=0.2, olho_y=0.42, olho_rx=0.105,
                  olho_ry=0.15, boca_y=0.74, boca_l=0.22, bochecha_x=0.34, bochecha_y=0.66, sobr_y=0.2)
@@ -327,7 +427,7 @@ def madeira():
 
 
 def bola_textura(nome, fundo, fundo2, desenho, cor_desenho, faixa):
-    """Textura equiretangular (2:1) para a bola. desenho: 'estrela' | 'coracao'."""
+    """Textura equiretangular (2:1) para a bola. desenho: 'estrela' | 'coracao' | 'pata'."""
     W, H = 1024, 512
     img = Image.new("RGBA", (W * SS // 2, H * SS // 2), cor(fundo))
     d = ImageDraw.Draw(img)
@@ -360,6 +460,16 @@ def bola_textura(nome, fundo, fundo2, desenho, cor_desenho, faixa):
                     a = -math.pi / 2 + k * math.pi / 5 + i
                     pts.append((cx + dx + math.cos(a) * rr * (rx / r), cy + math.sin(a) * rr))
                 d.polygon(pts, fill=cor(cor_desenho))
+            elif desenho == "pata":
+                # patinha: almofada grande + 4 dedinhos
+                camada = Image.new("L", (int(rx * 2.8), int(r * 2.8)), 0)
+                dc = ImageDraw.Draw(camada)
+                cw, ch = camada.size
+                elipse(dc, cw * 0.5, ch * 0.64, cw * 0.25, ch * 0.21, fill=255)
+                for fx, fy in ((0.22, 0.38), (0.4, 0.22), (0.6, 0.22), (0.78, 0.38)):
+                    elipse(dc, cw * fx, ch * fy, cw * 0.1, ch * 0.12, fill=255)
+                camada = camada.rotate(rnd.uniform(-35, 35), resample=Image.BICUBIC)
+                img.paste(Image.new("RGBA", camada.size, cor(cor_desenho)), (int(cx + dx - cw / 2), int(cy - ch / 2)), camada)
             else:
                 camada = Image.new("L", (int(rx * 2.6), int(r * 2.6)), 0)
                 dc = ImageDraw.Draw(camada)
@@ -420,6 +530,13 @@ def particulas():
         elipse(d, x, y, r, r, fill=(255, 255, 255, 200))
     camada = camada.filter(ImageFilter.GaussianBlur(6))
     camada.save(os.path.join(TEX, "fumaca.png"))
+    # bolha de sabão / do fundo do mar (anel claro + brilhinho)
+    t = 128 * SS
+    img = Image.new("RGBA", (t, t), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+    elipse(d, t / 2, t / 2, t * 0.44, t * 0.44, fill=(255, 255, 255, 60), outline=(255, 255, 255, 235), width=int(t * 0.06))
+    elipse(d, t * 0.36, t * 0.34, t * 0.1, t * 0.07, fill=(255, 255, 255, 240))
+    reduzir(img, (128, 128)).save(os.path.join(TEX, "bolha.png"))
     # chama do jato (gota vertical, branco no centro -> laranja)
     W, H = 64, 128
     img = Image.new("RGBA", (W, H), (0, 0, 0, 0))
@@ -443,8 +560,8 @@ def particulas():
 
 def texturas():
     madeira()
-    bola_textura("turbo", "#1D5BFF", "#36A2FF", "estrela", "#FFD43B", "#FFFFFF")
-    bola_textura("rosi", "#FF4FA3", "#FF8BC6", "coracao", "#FFFFFF", "#C24BFF")
+    bola_textura("bob", "#0E9DB8", "#3FD3E0", "pata", "#FFD43B", "#FFFFFF")
+    bola_textura("mia", "#7446F0", "#A27BFF", "estrela", "#FFF2A8", "#FFD43B")
     particulas()
 
 
@@ -618,12 +735,18 @@ def ui():
     roxo = "#3B0A63"
     letreiro("STRIKE!", "strike", ["#FFF6A8", "#FFD43B", "#FF6A1E"], roxo, 300)
     letreiro("SPARE!", "spare", ["#C9F7FF", "#4FD8FF", "#2E6BFF"], roxo, 280)
-    letreiro("OPS!", "ops", ["#FFE0EC", "#FF8FC0", "#E0368A"], roxo, 260)
+    letreiro("OPS!", "ops", ["#FFF1DA", "#FFB36B", "#F0602A"], roxo, 260)
     letreiro("BOA!", "boa", ["#E6FFD6", "#8DFF6A", "#2DBE4E"], roxo, 260)
     letreiro("UAU!", "uau", ["#FFE6FF", "#D58BFF", "#8E3CF7"], roxo, 260)
     letreiro("QUASE!", "quase", ["#FFF1DA", "#FFB347", "#FF6A1E"], roxo, 250)
     letreiro("SUPER!", "super", ["#FFF6A8", "#FF9F2E", "#FF3B4E"], roxo, 260)
-    letreiro("REPLAY", "replay", ["#FFFFFF", "#FFD6E8", "#FF5FA8"], roxo, 200, inclinar=0, estrelas=False)
+    letreiro("REPLAY", "replay", ["#FFFFFF", "#BFF3FF", "#20B4CC"], roxo, 200, inclinar=0, estrelas=False)
+    letreiro("", "pegando_fogo", ["#FFF6A8", "#FF9F2E", "#FF3B1E"], roxo, 210, linhas=["PEGANDO", "FOGO!"])
+    # cenários (um por rodada)
+    letreiro("", "cen_espaco", ["#F0F4FF", "#A9BCFF", "#6A4CFF"], roxo, 200, linhas=["VIAGEM AO", "ESPAÇO!"])
+    letreiro("", "cen_mar", ["#E6FFFB", "#5EE6E0", "#1B8FD6"], roxo, 200, linhas=["FUNDO", "DO MAR!"])
+    letreiro("", "cen_dinos", ["#F4FFD6", "#A6EC52", "#2FA84F"], roxo, 200, linhas=["SELVA DOS", "DINOS!"])
+    letreiro("", "cen_parque", ["#FFF6A8", "#FFB627", "#FF6A1E"], roxo, 200, linhas=["PARQUE DE", "DIVERSÕES!"])
     letreiro("", "fim_de_jogo", ["#FFFFFF", "#D6E6FF", "#7F9CFF"], roxo, 210, linhas=["FIM DE", "JOGO!"])
     letreiro("", "novo_recorde", ["#FFF6A8", "#FFD43B", "#FF6A1E"], roxo, 200, linhas=["NOVO", "RECORDE!"])
     letreiro("EMPATE!", "empate", ["#FFFFFF", "#D58BFF", "#8E3CF7"], roxo, 240)
@@ -634,11 +757,11 @@ def ui():
 
 
 def icone():
-    """Ícone do app (432 px): fundo em degradê + Turbo e Rosi + pino.
+    """Ícone do app (432 px): fundo em degradê + Bob e Mia + logo.
     Usa os retratos renderizados pelo Godot (tools/testes/retratos.tscn)."""
     import numpy as np
     T = 432
-    fundo = gradiente_vertical((T, T), [(0, "#8E5CF7"), (0.55, "#FF5FA8"), (1, "#FFB347")])
+    fundo = gradiente_vertical((T, T), [(0, "#6A4CFF"), (0.55, "#16A9BE"), (1, "#FFD43B")])
     d = ImageDraw.Draw(fundo)
     rnd = random.Random(4)
     for _ in range(14):
@@ -646,7 +769,7 @@ def icone():
         estrela(d, x, y, r, r * 0.42, cor("#FFFFFF", 120))
     fundo.save(os.path.join(UI, "icone_fundo.png"))
     frente = Image.new("RGBA", (T, T), (0, 0, 0, 0))
-    for nome, dx in (("rosi", 0.2), ("turbo", -0.2)):
+    for nome, dx in (("mia", 0.2), ("bob", -0.2)):
         c = os.path.join(UI, "retrato_%s_empolgado.png" % nome)
         if not os.path.exists(c):
             continue
