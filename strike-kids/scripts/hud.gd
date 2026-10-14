@@ -12,6 +12,7 @@ extends Control
 const COR_BOB := Color("#13A3BC")
 const COR_MIA := Color("#8657F2")
 const DESTAQUE := Color("#FFB627")
+const ESCALA_ARTE := 1.6       # letreiros gerados em 1,6x (nítidos em 4K)
 const ROXO := Color("#3B0A63")
 const ZONAS := ["Z", "X", "C", "V", "B"]
 
@@ -84,6 +85,7 @@ func montar(textura_3d: Texture2D) -> void:
 	tela3d.texture = textura_3d
 	tela3d.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	tela3d.stretch_mode = TextureRect.STRETCH_SCALE
+	tela3d.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR   # imagem 3D (sem mipmaps)
 	tela3d.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(tela3d)
 	_montar_placar()
@@ -416,7 +418,7 @@ func letreiro(nome: String, sub := "", dur := 1.7, altura := 0.38) -> void:
 	tr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	tr.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var T := size
-	var larg: float = min(T.x * 0.9, tex.get_width() * u * 0.95)
+	var larg: float = min(T.x * 0.9, tex.get_width() / ESCALA_ARTE * u * 0.95)
 	var alt := larg * tex.get_height() / tex.get_width()
 	tr.size = Vector2(larg, alt)
 	tr.position = Vector2((T.x - larg) / 2, T.y * altura - alt / 2)
@@ -876,6 +878,7 @@ func _montar_fotos() -> void:
 	_foto_circulo = TextureRect.new()
 	_foto_circulo.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	_foto_circulo.stretch_mode = TextureRect.STRETCH_SCALE
+	_foto_circulo.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
 	_foto_circulo.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_foto_tela.add_child(_foto_circulo)
 	_foto_selo = TextureRect.new()

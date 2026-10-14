@@ -33,7 +33,7 @@ var mat_placa: ShaderMaterial
 var mat_divisoria: ShaderMaterial
 var mat_faixa: ShaderMaterial
 var mats_canaleta: Array[ShaderMaterial] = []
-var terrenos := {}
+var mat_terreno: ShaderMaterial
 var temas: Temas
 var tema := ""
 var _bumpers: Array[Node3D] = []
@@ -86,8 +86,10 @@ func aplicar_tema(nome: String) -> void:
 	mat_faixa.set_shader_parameter("tinta", c["faixa"])
 	for m in mats_canaleta:
 		m.set_shader_parameter("tinta", c["canaleta"])
-	for k in terrenos:
-		(terrenos[k] as Node3D).visible = k == c["terreno"]
+	var chao: Array = c["chao"]
+	mat_terreno.set_shader_parameter("modo", int(c["chao_modo"]))
+	for i in 4:
+		mat_terreno.set_shader_parameter(["cor_a", "cor_b", "cor_c", "cor_d"][i], chao[i])
 	temas.mostrar(nome)
 
 
@@ -147,23 +149,23 @@ func aplicar_qualidade(q: String) -> void:
 	sol.shadow_enabled = q != "baixa"
 	ambiente.glow_enabled = q != "baixa"
 	ambiente.fog_enabled = q == "alta" or q == "media"
+	# sombra nítida perto da câmera (2 divisões) na alta; uma só na média
+	sol.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS if q == "alta" else DirectionalLight3D.SHADOW_ORTHOGONAL
+	sol.directional_shadow_split_1 = 0.25
+	sol.directional_shadow_max_distance = 32.0 if q == "alta" else 26.0
 	RenderingServer.directional_shadow_atlas_set_size(4096 if q == "alta" else 2048, true)
 
 
 # ================================================================ terreno
 func _terreno() -> void:
-	var mt := Materiais.toon(false, 0.0, {"borda": 0.0, "faixa": 0.25})
-	for nome in ["terreno", "terreno_lua", "terreno_areia", "terreno_selva"]:
-		var caminho := "res://modelos/%s.res" % nome
-		if not ResourceLoader.exists(caminho):
-			continue
-		var t := MeshInstance3D.new()
-		t.mesh = load(caminho)
-		t.material_override = mt
-		t.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		t.visible = false
-		add_child(t)
-		terrenos[nome] = t
+	# um relevo só; o desenho do chão de cada cenário sai do shader (nítido)
+	mat_terreno = ShaderMaterial.new()
+	mat_terreno.shader = load("res://shaders/terreno.gdshader")
+	var t := MeshInstance3D.new()
+	t.mesh = load("res://modelos/terreno.res")
+	t.material_override = mat_terreno
+	t.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(t)
 	# chão de segurança (nada cai para sempre)
 	var chao := StaticBody3D.new()
 	var cs := CollisionShape3D.new()
@@ -230,6 +232,7 @@ func _pista() -> void:
 	ma.albedo_texture = Materiais.textura("madeira")
 	ma.albedo_color = Color(0.93, 0.84, 0.76)
 	ma.uv1_scale = Vector3(4.2, 1.6, 1)
+	ma.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC
 	ma.roughness = 0.35
 	var aprox := _caixa(Vector3(6.6, 0.2, 6.2), Vector3(0, -0.101, 3.2), ma, true, false, 0.8, 0.0)
 	aprox.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
@@ -275,8 +278,20 @@ func _pista() -> void:
 		luzes.name = "luz_divisoria_%d" % s
 
 	# --- para-choques (bumpers) listrados de doce
-	var mb: Mesh = load("res://modelos/cenario/bumper.res")
-	var mat_b := Materiais.toon(false, 0.003)
+	# cápsula simples + listras pelo shader (nítidas em 4K e levinhas)
+	var mb := CapsuleMesh.new()
+	mb.radius = 0.07
+	mb.height = 1.14
+	mb.radial_segments = 24
+	mb.rings = 6
+	var mat_b := ShaderMaterial.new()
+	mat_b.shader = load("res://shaders/doce_listrado.gdshader")
+	if Materiais.contornos_ligados:
+		var contorno_b := ShaderMaterial.new()
+		contorno_b.shader = Materiais.shader(Materiais.CONTORNO)
+		contorno_b.set_shader_parameter("espessura", 0.003)
+		contorno_b.set_shader_parameter("usa_cor_vertice", 0.0)
+		mat_b.next_pass = contorno_b
 	for s in [-1, 1]:
 		var grupo := Node3D.new()
 		grupo.name = "bumpers_%d" % s
@@ -287,7 +302,7 @@ func _pista() -> void:
 		var n := 14
 		mm.instance_count = n
 		for i in n:
-			mm.set_instance_transform(i, Transform3D(Basis(), Vector3(s * 0.735, 0.1, -0.6 - i * 0.96)))
+			mm.set_instance_transform(i, Transform3D(Basis(Vector3.RIGHT, PI / 2), Vector3(s * 0.735, 0.1, -0.6 - i * 0.96)))
 		var mmi := MultiMeshInstance3D.new()
 		mmi.multimesh = mm
 		mmi.material_override = mat_b

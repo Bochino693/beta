@@ -5,11 +5,14 @@ extends SceneTree
 
 var quadros := 0
 var saida := "user://previa.png"
+var celula := 0
 
 func _init() -> void:
 	var args := OS.get_cmdline_user_args()
 	if args.size() > 0:
 		saida = args[0]
+	if args.size() > 1:
+		celula = int(args[1])
 	var raiz := Node3D.new()
 	get_root().add_child.call_deferred(raiz)
 	var env := WorldEnvironment.new()
@@ -58,6 +61,11 @@ func _init() -> void:
 			if mi.get_parent().name == "cabeca":
 				m.set_shader_parameter("usa_rosto", true)
 				m.set_shader_parameter("rosto", rosto_tex)
+				var meta: Dictionary = p.get_meta("rosto", {})
+				if meta.has("centro"):
+					m.set_shader_parameter("rosto_centro", Vector2(meta["centro"][0], meta["centro"][1]))
+					m.set_shader_parameter("rosto_tamanho", Vector2(meta["tamanho"][0], meta["tamanho"][1]))
+				m.set_shader_parameter("rosto_celula", Vector2(celula % 4, celula / 4))
 			var c := ShaderMaterial.new()
 			c.shader = cont
 			m.next_pass = c

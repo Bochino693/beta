@@ -19,7 +19,7 @@ const CONFIG := {
 		"sol": Color(1.0, 0.95, 0.86), "sol_forca": 1.05,
 		"fundo": [Color(0.10, 0.04, 0.22), Color(0.26, 0.08, 0.42)],
 		"placa": Color("#3A1C7A"), "divisoria": Color("#FFB627"), "faixa": Color("#FF9F2E"), "canaleta": Color("#B9A6FF"),
-		"terreno": "terreno",
+		"chao": [Color("#6BCB5D"), Color("#5BB54E"), Color("#FF9ECF"), Color("#FFE873")], "chao_modo": 0,
 	},
 	"espaco": {
 		"ceu": [Color("#0A0630"), Color("#21166A"), Color("#6A4CC0"), Color("#2A1F55")],
@@ -29,7 +29,7 @@ const CONFIG := {
 		"sol": Color(0.9, 0.92, 1.0), "sol_forca": 1.05,
 		"fundo": [Color(0.02, 0.02, 0.10), Color(0.10, 0.05, 0.32)],
 		"placa": Color("#1E1656"), "divisoria": Color("#4FD8FF"), "faixa": Color("#7C5CFF"), "canaleta": Color("#8C9CFF"),
-		"terreno": "terreno_lua",
+		"chao": [Color("#A69DD4"), Color("#8E85C0"), Color("#CBC4EF"), Color("#E2F5FF")], "chao_modo": 1,
 	},
 	"mar": {
 		"ceu": [Color("#0A4F86"), Color("#1A94C0"), Color("#86E6DE"), Color("#E8D29A")],
@@ -39,7 +39,7 @@ const CONFIG := {
 		"sol": Color(0.88, 1.0, 0.96), "sol_forca": 1.0,
 		"fundo": [Color(0.01, 0.10, 0.20), Color(0.03, 0.30, 0.44)],
 		"placa": Color("#0B4C6E"), "divisoria": Color("#FF8A5C"), "faixa": Color("#2EC4B6"), "canaleta": Color("#7FD8E8"),
-		"terreno": "terreno_areia",
+		"chao": [Color("#F9DCA2"), Color("#EDC98A"), Color("#FFB09E"), Color("#9EDDE6")], "chao_modo": 2,
 	},
 	"dinos": {
 		"ceu": [Color("#3FA7E8"), Color("#9BD8F0"), Color("#FFE4AE"), Color("#6BBF59")],
@@ -49,7 +49,7 @@ const CONFIG := {
 		"sol": Color(1.0, 0.93, 0.8), "sol_forca": 1.1,
 		"fundo": [Color(0.04, 0.14, 0.06), Color(0.10, 0.32, 0.12)],
 		"placa": Color("#23502A"), "divisoria": Color("#FF9F2E"), "faixa": Color("#8BD33F"), "canaleta": Color("#9BD58A"),
-		"terreno": "terreno_selva",
+		"chao": [Color("#46A44E"), Color("#57B948"), Color("#FF9F33"), Color("#FFE65A")], "chao_modo": 3,
 	},
 }
 

@@ -98,6 +98,9 @@ func _ligar_roteiro_de_teste() -> void:
 		if a.begins_with("--video") and ResourceLoader.exists("res://tools/testes/video.gd"):
 			add_child(load("res://tools/testes/video.gd").new())
 			return
+		if a.begins_with("--instantes") and ResourceLoader.exists("res://tools/testes/instantes.gd"):
+			add_child(load("res://tools/testes/instantes.gd").new())
+			return
 
 
 # ================================================================ montagem
@@ -105,7 +108,7 @@ func _montar_3d() -> void:
 	vp = SubViewport.new()
 	vp.own_world_3d = true
 	vp.render_target_update_mode = SubViewport.UPDATE_ALWAYS
-	vp.msaa_3d = Viewport.MSAA_2X if _qualidade != "baixa" else Viewport.MSAA_DISABLED
+	_qualidade_viewport()
 	vp.positional_shadow_atlas_size = 0
 	add_child(vp)
 	mundo = Mundo.new()
@@ -138,6 +141,16 @@ func _montar_3d() -> void:
 	cam.current = true
 	_replay_alvo = Node3D.new()
 	vp.add_child(_replay_alvo)
+
+
+## Antisserrilhado e nível de detalhe conforme a qualidade:
+##   alta  (PC / 4K): MSAA 4x, malhas no detalhe máximo;
+##   media (TV Box boa): MSAA 2x, simplifica as malhas de longe mais cedo;
+##   baixa (TV Box fraca): sem MSAA, malhas bem simplificadas.
+func _qualidade_viewport() -> void:
+	vp.msaa_3d = {"alta": Viewport.MSAA_4X, "media": Viewport.MSAA_2X}.get(_qualidade, Viewport.MSAA_DISABLED)
+	vp.mesh_lod_threshold = {"alta": 1.0, "media": 2.5, "baixa": 6.0}.get(_qualidade, 2.5)
+	vp.anisotropic_filtering_level = Viewport.ANISOTROPY_8X if _qualidade == "alta" else Viewport.ANISOTROPY_4X
 
 
 func _tela_mudou(t: Vector2) -> void:
@@ -1128,6 +1141,6 @@ func _medir_fps(delta: float) -> void:
 			_qualidade = "media" if _qualidade == "alta" else "baixa"
 			_escala = {"alta": 1.0, "media": 0.85, "baixa": 0.7}[_qualidade]
 			mundo.aplicar_qualidade(_qualidade)
-			vp.msaa_3d = Viewport.MSAA_DISABLED if _qualidade == "baixa" else Viewport.MSAA_2X
+			_qualidade_viewport()
 			_tela_mudou(Tela.tamanho())
 			print("Qualidade automática: ", _qualidade, " (", int(fps), " fps)")

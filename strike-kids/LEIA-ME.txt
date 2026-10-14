@@ -96,6 +96,14 @@ C ou START escolhe, CONFIGURACAO volta ao jogo.
 Qualidade AUTOMATICA: se a TV Box nao segurar ~40 quadros por segundo na
 tela inicial, o jogo baixa a qualidade sozinho (sombras, brilho, resolucao).
 
+  ALTA  (PC, TV 4K): MSAA 4x, sombra em 2 divisoes, malhas no detalhe maximo,
+        filtro anisotropico 8x. Tudo nitido ate 3840 x 2160.
+  MEDIA (TV Box boa): MSAA 2x, as malhas simplificam mais cedo de longe.
+  BAIXA (TV Box fraca): sem MSAA nem sombra, malhas bem simplificadas.
+Todas as imagens tem mipmaps (nada cintila nem serrilha quando aparece
+pequeno); rostos, bola, madeira e letreiros usam compressao de alta
+qualidade da placa de video (pouca memoria, sem perder nitidez).
+
 
 COMO A JOGADA E DECIDIDA (fisica de verdade, justa e ajustavel)
 ---------------------------------------------------------------

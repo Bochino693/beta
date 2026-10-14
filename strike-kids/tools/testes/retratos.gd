@@ -4,7 +4,7 @@ extends Node
 ## ui/retrato_turbo.png, ui/retrato_rosi.png (placar, faixas, divulgação).
 ## godot --path . res://tools/testes/retratos.tscn
 
-const TAM := 640
+const TAM := 768
 
 var quadro := 0
 var vps := []
@@ -50,7 +50,7 @@ func _montar(nome: String, expr: String) -> Array:
 	var cam := Camera3D.new()
 	cam.fov = 30
 	vp.add_child(cam)
-	cam.look_at_from_position(Vector3(0.35 if nome == "bob" else -0.35, 1.05, 2.25), Vector3(0, 0.92, 0))
+	cam.look_at_from_position(Vector3(0.33 if nome == "bob" else -0.33, 0.93, 2.15), Vector3(0, 0.8, 0))
 	return [vp, nome, expr]
 
 

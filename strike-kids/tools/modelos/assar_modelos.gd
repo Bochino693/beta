@@ -107,7 +107,9 @@ func _assar_personagem(nome: String) -> void:
 		junta.add_child(mi)
 		mi.owner = raiz
 		nos[parte["nome"]] = junta
-	raiz.set_meta("rosto", info.get("rosto", {}))
+	for k in info:
+		if k != "partes":
+			raiz.set_meta(k, info[k])
 	var cena := PackedScene.new()
 	cena.pack(raiz)
 	var r := ResourceSaver.save(cena, SAIDA + nome + ".scn", ResourceSaver.FLAG_COMPRESS)

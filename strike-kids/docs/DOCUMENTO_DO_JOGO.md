@@ -24,16 +24,33 @@ recompensadora. Sem setas na tela: a mira é sempre o STRIKE.
 
 ## 2. Mascotes (originais)
 
-- **Bob** — cachorrinho caramelo de orelhas caídas, focinho creme, camiseta
-  turquesa com estrela amarela e lenço vermelho, rabinho que abana (mais
-  rápido quando está feliz). Cor do jogador 1 (turquesa, LED azul).
-- **Mia** — gatinha cinza-clarinho rajada, nariz e orelhas rosados,
-  vestido lilás de bolinhas, gola branca e laço amarelo, rabo comprido.
+Estilo pelúcia, com proporção de bebê (cabeça grande e redonda, olhos no
+meio do rosto, bochechas fofas), corpinho de pera, bracinhos e perninhas
+curtos, pés de sola chata e cores em blocos limpos.
+
+- **Bob** — cachorrinho caramelo, focinho e patas creme, nariz 3D,
+  orelhas caídas marrons, camiseta turquesa com estrela amarela, lenço
+  vermelho e rabinho enroladinho que abana (mais rápido quando está feliz).
+  Cor do jogador 1 (turquesa, LED azul).
+- **Mia** — gatinha cinza com três listrinhas na testa, focinho e patas
+  brancos, nariz rosa 3D, orelhas pontudas rosadas por dentro, laço
+  amarelo, vestido lilás de bolinhas e golinha branca, rabo comprido.
   Cor do jogador 2 (roxo, LED vermelho).
 
-Rosto desenhado (atlas de 8 expressões): feliz, piscando, empolgado (olhos
-de estrela), triste (lagriminha), concentrado, surpreso, risada, piscadinha.
-Piscam sozinhos e olham para a bola enquanto ela rola.
+Rosto desenhado em alta resolução (atlas 4096×2048, 8 expressões de
+1024 px): olhos grandes e escuros com dois brilhos, sobrancelha curtinha,
+bochecha rosada e boquinha em "w" logo abaixo do nariz 3D — feliz,
+piscando, empolgado (brilhinhos nos olhos), triste (pálpebra caída e
+lagriminha), concentrado, surpreso, risada, piscadinha. Piscam sozinhos e
+olham para a bola enquanto ela rola.
+
+**Movimento com peso de verdade** (`scripts/personagem.gd`): rig com
+quadril, joelho, tornozelo e pé. IK de duas juntas nas pernas: o pé que
+apoia fica travado no chão (não escorrega nem flutua), o joelho dobra
+sozinho quando o corpo abaixa, o quadril desce se o pé não alcançaria, e
+se o corpo anda ou gira o pé dá um passinho automático. Pulos com arco de
+gravidade e "mola" (agacha ao aterrissar, estica ao decolar). Sombra de
+contato embaixo de cada pé. Banco de teste: `tools/testes/anim_teste.tscn`.
 
 Animações (poses-chave, `scripts/animacoes.gd`): parado, pronto (bola no
 peito), **arremesso** (passos + deslize, solta a bola no quadro certo),
@@ -144,7 +161,17 @@ para o próximo.
 
 - **Modelagem por SDF** (`tools/modelos/`): formas lisas soldadas (estilo
   vinil/massinha) → malha por Surface Nets → recursos nativos do Godot com
-  **LOD automático**. Mascotes com partes articuladas (inclusive o rabo).
+  **LOD automático**. Mascotes com partes articuladas (inclusive rabo e pés).
+- **Bordas de cor nítidas (4K)**: onde a cor muda (listras, bolinhas,
+  manchas), o modelador subdivide a malha duas vezes e suaviza a cor como
+  um antisserrilhado — sem os "degraus" de cor. Listras dos para-choques e
+  desenho do chão (grama listrada, crateras, ondas de areia, flores) são
+  calculados no shader, pixel a pixel.
+- **Nitidez 4K**: MSAA 4x, filtro anisotrópico, mipmaps em todas as
+  imagens, compressão de alta qualidade (BPTC/ASTC) nos rostos, bola,
+  madeira e letreiros; letreiros e logo em 1,6x; sombra em duas divisões.
+  Na qualidade média/baixa (TV Box), o MSAA cai e as malhas simplificam
+  mais cedo (nível de detalhe), para manter os quadros por segundo.
 - **Shader toon** próprio: duas faixas de luz, sombra colorida, brilho de
   borda, rosto projetado (atlas). Contorno por casca invertida.
 - **Pista**: madeira com verniz, setas e pontos de pista (decoração de
@@ -167,6 +194,9 @@ para o próximo.
 | `python3 tools/modelos/temas.py` | gera os objetos dos 4 cenários |
 | `godot --headless --path . --script res://tools/modelos/assar_modelos.gd` | converte para recursos do Godot com LOD (`-- temas` só os cenários) |
 | `python3 tools/arte/gerar_arte.py` | rostos, texturas, letreiros, logo, ícones |
+| `python3 tools/ajustar_importacao.py` | mipmaps e compressão de alta qualidade nas imagens (rodar depois de gerar artes) |
+| `godot --path . res://tools/testes/anim_teste.tscn -- saida.png danca 0.2,0.6 lado` | folha de quadros de uma animação (pés, joelhos, pulos) |
+| `godot --path . -- --instantes=pasta --em=2,5` | fotos do jogo rodando em instantes fixos (conferir nitidez, até 4K) |
 | `godot --path . res://tools/testes/retratos.tscn` | retratos dos mascotes (placar/divulgação) |
 | `python3 tools/sons/gerar_sons.py` | efeitos e músicas originais |
 | `godot --headless --path . --fixed-fps 120 res://tools/testes/calibrar.tscn` | calibra a tabela de jogadas (`-- --validar=normal` confere) |

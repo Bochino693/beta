@@ -242,6 +242,7 @@ func tirar(chave: String) -> ImageTexture:
 	if img == null or img.is_empty() or _escura(img):
 		return null
 	img.convert(Image.FORMAT_RGB8)
+	img.generate_mipmaps()
 	var t := ImageTexture.create_from_image(img)
 	fotos[chave] = t
 	if _falsa != null and _falsas.size() > 1:
@@ -285,6 +286,7 @@ func foto_recorde(jogadores: int) -> Texture2D:
 	if caminho != "" and FileAccess.file_exists(caminho):
 		var img := Image.load_from_file(caminho)
 		if img != null and not img.is_empty():
+			img.generate_mipmaps()
 			t = ImageTexture.create_from_image(img)
 	_recordes[jogadores] = t
 	return t

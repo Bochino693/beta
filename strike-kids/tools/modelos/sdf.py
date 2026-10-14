@@ -392,12 +392,14 @@ def gradiente(forma, P, eps=1e-4):
     return g / np.maximum(n, 1e-12)
 
 
-def gerar_malha(forma, bmin, bmax, passo, paleta, pinturas=(), mascara_rosto=None, projetar=2):
+def gerar_malha(forma, bmin, bmax, passo, paleta, pinturas=(), mascara_rosto=None, projetar=2, refinar=2):
     """Surface Nets: grade regular -> um vértice por célula que cruza a
     superfície -> um quadrado por aresta da grade que cruza a superfície.
 
     paleta: lista de cores (r, g, b, a) indexada pelo cor_id das formas.
     mascara_rosto: função(P, cor_ids) -> alfa (0..1); None = alfa da paleta.
+    refinar: quantas vezes subdividir os triângulos onde a cor muda (bordas
+    de cor lisas e nítidas, sem degraus).
     """
     bmin, bmax = _v(bmin), _v(bmax)
     nx, ny, nz = [int(math.ceil((bmax[i] - bmin[i]) / passo)) + 1 for i in range(3)]
@@ -501,15 +503,95 @@ def gerar_malha(forma, bmin, bmax, passo, paleta, pinturas=(), mascara_rosto=Non
     area = np.linalg.norm(np.cross(V[T[:, 1]] - V[T[:, 0]], V[T[:, 2]] - V[T[:, 0]]), axis=1)
     T = T[area > 1e-12]
 
-    _, cids = forma.dc(V)
+    # bordas de cor nítidas: a malha fica mais fina SÓ onde a cor muda
+    V, T = refinar_bordas(forma, V, T, paleta, pinturas, mascara_rosto, refinar, projetar)
+    N = gradiente(forma, V)
+    C = cores_suaves(forma, V, N, paleta, pinturas, mascara_rosto, passo / (2 ** refinar))
+    return Malha(V.astype(np.float32), N.astype(np.float32), C.astype(np.float32), T.astype(np.int32))
+
+
+def _cores(forma, P, paleta, pinturas, mascara_rosto):
+    """Cor (RGBA) e índice da cor em cada ponto: forma mais próxima + pinturas."""
+    _, cids = forma.dc(P)
     for p in pinturas:
-        m = p.regiao(V)
-        cids = np.where(m, p.cor_id, cids)
+        cids = np.where(p.regiao(P), p.cor_id, cids)
     pal = np.array(paleta, dtype=np.float64)
     C = pal[cids].copy()
     if mascara_rosto is not None:
-        C[:, 3] = mascara_rosto(V, cids)
-    return Malha(V.astype(np.float32), N.astype(np.float32), C.astype(np.float32), T.astype(np.int32))
+        C[:, 3] = mascara_rosto(P, cids)
+    return C, cids
+
+
+def refinar_bordas(forma, V, T, paleta, pinturas, mascara_rosto, niveis, projetar=2):
+    """Divide (1 -> 4) os triângulos em que a cor muda, `niveis` vezes, com os
+    vizinhos divididos em 2 ou 3 para não abrir frestas (refinamento
+    "vermelho-verde"). Os vértices novos são puxados para a superfície.
+    Assim listras, bolinhas e manchas ficam com a borda lisa, sem degraus,
+    e as partes de cor única continuam leves."""
+    for _ in range(niveis):
+        _, cids = _cores(forma, V, paleta, pinturas, mascara_rosto)
+        a, b, c = T[:, 0], T[:, 1], T[:, 2]
+        borda = (cids[a] != cids[b]) | (cids[b] != cids[c]) | (cids[a] != cids[c])
+        if not borda.any():
+            break
+        nv = len(V)
+        E = np.stack([T[:, [0, 1]], T[:, [1, 2]], T[:, [2, 0]]], 1)          # (nt, 3, 2)
+        Es = np.sort(E, axis=2)
+        chave = Es[..., 0].astype(np.int64) * nv + Es[..., 1]
+        cortar = np.unique(chave[borda].ravel())
+        ka, kb = cortar // nv, cortar % nv
+        M = (V[ka] + V[kb]) * 0.5
+        for _ in range(projetar):
+            g = gradiente(forma, M)
+            M = M - forma.d(M)[:, None] * g
+        V = np.concatenate([V, M])
+        pos = np.searchsorted(cortar, chave)
+        pos_ok = np.clip(pos, 0, len(cortar) - 1)
+        tem = cortar[pos_ok] == chave
+        meio = np.where(tem, nv + pos_ok, -1)                             # (nt, 3): ab, bc, ca
+        mab, mbc, mca = meio[:, 0], meio[:, 1], meio[:, 2]
+        e0, e1, e2 = mab >= 0, mbc >= 0, mca >= 0
+        n = e0.astype(int) + e1 + e2
+        novos = [T[n == 0]]
+        s = n == 3
+        novos += [np.stack([a[s], mab[s], mca[s]], 1), np.stack([mab[s], b[s], mbc[s]], 1),
+                  np.stack([mca[s], mbc[s], c[s]], 1), np.stack([mab[s], mbc[s], mca[s]], 1)]
+        s = (n == 1) & e0
+        novos += [np.stack([a[s], mab[s], c[s]], 1), np.stack([mab[s], b[s], c[s]], 1)]
+        s = (n == 1) & e1
+        novos += [np.stack([a[s], b[s], mbc[s]], 1), np.stack([a[s], mbc[s], c[s]], 1)]
+        s = (n == 1) & e2
+        novos += [np.stack([a[s], b[s], mca[s]], 1), np.stack([mca[s], b[s], c[s]], 1)]
+        s = (n == 2) & e0 & e1
+        novos += [np.stack([mab[s], b[s], mbc[s]], 1), np.stack([a[s], mab[s], mbc[s]], 1), np.stack([a[s], mbc[s], c[s]], 1)]
+        s = (n == 2) & e1 & e2
+        novos += [np.stack([mbc[s], c[s], mca[s]], 1), np.stack([a[s], b[s], mbc[s]], 1), np.stack([a[s], mbc[s], mca[s]], 1)]
+        s = (n == 2) & e2 & e0
+        novos += [np.stack([a[s], mab[s], mca[s]], 1), np.stack([mab[s], b[s], c[s]], 1), np.stack([mab[s], c[s], mca[s]], 1)]
+        T = np.concatenate([x for x in novos if len(x)])
+    return V, T
+
+
+def cores_suaves(forma, V, N, paleta, pinturas, mascara_rosto, raio):
+    """Cor de cada vértice = média de amostras em volta dele (no plano da
+    superfície): a troca de cor vira uma transição de meio vértice, sem
+    serrilhado, como um antisserrilhado da pintura."""
+    C, _ = _cores(forma, V, paleta, pinturas, mascara_rosto)
+    if raio <= 0:
+        return C
+    ref = np.where(np.abs(N[:, 1:2]) < 0.9, np.array([[0.0, 1.0, 0.0]]), np.array([[1.0, 0.0, 0.0]]))
+    t1 = np.cross(N, ref)
+    t1 /= np.maximum(np.linalg.norm(t1, axis=1, keepdims=True), 1e-12)
+    t2 = np.cross(N, t1)
+    soma = C * 2.0
+    peso = 2.0
+    for k in range(6):
+        ang = k * math.pi / 3 + 0.3
+        P = V + (t1 * math.cos(ang) + t2 * math.sin(ang)) * (raio * 0.55)
+        Ck, _ = _cores(forma, P, paleta, pinturas, mascara_rosto)
+        soma += Ck
+        peso += 1.0
+    return soma / peso
 
 
 def juntar(malhas):

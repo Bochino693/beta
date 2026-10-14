@@ -82,6 +82,7 @@ func _ready() -> void:
 	_camera_tela = TextureRect.new()
 	_camera_tela.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	_camera_tela.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	_camera_tela.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
 	var lado: float = minf(T.x * 0.8, T.y * 0.5)
 	_camera_tela.size = Vector2(lado, lado)
 	_camera_tela.position = Vector2((T.x - lado) / 2, T.y * 0.3)

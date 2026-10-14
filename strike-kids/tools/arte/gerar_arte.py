@@ -29,6 +29,7 @@ os.makedirs(TEX, exist_ok=True)
 os.makedirs(UI, exist_ok=True)
 
 SS = 4  # super-amostragem
+ESCALA_UI = 1.6   # letreiros e logo em 1,6x (nítidos em telas 4K); o HUD divide por isso
 
 
 def cor(h, a=255):
@@ -361,6 +362,213 @@ def desenhar_rosto(R, expr):
     return img
 
 
+# ---------------------------------------------------------------- rostos dos mascotes (v2)
+# Desenho alinhado ao modelo 3D (tools/modelos/personagens.py): o rosto é
+# projetado de frente na cabeça; a coordenada da imagem vem da altura no
+# mundo (y) e da distância ao centro (x), em metros.
+CABECA_PESCOCO_Y = 0.635
+ROSTO_CENTRO_Y = 0.205
+ROSTO_TAM = (0.46, 0.40)
+
+
+def uv_rosto(x, y_mundo):
+    """(x em metros, y no mundo) -> (u, v) 0..1 na célula do rosto."""
+    u = 0.5 + x / ROSTO_TAM[0]
+    v = 0.5 - (y_mundo - CABECA_PESCOCO_Y - ROSTO_CENTRO_Y) / ROSTO_TAM[1]
+    return u, v
+
+
+MASCOTES = {
+    "bob": dict(olho_x=0.09, olho_y=0.878, olho_rx=0.038, olho_ry=0.049, olho="#2A1814", iris="#6A3E22",
+                sobr="#A2602C", pelo="#E9A55B", nariz_baixo=0.789, boca_y=0.768, boca_l=0.068, bochecha=(0.13, 0.818),
+                cilios=False, bigode=False),
+    "mia": dict(olho_x=0.092, olho_y=0.88, olho_rx=0.039, olho_ry=0.05, olho="#1A1420", iris="#2FB27E",
+                sobr="#8A92AA", pelo="#C9CEDE", nariz_baixo=0.789, boca_y=0.768, boca_l=0.064, bochecha=(0.132, 0.818),
+                cilios=True, bigode=True),
+}
+
+
+def desenhar_rosto_mascote(cfg, expr, C):
+    """Rosto de pelúcia: olhos grandes e brilhantes (sem branco), sobrancelha
+    curtinha, bochecha rosada, boquinha em "w" logo abaixo do nariz 3D."""
+    img = Image.new("RGBA", (C, C), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+
+    def P(x, y):
+        u, v = uv_rosto(x, y)
+        return u * C, v * C
+
+    def M(m):   # metros -> pixels
+        return m / ROSTO_TAM[0] * C
+
+    escuro = cor(cfg["olho"])
+    rx, ry = M(cfg["olho_rx"]), M(cfg["olho_ry"])
+    escala = {"surpreso": 1.12, "empolgado": 1.1, "concentrado": 0.96}.get(expr, 1.0)
+    rx, ry = rx * escala, ry * escala
+    olhar_y = {"triste": 0.18, "concentrado": -0.05}.get(expr, 0.0)
+
+    # bochechas (rosadas e macias)
+    camada = Image.new("RGBA", (C, C), (0, 0, 0, 0))
+    dc = ImageDraw.Draw(camada)
+    forca = 1.25 if expr in ("empolgado", "risada", "feliz", "piscadinha") else 0.9
+    for s in (-1, 1):
+        cx, cy = P(s * cfg["bochecha"][0], cfg["bochecha"][1])
+        elipse(dc, cx, cy, M(0.034), M(0.021), fill=cor("#FF8FA6", int(140 * forca)))
+    camada = camada.filter(ImageFilter.GaussianBlur(M(0.008)))
+    img.alpha_composite(camada)
+    d = ImageDraw.Draw(img)
+
+    def olho_aberto(cx, cy, lado, brilho=False, palpebra=0.0, olhar=0.0):
+        cy2 = cy + ry * olhar
+        elipse(d, cx, cy, rx, ry, fill=escuro)
+        # íris (só a parte de baixo, clarinha) e pupila
+        camada = Image.new("RGBA", (C, C), (0, 0, 0, 0))
+        dl = ImageDraw.Draw(camada)
+        elipse(dl, cx, cy2 + ry * 0.2, rx * 0.8, ry * 0.72, fill=cor(cfg["iris"]))
+        clara = tuple(min(255, int(v * 1.5 + 30)) for v in cor(cfg["iris"])[:3]) + (255,)
+        elipse(dl, cx, cy2 + ry * 0.5, rx * 0.55, ry * 0.3, fill=clara)
+        elipse(dl, cx, cy2 + ry * 0.08, rx * 0.5, ry * 0.56, fill=escuro)
+        camada = camada.filter(ImageFilter.GaussianBlur(M(0.0012)))
+        mascara = Image.new("L", (C, C), 0)
+        elipse(ImageDraw.Draw(mascara), cx, cy, rx * 0.97, ry * 0.97, fill=255)
+        img.paste(camada, (0, 0), Image.composite(camada.getchannel("A"), Image.new("L", (C, C), 0), mascara))
+        dd = ImageDraw.Draw(img)
+        # brilhos
+        elipse(dd, cx - rx * 0.32, cy2 - ry * 0.36, rx * 0.36, ry * 0.3, fill=cor("#FFFFFF"))
+        elipse(dd, cx + rx * 0.36, cy2 + ry * 0.36, rx * 0.15, ry * 0.12, fill=cor("#FFFFFF", 235))
+        if brilho:
+            estrela(dd, cx + rx * 0.28, cy2 - ry * 0.48, rx * 0.26, rx * 0.08, cor("#FFFFFF"), pontas=4)
+            estrela(dd, cx - rx * 0.42, cy2 + ry * 0.42, rx * 0.16, rx * 0.05, cor("#FFFFFF"), pontas=4)
+        if palpebra > 0.0:
+            # pálpebra da cor do pelo (cansado, triste, concentrado)
+            dd.chord([cx - rx * 1.25, cy - ry * 1.6, cx + rx * 1.25, cy - ry * 1.6 + ry * 2.0 * palpebra * 1.3], 0, 180,
+                     fill=cor(cfg["pelo"]))
+            dd.rectangle([cx - rx * 1.25, cy - ry * 1.7, cx + rx * 1.25, cy - ry * 1.6 + ry * 0.65 * palpebra],
+                         fill=cor(cfg["pelo"]))
+            dd.arc([cx - rx * 1.02, cy - ry * 1.6 + ry * 2.0 * palpebra * 1.3 - ry * 0.95, cx + rx * 1.02,
+                    cy - ry * 1.6 + ry * 2.0 * palpebra * 1.3 + ry * 0.12], 15, 165, fill=escuro, width=max(2, int(M(0.0045))))
+        if cfg["cilios"]:
+            w = max(2, int(M(0.0042)))
+            for k in range(2):
+                a = math.radians(-35 - k * 26) if lado > 0 else math.radians(-145 + k * 26)
+                x0, y0 = cx + math.cos(a) * rx * 0.96, cy + math.sin(a) * ry * 0.96
+                x1, y1 = cx + math.cos(a) * rx * 1.32, cy + math.sin(a) * ry * 1.24
+                dd.line([x0, y0, x1, y1], fill=escuro, width=w)
+                elipse(dd, x1, y1, w * 0.5, w * 0.5, fill=escuro)
+
+    def olho_fechado(cx, cy, feliz=True):
+        w = max(3, int(M(0.0062)))
+        if feliz:   # "^" (sorrindo de olho fechado)
+            d.arc([cx - rx * 1.05, cy - ry * 0.55, cx + rx * 1.05, cy + ry * 1.0], 200, 340, fill=escuro, width=w)
+        else:       # piscando: "u" suave
+            d.arc([cx - rx, cy - ry * 0.9, cx + rx, cy + ry * 0.45], 20, 160, fill=escuro, width=w)
+            if cfg["cilios"]:
+                for k in (-1, 1):
+                    x0 = cx + k * rx * 0.85
+                    d.line([x0, cy - ry * 0.12, x0 + k * M(0.008), cy + ry * 0.02], fill=escuro, width=max(2, w // 2))
+
+    def sobrancelha(cx, cy, lado, incl, curva):
+        w = M(0.0075)
+        L = M(0.034)
+        pts = []
+        for i in range(11):
+            t = i / 10 - 0.5
+            pts.append((cx + t * L, cy + lado * t * incl * L - curva * L * (0.25 - t * t)))
+        d.line(pts, fill=cor(cfg["sobr"]), width=int(w), joint="curve")
+        for q in (pts[0], pts[-1]):
+            elipse(d, q[0], q[1], w / 2, w / 2, fill=cor(cfg["sobr"]))
+
+    # olhos
+    tipos = {"feliz": ("aberto", "aberto"), "piscando": ("u", "u"), "empolgado": ("brilho", "brilho"),
+             "triste": ("triste", "triste"), "concentrado": ("conc", "conc"), "surpreso": ("aberto", "aberto"),
+             "risada": ("^", "^"), "piscadinha": ("aberto", "^")}[expr]
+    for (lado, x), tipo in zip(((1, cfg["olho_x"]), (-1, -cfg["olho_x"])), tipos):
+        cx, cy = P(x, cfg["olho_y"])
+        if tipo == "aberto":
+            olho_aberto(cx, cy, lado)
+        elif tipo == "brilho":
+            olho_aberto(cx, cy, lado, brilho=True)
+        elif tipo == "triste":
+            olho_aberto(cx, cy, lado, palpebra=0.22, olhar=olhar_y)
+        elif tipo == "conc":
+            olho_aberto(cx, cy, lado, palpebra=0.28, olhar=olhar_y)
+        elif tipo == "^":
+            olho_fechado(cx, cy, True)
+        else:
+            olho_fechado(cx, cy, False)
+    d = ImageDraw.Draw(img)
+    # sobrancelhas
+    incl = {"triste": -0.45, "concentrado": 0.3, "surpreso": 0.0}.get(expr, 0.05)
+    curva = {"surpreso": 0.55, "empolgado": 0.45, "feliz": 0.3, "risada": 0.35, "piscadinha": 0.3}.get(expr, 0.15)
+    dy = {"surpreso": 0.012, "empolgado": 0.008, "triste": 0.004}.get(expr, 0.0)
+    for s in (1, -1):
+        cx, cy = P(s * (cfg["olho_x"] + 0.004), cfg["olho_y"] + cfg["olho_ry"] + 0.024 + dy)
+        sobrancelha(cx, cy, s, incl, curva)
+    # boca: risquinho do nariz + "w"; aberta quando feliz
+    borda = cor("#4A1E22")
+    interior = cor("#8E2A3C")
+    lingua = cor("#FF7C90")
+    w = max(3, int(M(0.0062)))
+    nx, ny = P(0.0, cfg["nariz_baixo"])
+    bx, by = P(0.0, cfg["boca_y"])
+    L = M(cfg["boca_l"])
+
+    def w_boca(abre=1.0):
+        d.line([nx, ny - M(0.004), bx, by], fill=borda, width=w)
+        for s in (-1, 1):
+            caixa = [bx + (0 if s > 0 else -L * 0.5), by - L * 0.22 * abre, bx + (L * 0.5 if s > 0 else 0), by + L * 0.26 * abre]
+            d.arc(caixa, 0, 180, fill=borda, width=w)
+
+    tipo_boca = {"feliz": "aberta", "piscando": "w", "empolgado": "grande", "triste": "triste", "concentrado": "w",
+                 "surpreso": "o", "risada": "grande", "piscadinha": "lingua"}[expr]
+    if tipo_boca == "w":
+        w_boca()
+    elif tipo_boca in ("aberta", "grande"):
+        g = 1.0 if tipo_boca == "aberta" else 1.4
+        w_boca(0.9)
+        caixa = [bx - L * 0.3 * g, by - L * 0.02, bx + L * 0.3 * g, by + L * 0.62 * g]
+        d.chord(caixa, 0, 180, fill=borda)
+        d.chord([caixa[0] + w, caixa[1] + w * 0.4, caixa[2] - w, caixa[3] - w], 0, 180, fill=interior)
+        elipse(d, bx, by + L * 0.42 * g, L * 0.17 * g, L * 0.1 * g, fill=lingua)
+    elif tipo_boca == "o":
+        d.line([nx, ny - M(0.004), bx, by - L * 0.08], fill=borda, width=w)
+        elipse(d, bx, by + L * 0.18, L * 0.15, L * 0.19, fill=borda)
+        elipse(d, bx, by + L * 0.18, L * 0.15 - w, L * 0.19 - w, fill=interior)
+    elif tipo_boca == "triste":
+        d.line([nx, ny - M(0.004), bx, by], fill=borda, width=w)
+        d.arc([bx - L * 0.32, by + L * 0.05, bx + L * 0.32, by + L * 0.5], 200, 340, fill=borda, width=w)
+    elif tipo_boca == "lingua":
+        w_boca()
+        elipse(d, bx + L * 0.16, by + L * 0.3, L * 0.13, L * 0.15, fill=borda)
+        elipse(d, bx + L * 0.16, by + L * 0.3, L * 0.13 - w * 0.8, L * 0.15 - w * 0.8, fill=lingua)
+    if cfg["bigode"]:
+        wb = max(2, int(M(0.0028)))
+        for s in (-1, 1):
+            for k in range(3):
+                x0, y0 = P(s * 0.06, cfg["boca_y"] + 0.024 - k * 0.011)
+                x1, y1 = P(s * 0.15, cfg["boca_y"] + 0.032 - k * 0.022)
+                d.line([x0, y0, (x0 + x1) / 2, (y0 + y1) / 2 - M(0.003), x1, y1], fill=cor("#6E7488", 190), width=wb, joint="curve")
+    if expr == "triste":   # lagriminha
+        cx, cy = P(-cfg["olho_x"] - 0.01, cfg["olho_y"] - cfg["olho_ry"] - 0.012)
+        r = M(0.009)
+        d.polygon([(cx, cy - r * 1.8), (cx - r, cy), (cx + r, cy)], fill=cor("#7FD3FF"))
+        elipse(d, cx, cy, r, r, fill=cor("#7FD3FF"))
+    return img
+
+
+def gerar_atlas_mascote(nome, colunas=4, celula_final=1024):
+    cfg = MASCOTES[nome]
+    C = celula_final * 2
+    linhas = (len(EXPR_PERSONAGEM) + colunas - 1) // colunas
+    atlas = Image.new("RGBA", (colunas * celula_final, linhas * celula_final), (0, 0, 0, 0))
+    for i, e in enumerate(EXPR_PERSONAGEM):
+        img = desenhar_rosto_mascote(cfg, e, C)
+        img = img.resize((celula_final, celula_final), Image.LANCZOS)
+        atlas.paste(img, ((i % colunas) * celula_final, (i // colunas) * celula_final))
+    atlas.save(os.path.join(TEX, "rosto_%s.png" % nome))
+    print("  textura rosto", nome, atlas.size)
+
+
 def gerar_atlas(nome, R, exprs, colunas=4, celula_final=512):
     linhas = (len(exprs) + colunas - 1) // colunas
     atlas = Image.new("RGBA", (colunas * celula_final, linhas * celula_final), (0, 0, 0, 0))
@@ -380,12 +588,12 @@ def rostos():
     mia = Rosto(c, iris="#3DBE7A", sobrancelha="#7D8599", bicho=True, gato=True, cilios=True, olho_x=0.205,
                 olho_y=0.395, olho_rx=0.102, olho_ry=0.132, boca_y=0.725, boca_l=0.19, bochecha_x=0.33,
                 bochecha_y=0.58, sobr_y=0.2, nariz_y=0.655, bochecha="#FF8FA8")
-    gerar_atlas("rosto_bob", bob, EXPR_PERSONAGEM)
-    gerar_atlas("rosto_mia", mia, EXPR_PERSONAGEM)
+    gerar_atlas_mascote("bob")
+    gerar_atlas_mascote("mia")
     # pino: rosto menor e mais simples (olhos grandes, sem sobrancelha grossa)
-    pino = Rosto(256 * SS, iris="#2A2A55", sobrancelha="#2A1A30", olho_x=0.2, olho_y=0.42, olho_rx=0.105,
+    pino = Rosto(512 * SS, iris="#2A2A55", sobrancelha="#2A1A30", olho_x=0.2, olho_y=0.42, olho_rx=0.105,
                  olho_ry=0.15, boca_y=0.74, boca_l=0.22, bochecha_x=0.34, bochecha_y=0.66, sobr_y=0.2)
-    gerar_atlas("rosto_pino", pino, EXPR_PINO, celula_final=256)
+    gerar_atlas("rosto_pino", pino, EXPR_PINO, celula_final=512)
 
 
 # =====================================================================
@@ -394,42 +602,39 @@ def rostos():
 
 def madeira():
     """Tábuas da pista (repete no comprimento). 39 tábuas como na pista real,
-    tons de bordo claro com veios; envernizada (o brilho vem do shader)."""
-    W, H = 512, 1024
+    tons de bordo claro com veios; envernizada (o brilho vem do shader).
+    1024 x 2048 (nítida de perto em 4K)."""
+    import numpy as np
+    W, H = 1024, 2048
     rnd = random.Random(5)
-    img = Image.new("RGB", (W, H))
-    px = img.load()
     tabuas = 39
     larg = W / tabuas
-    base_cores = []
-    for i in range(tabuas):
-        t = rnd.uniform(-1, 1)
-        base_cores.append((236 + 10 * t, 196 + 12 * t, 140 + 14 * t))
-    # emendas de tábua em alturas diferentes
-    emendas = [[rnd.uniform(0, H) for _ in range(2)] for _ in range(tabuas)]
-    for x in range(W):
-        i = min(int(x / larg), tabuas - 1)
-        r0, g0, b0 = base_cores[i]
-        fx = (x - i * larg) / larg
-        for y in range(H):
-            veio = math.sin((y * 0.045) + math.sin(y * 0.011 + i * 1.7) * 3.0 + fx * 2.0 + i)
-            veio2 = math.sin(y * 0.19 + i * 3.1 + fx * 9.0) * 0.5
-            k = 1.0 + 0.045 * veio + 0.02 * veio2
-            # borda da tábua mais escura
-            borda = 1.0 - 0.10 * max(0.0, 1.0 - min(fx, 1 - fx) * 14)
-            emenda = 1.0
-            for e in emendas[i]:
-                if abs(((y - e + H / 2) % H) - H / 2) < 1.2:
-                    emenda = 0.86
-            px[x, y] = (int(min(255, r0 * k * borda * emenda)), int(min(255, g0 * k * borda * emenda)), int(min(255, b0 * k * borda * emenda)))
-    img.save(os.path.join(TEX, "madeira.png"))
-    print("  textura madeira", img.size)
+    base = np.array([[236 + 10 * t, 196 + 12 * t, 140 + 14 * t] for t in (rnd.uniform(-1, 1) for _ in range(tabuas))])
+    emendas = np.array([[rnd.uniform(0, H) for _ in range(2)] for _ in range(tabuas)])
+    x = np.arange(W)[None, :].repeat(H, 0).astype(float)
+    y = np.arange(H)[:, None].repeat(W, 1).astype(float)
+    i = np.minimum((x / larg).astype(int), tabuas - 1)
+    fx = (x - i * larg) / larg
+    ys = y / 2.0   # mesma densidade de veio da versão 512 x 1024
+    veio = np.sin(ys * 0.045 + np.sin(ys * 0.011 + i * 1.7) * 3.0 + fx * 2.0 + i)
+    veio2 = np.sin(ys * 0.19 + i * 3.1 + fx * 9.0) * 0.5
+    k = 1.0 + 0.045 * veio + 0.02 * veio2
+    borda = 1.0 - 0.10 * np.maximum(0.0, 1.0 - np.minimum(fx, 1 - fx) * 14)
+    emenda = np.ones_like(x)
+    for e in range(2):
+        ee = emendas[i, e]
+        perto = np.abs(((y - ee + H / 2) % H) - H / 2) < 2.0
+        emenda = np.where(perto, 0.86, emenda)
+    f = (k * borda * emenda)[..., None]
+    img = np.clip(base[i] * f, 0, 255).astype(np.uint8)
+    Image.fromarray(img, "RGB").save(os.path.join(TEX, "madeira.png"))
+    print("  textura madeira", (W, H))
 
 
 def bola_textura(nome, fundo, fundo2, desenho, cor_desenho, faixa):
     """Textura equiretangular (2:1) para a bola. desenho: 'estrela' | 'coracao' | 'pata'."""
-    W, H = 1024, 512
-    img = Image.new("RGBA", (W * SS // 2, H * SS // 2), cor(fundo))
+    W, H = 2048, 1024
+    img = Image.new("RGBA", (W * 2, H * 2), cor(fundo))
     d = ImageDraw.Draw(img)
     w, h = img.size
     # degradê suave (redemoinho)
@@ -584,7 +789,7 @@ def gradiente_vertical(tam, cores):
 
 
 def letreiro(texto, nome, cores, contorno="#3B0A63", tam_fonte=260, fonte_nome="titan_one.ttf", inclinar=-4,
-             brilho=True, estrelas=True, linhas=None):
+             brilho=True, estrelas=True, linhas=None, escala=None):
     """Texto de desenho animado: degradê, contorno grosso, sombra, brilho."""
     f = fonte(fonte_nome, tam_fonte * 2)
     textos = linhas or [texto]
@@ -655,20 +860,22 @@ def letreiro(texto, nome, cores, contorno="#3B0A63", tam_fonte=260, fonte_nome="
         final = final.rotate(inclinar, resample=Image.BICUBIC, expand=True)
     bbox = final.getbbox()
     final = final.crop(bbox)
-    final = final.resize((final.width // 2, final.height // 2), Image.LANCZOS)
+    e = (ESCALA_UI if escala is None else escala) / 2.0
+    final = final.resize((int(final.width * e), int(final.height * e)), Image.LANCZOS)
     final.save(os.path.join(UI, nome + ".png"))
     print("  letreiro", nome, final.size)
 
 
 def logo():
     """STRIKE / KIDS com pino e bola."""
+    k = SS // 2
     letreiro("", "logo_texto", ["#FFF6A8", "#FFD43B", "#FF8A1E"], tam_fonte=300, inclinar=0, estrelas=False,
-             linhas=["STRIKE", "KIDS"])
-    txt = Image.open(os.path.join(UI, "logo_texto.png"))
+             linhas=["STRIKE", "KIDS"], escala=float(k))
+    txt2 = Image.open(os.path.join(UI, "logo_texto.png"))
+    txt = txt2.resize((txt2.width // k, txt2.height // k), Image.LANCZOS)
     W, H = txt.width + 360, txt.height + 140
     img = Image.new("RGBA", (W * SS // 2, H * SS // 2), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
-    k = SS // 2
     # pino estilizado à esquerda
     px0, py0 = 150 * k, (H * k) * 0.52
     def pino(cx, cy, esc, giro):
@@ -691,7 +898,7 @@ def logo():
         img.alpha_composite(camada, (int(cx - camada.width / 2), int(cy - camada.height / 2)))
     pino(px0 + 30 * k, py0, 0.9, 14)
     pino(W * k - 140 * k, py0 + 30 * k, 0.75, -18)
-    t2 = txt.resize((txt.width * k, txt.height * k), Image.LANCZOS)
+    t2 = txt2
     img.alpha_composite(t2, (int((W * k - t2.width) / 2), int(70 * k)))
     # bola com brilho
     bx, by, br = W * k - 210 * k, H * k - 150 * k, 95 * k
@@ -703,7 +910,7 @@ def logo():
     estrela(d, bx + br * 0.35, by + br * 0.3, br * 0.32, br * 0.14, cor("#FFE14D"))
     elipse(d, bx - br * 0.45, by - br * 0.55, br * 0.18, br * 0.12, fill=cor("#FFFFFF"))
     img = img.crop(img.getbbox())
-    img = img.resize((img.width * 2 // SS, img.height * 2 // SS), Image.LANCZOS)
+    img = img.resize((int(img.width * ESCALA_UI / k), int(img.height * ESCALA_UI / k)), Image.LANCZOS)
     img.save(os.path.join(UI, "logo.png"))
     os.remove(os.path.join(UI, "logo_texto.png"))
     print("  logo", img.size)
@@ -723,11 +930,6 @@ def icones():
     estrela(d, t / 2, t / 2 + t * 0.04, t * 0.48, t * 0.21, cor("#3B0A63", 160))
     estrela(d, t / 2, t / 2 + t * 0.04, t * 0.38, t * 0.165, cor("#B9A6E8", 200))
     reduzir(img, (128, 128)).save(os.path.join(UI, "estrela_vazia.png"))
-    # seta para os sensores
-    img = Image.new("RGBA", (t, t), (0, 0, 0, 0))
-    d = ImageDraw.Draw(img)
-    d.polygon([(t * 0.5, t * 0.08), (t * 0.92, t * 0.55), (t * 0.66, t * 0.55), (t * 0.66, t * 0.92), (t * 0.34, t * 0.92), (t * 0.34, t * 0.55), (t * 0.08, t * 0.55)], fill=cor("#FFFFFF"))
-    reduzir(img, (96, 96)).save(os.path.join(UI, "seta.png"))
     print("  ícones ok")
 
 
