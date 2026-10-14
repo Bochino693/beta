@@ -68,7 +68,7 @@ def recortar(im):
     return im.crop(alfa.getbbox())
 
 
-def fundo(W, H):
+def fundo(W, H, pontilhado=True):
     """Azul-marinho com um brilho atrás da logo (o mesmo na abertura)."""
     y = np.linspace(0, 1, H)[:, None]
     x = np.linspace(-1, 1, W)[None, :]
@@ -77,8 +77,10 @@ def fundo(W, H):
     f = topo[None, None, :] * (1 - y[..., None]) + base[None, None, :] * y[..., None]
     halo = np.exp(-((x * 1.1) ** 2 + ((y - 0.46) * 2.2) ** 2) * 2.2)[..., None]
     f = f + halo * np.array([40, 110, 170], np.float32) * 0.8
-    # pontilhado fininho: sem "degraus" no degradê
-    f = f + np.random.default_rng(1).uniform(-1.0, 1.0, f.shape[:2])[..., None]
+    # pontilhado fininho: sem "degraus" no degradê (só no fundo da abertura,
+    # que é pequeno; nas imagens de inicialização deixaria o arquivo pesado)
+    if pontilhado:
+        f = f + np.random.default_rng(1).uniform(-1.0, 1.0, f.shape[:2])[..., None]
     return Image.fromarray(np.clip(f, 0, 255).astype(np.uint8), "RGB").convert("RGBA")
 
 
@@ -88,7 +90,7 @@ def splash(logo):
     monitor em pé: topo do jogo à esquerda do HDMI, giro 1)."""
     W, H = 1080, 1920
     fundo(540, 960).convert("RGB").save(os.path.join(PASTA, "fundo.png"), optimize=True)
-    img = fundo(W, H)
+    img = fundo(W, H, False)
     lw = int(W * 0.82)
     lo = logo.resize((lw, int(lw * logo.height / logo.width)), Image.LANCZOS)
     # sombra suave embaixo da logo
@@ -102,7 +104,7 @@ def splash(logo):
     img.rotate(90, expand=True).save(os.path.join(RAIZ, "ui", "splash_giro_1.png"), optimize=True)
     img.rotate(-90, expand=True).save(os.path.join(RAIZ, "ui", "splash_giro_m1.png"), optimize=True)
     # TV deitada sem giro: a mesma arte, deitada
-    deitada = fundo(1920, 1080)
+    deitada = fundo(1920, 1080, False)
     lw = int(1080 * 0.82)
     lo = logo.resize((lw, int(lw * logo.height / logo.width)), Image.LANCZOS)
     sombra = Image.new("RGBA", lo.size, (0, 8, 24, 0))
