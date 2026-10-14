@@ -1,0 +1,10 @@
+# Godot 4: cache de importação e saídas de build
+.godot/
+build/
+APK-Pronto/
+*.apk
+*.idsig
+# saída intermediária do modelador (regenerável: python3 tools/modelos/modelos.py)
+tools/modelos/saida/
+tools/sons/__pycache__/
+tools/modelos/__pycache__/

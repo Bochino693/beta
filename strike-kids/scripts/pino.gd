@@ -1,0 +1,202 @@
+class_name Pino
+extends RigidBody3D
+
+## UM PINO com carinha. Corpo físico (Jolt) com o centro de massa no lugar
+## de um pino de verdade (ele tomba fácil), sons de batida e expressões:
+## normal / piscando / medo (bola chegando) / tonto (caído) / feliz (ficou).
+
+signal bateu(pino: Pino, forca: float)
+
+const EXPR := ["normal", "piscando", "medo", "tonto", "feliz", "surpreso", "triste", "bravo"]
+const MASSA := 1.5
+
+var numero := 1
+var lugar := Vector3.ZERO
+var malha: MeshInstance3D
+var mat: ShaderMaterial
+var removido := false
+var _expr := "normal"
+var _piscar := randf_range(1.0, 4.0)
+var _piscando := 0.0
+var _estrelas: Node3D
+var _sombra: MeshInstance3D
+var _ultimo_som := 0
+var teimoso := false   # planejado para ficar em pé (balança mas não cai fácil)
+
+
+func montar(n: int, pos: Vector3, malha_pino: Mesh, forma: Shape3D, rosto: Texture2D, meta: Dictionary) -> void:
+	numero = n
+	lugar = pos
+	name = "Pino%d" % n
+	mass = MASSA
+	center_of_mass_mode = RigidBody3D.CENTER_OF_MASS_MODE_CUSTOM
+	center_of_mass = Vector3(0, 0.17, 0)
+	can_sleep = true
+	contact_monitor = true
+	max_contacts_reported = 4
+	collision_layer = Mundo.CAMADA_PINOS
+	collision_mask = Mundo.CAMADA_MUNDO | Mundo.CAMADA_PINOS | Mundo.CAMADA_BOLA
+	var pm := PhysicsMaterial.new()
+	pm.friction = 0.45
+	pm.bounce = 0.32
+	physics_material_override = pm
+	var cs := CollisionShape3D.new()
+	cs.shape = forma
+	add_child(cs)
+	malha = MeshInstance3D.new()
+	malha.mesh = malha_pino
+	mat = Materiais.toon(true, 0.0026, {
+		"usa_rosto": true, "rosto": rosto, "rosto_grade": Vector2(4, 2),
+		"rosto_centro": Vector2(meta.get("centro", [0, 0.215])[0], meta.get("centro", [0, 0.215])[1]),
+		"rosto_tamanho": Vector2(meta.get("tamanho", [0.15, 0.13])[0], meta.get("tamanho", [0.15, 0.13])[1]),
+		"borda": 0.4, "cor_borda": Color(1.0, 0.9, 1.0),
+	})
+	malha.material_override = mat
+	malha.lod_bias = 3.0
+	add_child(malha)
+	_sombra = MeshInstance3D.new()
+	var q := QuadMesh.new()
+	q.size = Vector2(0.3, 0.3)
+	q.orientation = PlaneMesh.FACE_Y
+	_sombra.mesh = q
+	_sombra.material_override = Materiais.sombra_blob(0.45)
+	_sombra.top_level = true
+	_sombra.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(_sombra)
+	_estrelas = Node3D.new()
+	_estrelas.top_level = true
+	_estrelas.visible = false
+	var me := StandardMaterial3D.new()
+	me.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	me.albedo_texture = Materiais.textura("estrela")
+	me.albedo_color = Color("#FFE14D")
+	me.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR
+	me.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+	for i in 3:
+		var e := MeshInstance3D.new()
+		var qe := QuadMesh.new()
+		qe.size = Vector2(0.07, 0.07)
+		e.mesh = qe
+		e.material_override = me
+		var a := TAU * i / 3.0
+		e.position = Vector3(cos(a) * 0.1, 0, sin(a) * 0.1)
+		_estrelas.add_child(e)
+	add_child(_estrelas)
+	body_entered.connect(_ao_bater)
+	recolocar()
+
+
+func recolocar() -> void:
+	freeze_mode = RigidBody3D.FREEZE_MODE_KINEMATIC
+	freeze = true
+	removido = false
+	visible = true
+	global_transform = Transform3D(Basis(), lugar)
+	linear_velocity = Vector3.ZERO
+	angular_velocity = Vector3.ZERO
+	collision_layer = Mundo.CAMADA_PINOS
+	collision_mask = Mundo.CAMADA_MUNDO | Mundo.CAMADA_PINOS | Mundo.CAMADA_BOLA
+	malha.scale = Vector3.ONE
+	_estrelas.visible = false
+	teimoso = false
+	mass = MASSA
+	angular_damp = 0.0
+	linear_damp = 0.0
+	expressao("normal")
+
+
+## Libera a física (antes da bola chegar).
+func soltar() -> void:
+	if removido:
+		return
+	freeze = false
+	sleeping = true
+
+
+func prender() -> void:
+	freeze_mode = RigidBody3D.FREEZE_MODE_KINEMATIC
+	freeze = true
+
+
+func definir_teimoso(sim: bool) -> void:
+	teimoso = sim
+	mass = MASSA * (7.0 if sim else 1.0)
+	angular_damp = 5.0 if sim else 0.0
+	linear_damp = 1.5 if sim else 0.0
+
+
+func esta_caido() -> bool:
+	if removido:
+		return true
+	var up := global_transform.basis.y.normalized()
+	if up.y < 0.74:
+		return true
+	if global_position.y < -0.12:
+		return true
+	if Vector2(global_position.x - lugar.x, global_position.z - lugar.z).length() > 0.75:
+		return true
+	return false
+
+
+func tirar() -> void:
+	removido = true
+	prender()
+	visible = false
+	collision_layer = 0
+	collision_mask = 0
+	global_position = lugar + Vector3(0, -3, 0)
+	_estrelas.visible = false
+
+
+func expressao(nome: String) -> void:
+	_expr = nome
+	_celula(nome)
+
+
+func _celula(nome: String) -> void:
+	var i := EXPR.find(nome)
+	mat.set_shader_parameter("rosto_celula", Vector2(i % 4, i / 4))
+
+
+func _process(delta: float) -> void:
+	if not visible:
+		return
+	var p := global_position
+	_sombra.visible = p.y > -0.1
+	if _sombra.visible:
+		_sombra.global_position = Vector3(p.x, 0.007, p.z)
+		_sombra.global_rotation = Vector3.ZERO
+	# tontura: estrelinhas girando em volta da cabeça
+	if _estrelas.visible:
+		var topo := global_transform * Vector3(0, 0.42, 0)
+		_estrelas.global_position = topo + Vector3(0, 0.1, 0)
+		_estrelas.rotation.y += delta * 5.0
+	# piscar
+	if _piscando > 0.0:
+		_piscando -= delta
+		if _piscando <= 0.0:
+			_celula(_expr)
+	elif _expr == "normal" or _expr == "feliz":
+		_piscar -= delta
+		if _piscar <= 0.0:
+			_piscar = randf_range(1.5, 4.5)
+			_piscando = 0.12
+			_celula("piscando")
+
+
+func ficar_tonto() -> void:
+	if not removido:
+		expressao("tonto")
+		_estrelas.visible = true
+
+
+func _ao_bater(corpo: Node) -> void:
+	var agora := Time.get_ticks_msec()
+	if agora - _ultimo_som < 90:
+		return
+	_ultimo_som = agora
+	var v := linear_velocity.length()
+	if corpo is RigidBody3D:
+		v = max(v, (corpo as RigidBody3D).linear_velocity.length())
+	if v > 0.35:
+		bateu.emit(self, v)

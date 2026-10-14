@@ -1,0 +1,128 @@
+STRIKE KIDS - BOLICHE INFANTIL 3D (Turbo & Rosi)
+=================================================
+Godot 4.6.1 - renderizador Compatibility (OpenGL ES 3) - fisica Jolt
+Mesma plataforma do Dragon Bowling Pro Ultra (TV Box Android 10).
+
+
+O QUE E
+-------
+Boliche infantil para maquina de 5 sensores. A crianca rola a bola de
+verdade; o sensor que a bola acionar (esquerda, meio-esquerda, centro,
+meio-direita, direita) vira a jogada na tela, em 3D:
+
+  * O robozinho da vez (TURBO, o menino-robo, ou ROSI, a menina-robo
+    rosinha) faz a passada de boliche, balanca o braco e solta a bola na
+    linha do sensor.
+  * A camera segue a bola, vai para os pinos (que fazem cara de medo!),
+    treme no impacto e mostra os pinos voando com fisica de verdade.
+  * STRIKE tem camera lenta, REPLAY com camera colada nos pinos, e o
+    personagem comemora voando com as botas a jato.
+  * Pinos caidos ficam tontos (estrelinhas girando) e somem com um "puf".
+
+1 jogador (escolhe o Turbo ou a Rosi) ou 2 jogadores (Turbo x Rosi,
+vezes alternadas). Placar com pontos (10 por pino, +50 strike, +20 spare),
+estrelas no fim, recorde gravado na TV Box.
+
+
+COMO TESTAR NO PC
+-----------------
+1. Instale o Godot 4.6.1 (o mesmo do Dragon Bowling Pro Ultra).
+2. Abra o project.godot desta pasta e aperte F5.
+   - Sensores: A S D F G  (esquerda ... direita)
+   - START: 1 ou Espaco    - Credito: 5    - Configuracao/operador: 9
+   - Tambem da para CLICAR nas 5 luzes coloridas embaixo da tela.
+3. No PC a tela nao gira. Para simular o monitor em pe da maquina, deixe a
+   janela em pe (o jogo se adapta a qualquer tamanho: em pe ou deitado).
+
+
+COMO GERAR O APK (igual ao Pro Ultra)
+-------------------------------------
+Precisa: Godot 4.6.1 (zip extraido em Downloads), JDK 17, Android SDK em
+C:\AndroidSdk. Os Export Templates 4.6.1 sao baixados sozinhos.
+
+  GERAR_APK.bat            -> APK-Pronto\StrikeKids.apk
+  GERAR_APK.bat -Giro -1   -> se a imagem ficar de cabeca para baixo
+  GERAR_APK.bat -Giro 0    -> monitor ja em pe / TV deitada (sem giro)
+  GERAR_APK.bat -Instalar  -> instala na TV Box pelo adb
+
+Pacote: com.lazersport.strikekids (nao briga com o Dragon Bowling).
+O giro tambem pode ser trocado na propria maquina, no menu do operador.
+
+
+BOTOES DA ZERO DELAY (mesmo mapa do Dragon Bowling)
+---------------------------------------------------
+  STR = START (1 / Espaco)        SELECT = credito (5)
+  Quadrado = sensor ESQUERDA (A)  X = MEIO-ESQUERDA (S)
+  Bolinha  = CENTRO (D)           Triangulo = MEIO-DIREITA (F)
+  R1 = DIREITA (G)                L3 = CONFIGURACAO / OPERADOR (9)
+
+Se algum botao cair na funcao errada: no menu do operador escolha
+"CONFIGURAR BOTOES DA PLACA" (ou, na tela inicial, SEGURE qualquer botao
+por 10 segundos) e aperte na ordem pedida. Fica gravado na TV Box.
+
+
+MENU DO OPERADOR (botao de configuracao)
+----------------------------------------
+Navega com os proprios sensores: X sobe, V desce, Z diminui, B aumenta,
+C ou START escolhe, CONFIGURACAO volta ao jogo.
+
+  Rodadas por jogador (1-10, padrao 3)     Bolas por rodada (1-3, padrao 3)
+  Dificuldade: facil / normal / dificil    Para-choques nas canaletas
+  Replay do strike                         Demonstracao na tela inicial
+  Modo livre ou fichas por partida         Tempo sem jogar ate o aviso
+  Volume da musica e dos efeitos           Som na demonstracao
+  Qualidade grafica (automatica/alta/media/baixa)
+  Giro da tela (1, -1, 0)
+  Teste dos sensores (conta cada sensor acionado)
+  Zerar recordes - Restaurar padrao de fabrica
+  Contadores: partidas, strikes, moedas, estado do Arduino
+
+Qualidade AUTOMATICA: se a TV Box nao segurar ~40 quadros por segundo na
+tela inicial, o jogo baixa a qualidade sozinho (sombras, brilho, resolucao).
+
+
+COMO A JOGADA E DECIDIDA (justo e ajustavel)
+--------------------------------------------
+O sensor diz POR ONDE a bola passou. O jogo sorteia quantos pinos caem
+pela tabela de chances da dificuldade (scripts/jogada.gd, TABELA), escolhe
+QUAIS (os mais perto do caminho da bola, como cairia de verdade) e calcula
+a linha da bola. A fisica faz o resto: os pinos planejados que resistirem
+levam um empurraozinho, os outros ficam "teimosos" (balancam e ficam).
+
+  Facil:  centro ~58% strike | meio ~16% | lados 1 a 5 pinos
+  Normal: centro ~40% strike | meio ~9%  | lados 0 a 4 pinos
+  Dificil: centro ~25% strike | meio ~5% | lados 0 a 3 pinos
+
+
+LEDS (ARDUINO) - igual ao Dragon Bowling
+----------------------------------------
+Mesmo protocolo (READY/PONG:DRAGON_BOWLING:1) e mesmos comandos: MENU,
+BLUE (vez do Turbo), RED (vez da Rosi), IDLE, NORMAL, STRIKE, SPARE, MISS.
+O sketch esta em arduino/leds_boliche. Como no Pro Ultra, o APK padrao
+usa o modelo pronto do Godot (sem Gradle) e por isso NAO leva o plugin
+USB: para LEDs no Android, ative o plugin DragonUsbSerial (addons/) e o
+"Use Gradle Build" no preset Android (veja docs/DOCUMENTO_DO_JOGO.md).
+
+
+SONS E VOZES
+------------
+Todos os sons e musicas sao originais, gerados por tools/sons/gerar_sons.py.
+Para trocar um som, grave um arquivo com o MESMO nome em sons/.
+Vozes opcionais: coloque sons/voz/strike.wav, sons/voz/spare.wav,
+sons/voz/ops.wav, sons/voz/vez.wav ... e elas tocam junto, sem mexer no
+codigo.
+
+
+PASTAS
+------
+  cenas/      cenas do Godot (principal, operador, configuracao dos botoes)
+  scripts/    o jogo (principal, mundo, personagem, animacoes, pinos, bola,
+              jogada, placar, camera_cine, hud, efeitos...)
+  autoload/   Tela (responsiva + giro), Ajustes, Sons, ArcadeControls,
+              ArduinoBridge
+  modelos/    personagens, pinos e cenario 3D (gerados pelas ferramentas)
+  texturas/ ui/ fontes/ sons/ shaders/
+  tools/      ferramentas de producao (NAO vao no APK):
+              modelos/ (modelador 3D), arte/ (artes 2D), sons/, testes/
+  marketing/  imagens e video para divulgacao
+  docs/       documento do jogo
