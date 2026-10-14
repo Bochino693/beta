@@ -35,7 +35,7 @@ func _ready() -> void:
 	var T := Tela.tamanho()
 	var u: float = min(T.x, T.y) / 1080.0
 	var fundo := ColorRect.new()
-	fundo.color = Color(0.13, 0.05, 0.28)
+	fundo.color = Color(0.03, 0.09, 0.22)
 	fundo.size = T
 	add_child(fundo)
 	var y := T.y * 0.06
@@ -64,7 +64,7 @@ func _rotulo(texto: String, y: float, tam: float, cor: Color) -> Label:
 	ls.font_size = int(tam)
 	ls.font_color = cor
 	ls.outline_size = int(tam * 0.2)
-	ls.outline_color = Color("#2A0846")
+	ls.outline_color = Color("#0B1F45")
 	l.label_settings = ls
 	add_child(l)
 	return l

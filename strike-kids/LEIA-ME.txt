@@ -32,6 +32,17 @@ meio-direita, direita) vira a jogada na tela, em 3D:
 
 Na tela NAO tem setas nem alvo: a mira e sempre o STRIKE.
 
+MARCA LAZER & SPORT: aparece na inicializacao do aparelho e na abertura
+(o dardo acerta o alvo e entra "apresenta"), na tela de atracao, num selo
+no canto durante a partida, na tela final, no menu do operador e em duas
+placas iluminadas ao lado do letreiro STRIKE KIDS, em cima dos pinos.
+O GERAR_APK.bat escolhe a imagem de inicializacao ja girada conforme o
+-Giro (1, -1 ou 0).
+
+VISUAL: tema unissex e esportivo (azul-marinho, azul, laranja, amarelo e
+vermelho). As telas usam placas com volume (brilho, lateral e sombra),
+combinando com o 3D; na escolha do amigo, Bob e Mia ficam em podios.
+
 1 jogador (escolhe o Bob ou a Mia) ou 2 jogadores (Bob x Mia, vezes
 alternadas). Placar com pontos (10 por pino, +50 strike, +20 spare),
 estrelas no fim, recorde gravado na TV Box.
@@ -39,6 +50,9 @@ estrelas no fim, recorde gravado na TV Box.
 
 COMO TESTAR NO PC
 -----------------
+0. Se recebeu o jogo em 2 ZIPs (parte 1 = jogo, parte 2 = modelos 3D),
+   extraia OS DOIS na mesma pasta: a parte 2 completa a pasta
+   strike-kids/modelos.
 1. Instale o Godot 4.6.1 (o mesmo do Dragon Bowling Pro Ultra).
 2. Abra o project.godot desta pasta e aperte F5.
    - Sensores: A S D F G  (esquerda ... direita)
@@ -95,6 +109,14 @@ C ou START escolhe, CONFIGURACAO volta ao jogo.
 
 Qualidade AUTOMATICA: se a TV Box nao segurar ~40 quadros por segundo na
 tela inicial, o jogo baixa a qualidade sozinho (sombras, brilho, resolucao).
+
+  ALTA  (PC, TV 4K): MSAA 4x, sombra em 2 divisoes, malhas no detalhe maximo,
+        filtro anisotropico 8x. Tudo nitido ate 3840 x 2160.
+  MEDIA (TV Box boa): MSAA 2x, as malhas simplificam mais cedo de longe.
+  BAIXA (TV Box fraca): sem MSAA nem sombra, malhas bem simplificadas.
+Todas as imagens tem mipmaps (nada cintila nem serrilha quando aparece
+pequeno); rostos, bola, madeira e letreiros usam compressao de alta
+qualidade da placa de video (pouca memoria, sem perder nitidez).
 
 
 COMO A JOGADA E DECIDIDA (fisica de verdade, justa e ajustavel)

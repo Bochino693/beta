@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://cf2gyskwmm211"
-path="res://.godot/imported/personagens.png-b2081f5f1c4437e9a5e373275dd039d4.ctex"
+uid="uid://dpi8vjh1xin1"
+path="res://.godot/imported/fundo.png-987aaa032dc7385fb11d63561ff03e8c.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://marketing/personagens.png"
-dest_files=["res://.godot/imported/personagens.png-b2081f5f1c4437e9a5e373275dd039d4.ctex"]
+source_file="res://ui/marca/fundo.png"
+dest_files=["res://.godot/imported/fundo.png-987aaa032dc7385fb11d63561ff03e8c.ctex"]
 
 [params]
 
@@ -23,7 +23,7 @@ compress/rdo_quality_loss=0.0
 compress/hdr_compression=1
 compress/normal_map=0
 compress/channel_pack=0
-mipmaps/generate=false
+mipmaps/generate=true
 mipmaps/limit=-1
 roughness/mode=0
 roughness/src_normal=""
@@ -37,4 +37,4 @@ process/normal_map_invert_y=false
 process/hdr_as_srgb=false
 process/hdr_clamp_exposure=false
 process/size_limit=0
-detect_3d/compress_to=1
+detect_3d/compress_to=0

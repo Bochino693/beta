@@ -60,11 +60,19 @@ func _ready() -> void:
 	var T := Tela.tamanho()
 	u = min(T.x, T.y) / 1080.0
 	var fundo := ColorRect.new()
-	fundo.color = Color(0.13, 0.05, 0.28)
+	fundo.color = Color(0.03, 0.09, 0.22)
 	fundo.size = T
 	add_child(fundo)
 	var titulo := _rotulo("STRIKE KIDS · OPERADOR", Vector2(0, 40 * u), 58 * u, Color("#FFD43B"))
 	titulo.size.x = T.x
+	# logo Lazer & Sport no canto
+	var marca := TextureRect.new()
+	marca.texture = load("res://ui/marca/lazer_sport.png")
+	marca.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	marca.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	marca.size = Vector2(150, 100) * u
+	marca.position = Vector2(T.x - 170 * u, 18 * u)
+	add_child(marca)
 	var esp: float = min(68.0 * u, (T.y - 420 * u) / ITENS.size())
 	var y := 150 * u
 	for i in ITENS.size():
@@ -82,6 +90,7 @@ func _ready() -> void:
 	_camera_tela = TextureRect.new()
 	_camera_tela.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	_camera_tela.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	_camera_tela.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
 	var lado: float = minf(T.x * 0.8, T.y * 0.5)
 	_camera_tela.size = Vector2(lado, lado)
 	_camera_tela.position = Vector2((T.x - lado) / 2, T.y * 0.3)
@@ -103,7 +112,7 @@ func _rotulo(texto: String, pos: Vector2, tam: float, cor: Color) -> Label:
 	ls.font_size = int(tam)
 	ls.font_color = cor
 	ls.outline_size = int(tam * 0.18)
-	ls.outline_color = Color("#2A0846")
+	ls.outline_color = Color("#0B1F45")
 	l.label_settings = ls
 	add_child(l)
 	return l

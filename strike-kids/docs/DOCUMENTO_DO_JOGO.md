@@ -2,8 +2,10 @@
 
 Boliche infantil 3D para máquina arcade de 5 sensores, com dois mascotes
 originais e fofinhos: **Bob** (o cachorrinho) e **Mia** (a gatinha).
-Tema unissex, 4 cenários, física de verdade e a **foto da criança** tirada
-pela câmera da máquina. **Godot 4.6.1**, renderizador **Compatibility**
+Tema unissex e esportivo (azul-marinho, azul, laranja, amarelo e vermelho —
+as cores da marca **Lazer & Sport**, que aparece por todo o jogo), 4
+cenários, física de verdade e a **foto da criança** tirada pela câmera da
+máquina. **Godot 4.6.1**, renderizador **Compatibility**
 (OpenGL ES 3, TV Box Android — Proeletronic SmartPro 4K 2 GB ou a Pro Ultra
 do Dragon Bowling), física **Jolt**, câmera USB (Sigma) pelo CameraServer.
 
@@ -24,16 +26,33 @@ recompensadora. Sem setas na tela: a mira é sempre o STRIKE.
 
 ## 2. Mascotes (originais)
 
-- **Bob** — cachorrinho caramelo de orelhas caídas, focinho creme, camiseta
-  turquesa com estrela amarela e lenço vermelho, rabinho que abana (mais
-  rápido quando está feliz). Cor do jogador 1 (turquesa, LED azul).
-- **Mia** — gatinha cinza-clarinho rajada, nariz e orelhas rosados,
-  vestido lilás de bolinhas, gola branca e laço amarelo, rabo comprido.
-  Cor do jogador 2 (roxo, LED vermelho).
+Estilo pelúcia, com proporção de bebê (cabeça grande e redonda, olhos no
+meio do rosto, bochechas fofas), corpinho de pera, bracinhos e perninhas
+curtos, pés de sola chata e cores em blocos limpos.
 
-Rosto desenhado (atlas de 8 expressões): feliz, piscando, empolgado (olhos
-de estrela), triste (lagriminha), concentrado, surpreso, risada, piscadinha.
-Piscam sozinhos e olham para a bola enquanto ela rola.
+- **Bob** — cachorrinho caramelo, focinho e patas creme, nariz 3D,
+  orelhas caídas marrons, camiseta azul com estrela amarela, lenço
+  vermelho e rabinho enroladinho que abana (mais rápido quando está feliz).
+  Cor do jogador 1 (azul, LED azul).
+- **Mia** — gatinha cinza com três listrinhas na testa, focinho e patas
+  brancos, nariz 3D, orelhas pontudas, laço azul, roupinha laranja de
+  bolinhas com golinha branca, rabo comprido.
+  Cor do jogador 2 (laranja, LED vermelho).
+
+Rosto desenhado em alta resolução (atlas 4096×2048, 8 expressões de
+1024 px): olhos grandes e escuros com dois brilhos, sobrancelha curtinha,
+bochecha rosada e boquinha em "w" logo abaixo do nariz 3D — feliz,
+piscando, empolgado (brilhinhos nos olhos), triste (pálpebra caída e
+lagriminha), concentrado, surpreso, risada, piscadinha. Piscam sozinhos e
+olham para a bola enquanto ela rola.
+
+**Movimento com peso de verdade** (`scripts/personagem.gd`): rig com
+quadril, joelho, tornozelo e pé. IK de duas juntas nas pernas: o pé que
+apoia fica travado no chão (não escorrega nem flutua), o joelho dobra
+sozinho quando o corpo abaixa, o quadril desce se o pé não alcançaria, e
+se o corpo anda ou gira o pé dá um passinho automático. Pulos com arco de
+gravidade e "mola" (agacha ao aterrissar, estica ao decolar). Sombra de
+contato embaixo de cada pé. Banco de teste: `tools/testes/anim_teste.tscn`.
 
 Animações (poses-chave, `scripts/animacoes.gd`): parado, pronto (bola no
 peito), **arremesso** (passos + deslize, solta a bola no quadro certo),
@@ -43,12 +62,19 @@ acenar, andar, vitória (pulinhos), escolhido.
 
 ## 3. Fluxo
 
-1. **Abertura** (3 s): câmera desce do céu até os mascotes.
-2. **Atração**: logo, "APERTE START", recorde; Bob e Mia dançam; câmera
+1. **Abertura**: a marca **Lazer & Sport** (continua exatamente a imagem
+   de inicialização do aparelho): o dardo "acerta" o alvo, estrelinhas, um
+   brilho passa pela placa e entra "apresenta". Depois a câmera desce do
+   céu até os mascotes (3 s).
+2. **Atração**: logo, botão "APERTE START" com volume, placa do recorde
+   (com a foto) e a logo Lazer & Sport no rodapé; Bob e Mia dançam; câmera
    orbitando; de 9 em 9 s uma **jogada de demonstração** completa, e a cada
    demonstração o cenário muda (a atração mostra os 4).
-3. **START** → "QUANTOS VÃO JOGAR?" (3 s; START de novo = 2 jogadores).
-4. 1 jogador: **escolha do amigo** rolando a bola para a esquerda (Bob) ou
+3. **START** → "QUANTOS VÃO JOGAR?": dois cartões (1 JOGADOR / 2
+   JOGADORES), o escolhido brilha; barra de tempo (3 s; START de novo = 2).
+4. 1 jogador: **escolha do amigo** — Bob e Mia em cima de **pódios 3D**
+   nas cores deles (o do escolhido acende o anel de luz), com placas de
+   nome que acompanham a câmera; rolando a bola para a esquerda (Bob) ou
    direita (Mia), ou START.
 4b. **SORRIA!** (se tiver câmera): a imagem ao vivo aparece num círculo com
    o mascote do lado, contagem 3-2-1, flash e "QUE FOTO LINDA!". Com 2
@@ -61,7 +87,21 @@ acenar, andar, vitória (pulinhos), escolhido.
    QUASE!/OPS!, pontos voando para o placar) → replay (strike) → reação do
    mascote → **máquina de pinos** (câmera baixinha na frente dos pinos).
 6. **Fim de jogo**: cartões com pontos, 1 a 3 estrelas, STRIKES/SPARES,
-   VENCEU!/EMPATE!, NOVO RECORDE!, confete e fogos; START joga de novo.
+   VENCEU!/EMPATE!, NOVO RECORDE!, confete e fogos; botão "APERTE START
+   PARA JOGAR DE NOVO" e a logo Lazer & Sport.
+
+**Telas com cara de 3D** (`scripts/painel3d.gd` + `shaders/painel3d.gdshader`):
+placar, cartões, botões, faixas e avisos são placas com volume — frente em
+degradê com verniz, filete de luz, lateral mais escura (espessura),
+contorno azul-marinho e sombra no chão, como os objetos do cenário.
+Desenhadas pixel a pixel no shader: nítidas de 720p a 4K.
+
+**Marca Lazer & Sport** em todo o jogo: imagem de inicialização e
+abertura, atração, selo no canto durante a partida, tela final, menu do
+operador, duas placas iluminadas ao lado do letreiro STRIKE KIDS (em cima
+dos pinos, nos 4 cenários) e todas as peças de divulgação. A logo foi
+redesenhada no dobro da resolução com bordas nítidas
+(`tools/arte/gerar_marca.py`).
 
 Sensor acionado durante animações não se perde (fica guardado por 10 s) e
 encurta a espera; a mesma bola não conta duas vezes (1,2 s). Sem jogar por
@@ -130,7 +170,7 @@ Depois de cada bola, como num boliche de verdade:
 
 | Cenário | Céu e luz | Destaques |
 | --- | --- | --- |
-| Parque de Diversões | azul com nuvens, gramado listrado | arco-íris com lâmpadas, torres doces, roda-gigante girando, carrossel, tendas, pirulitos, balões |
+| Parque de Diversões | azul com nuvens, gramado listrado | arco-íris com lâmpadas, torres de circo (branco e vermelho), roda-gigante girando, carrossel, tendas, pirulitos azuis e amarelos, balões |
 | Viagem ao Espaço | noite estrelada com nebulosa, chão de lua com crateras | planeta com anel atrás dos pinos, foguetes, disco voador dando voltas, planetinhas, cristais, estrelas cadentes |
 | Fundo do Mar | azul-turquesa com raios de luz, areia com ondinhas | concha gigante, corais, algas balançando, cardumes de peixinhos, águas-vivas, tartarugas, bolhas subindo, baú |
 | Selva dos Dinos | céu quente de aventura, selva verde | vulcão fumegando, dino pescoçudo espiando atrás dos pinos, pterossauros voando, palmeiras, ovos de dino, flores gigantes |
@@ -144,7 +184,17 @@ para o próximo.
 
 - **Modelagem por SDF** (`tools/modelos/`): formas lisas soldadas (estilo
   vinil/massinha) → malha por Surface Nets → recursos nativos do Godot com
-  **LOD automático**. Mascotes com partes articuladas (inclusive o rabo).
+  **LOD automático**. Mascotes com partes articuladas (inclusive rabo e pés).
+- **Bordas de cor nítidas (4K)**: onde a cor muda (listras, bolinhas,
+  manchas), o modelador subdivide a malha duas vezes e suaviza a cor como
+  um antisserrilhado — sem os "degraus" de cor. Listras dos para-choques e
+  desenho do chão (grama listrada, crateras, ondas de areia, flores) são
+  calculados no shader, pixel a pixel.
+- **Nitidez 4K**: MSAA 4x, filtro anisotrópico, mipmaps em todas as
+  imagens, compressão de alta qualidade (BPTC/ASTC) nos rostos, bola,
+  madeira e letreiros; letreiros e logo em 1,6x; sombra em duas divisões.
+  Na qualidade média/baixa (TV Box), o MSAA cai e as malhas simplificam
+  mais cedo (nível de detalhe), para manter os quadros por segundo.
 - **Shader toon** próprio: duas faixas de luz, sombra colorida, brilho de
   borda, rosto projetado (atlas). Contorno por casca invertida.
 - **Pista**: madeira com verniz, setas e pontos de pista (decoração de
@@ -167,7 +217,12 @@ para o próximo.
 | `python3 tools/modelos/temas.py` | gera os objetos dos 4 cenários |
 | `godot --headless --path . --script res://tools/modelos/assar_modelos.gd` | converte para recursos do Godot com LOD (`-- temas` só os cenários) |
 | `python3 tools/arte/gerar_arte.py` | rostos, texturas, letreiros, logo, ícones |
+| `python3 tools/arte/gerar_marca.py` | logo Lazer & Sport em alta (inteira, alvo e placa), fundo da abertura e imagens de inicialização |
+| `python3 tools/ajustar_importacao.py` | mipmaps e compressão de alta qualidade nas imagens (rodar depois de gerar artes) |
+| `godot --path . res://tools/testes/anim_teste.tscn -- saida.png danca 0.2,0.6 lado` | folha de quadros de uma animação (pés, joelhos, pulos) |
+| `godot --path . -- --instantes=pasta --em=2,5` | fotos do jogo rodando em instantes fixos (conferir nitidez, até 4K) |
 | `godot --path . res://tools/testes/retratos.tscn` | retratos dos mascotes (placar/divulgação) |
+| `godot --path . res://tools/testes/paineis.tscn -- saida.png` | amostra das placas com volume das telas |
 | `python3 tools/sons/gerar_sons.py` | efeitos e músicas originais |
 | `godot --headless --path . --fixed-fps 120 res://tools/testes/calibrar.tscn` | calibra a tabela de jogadas (`-- --validar=normal` confere) |
 | `godot --path . -- --roteiro=pasta` | teste automático: joga sozinho e tira fotos |

@@ -3,42 +3,51 @@
 PERSONAGENS DO STRIKE KIDS: BOB (cachorrinho) E MIA (gatinha)
 =============================================================
 
-Mascotes fofinhos, estilo desenho infantil: cabeça grande e redonda,
-focinho, olhos grandes e brilhantes (desenhados no rosto), orelhinhas,
-rabinho que abana, corpinho gordinho e patinhas.
+Mascotes de pelúcia: cabeça grande e redonda (proporção de bebê: olhos no
+meio do rosto, testa grande), corpinho de pera, bracinhos e perninhas
+curtos e gordinhos, pés de sola chata (pisam firme no chão), cores em
+blocos limpos — nada de manchas tortas.
 
-  * BOB — cachorrinho caramelo de focinho clarinho, orelhas caídas,
-    camiseta turquesa com estrela e lencinho vermelho no pescoço.
-  * MIA — gatinha cinza-clara listradinha, orelhas pontudas com o
-    dentro rosado, vestidinho lilás de bolinhas e laço amarelo na orelha.
+  * BOB — cachorrinho caramelo, focinho e patas creme, orelhas caídas
+    marrons, camiseta turquesa com estrela amarela, lenço vermelho e
+    rabinho enroladinho.
+  * MIA — gatinha cinza-clarinha com três listrinhas na testa, focinho e
+    peito brancos, orelhas pontudas rosadas por dentro, laço amarelo,
+    vestido lilás de bolinhas brancas e golinha, rabo comprido.
 
-Juntas articuladas (ombro, cotovelo, quadril, joelho, pescoço e rabo):
-é o que deixa eles jogarem boliche de verdade.
+Rig (juntas): corpo (quadril) > cabeça, rabo, braço > antebraço,
+coxa > canela > pé. O pé separado é o que deixa o jogo travar a sola no
+chão (IK de pernas em scripts/personagem.gd).
 
-Cor do vértice: RGB = cor (sRGB); ALFA = 1 rosto (onde o desenho do rosto
-pode aparecer), 0.5 = luz (brilha), 0 = normal.
+Cor do vértice: RGB = cor (sRGB); ALFA = 1 onde o desenho do rosto pode
+aparecer (pelo da cara e focinho), 0 = normal.
 """
 import math
 import os
 
 import numpy as np
 
-from sdf import (Capsula, ConeRedondo, Elipsoide, Esfera, Pacote, Pintura, Toro,
-                 estrela_2d, gerar_malha, hex_cor, rot_x, rot_z, unir)
+from sdf import (Capsula, ConeRedondo, Elipsoide, Esfera, Intersecao, Pacote, Pintura, SemiEspaco, Toro,
+                 estrela_2d, gerar_malha, hex_cor, rot_x, rot_y, rot_z, unir)
 
-# ------------------------------------------------------------- juntas
-QUADRIL_Y = 0.40
-PESCOCO_Y = 0.72
-OMBRO = np.array([0.20, 0.64, 0.0])
-COTOVELO = np.array([0.245, 0.515, 0.004])
-MAO = np.array([0.278, 0.39, 0.016])
-QUADRIL = np.array([0.095, 0.40, 0.0])
-JOELHO = np.array([0.095, 0.235, 0.0])
-RABO = np.array([0.0, 0.44, -0.15])
+# ------------------------------------------------------------- juntas (metros, ele olha para +Z)
+QUADRIL_Y = 0.36
+PESCOCO_Y = 0.635
+OMBRO = np.array([0.150, 0.565, 0.0])
+COTOVELO = np.array([0.198, 0.468, 0.006])
+PULSO = np.array([0.226, 0.386, 0.014])
+MAO = np.array([0.236, 0.352, 0.018])          # centro da patinha (onde a bola encaixa)
+QUADRIL = np.array([0.086, 0.36, 0.0])
+JOELHO = np.array([0.086, 0.215, 0.006])
+TORNOZELO = np.array([0.086, 0.078, 0.0])
+RABO = np.array([0.0, 0.40, -0.135])
+
+CABECA_C = np.array([0.0, 0.865, 0.0])         # centro da cabeça
+ROSTO_CENTRO = (0.0, 0.205)                    # em relação ao pescoço (onde o desenho do rosto é projetado)
+ROSTO_TAMANHO = (0.46, 0.40)
 
 ROSTO = 1.0
-LUZ = 0.5
-PASSO = 0.0105
+PASSO = 0.0082
 
 
 class Paleta:
@@ -65,86 +74,99 @@ def espelho(v, s):
     return np.array([v[0] * s, v[1], v[2]])
 
 
-# ------------------------------------------------------------- cabeça de bichinho
+# ------------------------------------------------------------- cabeça
 
-def cabeca_bicho(pelo, focinho, nariz):
-    """Cabeça redondinha + bochechas fofas + focinho + narizinho."""
-    cranio = Elipsoide((0, 0.985, -0.01), (0.292, 0.262, 0.262), pelo)
+def cabeca_base(pelo, focinho, nariz, largura=1.0):
+    """Cabeça redonda (um pouco mais larga que alta), bochechas fofas que
+    descem até o focinho, focinho clarinho e narizinho 3D."""
+    c = CABECA_C
+    cranio = Elipsoide(c, (0.272 * largura, 0.246, 0.244), pelo)
     cab = cranio
-    for s in (1, -1):
-        cab = cab.solda(Esfera((s * 0.135, 0.895, 0.105), 0.135, pelo), 0.08)
-    foc = Elipsoide((0, 0.885, 0.19), (0.125, 0.085, 0.105), focinho)
-    cab = cab.solda(foc, 0.045)
-    nar = Elipsoide((0, 0.928, 0.29), (0.046, 0.032, 0.03), nariz)
-    return cab.solda(nar, 0.01)
+    for s in (1, -1):   # bochechas fofinhas
+        cab = cab.solda(Elipsoide(c + np.array([s * 0.118, -0.092, 0.078]), (0.13, 0.11, 0.12), pelo), 0.07)
+    foc = Elipsoide(c + np.array([0.0, -0.082, 0.172]), (0.112, 0.07, 0.085), focinho)
+    cab = cab.solda(foc, 0.05)
+    nar = Elipsoide(c + np.array([0.0, -0.05, 0.248]), (0.04, 0.027, 0.025), nariz)
+    return cab.solda(nar, 0.008)
 
 
-# ------------------------------------------------------------- membros (patinhas)
+# ------------------------------------------------------------- membros
 
 def braco(s, cores):
     """(superior, inferior). s = +1 lado esquerdo do personagem (+x)."""
-    om, co, mao = espelho(OMBRO, s), espelho(COTOVELO, s), espelho(MAO, s)
-    manga = Elipsoide(om + np.array([s * 0.01, -0.02, 0]), (0.078, 0.085, 0.078), cores["manga"])
-    sup = Capsula(om, co, 0.05, cores["pelo"])
-    superior = manga.solda(sup, 0.02).solda(Esfera(co, 0.05, cores["pelo"]), 0.02)
-    pulso = mao + np.array([s * -0.004, 0.05, -0.004])
-    inf = Capsula(co, pulso, 0.048, cores["pelo"])
-    pata = Elipsoide(mao, (0.068, 0.07, 0.066), cores["pata"])
-    inferior = inf.solda(pata, 0.035)
+    om, co, pu, mao = espelho(OMBRO, s), espelho(COTOVELO, s), espelho(PULSO, s), espelho(MAO, s)
+    manga = Elipsoide(om + np.array([s * 0.012, -0.018, 0.0]), (0.07, 0.072, 0.066), cores["manga"])
+    sup = Capsula(om, co, 0.044, cores["pelo"], rb=0.041)
+    superior = manga.solda(sup, 0.022).solda(Esfera(co, 0.041, cores["pelo"]), 0.015)
+    inf = Capsula(co, pu, 0.04, cores["pelo"], rb=0.038)
+    pata = Elipsoide(mao, (0.054, 0.058, 0.052), cores["pata"])
+    inferior = inf.solda(pata, 0.03)
     return superior, inferior
 
 
 def perna(s, cores):
-    q, j = espelho(QUADRIL, s), espelho(JOELHO, s)
-    coxa = Capsula(q, j, 0.062, cores["coxa"])
-    superior = coxa.solda(Esfera(j, 0.058, cores["pelo"]), 0.02)
-    tornozelo = np.array([q[0], 0.1, 0.01])
-    canela = Capsula(j, tornozelo, 0.056, cores["pelo"])
-    pe = Elipsoide((q[0], 0.055, 0.04), (0.078, 0.06, 0.112), cores["pata"])
-    inferior = canela.solda(pe, 0.04)
-    # dedinhos (dois risquinhos) na frente da patinha
-    pint = [Pintura(lambda P, x=q[0]: (P[:, 2] > 0.12) & (P[:, 1] < 0.09)
-                    & (np.abs(np.abs(P[:, 0] - x) - 0.024) < 0.006), cores["dedo"])]
-    return superior, inferior, pint
+    """(coxa, canela, pé, pinturas do pé)."""
+    q, j, t = espelho(QUADRIL, s), espelho(JOELHO, s), espelho(TORNOZELO, s)
+    coxa = Capsula(q + np.array([0, 0.02, 0]), j, 0.057, cores["coxa"], rb=0.05)
+    superior = coxa.solda(Esfera(j, 0.049, cores["pelo"]), 0.015)
+    inferior = Capsula(j, t + np.array([0, 0.01, 0]), 0.048, cores["pelo"], rb=0.045)
+    # pé: almofada redonda com SOLA CHATA (pisa firme)
+    pe = Elipsoide((t[0], 0.05, 0.03), (0.064, 0.056, 0.09), cores["pata"])
+    pe = pe.solda(Esfera((t[0], 0.075, 0.0), 0.045, cores["pata"]), 0.03)
+    pe = Intersecao(pe, SemiEspaco((0, 0.003, 0), (0, -1, 0)), 0.012)
+    x = t[0]
+
+    def dedos(P, x=x):
+        return (P[:, 2] > 0.085) & (P[:, 1] < 0.065) & (np.abs(np.abs(P[:, 0] - x) - 0.021) < 0.0045)
+    return superior, inferior, pe, [Pintura(dedos, cores["dedo"])]
 
 
 # ------------------------------------------------------------- BOB (cachorrinho)
 
 def bob():
     pal = Paleta(
-        pelo=hex_cor("#F0B064", ROSTO),
-        focinho=hex_cor("#FFF0DC", ROSTO),
-        nariz=hex_cor("#3B2626"),
-        orelha=hex_cor("#A8612E"),
-        camisa=hex_cor("#23B5C8"),
+        pelo=hex_cor("#E9A55B", ROSTO),
+        focinho=hex_cor("#FFF1DE", ROSTO),
+        nariz=hex_cor("#3A2422"),
+        orelha=hex_cor("#A9652F"),
+        camisa=hex_cor("#1FB2C8"),
         estampa=hex_cor("#FFD43B"),
         lenco=hex_cor("#FF5A4E"),
-        pata=hex_cor("#FFF0DC"),
-        dedo=hex_cor("#D8B48E"),
-        pelo_corpo=hex_cor("#F0B064"),
+        pata=hex_cor("#FFF1DE"),
+        dedo=hex_cor("#E2C3A0"),
+        pelo_corpo=hex_cor("#E9A55B"),
     )
-    cab = cabeca_bicho(pal.pelo, pal.focinho, pal.nariz)
-    topete = unir(Esfera((0.0, 1.23, 0.05), 0.055, pal.pelo), Esfera((0.05, 1.215, 0.08), 0.045, pal.pelo),
-                  Esfera((-0.045, 1.22, 0.07), 0.045, pal.pelo), k=0.03)
-    cabeca = cab.solda(topete, 0.04)
-    for s in (1, -1):   # orelhas caídas, macias
-        cabeca = cabeca.solda(Elipsoide((s * 0.275, 0.94, -0.03), (0.075, 0.175, 0.115), pal.orelha,
-                                        rot=rot_z(s * 0.32) @ rot_x(0.1)), 0.025)
-    # mancha clarinha em volta de um olho (charme do Bob)
-    pint_cab = [Pintura(lambda P: (P[:, 2] > 0.12) & ((P[:, 0] + 0.1) ** 2 + (P[:, 1] - 0.985) ** 2 * 1.3 < 0.075 ** 2), pal.focinho)]
+    c = CABECA_C
+    cabeca = cabeca_base(pal.pelo, pal.focinho, pal.nariz)
+    # topetinho (três fiozinhos enrolados)
+    topete = unir(Esfera(c + np.array([0.012, 0.226, 0.085]), 0.026, pal.pelo),
+                  Esfera(c + np.array([-0.022, 0.222, 0.092]), 0.02, pal.pelo), k=0.02)
+    cabeca = cabeca.solda(topete, 0.04)
+    for s in (1, -1):   # orelhas caídas, macias, presas no alto da cabeça
+        orelha = Elipsoide(c + np.array([s * 0.262, -0.035, -0.035]), (0.068, 0.165, 0.105), pal.orelha,
+                           rot=rot_z(s * 0.28) @ rot_x(0.12))
+        cabeca = cabeca.solda(orelha, 0.03)
+    pint_cab = []
 
     cores = dict(pelo=pal.pelo_corpo, manga=pal.camisa, pata=pal.pata, coxa=pal.pelo_corpo, dedo=pal.dedo)
-    corpo = Elipsoide((0, 0.53, 0.0), (0.19, 0.2, 0.16), pal.camisa)
-    barriga = Elipsoide((0, 0.43, 0.01), (0.175, 0.1, 0.145), pal.pelo_corpo)
-    ombros = Capsula((-0.14, 0.64, 0), (0.14, 0.64, 0), 0.065, pal.camisa)
-    pescoco = Capsula((0, 0.66, 0), (0, 0.78, 0), 0.07, pal.pelo_corpo)
-    lenco = Toro((0, 0.705, 0.0), 0.085, 0.03, pal.lenco)
-    ponta = ConeRedondo((0, 0.69, 0.1), (0, 0.6, 0.15), 0.05, 0.012, pal.lenco)
-    tronco = corpo.solda(ombros, 0.06).solda(barriga, 0.03).solda(pescoco, 0.02) | lenco | ponta
-    pint_tronco = [Pintura(lambda P: (P[:, 2] > 0.06) & estrela_2d(P[:, 0], P[:, 1], 0.0, 0.53, 0.075, 0.034), pal.estampa)]
-    # rabinho para cima (abana!)
-    rabo = unir(Capsula(RABO, RABO + np.array([0, 0.09, -0.08]), 0.042, pal.pelo_corpo),
-                Esfera(RABO + np.array([0, 0.11, -0.1]), 0.05, pal.focinho), k=0.03)
+    peito = Elipsoide((0, 0.515, 0.0), (0.158, 0.142, 0.13), pal.camisa)
+    barriga = Elipsoide((0, 0.42, 0.006), (0.172, 0.118, 0.142), pal.camisa)
+    ombros = Capsula((-0.118, 0.565, 0), (0.118, 0.565, 0), 0.058, pal.camisa)
+    quadril = Elipsoide((0, 0.355, 0.0), (0.15, 0.075, 0.125), pal.pelo_corpo)
+    pescoco = Capsula((0, 0.58, 0), (0, 0.69, 0), 0.062, pal.pelo_corpo)
+    lenco = Toro((0, 0.615, 0.0), 0.078, 0.026, pal.lenco)
+    ponta = ConeRedondo((0, 0.6, 0.085), (0, 0.53, 0.128), 0.044, 0.012, pal.lenco)
+    tronco = peito.solda(barriga, 0.06).solda(ombros, 0.05).solda(quadril, 0.04).solda(pescoco, 0.02)
+    tronco = tronco | lenco | ponta
+
+    def estrela(P):
+        return (P[:, 2] > 0.06) & estrela_2d(P[:, 0], P[:, 1], 0.0, 0.47, 0.066, 0.03)
+    pint_tronco = [Pintura(estrela, pal.estampa)]
+    # rabinho enroladinho para cima
+    r0 = RABO
+    rabo = unir(Capsula(r0, r0 + np.array([0, 0.07, -0.06]), 0.036, pal.pelo_corpo, rb=0.032),
+                Capsula(r0 + np.array([0, 0.07, -0.06]), r0 + np.array([0, 0.13, -0.05]), 0.032, pal.pelo_corpo, rb=0.03),
+                Esfera(r0 + np.array([0, 0.145, -0.035]), 0.036, pal.focinho), k=0.025)
     return pal, (cabeca, pint_cab), (tronco, pint_tronco), cores, rabo
 
 
@@ -152,66 +174,91 @@ def bob():
 
 def mia():
     pal = Paleta(
-        pelo=hex_cor("#D9DEE8", ROSTO),
+        pelo=hex_cor("#C9CEDE", ROSTO),
         focinho=hex_cor("#FFFFFF", ROSTO),
-        listra=hex_cor("#A3ADC2", ROSTO),
-        nariz=hex_cor("#FF8FA8"),
-        orelha=hex_cor("#D9DEE8"),
-        orelha_dentro=hex_cor("#FFB3C4"),
-        vestido=hex_cor("#9C7CFF"),
+        listra=hex_cor("#9AA2BA", ROSTO),
+        nariz=hex_cor("#FF8FA6"),
+        orelha=hex_cor("#C9CEDE"),
+        orelha_dentro=hex_cor("#FFB8C8"),
+        vestido=hex_cor("#FF8A2B"),
         gola=hex_cor("#FFFFFF"),
-        laco=hex_cor("#FFD43B"),
+        laco=hex_cor("#1E9BE0"),
         pata=hex_cor("#FFFFFF"),
-        dedo=hex_cor("#FFC2D0"),
-        pelo_corpo=hex_cor("#D9DEE8"),
+        dedo=hex_cor("#FFC6D3"),
+        pelo_corpo=hex_cor("#C9CEDE"),
         bolinha=hex_cor("#FFFFFF"),
+        rabo_ponta=hex_cor("#9AA2BA"),
     )
-    cabeca = cabeca_bicho(pal.pelo, pal.focinho, pal.nariz)
-    for s in (1, -1):   # orelhas pontudas
-        cabeca = cabeca.solda(ConeRedondo((s * 0.165, 1.13, -0.03), (s * 0.235, 1.33, -0.05), 0.095, 0.022, pal.orelha), 0.04)
-    no = np.array([0.2, 1.2, 0.04])   # laço amarelo na orelha
-    laco = unir(Esfera(no, 0.03, pal.laco),
-                Elipsoide(no + np.array([0.05, 0.02, 0.0]), (0.05, 0.035, 0.022), pal.laco, rot=rot_z(0.35)),
-                Elipsoide(no + np.array([-0.05, -0.02, 0.0]), (0.05, 0.035, 0.022), pal.laco, rot=rot_z(0.35)), k=0.01)
+    c = CABECA_C
+    cabeca = cabeca_base(pal.pelo, pal.focinho, pal.nariz, largura=1.02)
+    for s in (1, -1):   # orelhas pontudas de pontinha redonda
+        base = c + np.array([s * 0.155, 0.17, -0.03])
+        ponta = c + np.array([s * 0.215, 0.33, -0.045])
+        cabeca = cabeca.solda(ConeRedondo(base, ponta, 0.088, 0.024, pal.orelha), 0.045)
+    no = c + np.array([0.19, 0.205, 0.07])   # laço amarelo na orelha
+    laco = unir(Esfera(no, 0.028, pal.laco),
+                Elipsoide(no + np.array([0.045, 0.018, 0.0]), (0.046, 0.032, 0.02), pal.laco, rot=rot_z(0.35) @ rot_y(0.3)),
+                Elipsoide(no + np.array([-0.045, -0.018, 0.0]), (0.046, 0.032, 0.02), pal.laco, rot=rot_z(0.35) @ rot_y(0.3)), k=0.012)
     cabeca = cabeca | laco
 
     def dentro_orelha(P):
         r = np.zeros(len(P), dtype=bool)
         for s in (1, -1):
-            d = P - np.array([s * 0.2, 1.23, 0.0])
-            r |= (P[:, 2] > -0.02) & (np.abs(d[:, 0]) < 0.05 - np.clip(d[:, 1], 0, 0.1) * 0.35) & (d[:, 1] > -0.04) & (d[:, 1] < 0.09)
-        return r
+            # triângulo arredondado na frente da orelha
+            b = c + np.array([s * 0.158, 0.19, 0.0])
+            d = P - b
+            h = d[:, 1]
+            meia = 0.052 - h * 0.3
+            r |= (P[:, 2] > c[2] - 0.02) & (h > 0.0) & (h < 0.125) & (np.abs(d[:, 0] - s * h * 0.36) < meia)
+        # o laço fica por cima da orelha: não pinta o laço
+        return r & (np.linalg.norm(P - no, axis=1) > 0.075)
 
     def listras(P):
-        a = (P[:, 1] > 1.1) & (P[:, 2] > 0.05)
-        return a & ((np.abs(P[:, 0]) < 0.018) | (np.abs(np.abs(P[:, 0]) - 0.06) < 0.014)) & (P[:, 1] < 1.2 - np.abs(P[:, 0]) * 0.6)
+        # três listrinhas curvas na testa (a do meio maior)
+        q = P - c
+        frente = q[:, 2] > 0.1
+        r = np.zeros(len(P), dtype=bool)
+        for x0, comp in ((-0.058, 0.07), (0.0, 0.095), (0.058, 0.07)):
+            topo = 0.235
+            dx = q[:, 0] - x0 * (1.0 + (topo - q[:, 1]) * 1.2)
+            dentro = (q[:, 1] < topo) & (q[:, 1] > topo - comp)
+            largura = 0.015 * np.clip((q[:, 1] - (topo - comp)) / comp, 0.0, 1.0) ** 0.6 + 0.002
+            r |= frente & dentro & (np.abs(dx) < largura)
+        return r
     pint_cab = [Pintura(dentro_orelha, pal.orelha_dentro), Pintura(listras, pal.listra)]
 
     cores = dict(pelo=pal.pelo_corpo, manga=pal.vestido, pata=pal.pata, coxa=pal.pelo_corpo, dedo=pal.dedo)
-    blusa = Elipsoide((0, 0.56, 0), (0.175, 0.17, 0.145), pal.vestido)
-    ombros = Capsula((-0.135, 0.64, 0), (0.135, 0.64, 0), 0.062, pal.vestido)
-    saia = ConeRedondo((0, 0.53, 0), (0, 0.31, 0), 0.155, 0.245, pal.vestido)
-    gola = Toro((0, 0.7, 0.0), 0.08, 0.024, pal.gola)
-    pescoco = Capsula((0, 0.66, 0), (0, 0.78, 0), 0.065, pal.pelo_corpo)
-    tronco = blusa.solda(ombros, 0.06).solda(saia, 0.05).solda(pescoco, 0.02) | gola
+    blusa = Elipsoide((0, 0.515, 0), (0.152, 0.135, 0.125), pal.vestido)
+    ombros = Capsula((-0.115, 0.565, 0), (0.115, 0.565, 0), 0.056, pal.vestido)
+    saia = ConeRedondo((0, 0.46, 0), (0, 0.3, 0), 0.15, 0.215, pal.vestido)
+    gola = unir(Elipsoide((0.04, 0.603, 0.06), (0.05, 0.022, 0.04), pal.gola, rot=rot_z(-0.25)),
+                Elipsoide((-0.04, 0.603, 0.06), (0.05, 0.022, 0.04), pal.gola, rot=rot_z(0.25)),
+                Toro((0, 0.612, 0.0), 0.072, 0.02, pal.gola), k=0.01)
+    pescoco = Capsula((0, 0.58, 0), (0, 0.69, 0), 0.058, pal.pelo_corpo)
+    tronco = blusa.solda(ombros, 0.05).solda(saia, 0.05).solda(pescoco, 0.02) | gola
+
+    # bolinhas brancas redondinhas espalhadas na saia (pontos fixos na superfície)
+    centros = []
+    for k in range(3):
+        y = 0.335 + k * 0.05
+        rr = 0.213 - (y - 0.3) * (0.065 / 0.16)
+        n = 11 - k
+        for i in range(n):
+            a = 2 * math.pi * (i + 0.5 * (k % 2)) / n
+            centros.append((math.sin(a) * rr, y, math.cos(a) * rr))
+    centros = np.array(centros)
 
     def bolinhas(P):
-        ang = np.arctan2(P[:, 0], P[:, 2])
-        u = ang / (2 * math.pi) * 12.0
-        v = (P[:, 1] - 0.31) / 0.06
-        linha = np.floor(v)
-        u2 = u + 0.5 * (linha % 2)
-        du = u2 - np.round(u2)
-        dv = v - (linha + 0.5)
-        return (P[:, 1] < 0.48) & (du * du * 0.6 + dv * dv < 0.07)
+        d = np.min(np.linalg.norm(P[:, None, :] - centros[None, :, :], axis=2), axis=1)
+        return (d < 0.017) & (P[:, 1] < 0.45)
     pint_tronco = [Pintura(bolinhas, pal.bolinha)]
-    # rabo comprido e curvado, pontinha listrada
+    # rabo comprido e curvado, pontinha mais escura
     p0 = RABO
-    p1 = RABO + np.array([0.0, 0.03, -0.14])
-    p2 = RABO + np.array([0.02, 0.17, -0.2])
-    p3 = RABO + np.array([0.06, 0.28, -0.14])
-    rabo = unir(Capsula(p0, p1, 0.034, pal.pelo_corpo), Capsula(p1, p2, 0.034, pal.pelo_corpo),
-                Capsula(p2, p3, 0.034, pal.listra), k=0.03)
+    p1 = RABO + np.array([0.0, 0.02, -0.13])
+    p2 = RABO + np.array([0.025, 0.15, -0.2])
+    p3 = RABO + np.array([0.055, 0.27, -0.15])
+    rabo = unir(Capsula(p0, p1, 0.031, pal.pelo_corpo), Capsula(p1, p2, 0.03, pal.pelo_corpo),
+                Capsula(p2, p3, 0.03, pal.rabo_ponta, rb=0.034), k=0.03)
     return pal, (cabeca, pint_cab), (tronco, pint_tronco), cores, rabo
 
 
@@ -229,23 +276,26 @@ def gerar_personagem(nome, fabrica, pasta):
         return gerar_malha(forma, bmin, bmax, PASSO, pal.cores, pint, mascara_rosto=lambda P, c: np.zeros(len(P)))
 
     q = np.array([0, QUADRIL_Y, 0])
-    pac.adicionar("corpo", sem_rosto(tronco, pint_tronco, (-0.34, 0.25, -0.3), (0.34, 0.84, 0.3)), "", q, q)
+    pac.adicionar("corpo", sem_rosto(tronco, pint_tronco, (-0.3, 0.24, -0.26), (0.3, 0.74, 0.26)), "", q, q)
     pc = np.array([0, PESCOCO_Y, 0])
-    pac.adicionar("cabeca", malha(cabeca, pint_cab, (-0.46, 0.6, -0.46), (0.46, 1.42, 0.42)), "corpo", pc - q, pc)
-    pac.adicionar("rabo", sem_rosto(rabo, [], (-0.15, 0.35, -0.45), (0.15, 0.8, -0.05)), "corpo", RABO - q, RABO)
+    pac.adicionar("cabeca", malha(cabeca, pint_cab, (-0.42, 0.55, -0.4), (0.42, 1.26, 0.36)), "corpo", pc - q, pc)
+    pac.adicionar("rabo", sem_rosto(rabo, [], (-0.14, 0.32, -0.42), (0.14, 0.74, -0.06)), "corpo", RABO - q, RABO)
     for lado, s in (("e", 1), ("d", -1)):
         sup, inf = braco(s, cores)
         om, co = espelho(OMBRO, s), espelho(COTOVELO, s)
-        xs = sorted([s * 0.1, s * 0.34])
-        pac.adicionar("braco_" + lado, sem_rosto(sup, [], (xs[0], 0.44, -0.12), (xs[1], 0.74, 0.12)), "corpo", om - q, om)
-        xs = sorted([s * 0.16, s * 0.38])
-        pac.adicionar("antebraco_" + lado, sem_rosto(inf, [], (xs[0], 0.29, -0.11), (xs[1], 0.59, 0.13)), "braco_" + lado, co - om, co)
+        xs = sorted([s * 0.06, s * 0.3])
+        pac.adicionar("braco_" + lado, sem_rosto(sup, [], (xs[0], 0.38, -0.12), (xs[1], 0.66, 0.12)), "corpo", om - q, om)
+        xs = sorted([s * 0.12, s * 0.34])
+        pac.adicionar("antebraco_" + lado, sem_rosto(inf, [], (xs[0], 0.26, -0.1), (xs[1], 0.53, 0.12)), "braco_" + lado, co - om, co)
     for lado, s in (("e", 1), ("d", -1)):
-        sup, inf, pint = perna(s, cores)
-        qq, jj = espelho(QUADRIL, s), espelho(JOELHO, s)
+        sup, inf, pe, pint = perna(s, cores)
+        qq, jj, tt = espelho(QUADRIL, s), espelho(JOELHO, s), espelho(TORNOZELO, s)
         x = qq[0]
-        pac.adicionar("coxa_" + lado, sem_rosto(sup, [], (x - 0.1, 0.16, -0.1), (x + 0.1, 0.48, 0.1)), "corpo", qq - q, qq)
-        pac.adicionar("canela_" + lado, sem_rosto(inf, pint, (x - 0.11, -0.02, -0.1), (x + 0.11, 0.3, 0.18)), "coxa_" + lado, jj - qq, jj)
+        pac.adicionar("coxa_" + lado, sem_rosto(sup, [], (x - 0.09, 0.15, -0.09), (x + 0.09, 0.45, 0.09)), "corpo", qq - q, qq)
+        pac.adicionar("canela_" + lado, sem_rosto(inf, [], (x - 0.08, 0.04, -0.08), (x + 0.08, 0.28, 0.09)), "coxa_" + lado, jj - qq, jj)
+        pac.adicionar("pe_" + lado, sem_rosto(pe, pint, (x - 0.09, -0.02, -0.08), (x + 0.09, 0.14, 0.15)), "canela_" + lado, tt - jj, tt)
     pac.gravar(os.path.join(pasta, nome), meta={
-        "rosto": {"centro": [0.0, 0.94 - PESCOCO_Y], "tamanho": [0.46, 0.40]},
+        "rosto": {"centro": list(ROSTO_CENTRO), "tamanho": list(ROSTO_TAMANHO)},
+        "mao_d": [float(v) for v in (espelho(MAO, -1) - espelho(COTOVELO, -1))],
+        "tornozelo_y": float(TORNOZELO[1]),
     })

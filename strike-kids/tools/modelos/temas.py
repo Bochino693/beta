@@ -5,7 +5,7 @@ OBJETOS DOS CENÁRIOS TEMÁTICOS DO STRIKE KIDS
 
 Quatro mundos (um por rodada), no mesmo estilo "brinquedo de vinil /
 massinha" do resto do jogo: formas gordinhas, bordas redondas e cores
-alegres (turquesa, roxo, amarelo, laranja, verde-limão, azul-céu, coral).
+alegres (turquesa, azul, amarelo, laranja, verde-limão, vermelho, coral).
 
   * ESPAÇO ............. planeta_anel, foguete, ovni, planeta, cristal,
                           pedra_lua, estrela_3d
@@ -725,7 +725,7 @@ def sorriso_pontos(cx, cy, z, larg, curva, n=7):
 # =================================================================== ESPAÇO
 
 def planeta_anel():
-    pal = Paleta(lilas=hex_cor("#B79CFF"), claro=hex_cor("#DCCFFF"), escuro=hex_cor("#9277EE"),
+    pal = Paleta(lilas=hex_cor("#4FA8FF"), claro=hex_cor("#A8D8FF"), escuro=hex_cor("#2E7BE0"),
                  anel=hex_cor("#FFB347"), anel_claro=hex_cor("#FFE066"), anel_escuro=hex_cor("#FF8A3D"))
     incl = rot_z(0.36) @ rot_x(0.30)
     planeta = Esfera((0, 0, 0), 1.6, pal.lilas)
@@ -797,7 +797,7 @@ def foguete():
 
 
 def ovni():
-    pal = Paleta(casco=hex_cor("#B9B2DA"), claro=hex_cor("#DAD5F0"), barriga=hex_cor("#8F86B8"),
+    pal = Paleta(casco=hex_cor("#B8C4D6"), claro=hex_cor("#E3E9F2"), barriga=hex_cor("#7E8CA6"),
                  vidro=hex_cor("#86F0FF"), brilho=hex_cor("#FFFFFF"), antena=hex_cor("#FF6F61"),
                  l0=hex_cor("#FFD43B"), l1=hex_cor("#FF6F91"), l2=hex_cor("#9BE15D"), l3=hex_cor("#4FC3F7"))
     disco = Elipsoide((0, 0, 0), (0.9, 0.2, 0.9), pal.casco)
@@ -833,8 +833,8 @@ def planeta():
 
 
 def cristal():
-    pal = Paleta(ciano=hex_cor("#5CE1F0"), roxo=hex_cor("#A77BFF"), pedra=hex_cor("#9C94BC"),
-                 ciano_claro=hex_cor("#B5F6FF"), roxo_claro=hex_cor("#D7C2FF"))
+    pal = Paleta(ciano=hex_cor("#5CE1F0"), roxo=hex_cor("#FFC23A"), pedra=hex_cor("#8F9AB0"),
+                 ciano_claro=hex_cor("#B5F6FF"), roxo_claro=hex_cor("#FFE7A3"))
     lista = [  # base xz, inclinação, direção da inclinação, apótema, altura, ponta, cor
         ((0.0, 0.0), 0.0, 0.0, 0.15, 0.86, 0.27, pal.ciano),
         ((0.15, 0.05), 0.45, 0.2, 0.105, 0.42, 0.17, pal.roxo),
@@ -915,7 +915,7 @@ def coral():
 
 
 def coral_roxo():
-    pal = Paleta(roxo=hex_cor("#A77BFF"), borda=hex_cor("#D9C6FF"), dentro=hex_cor("#5B3A8C"), pedra=hex_cor("#B9B2DA"))
+    pal = Paleta(roxo=hex_cor("#FFC93C"), borda=hex_cor("#FFF0A8"), dentro=hex_cor("#C98A1A"), pedra=hex_cor("#C9C2B0"))
     tubos = [  # x, z, altura, raio, inclinação
         (0.0, 0.0, 1.2, 0.14, 0.0), (0.22, 0.07, 0.95, 0.125, 0.22), (-0.2, 0.1, 0.85, 0.12, 0.24),
         (0.07, -0.22, 1.0, 0.13, 0.2), (-0.14, -0.16, 0.72, 0.11, 0.28), (0.29, -0.16, 0.6, 0.1, 0.35),
@@ -1330,7 +1330,7 @@ def dino():
 
 def ptero():
     pal = Paleta(laranja=hex_cor("#FF9F2E"), asa=hex_cor("#FF8657"), barriga=hex_cor("#FFD9A0"),
-                 bico=hex_cor("#FFD43B"), crista=hex_cor("#8E5CF7"), osso=hex_cor("#F07438"), asa_clara=hex_cor("#FFB08A"))
+                 bico=hex_cor("#FFD43B"), crista=hex_cor("#2EC4B6"), osso=hex_cor("#F07438"), asa_clara=hex_cor("#FFB08A"))
     corpo = Elipsoide((0, 0, 0), (0.13, 0.13, 0.21), pal.laranja)
     cabeca = Esfera((0, 0.11, 0.23), 0.125, pal.laranja)
     bico = ConeRedondo((0, 0.065, 0.32), (0, 0.035, 0.5), 0.06, 0.022, pal.bico)
@@ -1391,7 +1391,7 @@ def pedra():
 
 def flor_gigante():
     pal = Paleta(caule=hex_cor("#4CB85A"), folha=hex_cor("#6FD25E"), petala=hex_cor("#FF8A2A"),
-                 petala_clara=hex_cor("#FFD43B"), miolo=hex_cor("#8E5CF7"), ponto=hex_cor("#C9B2FF"))
+                 petala_clara=hex_cor("#FFD43B"), miolo=hex_cor("#7A4A2E"), ponto=hex_cor("#B07A50"))
     caule_pts = [(0.0, 0.0, 0.0), (0.04, 0.32, 0.0), (0.02, 0.62, 0.02), (0.0, 0.88, 0.06)]
     caule = unir(*[Capsula(a, b, 0.05, pal.caule, rb=0.045) for a, b in zip(caule_pts[:-1], caule_pts[1:])], k=0.03)
     folhas = []
@@ -1459,7 +1459,7 @@ def roda():
     """Roda-gigante (origem no eixo, gira em Z). Dois aros paralelos
     (z = ±Z_ARO) ligados por 8 barras brancas: o pivô de cada cabine é o meio
     da barra, em RAIO_RODA * (cos a, sin a, 0) com a = 90° + k * 45°."""
-    pal = Paleta(turquesa=hex_cor("#2EC4B6"), amarelo=hex_cor("#FFD43B"), roxo=hex_cor("#8E5CF7"),
+    pal = Paleta(turquesa=hex_cor("#2EC4B6"), amarelo=hex_cor("#FFD43B"), roxo=hex_cor("#E8384F"),
                  laranja=hex_cor("#FF9F2E"), branco=hex_cor("#FFFFFF"), lampada=hex_cor("#FFF6C8"))
     cores = [pal.turquesa, pal.amarelo, pal.roxo, pal.laranja]
     pecas = []
@@ -1521,7 +1521,7 @@ def bandeirinha(nome, topo, haste, comp, larg, fase=0.0):
 
 
 def tenda():
-    pal = Paleta(turquesa=hex_cor("#2EC4B6"), amarelo=hex_cor("#FFD43B"), roxo=hex_cor("#8E5CF7"),
+    pal = Paleta(turquesa=hex_cor("#2EC4B6"), amarelo=hex_cor("#FFD43B"), roxo=hex_cor("#E8384F"),
                  porta=hex_cor("#4A2C7A"), creme=hex_cor("#FFF3DC"))
     N = 16
     # lona (parede + telhado côncavo) em gomos turquesa/amarelo
@@ -1564,7 +1564,7 @@ def ponei(c, frente, cor_crina, pal):
 
 
 def carrossel():
-    pal = Paleta(turquesa=hex_cor("#2EC4B6"), piso=hex_cor("#FFF1B8"), roxo=hex_cor("#8E5CF7"), amarelo=hex_cor("#FFD43B"),
+    pal = Paleta(turquesa=hex_cor("#2EC4B6"), piso=hex_cor("#FFF1B8"), roxo=hex_cor("#E8384F"), amarelo=hex_cor("#FFD43B"),
                  coluna=hex_cor("#F1EAFF"), lampada=hex_cor("#FFF6C8"))
     N = 12
     base = CilindroRedondo((0, 0.06, 0), 1.25, 0.2, 0.06, pal.turquesa)
@@ -1591,7 +1591,7 @@ def carrossel():
     m = malha("carrossel", forma, 0.09, pal, pint, ((-1.8, -0.6, -1.8), (1.8, 3.0, 1.8)), chao=-0.1)
     # cavalinhos (malha fina à parte) + postes dourados + bandeirinha
     pp = Paleta(branco=hex_cor("#FFFFFF"), dourado=hex_cor("#FFD43B"), c0=hex_cor("#FF6F61"), c1=hex_cor("#2EC4B6"),
-                c2=hex_cor("#9BE15D"), c3=hex_cor("#4FC3F7"), sela=hex_cor("#8E5CF7"))
+                c2=hex_cor("#9BE15D"), c3=hex_cor("#4FC3F7"), sela=hex_cor("#E8384F"))
     poneis, selas, pecas = [], [], [m, teto]
     for i in range(4):
         a = PI / 4 + i * PI / 2

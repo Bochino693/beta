@@ -5,7 +5,7 @@ render_mode blend_mix, depth_draw_opaque, cull_back;
 // marcas dos pinos) + luzes que correm pela borda acompanhando a bola.
 // As coordenadas são do MUNDO: linha de falta em z = 0, pinos em z = -14.
 
-uniform sampler2D madeira : source_color, filter_linear_mipmap, repeat_enable;
+uniform sampler2D madeira : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
 uniform float meia_largura = 0.675;
 uniform float repete = 3.6;
 uniform float z_pino1 = -14.0;
@@ -35,7 +35,7 @@ void fragment() {
 	float d = -pm.z;       // distância da linha de falta
 	float ax = abs(pm.x);
 	// linha de falta
-	c = mix(c, vec3(0.9, 0.15, 0.3), step(abs(d - 0.02), 0.025));
+	c = mix(c, vec3(0.88, 0.1, 0.12), step(abs(d - 0.02), 0.025));
 	// pontos-guia (2 m)
 	for (int i = -2; i <= 2; i++) {
 		float x = float(i) * 0.17;

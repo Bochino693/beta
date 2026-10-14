@@ -11,6 +11,7 @@ Gera em marketing/:
   post_quadrado_1080x1080.png     (feed do Instagram)
   personagens.png                 (apresentação do Bob e da Mia)
   cenarios.png                    (os 4 cenários; renders em <pasta>/cenario_<tema>.png)
+Todas levam a logo da Lazer & Sport (ui/marca/lazer_sport.png).
 """
 import os
 import sys
@@ -21,7 +22,7 @@ RAIZ = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 UI = os.path.join(RAIZ, "ui")
 SAIDA = os.path.join(RAIZ, "marketing")
 os.makedirs(SAIDA, exist_ok=True)
-ROXO = (59, 10, 99)
+ROXO = (11, 31, 69)      # azul-marinho dos contornos (nome antigo mantido)
 
 
 def fonte(nome, tam):
@@ -39,7 +40,7 @@ def texto_central(img, txt, y, tam, cor=(255, 255, 255), contorno=None, fonte_no
 def faixa(img, y, h, alpha=170):
     camada = Image.new("RGBA", img.size, (0, 0, 0, 0))
     d = ImageDraw.Draw(camada)
-    d.rectangle([0, y, img.width, y + h], fill=(40, 8, 80, alpha))
+    d.rectangle([0, y, img.width, y + h], fill=(6, 20, 48, alpha))
     camada = camada.filter(ImageFilter.GaussianBlur(18))
     img.alpha_composite(camada)
 
@@ -47,6 +48,20 @@ def faixa(img, y, h, alpha=170):
 def logo(larg):
     lg = Image.open(os.path.join(UI, "logo.png")).convert("RGBA")
     return lg.resize((int(larg), int(larg * lg.height / lg.width)), Image.LANCZOS)
+
+
+def marca(larg):
+    """Logo da Lazer & Sport com uma sombra macia (fica bem sobre qualquer fundo)."""
+    lg = Image.open(os.path.join(UI, "marca", "lazer_sport.png")).convert("RGBA")
+    lg = lg.resize((int(larg), int(larg * lg.height / lg.width)), Image.LANCZOS)
+    m = int(larg * 0.06)
+    out = Image.new("RGBA", (lg.width + 2 * m, lg.height + 2 * m), (0, 0, 0, 0))
+    sombra = Image.new("RGBA", lg.size, (0, 8, 24, 0))
+    sombra.putalpha(lg.getchannel("A").point(lambda v: int(v * 0.5)))
+    out.alpha_composite(sombra, (m, m + int(larg * 0.02)))
+    out = out.filter(ImageFilter.GaussianBlur(larg * 0.015))
+    out.alpha_composite(lg, (m, m))
+    return out
 
 
 def vertical(caminho):
@@ -58,7 +73,8 @@ def vertical(caminho):
     texto_central(img, "BOLICHE INFANTIL 3D", 1560, 78)
     texto_central(img, "com BOB e MIA", 1660, 62, (255, 246, 168))
     texto_central(img, "5 sensores  ·  4 cenários  ·  1 ou 2 jogadores", 1760, 38)
-    texto_central(img, "Lazer & Sport Games", 1840, 34, (191, 243, 255))
+    mc = marca(190)
+    img.alpha_composite(mc, (1080 - mc.width - 10, 1920 - mc.height - 6))
     img.convert("RGB").save(os.path.join(SAIDA, "poster_vertical_1080x1920.png"))
 
 
@@ -67,7 +83,9 @@ def horizontal(caminho):
     faixa(img, 860, 240, 190)
     # o letreiro do jogo (STRIKE KIDS em cima dos pinos) já é o logo da cena
     texto_central(img, "BOLICHE INFANTIL 3D  ·  BOB & MIA", 890, 70)
-    texto_central(img, "5 sensores  ·  4 cenários  ·  física de verdade  ·  replay do strike  ·  Lazer & Sport Games", 990, 36, (255, 246, 168))
+    texto_central(img, "5 sensores  ·  4 cenários  ·  física de verdade  ·  replay do strike  ·  foto da criança", 990, 36, (255, 246, 168))
+    mc = marca(260)
+    img.alpha_composite(mc, (1920 - mc.width - 10, 10))
     img.convert("RGB").save(os.path.join(SAIDA, "banner_horizontal_1920x1080.png"))
 
 
@@ -78,7 +96,9 @@ def quadrado(caminho_vertical):
     q = v.crop((0, 470, 1080, 1550))
     faixa(q, 880, 240, 190)
     texto_central(q, "BOLICHE INFANTIL 3D", 905, 66)
-    texto_central(q, "Bob & Mia  ·  Lazer & Sport Games", 995, 40, (255, 246, 168))
+    texto_central(q, "com Bob & Mia", 995, 40, (255, 246, 168))
+    mc = marca(200)
+    q.alpha_composite(mc, (1080 - mc.width - 6, 6))
     q.convert("RGB").save(os.path.join(SAIDA, "post_quadrado_1080x1080.png"))
 
 
@@ -88,13 +108,13 @@ def personagens():
     d = ImageDraw.Draw(img)
     for y in range(H):
         t = y / H
-        c = (int(106 + (22 - 106) * t), int(76 + (169 - 76) * t), int(255 + (190 - 255) * t), 255)
+        c = (int(18 + (22 - 18) * t), int(58 + (155 - 58) * t), int(122 + (213 - 122) * t), 255)
         d.line([(0, y), (W, y)], fill=c)
     lg = logo(560)
     img.alpha_composite(lg, ((W - lg.width) // 2, 20))
     dados = [
-        ("bob", "BOB", "o cachorrinho", ["Orelhas caídas e rabinho que abana", "Camiseta turquesa com estrela", "Pula girando quando faz STRIKE!"], (19, 163, 188)),
-        ("mia", "MIA", "a gatinha", ["Rajadinha, de laço amarelo", "Vestido lilás de bolinhas", "Pulinhos, palmas e muita festa!"], (134, 87, 242)),
+        ("bob", "BOB", "o cachorrinho", ["Orelhas caídas e rabinho que abana", "Camiseta azul com estrela", "Pula girando quando faz STRIKE!"], (22, 155, 213)),
+        ("mia", "MIA", "a gatinha", ["Rajadinha, de laço azul", "Roupa laranja de bolinhas", "Pulinhos, palmas e muita festa!"], (255, 122, 33)),
     ]
     for i, (nome, titulo, sub, linhas, cor) in enumerate(dados):
         x0 = 150 + i * 870
@@ -115,13 +135,15 @@ def personagens():
             dc.text(((750 - w) / 2, 640 + k * 46), l, font=f3, fill=(255, 255, 255), stroke_width=5, stroke_fill=ROXO)
         img.alpha_composite(card, (x0, 200))
     texto_central(img, "Mascotes originais  ·  modelados em 3D  ·  8 expressões  ·  jogam boliche de verdade", 1020, 34)
+    mc = marca(210)
+    img.alpha_composite(mc, (W - mc.width - 6, 6))
     img.convert("RGB").save(os.path.join(SAIDA, "personagens.png"))
 
 
 def cenarios(pasta):
     """Os 4 cenários lado a lado, com o letreiro de cada um."""
     W, H = 1920, 1080
-    img = Image.new("RGBA", (W, H), (40, 12, 80, 255))
+    img = Image.new("RGBA", (W, H), (6, 20, 48, 255))
     temas = ["parque", "espaco", "mar", "dinos"]
     cw, ch = 940, 500
     for i, t in enumerate(temas):
@@ -140,6 +162,8 @@ def cenarios(pasta):
         lw = 380
         lt = lt.resize((lw, int(lw * lt.height / lt.width)), Image.LANCZOS)
         img.alpha_composite(lt, (x + 14, y + 8))
+    mc = marca(190)
+    img.alpha_composite(mc, ((W - mc.width) // 2, (H - mc.height) // 2 + 10))
     img.convert("RGB").save(os.path.join(SAIDA, "cenarios.png"))
 
 

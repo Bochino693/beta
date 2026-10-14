@@ -4,7 +4,7 @@ extends Node3D
 ## OS 4 CENÁRIOS — um por rodada (e a atração vai passando por todos).
 ## Cada um tem céu, luz, neblina, terreno e cores da pista próprios (CONFIG,
 ## aplicado por Mundo.aplicar_tema) e um grupo de decoração que se mexe:
-##   parque — Parque de Diversões: doces, roda-gigante, carrossel, balões
+##   parque — Parque de Diversões: roda-gigante, carrossel, tendas de circo, balões
 ##   espaco — Viagem ao Espaço: planeta com anel, foguetes, disco voador
 ##   mar    — Fundo do Mar: concha gigante, corais, algas, peixinhos, bolhas
 ##   dinos  — Selva dos Dinos: vulcão, dino pescoçudo, palmeiras, pterossauros
@@ -13,23 +13,23 @@ const ORDEM := ["parque", "espaco", "mar", "dinos"]
 
 const CONFIG := {
 	"parque": {
-		"ceu": [Color("#3385FF"), Color("#73BFFF"), Color("#FFE0F0"), Color("#8CD18C")],
-		"ambiente": Color(0.66, 0.62, 0.92), "ambiente_forca": 0.62,
-		"neblina": Color(0.86, 0.9, 1.0), "neblina_densidade": 0.0045,
+		"ceu": [Color("#2F7FFF"), Color("#6CBBFF"), Color("#E4F4FF"), Color("#8CD18C")],
+		"ambiente": Color(0.62, 0.7, 0.86), "ambiente_forca": 0.62,
+		"neblina": Color(0.84, 0.92, 1.0), "neblina_densidade": 0.0045,
 		"sol": Color(1.0, 0.95, 0.86), "sol_forca": 1.05,
-		"fundo": [Color(0.10, 0.04, 0.22), Color(0.26, 0.08, 0.42)],
-		"placa": Color("#3A1C7A"), "divisoria": Color("#FFB627"), "faixa": Color("#FF9F2E"), "canaleta": Color("#B9A6FF"),
-		"terreno": "terreno",
+		"fundo": [Color(0.02, 0.06, 0.16), Color(0.05, 0.16, 0.38)],
+		"placa": Color("#0E2A5C"), "divisoria": Color("#FFB627"), "faixa": Color("#E8384F"), "canaleta": Color("#8FC4EE"),
+		"chao": [Color("#6BCB5D"), Color("#5BB54E"), Color("#FFFFFF"), Color("#FFE873")], "chao_modo": 0,
 	},
 	"espaco": {
-		"ceu": [Color("#0A0630"), Color("#21166A"), Color("#6A4CC0"), Color("#2A1F55")],
-		"estrelas": 1.0, "nebulosa": Color("#C86BFF"), "cor_sol": Color("#CFE0FF"), "forca_sol": 0.35,
-		"ambiente": Color(0.58, 0.58, 1.0), "ambiente_forca": 0.78,
-		"neblina": Color(0.3, 0.22, 0.6), "neblina_densidade": 0.006,
-		"sol": Color(0.9, 0.92, 1.0), "sol_forca": 1.05,
-		"fundo": [Color(0.02, 0.02, 0.10), Color(0.10, 0.05, 0.32)],
-		"placa": Color("#1E1656"), "divisoria": Color("#4FD8FF"), "faixa": Color("#7C5CFF"), "canaleta": Color("#8C9CFF"),
-		"terreno": "terreno_lua",
+		"ceu": [Color("#040A26"), Color("#0E2560"), Color("#2C6AB8"), Color("#14244E")],
+		"estrelas": 1.0, "nebulosa": Color("#2FC8FF"), "cor_sol": Color("#CFE0FF"), "forca_sol": 0.35,
+		"ambiente": Color(0.6, 0.7, 1.0), "ambiente_forca": 0.78,
+		"neblina": Color(0.14, 0.24, 0.5), "neblina_densidade": 0.006,
+		"sol": Color(0.9, 0.94, 1.0), "sol_forca": 1.05,
+		"fundo": [Color(0.01, 0.02, 0.08), Color(0.03, 0.08, 0.26)],
+		"placa": Color("#0C1C4A"), "divisoria": Color("#4FD8FF"), "faixa": Color("#FF9F2E"), "canaleta": Color("#7FB2FF"),
+		"chao": [Color("#9AA8C4"), Color("#8494B3"), Color("#C3CEE2"), Color("#E2F5FF")], "chao_modo": 1,
 	},
 	"mar": {
 		"ceu": [Color("#0A4F86"), Color("#1A94C0"), Color("#86E6DE"), Color("#E8D29A")],
@@ -39,7 +39,7 @@ const CONFIG := {
 		"sol": Color(0.88, 1.0, 0.96), "sol_forca": 1.0,
 		"fundo": [Color(0.01, 0.10, 0.20), Color(0.03, 0.30, 0.44)],
 		"placa": Color("#0B4C6E"), "divisoria": Color("#FF8A5C"), "faixa": Color("#2EC4B6"), "canaleta": Color("#7FD8E8"),
-		"terreno": "terreno_areia",
+		"chao": [Color("#F9DCA2"), Color("#EDC98A"), Color("#FFB09E"), Color("#9EDDE6")], "chao_modo": 2,
 	},
 	"dinos": {
 		"ceu": [Color("#3FA7E8"), Color("#9BD8F0"), Color("#FFE4AE"), Color("#6BBF59")],
@@ -49,11 +49,11 @@ const CONFIG := {
 		"sol": Color(1.0, 0.93, 0.8), "sol_forca": 1.1,
 		"fundo": [Color(0.04, 0.14, 0.06), Color(0.10, 0.32, 0.12)],
 		"placa": Color("#23502A"), "divisoria": Color("#FF9F2E"), "faixa": Color("#8BD33F"), "canaleta": Color("#9BD58A"),
-		"terreno": "terreno_selva",
+		"chao": [Color("#46A44E"), Color("#57B948"), Color("#FF9F33"), Color("#FFE65A")], "chao_modo": 3,
 	},
 }
 
-const CORES_BICHOS := [Color("#FF9F2E"), Color("#FFD43B"), Color("#4FD8FF"), Color("#FF6B6B"), Color("#8DFF6A"), Color("#B388FF")]
+const CORES_BICHOS := [Color("#FF9F2E"), Color("#FFD43B"), Color("#4FD8FF"), Color("#FF4B5C"), Color("#8DFF6A"), Color("#2E7BFF")]
 
 ## Lugares de destaque perto da pista (vistos de perto nas jogadas): x, z, giro, escala
 const DESTAQUES := [[-2.55, -1.5, 0.3], [2.7, -3.5, -0.4], [-3.9, 3.4, 0.4], [3.9, 2.6, 0.0],
@@ -194,7 +194,7 @@ func _particulas(tema: String, pos: Vector3, textura: String, qtd: int, vida: fl
 # ================================================================ PARQUE
 func _parque() -> void:
 	var T := "parque"
-	# arco-íris com lâmpadas e torres doces
+	# arco-íris com lâmpadas e torres de circo
 	_obj(T, "arco_iris", Vector3(0, -0.05, Mundo.Z_FUNDO - 0.5), 0.0, 0.95, 0.0, Color.WHITE)
 	var R := 3.0 * 0.95 - 0.42 * 0.95 - 0.08
 	var pontos: Array[Vector3] = []
@@ -203,9 +203,9 @@ func _parque() -> void:
 		pontos.append(Vector3(cos(a) * R, sin(a) * R - 0.05, Mundo.Z_FUNDO - 0.5 + 0.38))
 	grupos[T].add_child(mundo.lampadas_em(pontos, 100))
 	_torres(T, "torre")
-	_espalhar(T, ["arvore_verde", "arvore_rosa", "arvore_lilas", "pirulito", "cogumelo", "bengala",
-		"presente", "donut", "cupcake", "arvore_verde", "pirulito", "arvore_lilas"], 40, 2026,
-		{"arvore_verde": 1.25, "arvore_rosa": 1.25, "arvore_lilas": 1.25})
+	_espalhar(T, ["arvore_verde", "arvore_laranja", "arvore_escura", "pirulito", "cogumelo", "bengala",
+		"presente", "donut", "cupcake", "arvore_verde", "arvore_escura", "arvore_laranja"], 40, 2026,
+		{"arvore_verde": 1.25, "arvore_laranja": 1.25, "arvore_escura": 1.25})
 	_destaques(T, [["pirulito", 0.75, 0.004], ["pirulito", 0.85, 0.004], ["presente", 0.8, 0.004], ["cupcake", 0.75, 0.004],
 		["bengala", 0.9], ["bengala", 0.9], ["cogumelo", 0.9], ["donut", 0.85]])
 	# roda-gigante (gira) com as cabines sempre de pé
@@ -236,7 +236,7 @@ func _parque() -> void:
 func _nuvens(tema: String, qtd: int, semente: int) -> void:
 	var rnd := RandomNumberGenerator.new()
 	rnd.seed = semente
-	var mat := Materiais.toon(false, 0.0, {"borda": 0.6, "luz_minima": 0.5, "cor_borda": Color(1, 0.9, 1)})
+	var mat := Materiais.toon(false, 0.0, {"borda": 0.6, "luz_minima": 0.5, "cor_borda": Color(0.9, 0.96, 1)})
 	for i in qtd:
 		var n := _obj(tema, "nuvem", Vector3.ZERO)
 		n.material_override = mat
@@ -252,7 +252,7 @@ func _baloes(tema: String) -> void:
 	var rnd := RandomNumberGenerator.new()
 	rnd.seed = 91
 	var mb: Mesh = load("res://modelos/cenario/balao.res")
-	var cores := [Color("#FF4B5C"), Color("#FFD43B"), Color("#4FC3F7"), Color("#5ED16A"), Color("#B388FF"), Color("#FF9F2E")]
+	var cores := [Color("#FF4B5C"), Color("#FFD43B"), Color("#4FC3F7"), Color("#5ED16A"), Color("#2E7BFF"), Color("#FF9F2E")]
 	var linha_mat := Materiais.cor_toon(Color("#FFFFFF"), 0.0, {"borda": 0.0})
 	for i in 16:
 		var b := Node3D.new()
@@ -355,7 +355,7 @@ func _mar() -> void:
 	for i in 7:
 		var lado := -1.0 if i % 2 == 0 else 1.0
 		var base := Vector3(lado * rnd.randf_range(2.2, 5.0), rnd.randf_range(2.4, 5.2), rnd.randf_range(-19.0, -2.0))
-		var cor: Color = [Color("#FF9FD8"), Color("#C9A2FF"), Color("#8FE9FF")][i % 3]
+		var cor: Color = [Color("#FFB36B"), Color("#9FF0C8"), Color("#8FE9FF")][i % 3]
 		var av := _obj(T, "agua_viva", base, 0.0, rnd.randf_range(0.7, 1.0), 0.003, cor)
 		_animar(T, {"tipo": "agua_viva", "no": av, "base": base, "fase": rnd.randf() * TAU, "vel": rnd.randf_range(0.8, 1.2)})
 	# tartarugas atravessando o mar lá no alto

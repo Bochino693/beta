@@ -112,8 +112,8 @@ def gerar_pino():
 def gerar_cenario():
     pac = Pacote()
 
-    # --- pirulito gigante (espiral rosa/branca)
-    pal = Paleta(cabo=hex_cor("#FFF6E8"), doce=hex_cor("#FF5FA8"), listra=hex_cor("#FFFFFF"))
+    # --- pirulito gigante (espiral azul/amarela)
+    pal = Paleta(cabo=hex_cor("#FFF6E8"), doce=hex_cor("#1E88F0"), listra=hex_cor("#FFD43B"))
     disco = CilindroRedondo((0, 2.0, 0), 0.62, 0.11, 0.1, pal.doce, rot=rot_x(math.pi / 2))
     cabo = Capsula((0, 0, 0), (0, 1.5, 0), 0.06, pal.cabo)
 
@@ -125,9 +125,9 @@ def gerar_cenario():
     m = gerar_malha(disco | cabo, (-0.7, -0.1, -0.2), (0.7, 2.7, 0.2), 0.034, pal.cores, [Pintura(espiral, pal.listra)])
     pac.adicionar("pirulito", m)
 
-    # --- árvore fofa verde e árvore de algodão-doce
-    for nome, cor_copa, cor_tronco in (("arvore_verde", "#5ED16A", "#A86B3C"), ("arvore_rosa", "#FF9ED2", "#C98A5A"),
-                                       ("arvore_lilas", "#B79CFF", "#A86B3C")):
+    # --- árvores fofas: verde, laranja (outono) e verde-escura
+    for nome, cor_copa, cor_tronco in (("arvore_verde", "#5ED16A", "#A86B3C"), ("arvore_laranja", "#FFA23A", "#A86B3C"),
+                                       ("arvore_escura", "#2FA35A", "#8E5A32")):
         pal = Paleta(tronco=hex_cor(cor_tronco), copa=hex_cor(cor_copa))
         tronco = ConeRedondo((0, 0, 0), (0, 1.3, 0), 0.16, 0.09, pal.tronco)
         rng = np.random.default_rng(len(nome))
@@ -177,7 +177,7 @@ def gerar_cenario():
     pac.adicionar("presente", m)
 
     # --- rosquinha gigante (donut)
-    pal = Paleta(massa=hex_cor("#E9A55B"), cobertura=hex_cor("#FF7EC1"), conf1=hex_cor("#FFFFFF"), conf2=hex_cor("#FFD43B"), conf3=hex_cor("#4FC3F7"))
+    pal = Paleta(massa=hex_cor("#E9A55B"), cobertura=hex_cor("#7B4A2E"), conf1=hex_cor("#FFFFFF"), conf2=hex_cor("#FFD43B"), conf3=hex_cor("#4FC3F7"))
     donut = Toro((0, 0.3, 0), 0.5, 0.28, pal.massa, rot=rot_x(math.pi / 2) @ rot_x(-math.pi / 2))
     rng = np.random.default_rng(7)
     conf = rng.normal(size=(140, 3))
@@ -217,7 +217,7 @@ def gerar_cenario():
     pac.adicionar("balao", m)
 
     # --- cupcake
-    pal = Paleta(forma=hex_cor("#4FC3F7"), bolo=hex_cor("#C98A5A"), creme=hex_cor("#FFF0F7"), cereja=hex_cor("#FF3B4E"))
+    pal = Paleta(forma=hex_cor("#4FC3F7"), bolo=hex_cor("#C98A5A"), creme=hex_cor("#FFF7E6"), cereja=hex_cor("#FF3B4E"))
     forminha = ConeRedondo((0, 0, 0), (0, 0.42, 0), 0.32, 0.42, pal.forma)
     creme = unir(Esfera((0, 0.55, 0), 0.38, pal.creme), Esfera((0, 0.82, 0), 0.25, pal.creme), Esfera((0, 1.0, 0), 0.13, pal.creme), k=0.12)
     cereja = Esfera((0, 1.17, 0), 0.09, pal.cereja)
@@ -231,7 +231,7 @@ def gerar_cenario():
     pac.adicionar("cupcake", m)
 
     # --- arco-íris (portal no fim da pista): faixas pintadas pelo raio
-    cores_ai = ["#FF4B5C", "#FF9F2E", "#FFD43B", "#5ED16A", "#4FC3F7", "#8E5CF7"]
+    cores_ai = ["#FF4B5C", "#FF9F2E", "#FFD43B", "#5ED16A", "#4FC3F7", "#2E5BE6"]
     pal = Paleta(**{"c%d" % i: hex_cor(h) for i, h in enumerate(cores_ai)})
     R, r = 3.0, 0.42
     arco = Intersecao(Toro((0, 0, 0), R, r, 0, rot=rot_x(math.pi / 2)), SemiEspaco((0, -0.05, 0), (0, -1, 0)))
@@ -248,8 +248,8 @@ def gerar_cenario():
                     [Pintura(faixa(i), i) for i in range(6)])
     pac.adicionar("arco_iris", m)
 
-    # --- torre doce (lateral do fim da pista)
-    pal = Paleta(parede=hex_cor("#FFE3F1"), listra=hex_cor("#FF7EC1"), telhado=hex_cor("#8E5CF7"), bandeira=hex_cor("#FFD43B"), janela=hex_cor("#5B3A8C"))
+    # --- torre de circo (lateral do fim da pista): branca e vermelha, telhado azul
+    pal = Paleta(parede=hex_cor("#FFFFFF"), listra=hex_cor("#E8384F"), telhado=hex_cor("#1E6FE0"), bandeira=hex_cor("#FFD43B"), janela=hex_cor("#0E2A5C"))
     corpo = CilindroRedondo((0, 1.25, 0), 0.55, 1.25, 0.08, pal.parede)
     ameia = CilindroRedondo((0, 2.6, 0), 0.66, 0.14, 0.06, pal.parede)
     telhado = ConeRedondo((0, 2.7, 0), (0, 3.9, 0), 0.62, 0.04, pal.telhado)
@@ -313,52 +313,8 @@ def gerar_terreno():
     N = np.stack([-dx, np.ones_like(H), -dz], -1)
     N /= np.linalg.norm(N, axis=-1, keepdims=True)
     N = N.reshape(-1, 3)
-    # cores de cada cenário (mesmo relevo, outra "pele")
-    alt = H.reshape(-1)
-    Xf, Zf = X.reshape(-1), Z.reshape(-1)
-    variantes = {}
-    # parque: gramado em faixas (corte de grama) + manchas de flores
-    g1 = np.array([0.42, 0.80, 0.36])
-    g2 = np.array([0.36, 0.72, 0.31])
-    faixa = (np.floor((Z + X * 0.15) / 2.2) % 2).reshape(-1)
-    C = np.where(faixa[:, None] > 0, g1, g2)
-    C = C * (1.0 + 0.10 * np.clip(alt / 4.0, 0, 1))[:, None]
-    flor = rng.random(len(C))
-    C[flor > 0.985] = [1.0, 0.62, 0.82]
-    C[(flor > 0.975) & (flor <= 0.985)] = [1.0, 0.92, 0.45]
-    variantes["terreno"] = C
-    # espaço: chão de lua lilás com crateras (anéis mais escuros) e poeira brilhante
-    base = np.array([0.66, 0.62, 0.84])
-    C = np.tile(base, (len(alt), 1)) * (0.92 + 0.12 * np.clip(alt / 4.0, 0, 1))[:, None]
-    rng2 = np.random.default_rng(5)
-    for _ in range(70):
-        cx, cz, r = rng2.uniform(-32, 32), rng2.uniform(-68, 16), rng2.uniform(0.8, 3.2)
-        d = np.sqrt((Xf - cx) ** 2 + (Zf - cz) ** 2) / r
-        C[(d < 1.0)] *= 0.86
-        C[(d >= 1.0) & (d < 1.18)] *= 1.12
-    brilho = rng2.random(len(C))
-    C[brilho > 0.988] = [0.85, 0.95, 1.0]
-    variantes["terreno_lua"] = C
-    # mar: areia com ondinhas e conchinhas
-    a1 = np.array([0.98, 0.86, 0.62])
-    a2 = np.array([0.93, 0.79, 0.55])
-    onda = 0.5 + 0.5 * np.sin(Xf * 1.6 + np.sin(Zf * 0.35) * 2.0)
-    C = a1 * (1 - onda[:, None]) + a2 * onda[:, None]
-    pont = rng2.random(len(C))
-    C[pont > 0.99] = [1.0, 0.7, 0.62]
-    C[(pont > 0.982) & (pont <= 0.99)] = [0.62, 0.86, 0.9]
-    variantes["terreno_areia"] = C
-    # selva: verde fechado com manchas de terra e flores laranja
-    v1 = np.array([0.27, 0.64, 0.30])
-    v2 = np.array([0.33, 0.72, 0.28])
-    mancha = np.sin(Xf * 0.45 + 1.3) * np.sin(Zf * 0.38) + 0.5 * np.sin(Xf * 1.1 - Zf * 0.9)
-    C = np.where((mancha > 0.0)[:, None], v1, v2)
-    terra = np.array([0.66, 0.48, 0.30])
-    C[mancha > 1.05] = terra
-    fl = rng2.random(len(C))
-    C[fl > 0.988] = [1.0, 0.62, 0.2]
-    C[(fl > 0.981) & (fl <= 0.988)] = [1.0, 0.92, 0.35]
-    variantes["terreno_selva"] = C
+    # a cor do chão vem do shader (shaders/terreno.gdshader): aqui só o relevo
+    variantes = {"terreno": np.ones((nx * nz, 3))}
     idx = np.arange(nx * nz).reshape(nx, nz)
     a = idx[:-1, :-1].reshape(-1)
     b = idx[1:, :-1].reshape(-1)

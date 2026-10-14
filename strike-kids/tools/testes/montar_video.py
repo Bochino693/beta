@@ -8,7 +8,8 @@ Depois de gravar os quadros com o diretor (tools/testes/video.gd):
     python3 tools/testes/montar_video.py <pasta_dos_quadros> <saida.mp4> [fps] [primeiro_quadro]
 
 Mistura a trilha (músicas + efeitos nos quadros exatos em que tocaram no
-jogo), acrescenta um cartão final com o logo e gera o MP4 (H.264 + AAC).
+jogo), acrescenta um cartão final com o logo do jogo e a marca Lazer & Sport
+e gera o MP4 (H.264 + AAC).
 """
 import json
 import os
@@ -57,6 +58,9 @@ def mudar_tom(a, tom):
 
 def cartao_final(pasta, inicio, n, largura, altura):
     logo = Image.open(os.path.join(RAIZ, "ui", "logo.png")).convert("RGBA")
+    marca = Image.open(os.path.join(RAIZ, "ui", "marca", "lazer_sport.png")).convert("RGBA")
+    mw = int(min(largura, altura) * 0.3)
+    marca = marca.resize((mw, int(mw * marca.height / marca.width)), Image.LANCZOS)
     fonte = ImageFont.truetype(os.path.join(RAIZ, "fontes", "fredoka_700.ttf"), int(min(largura, altura) * 0.05))
     fonte2 = ImageFont.truetype(os.path.join(RAIZ, "fontes", "fredoka_600.ttf"), int(min(largura, altura) * 0.037))
     retratos = []
@@ -69,8 +73,8 @@ def cartao_final(pasta, inicio, n, largura, altura):
         img = Image.new("RGBA", (largura, altura))
         px = np.zeros((altura, largura, 4), dtype=np.uint8)
         g = np.linspace(0, 1, altura)[:, None]
-        c1 = np.array([106, 76, 255, 255])
-        c2 = np.array([22, 169, 190, 255])
+        c1 = np.array([18, 58, 122, 255])
+        c2 = np.array([22, 155, 213, 255])
         px[:] = (c1 * (1 - g) + c2 * g)[:, None, :].astype(np.uint8).reshape(altura, 1, 4)
         img = Image.fromarray(px, "RGBA")
         esc = 0.9 + 0.1 * min(1.0, t * 4)
@@ -84,10 +88,10 @@ def cartao_final(pasta, inicio, n, largura, altura):
             img.alpha_composite(rr, (x, int(altura * 0.42)))
         d = ImageDraw.Draw(img)
         for (txt, f, y) in (("Boliche infantil 3D com Bob e Mia", fonte, 0.76),
-                            ("5 sensores  ·  4 cenários  ·  foto da criança  ·  replay", fonte2, 0.82),
-                            ("Lazer & Sport Games", fonte2, 0.9)):
+                            ("5 sensores  ·  4 cenários  ·  foto da criança  ·  replay", fonte2, 0.82)):
             w = d.textlength(txt, font=f)
-            d.text(((largura - w) / 2, altura * y), txt, font=f, fill=(255, 255, 255), stroke_width=6, stroke_fill=(59, 10, 99))
+            d.text(((largura - w) / 2, altura * y), txt, font=f, fill=(255, 255, 255), stroke_width=6, stroke_fill=(11, 31, 69))
+        img.alpha_composite(marca, ((largura - marca.width) // 2, int(altura * 0.87)))
         img.convert("RGB").save(os.path.join(pasta, "q%05d.jpg" % (inicio + i)), quality=93)
 
 
@@ -177,7 +181,9 @@ def main():
         w.setframerate(TAXA)
         w.writeframes((trilha * 32767).astype(np.int16).tobytes())
     subprocess.run(["ffmpeg", "-y", "-v", "error", "-framerate", str(fps), "-start_number", str(pula), "-i", os.path.join(pasta, "q%05d.jpg"), "-i", wav,
-                    "-c:v", "libx264", "-preset", "slow", "-crf", "19", "-pix_fmt", "yuv420p", "-movflags", "+faststart",
+                    # qualidade alta com teto de taxa: arquivo leve para WhatsApp/Instagram (~25 MB)
+                    "-c:v", "libx264", "-preset", "slow", "-crf", "21", "-maxrate", "2300k", "-bufsize", "4600k",
+                    "-pix_fmt", "yuv420p", "-movflags", "+faststart",
                     "-c:a", "aac", "-b:a", "192k", "-shortest", saida], check=True)
     print("vídeo:", saida, "%.1f s" % dur)
 

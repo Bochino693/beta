@@ -20,7 +20,7 @@ uniform float flash : hint_range(0.0, 1.0) = 0.0;
 uniform float brilho_luz : hint_range(0.0, 4.0) = 1.4;
 
 uniform bool usa_rosto = false;
-uniform sampler2D rosto : source_color, filter_linear_mipmap, repeat_disable;
+uniform sampler2D rosto : source_color, filter_linear_mipmap_anisotropic, repeat_disable;
 uniform vec2 rosto_centro = vec2(0.0, 0.235);
 uniform vec2 rosto_tamanho = vec2(0.46, 0.40);
 uniform vec2 rosto_grade = vec2(4.0, 2.0);

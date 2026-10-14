@@ -8,12 +8,24 @@ extends Control
 ##
 ## Responsivo: tudo é reposicionado em `layout()` conforme a tela (em pé ou
 ## deitada). Unidade "u" = lado menor / 1080.
+##
+## Visual: placas com volume (Painel3D: degradê, verniz, lateral e sombra,
+## como os objetos 3D), contorno azul-marinho e a marca Lazer & Sport na
+## abertura, na atração, no canto durante o jogo e no fim.
 
-const COR_BOB := Color("#13A3BC")
-const COR_MIA := Color("#8657F2")
-const DESTAQUE := Color("#FFB627")
-const ROXO := Color("#3B0A63")
+const COR_BOB := Color("#169BD5")
+const COR_MIA := Color("#FF7A21")
+const DESTAQUE := Color("#FFC21A")
+const ESCALA_ARTE := 1.6       # letreiros gerados em 1,6x (nítidos em 4K)
+const MARINHO := Color("#0B1F45")   # contornos e textos escuros
+const AZUL := Color("#1A4FA8")      # placas azuis
+const CREME := Color("#FFF6A8")
 const ZONAS := ["Z", "X", "C", "V", "B"]
+const MARCA := "res://ui/marca/"
+## posição das peças dentro da logo inteira (tools/arte/gerar_marca.py)
+const CENTRO_ALVO := Vector2(0.4752, 0.2780)
+const CENTRO_PLACA := Vector2(0.5, 0.7792)
+const PROPORCAO_LOGO := 1698.0 / 2560.0
 
 var fonte: FontFile
 var fonte_titulo: FontFile
@@ -30,7 +42,7 @@ var _replay_ponto: Panel
 var _cartoes: Array = []          # [{painel, avatar, nome, pontos, rodadas(HBox), cor, valor_mostrado}]
 var _info: Label
 var _bolas_box: HBoxContainer
-var _mapa: Panel
+var _mapa: Painel3D
 var _mapa_pontos := {}
 var _toque: Control
 var _aviso: Label
@@ -38,25 +50,36 @@ var _aviso_sub: Label
 var _cenario: TextureRect
 var _sequencia: Label
 var _centro: Control
-var _faixa: Panel
+var _faixa: Painel3D
 var _faixa_texto: Label
 var _faixa_avatar: TextureRect
 var _atracao: Control
 var _logo: TextureRect
 var _aperte: Label
+var _aperte_botao: Painel3D
 var _recorde: Label
+var _recorde_placa: Painel3D
 var _creditos: Label
-var _modal: Panel
-var _modal_titulo: Label
-var _modal_texto: Label
-var _modal_barra: ColorRect
-var _modal_barra_fundo: ColorRect
+var _atr_marca: TextureRect
+# quantos vão jogar
+var _jog: Control
+var _jog_painel: Painel3D
+var _jog_titulo: Label
+var _jog_cartoes: Array[Painel3D] = []
+var _jog_dica: Label
+var _jog_trilho: Painel3D
+var _jog_barra: Painel3D
+var _jog_n := 1
+# escolha do personagem
 var _selecao: Control
+var _sel_titulo: Painel3D
+var _sel_placas: Array[Painel3D] = []
 var _sel_nomes: Array[Label] = []
+var _sel_dica: Painel3D
 var _sel_texto: Label
+var _sel_destaque := 0
 var _fim: Control
-var _fim_painel: Panel
-var _inativo: Panel
+var _inativo: Painel3D
 var _inativo_texto: Label
 var _tempo := 0.0
 var _convite := false
@@ -72,6 +95,13 @@ var _foto_numero: Label
 var _foto_destaque: TextureRect
 var _rec_foto: TextureRect
 var _shader_foto: Shader
+# marca Lazer & Sport
+var _marca_tela: Control
+var _marca_fundo: TextureRect
+var _marca_alvo: TextureRect
+var _marca_placa: TextureRect
+var _marca_texto: Label
+var _marca_canto: TextureRect
 
 
 func montar(textura_3d: Texture2D) -> void:
@@ -84,6 +114,7 @@ func montar(textura_3d: Texture2D) -> void:
 	tela3d.texture = textura_3d
 	tela3d.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	tela3d.stretch_mode = TextureRect.STRETCH_SCALE
+	tela3d.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR   # imagem 3D (sem mipmaps)
 	tela3d.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(tela3d)
 	_montar_placar()
@@ -95,7 +126,7 @@ func montar(textura_3d: Texture2D) -> void:
 	_montar_faixa()
 	_montar_replay()
 	_montar_atracao()
-	_montar_modal()
+	_montar_jogadores()
 	_montar_selecao()
 	_fim = Control.new()
 	_fim.visible = false
@@ -103,6 +134,7 @@ func montar(textura_3d: Texture2D) -> void:
 	add_child(_fim)
 	_montar_inatividade()
 	_montar_fotos()
+	_montar_marca()
 	_flash = ColorRect.new()
 	_flash.color = Color(1, 1, 1, 0)
 	_flash.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -111,7 +143,7 @@ func montar(textura_3d: Texture2D) -> void:
 
 
 # ================================================================ peças
-func rotulo(texto: String, tam: float, cor := Color.WHITE, contorno := 0.0, cor_contorno := ROXO, f: Font = null) -> Label:
+func rotulo(texto: String, tam: float, cor := Color.WHITE, contorno := 0.0, cor_contorno := MARINHO, f: Font = null) -> Label:
 	var l := Label.new()
 	l.text = texto
 	var ls := LabelSettings.new()
@@ -122,7 +154,7 @@ func rotulo(texto: String, tam: float, cor := Color.WHITE, contorno := 0.0, cor_
 		ls.outline_size = int(contorno)
 		ls.outline_color = cor_contorno
 	ls.shadow_size = int(max(1.0, tam * 0.06))
-	ls.shadow_color = Color(0.1, 0.0, 0.2, 0.45)
+	ls.shadow_color = Color(0.0, 0.05, 0.15, 0.45)
 	ls.shadow_offset = Vector2(0, tam * 0.06)
 	l.label_settings = ls
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -139,7 +171,7 @@ func caixa(cor: Color, raio := 28.0, borda := 0.0, cor_borda := Color.WHITE, som
 		s.set_border_width_all(int(borda))
 		s.border_color = cor_borda
 	s.shadow_size = int(sombra)
-	s.shadow_color = Color(0.1, 0.0, 0.25, 0.35)
+	s.shadow_color = Color(0.0, 0.05, 0.15, 0.35)
 	s.shadow_offset = Vector2(0, sombra * 0.4)
 	s.anti_aliasing = true
 	return s
@@ -152,17 +184,36 @@ func painel(cor: Color, raio := 28.0, borda := 0.0, cor_borda := Color.WHITE) ->
 	return p
 
 
+## Logo Lazer & Sport (inteira), nítida de longe e de perto (mipmaps).
+func logo_marca() -> TextureRect:
+	var t := TextureRect.new()
+	t.texture = load(MARCA + "lazer_sport.png")
+	t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	t.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return t
+
+
 func _tamanho_rotulo(l: Label, tam: float) -> void:
 	l.label_settings.font_size = int(tam)
 	l.label_settings.shadow_size = int(max(1.0, tam * 0.06))
 	l.label_settings.shadow_offset = Vector2(0, tam * 0.06)
 
 
+## Diminui a letra até o texto caber na largura (nunca estoura a placa).
+func _caber(l: Label, tam: float, largura: float) -> void:
+	var ls := l.label_settings
+	var t := tam
+	while t > 12.0 and ls.font.get_string_size(l.text, HORIZONTAL_ALIGNMENT_LEFT, -1, int(t)).x + ls.outline_size > largura:
+		t *= 0.94
+	ls.font_size = int(t)
+
+
 # ================================================================ placar
 func _montar_placar() -> void:
 	for i in 2:
 		var cor := COR_BOB if i == 0 else COR_MIA
-		var p := painel(cor, 34, 6)
+		var p := Painel3D.new(cor, 34, 12, 6)
 		add_child(p)
 		var av := TextureRect.new()
 		av.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
@@ -178,7 +229,7 @@ func _montar_placar() -> void:
 		var nome := rotulo("", 34, Color.WHITE, 8)
 		nome.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 		p.add_child(nome)
-		var pts := rotulo("0", 64, Color("#FFF6A8"), 12, ROXO, fonte_titulo)
+		var pts := rotulo("0", 64, Color("#FFF6A8"), 12, MARINHO, fonte_titulo)
 		pts.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 		p.add_child(pts)
 		var rod := HBoxContainer.new()
@@ -192,6 +243,9 @@ func _montar_placar() -> void:
 	_bolas_box.alignment = BoxContainer.ALIGNMENT_CENTER
 	_bolas_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_bolas_box)
+	_marca_canto = logo_marca()
+	_marca_canto.modulate.a = 0.95
+	add_child(_marca_canto)
 	mostrar_placar(false)
 
 
@@ -200,6 +254,7 @@ func mostrar_placar(sim: bool) -> void:
 		c["painel"].visible = sim and c.get("usado", false)
 	_info.visible = sim
 	_bolas_box.visible = sim
+	_marca_canto.visible = sim
 	if _mapa:
 		_mapa.visible = sim
 
@@ -220,7 +275,7 @@ func configurar_placar(personagens: Array) -> void:
 			c["selo"].texture = _retratos.get(p)
 			c["selo"].visible = ft != null
 			c["cor"] = cor
-			(c["painel"] as Panel).add_theme_stylebox_override("panel", caixa(cor, 34 * u, 6 * u))
+			(c["painel"] as Painel3D).pintar(cor)
 			c["valor"] = 0.0
 			c["alvo"] = 0
 			c["pontos"].text = "0"
@@ -254,9 +309,9 @@ func atualizar_placar(placar: Placar) -> void:
 				elif soma >= 10:
 					cor_cel = Color("#7FE7FF")
 			var atual := (i == placar.jogador_atual and r == placar.rodada_atual)
-			cel.add_theme_stylebox_override("panel", caixa(cor_cel, 23 * u, 4 * u if atual else 0.0, Color("#FFF6A8"), 0))
+			cel.add_theme_stylebox_override("panel", caixa(cor_cel, 23 * u, 4 * u if atual else 0.0, DESTAQUE, 0))
 			if txt != "":
-				var l := rotulo(txt, 26 * u, ROXO)
+				var l := rotulo(txt, 26 * u, MARINHO)
 				l.label_settings.shadow_size = 0
 				l.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 				cel.add_child(l)
@@ -270,7 +325,7 @@ func atualizar_placar(placar: Placar) -> void:
 				cel.add_child(e)
 			rod.add_child(cel)
 		var ativo := i == placar.jogador_atual
-		var painel_c: Panel = c["painel"]
+		var painel_c: Control = c["painel"]
 		painel_c.modulate = Color(1, 1, 1, 1) if ativo or placar.jogadores.size() == 1 else Color(0.78, 0.78, 0.85, 0.9)
 		painel_c.scale = Vector2.ONE * (1.0 if ativo else 0.94)
 	_info.text = "RODADA %d de %d" % [placar.rodada_atual + 1, placar.rodadas]
@@ -291,7 +346,7 @@ func _cor_atual(placar: Placar) -> Color:
 
 # ================================================================ mapa dos pinos
 func _montar_mapa() -> void:
-	_mapa = painel(Color(0.16, 0.05, 0.32, 0.72), 26, 4, Color(1, 1, 1, 0.6))
+	_mapa = Painel3D.new(AZUL, 26, 8, 4)
 	add_child(_mapa)
 	for n in range(1, 11):
 		var d := Panel.new()
@@ -318,10 +373,10 @@ func _montar_toque() -> void:
 	_toque.gui_input.connect(_ao_tocar)
 	_toque.visible = false
 	add_child(_toque)
-	_aviso = rotulo("ROLE A BOLA!", 64, Color("#FFF6A8"), 16, ROXO, fonte_titulo)
+	_aviso = rotulo("ROLE A BOLA!", 64, Color("#FFF6A8"), 16, MARINHO, fonte_titulo)
 	add_child(_aviso)
 	_aviso.visible = false
-	_aviso_sub = rotulo("mire no STRIKE!", 40, Color.WHITE, 10, ROXO)
+	_aviso_sub = rotulo("mire no STRIKE!", 40, Color.WHITE, 10, MARINHO)
 	add_child(_aviso_sub)
 	_aviso_sub.visible = false
 	_cenario = TextureRect.new()
@@ -416,7 +471,7 @@ func letreiro(nome: String, sub := "", dur := 1.7, altura := 0.38) -> void:
 	tr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	tr.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var T := size
-	var larg: float = min(T.x * 0.9, tex.get_width() * u * 0.95)
+	var larg: float = min(T.x * 0.9, tex.get_width() / ESCALA_ARTE * u * 0.95)
 	var alt := larg * tex.get_height() / tex.get_width()
 	tr.size = Vector2(larg, alt)
 	tr.position = Vector2((T.x - larg) / 2, T.y * altura - alt / 2)
@@ -435,7 +490,7 @@ func letreiro(nome: String, sub := "", dur := 1.7, altura := 0.38) -> void:
 	tw.tween_callback(tr.queue_free)
 	_estrelas_2d(tr.position + tr.size / 2, 26)
 	if sub != "":
-		var l := rotulo(sub, 58 * u, Color.WHITE, 14 * u, ROXO, fonte_titulo)
+		var l := rotulo(sub, 58 * u, Color.WHITE, 14 * u, MARINHO, fonte_titulo)
 		l.size = Vector2(T.x, 90 * u)
 		l.position = Vector2(0, tr.position.y + alt + 10 * u)
 		l.pivot_offset = l.size / 2
@@ -452,7 +507,7 @@ func letreiro(nome: String, sub := "", dur := 1.7, altura := 0.38) -> void:
 ## Texto grande simples (ex.: "7 PINOS!").
 func texto_grande(texto: String, cor := Color("#FFF6A8"), dur := 1.4, altura := 0.38) -> void:
 	var T := size
-	var l := rotulo(texto, 110 * u, cor, 22 * u, ROXO, fonte_titulo)
+	var l := rotulo(texto, 110 * u, cor, 22 * u, MARINHO, fonte_titulo)
 	l.size = Vector2(T.x, 160 * u)
 	l.position = Vector2(0, T.y * altura - 80 * u)
 	l.pivot_offset = l.size / 2
@@ -471,8 +526,8 @@ func pontos_voando(pontos: int, jogador: int) -> void:
 	if jogador >= _cartoes.size():
 		return
 	var c: Dictionary = _cartoes[jogador]
-	var p: Panel = c["painel"]
-	var l := rotulo("+%d" % pontos, 84 * u, Color("#FFF6A8"), 18 * u, ROXO, fonte_titulo)
+	var p: Control = c["painel"]
+	var l := rotulo("+%d" % pontos, 84 * u, Color("#FFF6A8"), 18 * u, MARINHO, fonte_titulo)
 	l.size = Vector2(400, 120) * u
 	l.position = Vector2(size.x / 2 - 200 * u, size.y * 0.5)
 	l.pivot_offset = l.size / 2
@@ -532,7 +587,7 @@ func flash(cor := Color.WHITE, forca := 0.7, dur := 0.35) -> void:
 
 # ================================================================ faixa "VEZ DE"
 func _montar_faixa() -> void:
-	_faixa = painel(COR_BOB, 40, 7)
+	_faixa = Painel3D.new(COR_BOB, 40, 14, 7)
 	_faixa.visible = false
 	add_child(_faixa)
 	_faixa_avatar = TextureRect.new()
@@ -540,13 +595,13 @@ func _montar_faixa() -> void:
 	_faixa_avatar.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	_faixa_avatar.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_faixa.add_child(_faixa_avatar)
-	_faixa_texto = rotulo("", 76, Color.WHITE, 16, ROXO, fonte_titulo)
+	_faixa_texto = rotulo("", 76, Color.WHITE, 16, MARINHO, fonte_titulo)
 	_faixa.add_child(_faixa_texto)
 
 
 func faixa(personagem: String, texto: String, sub := "", foto: Texture2D = null) -> void:
 	var cor := COR_BOB if personagem == "bob" else COR_MIA
-	_faixa.add_theme_stylebox_override("panel", caixa(cor, 40 * u, 7 * u))
+	_faixa.pintar(cor)
 	_faixa_avatar.texture = foto if foto != null else _retratos.get(personagem)
 	_faixa_avatar.material = material_foto(Color.WHITE) if foto != null else null
 	_faixa_texto.text = texto + ("\n" + sub if sub != "" else "")
@@ -579,7 +634,7 @@ func _montar_replay() -> void:
 	_tarja_cima = ColorRect.new()
 	_tarja_baixo = ColorRect.new()
 	for t in [_tarja_cima, _tarja_baixo]:
-		t.color = Color(0.03, 0.0, 0.08, 1)
+		t.color = Color(0.01, 0.03, 0.09, 1)
 		t.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		add_child(t)
 	_replay = TextureRect.new()
@@ -624,19 +679,29 @@ func _montar_atracao() -> void:
 	_logo.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	_logo.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_atracao.add_child(_logo)
-	_aperte = rotulo("APERTE START", 88, Color.WHITE, 20, ROXO, fonte_titulo)
-	_atracao.add_child(_aperte)
-	_recorde = rotulo("", 40, Color("#FFF6A8"), 10)
-	_atracao.add_child(_recorde)
-	_creditos = rotulo("", 34, Color.WHITE, 9)
-	_atracao.add_child(_creditos)
+	# botão amarelo com volume
+	_aperte_botao = Painel3D.new(DESTAQUE, 70, 18, 8)
+	_atracao.add_child(_aperte_botao)
+	_aperte = rotulo("APERTE START", 88, MARINHO, 0, MARINHO, fonte_titulo)
+	_aperte.label_settings.shadow_color = Color(1, 1, 1, 0.55)
+	_aperte_botao.add_child(_aperte)
+	# placa do recorde
+	_recorde_placa = Painel3D.new(AZUL, 40, 10, 5)
+	_atracao.add_child(_recorde_placa)
+	_recorde = rotulo("", 40, CREME, 8)
+	_recorde.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	_recorde_placa.add_child(_recorde)
 	_rec_foto = TextureRect.new()
 	_rec_foto.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	_rec_foto.stretch_mode = TextureRect.STRETCH_SCALE
 	_rec_foto.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_rec_foto.material = material_foto(Color("#FFD43B"))
+	_rec_foto.material = material_foto(DESTAQUE)
 	_rec_foto.visible = false
-	_atracao.add_child(_rec_foto)
+	_recorde_placa.add_child(_rec_foto)
+	_creditos = rotulo("", 30, Color.WHITE, 8)
+	_atracao.add_child(_creditos)
+	_atr_marca = logo_marca()
+	_atracao.add_child(_atr_marca)
 	_atracao.visible = false
 
 
@@ -646,46 +711,137 @@ func atracao(ligado: bool, recorde := "", creditos := "", foto_recorde: Texture2
 	_creditos.text = creditos
 	_rec_foto.texture = foto_recorde
 	_rec_foto.visible = foto_recorde != null and recorde != ""
-	if _rec_foto.visible:
-		var larg := _recorde.label_settings.font.get_string_size(recorde, HORIZONTAL_ALIGNMENT_LEFT, -1, _recorde.label_settings.font_size).x
-		var d := 110 * u
+	_recorde_placa.visible = recorde != ""
+	if recorde != "":
+		var ls := _recorde.label_settings
+		var larg := ls.font.get_string_size(recorde, HORIZONTAL_ALIGNMENT_LEFT, -1, ls.font_size).x
+		var h := 100 * u
+		var d := 124 * u
+		var foto_l := d * 0.82 if _rec_foto.visible else 0.0
+		var w := minf(larg + foto_l + 80 * u, size.x * 0.94)
+		_recorde_placa.size = Vector2(w, h)
+		var cx := _aperte_botao.position.x + _aperte_botao.size.x / 2
+		_recorde_placa.position = Vector2(clampf(cx - w / 2, 16 * u, size.x - w - 16 * u), _aperte_botao.position.y + _aperte_botao.size.y + 34 * u)
+		_recorde.size = Vector2(w - foto_l - 50 * u, h - 10 * u)
+		_recorde.position = Vector2(foto_l + 30 * u, 0)
 		_rec_foto.size = Vector2(d, d)
-		_rec_foto.position = Vector2((size.x - larg) / 2 - d - 14 * u, _recorde.position.y + _recorde.size.y / 2 - d / 2)
+		_rec_foto.position = Vector2(-d * 0.3, (h - d) / 2 - 6 * u)
 	if ligado:
 		mostrar_placar(false)
 		mostrar_sensores(false)
 
 
-# ================================================================ modal (1 ou 2 jogadores)
-func _montar_modal() -> void:
-	_modal = painel(Color(0.18, 0.06, 0.38, 0.94), 44, 7, Color("#BFF3FF"))
-	_modal.visible = false
-	add_child(_modal)
-	_modal_titulo = rotulo("", 70, Color("#FFF6A8"), 16, ROXO, fonte_titulo)
-	_modal.add_child(_modal_titulo)
-	_modal_texto = rotulo("", 40, Color.WHITE, 10)
-	_modal_texto.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_modal.add_child(_modal_texto)
-	_modal_barra_fundo = ColorRect.new()
-	_modal_barra_fundo.color = Color(1, 1, 1, 0.18)
-	_modal.add_child(_modal_barra_fundo)
-	_modal_barra = ColorRect.new()
-	_modal_barra.color = Color("#FFD43B")
-	_modal.add_child(_modal_barra)
+# ================================================================ quantos vão jogar
+func _montar_jogadores() -> void:
+	_jog = Control.new()
+	_jog.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_jog.visible = false
+	add_child(_jog)
+	_jog_painel = Painel3D.new(AZUL, 50, 18, 8)
+	_jog.add_child(_jog_painel)
+	_jog_titulo = rotulo("QUANTOS VÃO JOGAR?", 70, CREME, 16, MARINHO, fonte_titulo)
+	_jog_painel.add_child(_jog_titulo)
+	for i in 2:
+		var c := Painel3D.new(Color("#F2F7FF"), 40, 16, 6)
+		_jog_painel.add_child(c)
+		var num := rotulo(str(i + 1), 190, COR_BOB if i == 0 else COR_MIA, 22, MARINHO, fonte_titulo)
+		num.name = "num"
+		c.add_child(num)
+		var leg := rotulo("JOGADOR" if i == 0 else "JOGADORES", 46, MARINHO, 0, MARINHO, fonte_titulo)
+		leg.label_settings.shadow_size = 0
+		leg.name = "leg"
+		c.add_child(leg)
+		for k in 2:
+			var r := TextureRect.new()
+			r.texture = _retratos["bob" if k == 0 else "mia"]
+			r.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+			r.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+			r.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			r.name = "retrato_%d" % k
+			c.add_child(r)
+		var mei := rotulo("ou" if i == 0 else "x", 40, MARINHO, 0, MARINHO, fonte_titulo)
+		mei.label_settings.shadow_size = 0
+		mei.name = "meio"
+		c.add_child(mei)
+		_jog_cartoes.append(c)
+	_jog_dica = rotulo("", 38, Color.WHITE, 9)
+	_jog_painel.add_child(_jog_dica)
+	_jog_trilho = Painel3D.new(MARINHO.lightened(0.08), 17, 3, 3)
+	_jog_trilho.sombra(0.0)
+	_jog_painel.add_child(_jog_trilho)
+	_jog_barra = Painel3D.new(DESTAQUE, 17, 5, 3)
+	_jog_barra.sombra(0.0)
+	_jog_trilho.add_child(_jog_barra)
 
 
-func modal(ligado: bool, titulo := "", texto := "", fracao := -1.0) -> void:
-	if ligado and not _modal.visible:
-		_modal.pivot_offset = _modal.size / 2
-		_modal.scale = Vector2.ONE * 0.8
-		create_tween().tween_property(_modal, "scale", Vector2.ONE, 0.25).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	_modal.visible = ligado
-	_modal_titulo.text = titulo
-	_modal_texto.text = texto
-	_modal_barra.visible = fracao >= 0.0
-	_modal_barra_fundo.visible = fracao >= 0.0
-	if fracao >= 0.0:
-		_modal_barra.size.x = _modal_barra_fundo.size.x * clamp(fracao, 0.0, 1.0)
+## Tela "QUANTOS VÃO JOGAR?": dois cartões (1 ou 2), o escolhido brilha.
+func jogadores(ligado: bool, n := 1, fracao := 0.0) -> void:
+	if ligado and not _jog.visible:
+		_jog_painel.pivot_offset = _jog_painel.size / 2
+		_jog_painel.scale = Vector2.ONE * 0.75
+		create_tween().tween_property(_jog_painel, "scale", Vector2.ONE, 0.3).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	_jog.visible = ligado
+	if not ligado:
+		return
+	if n != _jog_n:
+		_pular(_jog_cartoes[n - 1])
+	_jog_n = n
+	_jog_dica.text = "Aperte START de novo para 2 JOGADORES" if n == 1 else "Bob x Mia: vamos lá!"
+	_jog_barra.size.x = maxf(_jog_trilho.size.x * clampf(fracao, 0.0, 1.0), _jog_trilho.size.y)
+	_jog_barra.visible = fracao > 0.0
+	for i in 2:
+		var c := _jog_cartoes[i]
+		c.modulate = Color.WHITE if i == n - 1 else Color(0.78, 0.82, 0.9, 0.9)
+		if i != n - 1:
+			c.realcar(0.0)
+
+
+func _layout_jogadores(T: Vector2) -> void:
+	var mw: float = minf(T.x * 0.92, 980 * u)
+	var mh := 780 * u
+	_jog_painel.size = Vector2(mw, mh)
+	_jog_painel.position = (T - _jog_painel.size) / 2 + Vector2(0, (40 if retrato else 0) * u)
+	_jog_painel.pivot_offset = _jog_painel.size / 2
+	_tamanho_rotulo(_jog_titulo, 70 * u)
+	_jog_titulo.label_settings.outline_size = int(16 * u)
+	_jog_titulo.size = Vector2(mw, 120 * u)
+	_jog_titulo.position = Vector2(0, 26 * u)
+	var gap := 40 * u
+	var cw := (mw - gap * 3) / 2
+	var ch := 430 * u
+	for i in 2:
+		var c := _jog_cartoes[i]
+		c.size = Vector2(cw, ch)
+		c.position = Vector2(gap + i * (cw + gap), 160 * u)
+		c.pivot_offset = c.size / 2
+		var num := c.get_node("num") as Label
+		_tamanho_rotulo(num, 190 * u)
+		num.label_settings.outline_size = int(22 * u)
+		num.size = Vector2(cw, 210 * u)
+		num.position = Vector2(0, 0)
+		var leg := c.get_node("leg") as Label
+		_tamanho_rotulo(leg, 44 * u)
+		leg.label_settings.shadow_size = 0
+		leg.size = Vector2(cw, 60 * u)
+		leg.position = Vector2(0, 196 * u)
+		var rs := 132 * u
+		for k in 2:
+			var r := c.get_node("retrato_%d" % k) as TextureRect
+			r.size = Vector2(rs, rs)
+			r.position = Vector2(cw / 2 + (-rs - 22 * u if k == 0 else 22 * u), 262 * u)
+		var mei := c.get_node("meio") as Label
+		_tamanho_rotulo(mei, 40 * u)
+		mei.label_settings.shadow_size = 0
+		mei.size = Vector2(cw, rs)
+		mei.position = Vector2(0, 262 * u)
+	_tamanho_rotulo(_jog_dica, 38 * u)
+	_jog_dica.label_settings.outline_size = int(9 * u)
+	_jog_dica.size = Vector2(mw, 60 * u)
+	_jog_dica.position = Vector2(0, 618 * u)
+	_jog_trilho.size = Vector2(mw - 140 * u, 34 * u)
+	_jog_trilho.position = Vector2(70 * u, 694 * u)
+	_jog_barra.size = Vector2(_jog_barra.size.x, 34 * u)
+	_jog_barra.position = Vector2.ZERO
 
 
 # ================================================================ escolha do personagem
@@ -694,25 +850,48 @@ func _montar_selecao() -> void:
 	_selecao.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_selecao.visible = false
 	add_child(_selecao)
-	var t := rotulo("ESCOLHA SEU AMIGO!", 84, Color("#FFF6A8"), 18, ROXO, fonte_titulo)
+	_sel_titulo = Painel3D.new(AZUL, 44, 14, 7)
+	_selecao.add_child(_sel_titulo)
+	var t := rotulo("ESCOLHA SEU AMIGO!", 76, CREME, 16, MARINHO, fonte_titulo)
 	t.name = "titulo"
-	_selecao.add_child(t)
+	_sel_titulo.add_child(t)
 	for i in 2:
-		var l := rotulo("BOB" if i == 0 else "MIA", 70, Color.WHITE, 16, COR_BOB if i == 0 else COR_MIA, fonte_titulo)
-		_selecao.add_child(l)
+		var placa := Painel3D.new(COR_BOB if i == 0 else COR_MIA, 36, 14, 7)
+		_selecao.add_child(placa)
+		var l := rotulo("BOB" if i == 0 else "MIA", 70, Color.WHITE, 16, MARINHO, fonte_titulo)
+		placa.add_child(l)
+		_sel_placas.append(placa)
 		_sel_nomes.append(l)
-	_sel_texto = rotulo("", 40, Color.WHITE, 10)
-	_selecao.add_child(_sel_texto)
+	_sel_dica = Painel3D.new(MARINHO.lightened(0.12), 30, 8, 5)
+	_sel_dica.modulate.a = 0.92
+	_selecao.add_child(_sel_dica)
+	_sel_texto = rotulo("", 38, Color.WHITE, 9)
+	_sel_dica.add_child(_sel_texto)
 
 
-func selecao(ligado: bool, destaque := 0, texto := "") -> void:
+## pes: onde ficam os pés de Bob e Mia na tela (a placa fica logo abaixo).
+func selecao(ligado: bool, destaque := 0, texto := "", pes: Array = []) -> void:
+	var entrou := ligado and not _selecao.visible
 	_selecao.visible = ligado
 	_sel_texto.text = texto
+	if not ligado:
+		return
+	if entrou:
+		_pular(_sel_titulo)
+	if destaque != _sel_destaque:
+		_pular(_sel_placas[destaque])
+	_sel_destaque = destaque
 	for i in 2:
-		var l := _sel_nomes[i]
-		l.pivot_offset = l.size / 2
-		l.scale = Vector2.ONE * (1.25 if i == destaque else 0.9)
-		l.modulate = Color(1, 1, 1, 1) if i == destaque else Color(1, 1, 1, 0.55)
+		var p := _sel_placas[i]
+		if pes.size() == 2:
+			var pe: Vector2 = pes[i]
+			p.position = Vector2(clampf(pe.x - p.size.x / 2, 12 * u, size.x - p.size.x - 12 * u), pe.y + 30 * u)
+		p.pivot_offset = p.size / 2
+		var alvo := 1.12 if i == destaque else 0.9
+		p.scale = p.scale.lerp(Vector2.ONE * alvo, 0.25)
+		p.modulate = Color.WHITE if i == destaque else Color(0.8, 0.84, 0.92, 0.85)
+		if i != destaque:
+			p.realcar(0.0)
 
 
 # ================================================================ fim de jogo
@@ -740,14 +919,12 @@ func tela_fim(ligado: bool, dados := {}) -> void:
 	var js: Array = dados.get("jogadores", [])
 	var n := js.size()
 	var larg_card: float = min(T.x * (0.88 if n == 1 else 0.45), 520 * u if n == 2 else 700 * u)
-	var alt_card := 430 * u
-	var y := T.y * (0.66 if retrato else 0.5)
-	if not retrato:
-		y = T.y * 0.42
+	var alt_card := 440 * u
+	var y := T.y * (0.58 if retrato else 0.42)
 	for i in n:
 		var j: Dictionary = js[i]
 		var cor := COR_BOB if j["personagem"] == "bob" else COR_MIA
-		var c := painel(cor, 40 * u, 7 * u)
+		var c := Painel3D.new(cor, 44, 18, 8)
 		c.size = Vector2(larg_card, alt_card)
 		var x := (T.x - larg_card * n - 30 * u * (n - 1)) / 2 + i * (larg_card + 30 * u)
 		c.position = Vector2(x, y + 900 * u)
@@ -755,7 +932,7 @@ func tela_fim(ligado: bool, dados := {}) -> void:
 		var tw := create_tween()
 		tw.tween_interval(0.3 + i * 0.2)
 		tw.tween_property(c, "position:y", y, 0.5).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-		var nome := rotulo(str(j["personagem"]).to_upper(), 54 * u, Color.WHITE, 12 * u, ROXO, fonte_titulo)
+		var nome := rotulo(str(j["personagem"]).to_upper(), 54 * u, Color.WHITE, 12 * u, MARINHO, fonte_titulo)
 		nome.size = Vector2(larg_card, 70 * u)
 		nome.position = Vector2(0, 18 * u)
 		c.add_child(nome)
@@ -771,7 +948,7 @@ func tela_fim(ligado: bool, dados := {}) -> void:
 			fr.pivot_offset = fr.size / 2
 			fr.rotation = 0.12
 			c.add_child(fr)
-		var pts := rotulo("0", 120 * u, Color("#FFF6A8"), 22 * u, ROXO, fonte_titulo)
+		var pts := rotulo("0", 120 * u, CREME, 22 * u, MARINHO, fonte_titulo)
 		pts.size = Vector2(larg_card, 140 * u)
 		pts.position = Vector2(0, 90 * u)
 		c.add_child(pts)
@@ -801,7 +978,7 @@ func tela_fim(ligado: bool, dados := {}) -> void:
 			tw3.tween_property(e, "scale", Vector2.ONE, 0.35).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 		var det := rotulo("%d STRIKES   %d SPARES" % [j.get("strikes", 0), j.get("spares", 0)], 30 * u, Color.WHITE, 8 * u)
 		det.size = Vector2(larg_card, 40 * u)
-		det.position = Vector2(0, alt_card - 58 * u)
+		det.position = Vector2(0, alt_card - 74 * u)
 		c.add_child(det)
 		if dados.get("vencedor", -9) == i and n > 1:
 			var v := TextureRect.new()
@@ -820,17 +997,36 @@ func tela_fim(ligado: bool, dados := {}) -> void:
 		_atrasado(3.0, func(): letreiro("empate", "", 2.5, 0.55))
 	if dados.get("recorde", false):
 		_atrasado(3.4, func(): letreiro("novo_recorde", "%d PONTOS" % dados.get("recorde_valor", 0), 3.0, 0.42 if retrato else 0.3))
-	var ap := rotulo("APERTE START PARA JOGAR DE NOVO", 46 * u, Color.WHITE, 12 * u, ROXO, fonte_titulo)
-	ap.size = Vector2(T.x, 70 * u)
-	ap.position = Vector2(0, T.y - 170 * u)
+	# botão "jogar de novo" e a marca embaixo
+	var lw: float = minf(T.x * 0.3, 300 * u)
+	var marca := logo_marca()
+	marca.size = Vector2(lw, lw * PROPORCAO_LOGO)
+	marca.position = Vector2((T.x - lw) / 2, T.y - lw * PROPORCAO_LOGO - 22 * u)
+	_fim.add_child(marca)
+	var bw: float = minf(T.x * 0.92, 940 * u)
+	var bh := 116 * u
+	var botao := Painel3D.new(DESTAQUE, 58, 14, 7)
+	botao.size = Vector2(bw, bh)
+	botao.position = Vector2((T.x - bw) / 2, marca.position.y - bh - 30 * u)
+	botao.name = "botao"
+	_fim.add_child(botao)
+	var ap := rotulo("APERTE START PARA JOGAR DE NOVO", 44 * u, MARINHO, 0, MARINHO, fonte_titulo)
+	ap.label_settings.shadow_color = Color(1, 1, 1, 0.55)
+	ap.size = Vector2(bw, bh - 14 * u)
 	ap.name = "aperte"
-	_fim.add_child(ap)
+	botao.add_child(ap)
+	_caber(ap, 44 * u, bw - 70 * u)
 
 
 func fim_contagem(segundos: int) -> void:
-	var ap := _fim.get_node_or_null("aperte") as Label
+	var ap := _fim.find_child("aperte", true, false) as Label
 	if ap:
 		ap.text = "APERTE START PARA JOGAR DE NOVO  (%d)" % segundos
+		_caber(ap, 44 * u, ap.size.x - 70 * u)
+	var b := _fim.get_node_or_null("botao") as Control
+	if b:
+		b.pivot_offset = b.size / 2
+		b.scale = Vector2.ONE * (1.0 + sin(_tempo * 4.0) * 0.025)
 
 
 func _atrasado(t: float, f: Callable) -> void:
@@ -839,7 +1035,7 @@ func _atrasado(t: float, f: Callable) -> void:
 
 # ================================================================ inatividade
 func _montar_inatividade() -> void:
-	_inativo = painel(Color(0.18, 0.06, 0.38, 0.95), 44, 7, Color("#BFF3FF"))
+	_inativo = Painel3D.new(AZUL, 48, 18, 8)
 	_inativo.visible = false
 	add_child(_inativo)
 	_inativo_texto = rotulo("", 52, Color.WHITE, 12)
@@ -868,14 +1064,15 @@ func _montar_fotos() -> void:
 	_foto_tela.visible = false
 	add_child(_foto_tela)
 	_foto_fundo = ColorRect.new()
-	_foto_fundo.color = Color(0.08, 0.02, 0.2, 0.55)
+	_foto_fundo.color = Color(0.01, 0.05, 0.14, 0.55)
 	_foto_fundo.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_foto_tela.add_child(_foto_fundo)
-	_foto_titulo = rotulo("SORRIA!", 110, Color("#FFF6A8"), 24, ROXO, fonte_titulo)
+	_foto_titulo = rotulo("SORRIA!", 110, Color("#FFF6A8"), 24, MARINHO, fonte_titulo)
 	_foto_tela.add_child(_foto_titulo)
 	_foto_circulo = TextureRect.new()
 	_foto_circulo.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	_foto_circulo.stretch_mode = TextureRect.STRETCH_SCALE
+	_foto_circulo.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
 	_foto_circulo.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_foto_tela.add_child(_foto_circulo)
 	_foto_selo = TextureRect.new()
@@ -883,9 +1080,9 @@ func _montar_fotos() -> void:
 	_foto_selo.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	_foto_selo.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_foto_tela.add_child(_foto_selo)
-	_foto_numero = rotulo("", 280, Color.WHITE, 44, ROXO, fonte_titulo)
+	_foto_numero = rotulo("", 280, Color.WHITE, 44, MARINHO, fonte_titulo)
 	_foto_tela.add_child(_foto_numero)
-	_foto_sub = rotulo("", 46, Color.WHITE, 12, ROXO)
+	_foto_sub = rotulo("", 46, Color.WHITE, 12, MARINHO)
 	_foto_sub.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_foto_tela.add_child(_foto_sub)
 	_foto_destaque = TextureRect.new()
@@ -995,6 +1192,92 @@ func foto_destaque(foto: Texture2D, cor: Color, dur := 1.6) -> void:
 	_estrelas_2d(_foto_destaque.position + _foto_destaque.size / 2, 22)
 
 
+# ================================================================ marca Lazer & Sport
+func _montar_marca() -> void:
+	_marca_tela = Control.new()
+	_marca_tela.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_marca_tela.visible = false
+	add_child(_marca_tela)
+	_marca_fundo = TextureRect.new()
+	_marca_fundo.texture = load(MARCA + "fundo.png")
+	_marca_fundo.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_marca_fundo.stretch_mode = TextureRect.STRETCH_SCALE
+	_marca_fundo.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_marca_tela.add_child(_marca_fundo)
+	var sh := load("res://shaders/brilho_marca.gdshader") as Shader
+	for nome in ["placa", "alvo"]:
+		var t := TextureRect.new()
+		t.texture = load(MARCA + nome + ".png")
+		t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		t.stretch_mode = TextureRect.STRETCH_SCALE
+		t.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var m := ShaderMaterial.new()
+		m.shader = sh
+		m.set_shader_parameter("pos", -1.0)
+		t.material = m
+		if nome == "alvo":
+			_marca_alvo = t
+		else:
+			_marca_placa = t
+	# o alvo fica atrás da placa (como na logo)
+	_marca_tela.add_child(_marca_alvo)
+	_marca_tela.add_child(_marca_placa)
+	_marca_texto = rotulo("apresenta", 52, Color(1, 1, 1, 0.92), 0, MARINHO)
+	_marca_tela.add_child(_marca_texto)
+
+
+func _layout_marca(T: Vector2) -> void:
+	_marca_fundo.size = T
+	var lw: float = minf(T.x * 0.82, T.y * 0.62 / PROPORCAO_LOGO)
+	var lh := lw * PROPORCAO_LOGO
+	var origem := Vector2((T.x - lw) / 2, T.y * 0.46 - lh / 2)
+	var ref := float(_marca_placa.texture.get_width())     # a placa tem a largura da logo inteira
+	for par in [[_marca_alvo, CENTRO_ALVO], [_marca_placa, CENTRO_PLACA]]:
+		var t: TextureRect = par[0]
+		var tam := Vector2(t.texture.get_size()) * (lw / ref)
+		t.size = tam
+		t.position = origem + Vector2(lw, lh) * (par[1] as Vector2) - tam / 2
+		t.pivot_offset = tam / 2
+	_tamanho_rotulo(_marca_texto, 52 * u)
+	_marca_texto.label_settings.shadow_size = 0
+	_marca_texto.size = Vector2(T.x, 80 * u)
+	_marca_texto.position = Vector2(0, origem.y + lh + 40 * u)
+
+
+## Abertura: a logo aparece igual à imagem de inicialização, o dardo "acerta"
+## o alvo (tremidinha + estrelas), um brilho passa e entra "apresenta".
+func marca(ligado: bool, na_hora := false) -> void:
+	if not ligado:
+		if not _marca_tela.visible:
+			return
+		if na_hora:
+			_marca_tela.visible = false
+			return
+		var tw := create_tween()
+		tw.tween_property(_marca_tela, "modulate:a", 0.0, 0.4)
+		tw.tween_callback(func(): _marca_tela.visible = false)
+		return
+	_layout_marca(size)
+	_marca_tela.visible = true
+	_marca_tela.modulate.a = 1.0
+	_marca_texto.modulate.a = 0.0
+	_marca_alvo.scale = Vector2.ONE
+	var tw := create_tween()
+	tw.tween_interval(0.3)
+	tw.tween_property(_marca_alvo, "scale", Vector2(1.07, 0.94), 0.07)
+	tw.tween_property(_marca_alvo, "scale", Vector2.ONE, 0.5).set_trans(Tween.TRANS_ELASTIC).set_ease(Tween.EASE_OUT)
+	_atrasado(0.32, func(): _estrelas_2d(_marca_alvo.position + _marca_alvo.size * Vector2(0.43, 0.5), 30))
+	for t in [_marca_placa, _marca_alvo]:
+		var m := (t as TextureRect).material as ShaderMaterial
+		m.set_shader_parameter("pos", -1.0)
+		var tb := create_tween()
+		tb.tween_interval(0.7 if t == _marca_placa else 0.6)
+		tb.tween_method(func(v: float): m.set_shader_parameter("pos", v), -0.4, 1.6, 0.9).set_trans(Tween.TRANS_SINE)
+	var tt := create_tween()
+	tt.tween_interval(1.0)
+	tt.tween_property(_marca_texto, "modulate:a", 1.0, 0.4)
+
+
 # ================================================================ layout responsivo
 func layout() -> void:
 	var T := Tela.tamanho()
@@ -1024,7 +1307,7 @@ func layout() -> void:
 		larg = 560 * u
 	for i in 2:
 		var c: Dictionary = _cartoes[i]
-		var p: Panel = c["painel"]
+		var p: Control = c["painel"]
 		p.size = Vector2(larg, alt)
 		var x: float
 		if usados == 1:
@@ -1104,72 +1387,85 @@ func layout() -> void:
 	_sequencia.size = Vector2(T.x if retrato else larg, 56 * u)
 	_sequencia.position = Vector2(0 if retrato else margem, base_y + 100 * u)
 	_sequencia.pivot_offset = _sequencia.size / 2
+	# marca no canto de baixo durante o jogo
+	var cw := 170 * u
+	_marca_canto.size = Vector2(cw, cw * PROPORCAO_LOGO)
+	_marca_canto.position = Vector2(margem, T.y - cw * PROPORCAO_LOGO - margem)
 	# atração
 	var lw: float = min(T.x * 0.9, 980 * u) if retrato else T.x * 0.36
 	var lt := _logo.texture
 	var lh: float = lw * (float(lt.get_height()) / float(lt.get_width()) if lt else 0.4)
 	_logo.size = Vector2(lw, lh)
 	if retrato:
-		_logo.position = Vector2((T.x - lw) / 2, T.y * 0.06)
+		_logo.position = Vector2((T.x - lw) / 2, T.y * 0.05)
 	else:
 		_logo.position = Vector2(T.x * 0.03, T.y * 0.05)
 	_logo.pivot_offset = _logo.size / 2
-	_tamanho_rotulo(_aperte, 96 * u)
-	_aperte.label_settings.outline_size = int(22 * u)
-	_aperte.size = Vector2(T.x, 130 * u)
-	_aperte.position = Vector2(0, T.y * (0.8 if retrato else 0.72))
-	_aperte.pivot_offset = _aperte.size / 2
-	_tamanho_rotulo(_recorde, 42 * u)
-	_recorde.label_settings.outline_size = int(10 * u)
-	_recorde.size = Vector2(T.x, 60 * u)
-	_recorde.position = Vector2(0, _aperte.position.y + 130 * u)
-	_tamanho_rotulo(_creditos, 32 * u)
+	var bw: float = minf(T.x * 0.78, 780 * u) if retrato else T.x * 0.34
+	var bh := 150 * u
+	_aperte_botao.size = Vector2(bw, bh)
+	if retrato:
+		_aperte_botao.position = Vector2((T.x - bw) / 2, T.y * 0.69)
+	else:
+		_aperte_botao.position = Vector2(T.x * 0.03 + (lw - bw) / 2, T.y * 0.6)
+	_aperte_botao.pivot_offset = _aperte_botao.size / 2
+	_tamanho_rotulo(_aperte, 84 * u)
+	_aperte.label_settings.shadow_size = int(3 * u)
+	_aperte.label_settings.shadow_offset = Vector2(0, 3 * u)
+	_aperte.size = Vector2(bw, bh - 18 * u)
+	_aperte.position = Vector2.ZERO
+	_caber(_aperte, 84 * u, bw - 90 * u)
+	_tamanho_rotulo(_recorde, 40 * u)
+	_recorde.label_settings.outline_size = int(8 * u)
+	var mw_l: float = minf(T.x * 0.3, 320 * u)
+	_atr_marca.size = Vector2(mw_l, mw_l * PROPORCAO_LOGO)
+	_atr_marca.position = Vector2((T.x - mw_l) / 2, T.y - mw_l * PROPORCAO_LOGO - 22 * u) if retrato \
+		else Vector2(T.x - mw_l - 30 * u, T.y - mw_l * PROPORCAO_LOGO - 22 * u)
+	_tamanho_rotulo(_creditos, 30 * u)
 	_creditos.label_settings.outline_size = int(8 * u)
-	_creditos.size = Vector2(T.x, 50 * u)
-	_creditos.position = Vector2(0, T.y - 64 * u)
-	# modal
-	var mw: float = min(T.x * 0.86, 860 * u)
-	_modal.size = Vector2(mw, 560 * u)
-	_modal.position = (T - _modal.size) / 2
-	_modal.add_theme_stylebox_override("panel", caixa(Color(0.18, 0.06, 0.38, 0.94), 44 * u, 7 * u, Color("#BFF3FF")))
-	_tamanho_rotulo(_modal_titulo, 70 * u)
-	_modal_titulo.label_settings.outline_size = int(16 * u)
-	_modal_titulo.size = Vector2(mw, 120 * u)
-	_modal_titulo.position = Vector2(0, 40 * u)
-	_tamanho_rotulo(_modal_texto, 42 * u)
-	_modal_texto.label_settings.outline_size = int(10 * u)
-	_modal_texto.size = Vector2(mw - 80 * u, 260 * u)
-	_modal_texto.position = Vector2(40 * u, 170 * u)
-	_modal_barra_fundo.size = Vector2(mw - 120 * u, 24 * u)
-	_modal_barra_fundo.position = Vector2(60 * u, 470 * u)
-	_modal_barra.size = Vector2(_modal_barra.size.x, 24 * u)
-	_modal_barra.position = _modal_barra_fundo.position
+	_creditos.size = Vector2(T.x, 46 * u)
+	_creditos.position = Vector2(0, _atr_marca.position.y - 52 * u) if retrato else Vector2(0, T.y - 64 * u)
+	# quantos vão jogar
+	_layout_jogadores(T)
 	# seleção
-	var t := _selecao.get_node("titulo") as Label
-	_tamanho_rotulo(t, 84 * u)
-	t.label_settings.outline_size = int(18 * u)
-	t.size = Vector2(T.x, 120 * u)
-	t.position = Vector2(0, T.y * 0.08)
+	var sw: float = minf(T.x * 0.9, 900 * u)
+	_sel_titulo.size = Vector2(sw, 130 * u)
+	_sel_titulo.position = Vector2((T.x - sw) / 2, T.y * 0.05)
+	_sel_titulo.pivot_offset = _sel_titulo.size / 2
+	var t := _sel_titulo.get_node("titulo") as Label
+	_tamanho_rotulo(t, 74 * u)
+	t.label_settings.outline_size = int(16 * u)
+	t.size = Vector2(sw, 116 * u)
+	t.position = Vector2.ZERO
 	for i in 2:
+		var p := _sel_placas[i]
+		p.size = Vector2(330, 116) * u
+		if p.position == Vector2.ZERO:
+			p.position = Vector2(T.x * (0.27 if i == 0 else 0.73) - p.size.x / 2, T.y * 0.64)
 		var l := _sel_nomes[i]
-		_tamanho_rotulo(l, 76 * u)
+		_tamanho_rotulo(l, 70 * u)
 		l.label_settings.outline_size = int(16 * u)
-		l.size = Vector2(T.x / 2, 110 * u)
-		l.position = Vector2(i * T.x / 2, T.y * (0.66 if retrato else 0.74))
-	_tamanho_rotulo(_sel_texto, 42 * u)
-	_sel_texto.label_settings.outline_size = int(10 * u)
-	_sel_texto.size = Vector2(T.x, 140 * u)
-	_sel_texto.position = Vector2(0, T.y * (0.78 if retrato else 0.86))
+		l.size = Vector2(p.size.x, p.size.y - 14 * u)
+		l.position = Vector2.ZERO
+	var dw: float = minf(T.x * 0.84, 800 * u)
+	_sel_dica.size = Vector2(dw, 130 * u)
+	_sel_dica.position = Vector2((T.x - dw) / 2, T.y * (0.8 if retrato else 0.84))
+	_tamanho_rotulo(_sel_texto, 38 * u)
+	_sel_texto.label_settings.outline_size = int(9 * u)
+	_sel_texto.size = Vector2(dw, 120 * u)
+	_sel_texto.position = Vector2.ZERO
+	var mw: float = min(T.x * 0.86, 860 * u)
 	# inatividade
 	_inativo.size = Vector2(mw, 600 * u)
 	_inativo.position = (T - _inativo.size) / 2
-	_inativo.add_theme_stylebox_override("panel", caixa(Color(0.18, 0.06, 0.38, 0.95), 44 * u, 7 * u, Color("#BFF3FF")))
 	_tamanho_rotulo(_inativo_texto, 54 * u)
 	_inativo_texto.label_settings.outline_size = int(12 * u)
 	_inativo_texto.size = _inativo.size
 	_inativo_texto.position = Vector2.ZERO
 	if _foto_tela.visible:
 		_layout_fotos()
+	if _marca_tela.visible:
+		_layout_marca(T)
 	if _atracao.visible:
 		atracao(true, _recorde.text, _creditos.text, _rec_foto.texture)
 
@@ -1187,7 +1483,13 @@ func _process(delta: float) -> void:
 	if _atracao.visible:
 		_logo.scale = Vector2.ONE * (1.0 + sin(_tempo * 2.2) * 0.025)
 		_logo.rotation = sin(_tempo * 1.3) * 0.02
-		_aperte.modulate.a = 0.55 + 0.45 * abs(sin(_tempo * 3.0))
-		_aperte.scale = Vector2.ONE * (1.0 + sin(_tempo * 3.0) * 0.04)
+		_aperte_botao.scale = Vector2.ONE * (1.0 + sin(_tempo * 3.0) * 0.035)
+		_aperte_botao.realcar(0.35 + 0.35 * absf(sin(_tempo * 3.0)))
+	if _jog.visible:
+		_jog_cartoes[_jog_n - 1].realcar(0.7 + 0.3 * sin(_tempo * 6.0))
+		_jog_cartoes[_jog_n - 1].scale = Vector2.ONE * (1.05 + sin(_tempo * 6.0) * 0.015)
+		_jog_cartoes[2 - _jog_n].scale = Vector2.ONE * 0.94
+	if _selecao.visible:
+		_sel_placas[_sel_destaque].realcar(0.7 + 0.3 * sin(_tempo * 6.0))
 	if _replay_ponto.visible:
 		_replay_ponto.modulate.a = 1.0 if fposmod(_tempo, 1.0) < 0.6 else 0.15

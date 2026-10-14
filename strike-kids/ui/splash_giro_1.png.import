@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://d3kmkgyqol1ts"
-path="res://.godot/imported/cenarios.png-2668024bbe2b6fcc52dc20a8da3fac98.ctex"
+uid="uid://dqkd26nkayg1t"
+path="res://.godot/imported/splash_giro_1.png-aedd4b196c46cb7c3b7a667cbbbff557.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://marketing/cenarios.png"
-dest_files=["res://.godot/imported/cenarios.png-2668024bbe2b6fcc52dc20a8da3fac98.ctex"]
+source_file="res://ui/splash_giro_1.png"
+dest_files=["res://.godot/imported/splash_giro_1.png-aedd4b196c46cb7c3b7a667cbbbff557.ctex"]
 
 [params]
 
@@ -23,7 +23,7 @@ compress/rdo_quality_loss=0.0
 compress/hdr_compression=1
 compress/normal_map=0
 compress/channel_pack=0
-mipmaps/generate=false
+mipmaps/generate=true
 mipmaps/limit=-1
 roughness/mode=0
 roughness/src_normal=""
@@ -37,4 +37,4 @@ process/normal_map_invert_y=false
 process/hdr_as_srgb=false
 process/hdr_clamp_exposure=false
 process/size_limit=0
-detect_3d/compress_to=1
+detect_3d/compress_to=0

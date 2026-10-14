@@ -34,7 +34,7 @@ func montar(p: Pinos) -> void:
 	pinos = p
 	_z_mesa = Mundo.Z_PINO1 - Mundo.FILEIRA * 1.5
 	_z_barra = Mundo.Z_PINO1 + 0.5
-	var cor_maquina := Color("#E4E0F7")
+	var cor_maquina := Color("#E4EAF4")
 	var cor_detalhe := Color("#FFD23F")
 	# mesa
 	mesa = Node3D.new()
