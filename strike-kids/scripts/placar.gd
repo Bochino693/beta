@@ -21,7 +21,7 @@ var pinos_na_rodada := 0
 func comecar(personagens: Array, n_rodadas: int, n_tentativas: int) -> void:
 	jogadores.clear()
 	for p in personagens:
-		jogadores.append({"personagem": p, "rodadas": [], "pontos": 0, "strikes": 0, "spares": 0, "pinos": 0})
+		jogadores.append({"personagem": p, "rodadas": [], "pontos": 0, "strikes": 0, "spares": 0, "pinos": 0, "seguidos": 0})
 	rodadas = n_rodadas
 	tentativas = n_tentativas
 	jogador_atual = 0
@@ -59,6 +59,11 @@ func registrar(derrubados: int) -> Dictionary:
 	j["pontos"] += pontos
 	j["pinos"] += derrubados
 	var fim := pinos_na_rodada >= 10 or bola_atual + 1 >= tentativas
+	# strikes seguidos (rodada sem strike zera a sequência)
+	if tipo == "strike":
+		j["seguidos"] += 1
+	elif fim:
+		j["seguidos"] = 0
 	return {"tipo": tipo, "pontos": pontos, "fim_rodada": fim}
 
 

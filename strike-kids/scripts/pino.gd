@@ -21,7 +21,6 @@ var _piscando := 0.0
 var _estrelas: Node3D
 var _sombra: MeshInstance3D
 var _ultimo_som := 0
-var teimoso := false   # planejado para ficar em pé (balança mas não cai fácil)
 
 
 func montar(n: int, pos: Vector3, malha_pino: Mesh, forma: Shape3D, rosto: Texture2D, meta: Dictionary) -> void:
@@ -35,10 +34,10 @@ func montar(n: int, pos: Vector3, malha_pino: Mesh, forma: Shape3D, rosto: Textu
 	contact_monitor = true
 	max_contacts_reported = 4
 	collision_layer = Mundo.CAMADA_PINOS
-	collision_mask = Mundo.CAMADA_MUNDO | Mundo.CAMADA_PINOS | Mundo.CAMADA_BOLA
+	collision_mask = Mundo.CAMADA_MUNDO | Mundo.CAMADA_PINOS | Mundo.CAMADA_BOLA | Mundo.CAMADA_PISO_PINOS
 	var pm := PhysicsMaterial.new()
-	pm.friction = 0.45
-	pm.bounce = 0.32
+	pm.friction = 0.38
+	pm.bounce = 0.38
 	physics_material_override = pm
 	var cs := CollisionShape3D.new()
 	cs.shape = forma
@@ -95,13 +94,9 @@ func recolocar() -> void:
 	linear_velocity = Vector3.ZERO
 	angular_velocity = Vector3.ZERO
 	collision_layer = Mundo.CAMADA_PINOS
-	collision_mask = Mundo.CAMADA_MUNDO | Mundo.CAMADA_PINOS | Mundo.CAMADA_BOLA
+	collision_mask = Mundo.CAMADA_MUNDO | Mundo.CAMADA_PINOS | Mundo.CAMADA_BOLA | Mundo.CAMADA_PISO_PINOS
 	malha.scale = Vector3.ONE
 	_estrelas.visible = false
-	teimoso = false
-	mass = MASSA
-	angular_damp = 0.0
-	linear_damp = 0.0
 	expressao("normal")
 
 
@@ -110,19 +105,12 @@ func soltar() -> void:
 	if removido:
 		return
 	freeze = false
-	sleeping = true
+	sleeping = false
 
 
 func prender() -> void:
 	freeze_mode = RigidBody3D.FREEZE_MODE_KINEMATIC
 	freeze = true
-
-
-func definir_teimoso(sim: bool) -> void:
-	teimoso = sim
-	mass = MASSA * (7.0 if sim else 1.0)
-	angular_damp = 5.0 if sim else 0.0
-	linear_damp = 1.5 if sim else 0.0
 
 
 func esta_caido() -> bool:

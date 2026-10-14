@@ -23,6 +23,9 @@ const PADRAO := {
 		"creditos_por_partida": 1,
 		"tempo_inatividade": 45, # segundos sem jogar até o aviso
 		"demo": true,
+		"foto": true,            # foto das crianças com a câmera da máquina
+		"camera_giro": 0,        # 0, 90, 180, 270 (câmera montada de lado)
+		"camera_espelho": true,  # espelha a imagem (a criança se vê como no espelho)
 	},
 	"som": {
 		"musica": 0.8,
@@ -113,10 +116,19 @@ func registrar_pontos(jogadores: int, pontos: int, quem: String) -> bool:
 	return false
 
 
+## Guarda o caminho da foto de quem fez o recorde.
+func definir_foto_recorde(jogadores: int, caminho: String) -> void:
+	var r := recorde(jogadores)
+	r["foto"] = caminho
+	_cfg.set_value("recorde", "j%d" % jogadores, r)
+	_cfg.save(ARQUIVO)
+
+
 func zerar_recordes() -> void:
 	if _cfg.has_section("recorde"):
 		_cfg.erase_section("recorde")
 	_cfg.save(ARQUIVO)
+	Fotos.apagar_recordes()
 
 
 # ---------------------------------------------------------------- contadores

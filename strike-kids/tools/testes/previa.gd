@@ -44,7 +44,7 @@ func _init() -> void:
 	chao.material_override = mc
 	raiz.add_child(chao)
 	var x := -0.65
-	for nome in ["turbo", "rosi"]:
+	for nome in ["bob", "mia"]:
 		if not ResourceLoader.exists("res://modelos/%s.scn" % nome):
 			continue
 		var p: Node3D = load("res://modelos/%s.scn" % nome).instantiate()

@@ -113,29 +113,34 @@ static func _montar() -> void:
 		"chaves": [[0.0, _p(p6, {"frente": 0.0})], [0.8, _p(p6, {"frente": 0.0, "altura": -0.15, "braco_d": Vector3(-100, 0, -12)})],
 			[1.6, _p(p6, {"frente": 0.0})]],
 	}
-	# ---------------------------------------------------- STRIKE: jatos, voo e giro!
+	# ---------------------------------------------------- STRIKE: pulão com pirueta e festa!
 	var agacha := _p(PARADO, {"altura": -0.13, "coxa_e": Vector3(-35, 0, 0), "canela_e": Vector3(65, 0, 0),
 		"coxa_d": Vector3(-35, 0, 0), "canela_d": Vector3(65, 0, 0), "corpo": Vector3(18, 0, 0),
 		"braco_e": Vector3(25, 0, 25), "braco_d": Vector3(25, 0, -25)})
-	var voando := {"voo": 0.65, "braco_e": Vector3(-168, 0, 18), "braco_d": Vector3(-168, 0, -18),
+	var voando := {"voo": 0.5, "braco_e": Vector3(-168, 0, 18), "braco_d": Vector3(-168, 0, -18),
 		"antebraco_e": Vector3(-10, 0, 0), "antebraco_d": Vector3(-10, 0, 0),
-		"coxa_e": Vector3(-8, 0, 4), "canela_e": Vector3(25, 0, 0), "coxa_d": Vector3(4, 0, -4), "canela_d": Vector3(35, 0, 0),
+		"coxa_e": Vector3(-30, 0, 4), "canela_e": Vector3(60, 0, 0), "coxa_d": Vector3(-20, 0, -4), "canela_d": Vector3(70, 0, 0),
 		"corpo": Vector3(-8, 0, 0), "cabeca": Vector3(-15, 0, 0)}
+	var aterrissa := _p(agacha, {"altura": -0.09, "braco_e": Vector3(-130, 0, 50), "braco_d": Vector3(-130, 0, -50)})
+	var vibra1 := _p(PARADO, {"braco_d": Vector3(-150, 0, -30), "antebraco_d": Vector3(-70, 0, 0), "braco_e": Vector3(-20, 0, 30),
+		"corpo": Vector3(-4, 0, -6), "altura": -0.02})
+	var vibra2 := _p(vibra1, {"braco_d": Vector3(-175, 0, -20), "antebraco_d": Vector3(-20, 0, 0), "voo": 0.08})
 	_cache["comemora_strike"] = {
-		"dur": 3.0, "loop": false,
+		"dur": 3.1, "loop": false,
 		"chaves": [
-			[0.0, PARADO], [0.22, agacha],
-			[0.45, _p(voando, {"voo": 0.75})],
-			[0.8, _p(voando, {"voo": 0.95, "giro": 180.0, "braco_d": Vector3(-150, 0, -30)})],
-			[1.15, _p(voando, {"voo": 1.0, "giro": 360.0})],
-			[1.45, _p(voando, {"voo": 0.95, "giro": 360.0, "braco_d": Vector3(-150, 0, -30), "antebraco_d": Vector3(-60, 0, 0)})],
-			[1.75, _p(voando, {"voo": 0.9, "giro": 360.0})],
-			[2.05, _p(voando, {"voo": 0.85, "giro": 360.0, "braco_e": Vector3(-150, 0, 30), "antebraco_e": Vector3(-60, 0, 0)})],
-			[2.5, _p(agacha, {"giro": 360.0, "altura": -0.08})],
-			[3.0, _p(PARADO, {"giro": 360.0})],
+			[0.0, PARADO], [0.2, agacha],
+			[0.42, _p(voando, {"voo": 0.45, "giro": 120.0})],
+			[0.62, _p(voando, {"voo": 0.6, "giro": 260.0})],
+			[0.82, _p(voando, {"voo": 0.4, "giro": 360.0})],
+			[1.0, _p(aterrissa, {"giro": 360.0})],
+			[1.25, _p(vibra1, {"giro": 360.0})], [1.45, _p(vibra2, {"giro": 360.0})], [1.65, _p(vibra1, {"giro": 360.0})],
+			[1.85, _p(vibra2, {"giro": 360.0})], [2.05, _p(vibra1, {"giro": 360.0})],
+			[2.3, _p(agacha, {"giro": 360.0, "altura": -0.06})],
+			[2.55, _p(voando, {"giro": 360.0, "voo": 0.22})],
+			[3.1, _p(PARADO, {"giro": 360.0})],
 		],
-		"eventos": [[0.0, "expressao", "empolgado"], [0.3, "jatos", true], [0.3, "som", "jato"], [2.3, "jatos", false],
-			[2.7, "expressao", "risada"]],
+		"eventos": [[0.0, "expressao", "empolgado"], [0.2, "jatos", true], [0.2, "som", "jato"], [2.7, "jatos", false],
+			[1.1, "expressao", "risada"]],
 	}
 	# ---------------------------------------------------- feliz (spare, boa jogada): pulinho + palmas
 	var palma_junta := _p(PARADO, {"braco_e": Vector3(-72, 0, -12), "antebraco_e": Vector3(-48, -20, -25),
@@ -191,11 +196,13 @@ static func _montar() -> void:
 	var w2 := _p(PARADO, {"coxa_d": Vector3(-26, 0, 0), "canela_d": Vector3(8, 0, 0), "coxa_e": Vector3(22, 0, 0), "canela_e": Vector3(30, 0, 0),
 		"braco_d": Vector3(25, 0, -10), "braco_e": Vector3(-25, 0, 10), "altura": -0.015})
 	_cache["andar"] = {"dur": 0.7, "loop": true, "chaves": [[0.0, w1], [0.175, _p(PARADO, {"altura": 0.02})], [0.35, w2], [0.525, _p(PARADO, {"altura": 0.02})], [0.7, w1]]}
-	# ---------------------------------------------------- vitória: voa com os jatos, braços para cima
+	# ---------------------------------------------------- vitória: pulinhos de alegria, braços para cima
+	var v_baixo := _p(agacha, {"altura": -0.08, "braco_e": Vector3(-150, 0, 40), "braco_d": Vector3(-150, 0, -40)})
+	var v_alto := _p(voando, {"voo": 0.32})
 	_cache["vitoria"] = {
-		"dur": 2.4, "loop": true,
-		"chaves": [[0.0, voando], [0.6, _p(voando, {"voo": 0.75, "braco_d": Vector3(-150, 0, -40)})], [1.2, _p(voando, {"voo": 0.62})],
-			[1.8, _p(voando, {"voo": 0.75, "braco_e": Vector3(-150, 0, 40)})], [2.4, voando]],
+		"dur": 1.4, "loop": true,
+		"chaves": [[0.0, v_baixo], [0.35, v_alto], [0.7, v_baixo], [1.05, _p(v_alto, {"giro": 0.0, "voo": 0.25, "corpo": Vector3(-6, 0, 10)})],
+			[1.4, v_baixo]],
 	}
 	# ---------------------------------------------------- escolhido (seleção de personagem)
 	_cache["escolhido"] = {

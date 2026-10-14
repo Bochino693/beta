@@ -10,6 +10,7 @@ var jogadores := 1
 var principal: Node
 var n_foto := 0
 var poucas := false
+var _rodadas_antes = null
 
 
 func _ready() -> void:
@@ -22,6 +23,9 @@ func _ready() -> void:
 			poucas = true
 		elif a.begins_with("--jogadores="):
 			jogadores = int(a.substr(12))
+		elif a.begins_with("--rodadas="):
+			_rodadas_antes = Ajustes.valor("jogo", "rodadas")
+			Ajustes.definir("jogo", "rodadas", int(a.substr(10)))
 		elif a.begins_with("--resultados="):
 			Jogada.forcar = Array(a.substr(13).split(",")).map(func(x): return int(x))
 	DirAccess.make_dir_recursive_absolute(pasta)
@@ -30,7 +34,8 @@ func _ready() -> void:
 
 
 func foto(nome: String) -> void:
-	if poucas and not (nome in ["atracao", "escolha_robo", "pronto_0", "rolando_1", "resultado_1", "reacao_1", "fim"]):
+	if poucas and not (nome in ["atracao", "escolha_robo", "pronto_0", "rolando_1", "pinos_1", "resultado_1", "reacao_1",
+			"maquina_1", "maquina_b_1", "maquina_c_1", "depois_1", "fim", "foto_sorria", "foto_contagem", "foto_pronta", "pronto_1"]):
 		return
 	await RenderingServer.frame_post_draw
 	var img := get_viewport().get_texture().get_image()
@@ -50,6 +55,17 @@ func esperar_estado(nome: String, limite := 30.0) -> bool:
 		t += get_process_delta_time()
 		if t > limite:
 			print("TEMPO ESGOTADO esperando ", nome, " (está em ", principal.E.keys()[principal.estado], ")")
+			return false
+	return true
+
+
+func esperar_pronto_ou_fim(limite := 60.0) -> bool:
+	var t := 0.0
+	while not (principal.E.keys()[principal.estado] in ["PRONTO", "FIM"]):
+		await get_tree().process_frame
+		t += get_process_delta_time()
+		if t > limite:
+			print("TEMPO ESGOTADO esperando PRONTO (está em ", principal.E.keys()[principal.estado], ")")
 			return false
 	return true
 
@@ -88,16 +104,23 @@ func _rodar() -> void:
 		await foto("escolha_robo")
 		await apertar("input_v")
 		await esperar(0.8)
-		await foto("escolha_rosi")
+		await foto("escolha_mia")
 		await apertar("input_start")
 		await esperar(0.7)
 		await foto("escolhido")
+	if await esperar_estado("FOTO", 6.0):
+		await esperar(1.3)
+		await foto("foto_sorria")
+		await esperar(1.5)
+		await foto("foto_contagem")
+		await esperar(1.6)
+		await foto("foto_pronta")
 	var i := 0
 	while i < jogadas.size():
-		if not await esperar_estado("PRONTO", 40.0):
-			if principal.E.keys()[principal.estado] == "FIM":
-				break
+		if not await esperar_pronto_ou_fim():
 			continue
+		if principal.E.keys()[principal.estado] == "FIM":
+			break
 		await esperar(0.5)
 		if i < 3:
 			await foto("pronto_%d" % i)
@@ -127,10 +150,20 @@ func _rodar() -> void:
 			await foto("reacao_%d" % i)
 			await esperar(1.2)
 			await foto("reacao_b_%d" % i)
+			await esperar(1.0)
+			await foto("maquina_%d" % i)
+			await esperar(1.0)
+			await foto("maquina_b_%d" % i)
+			await esperar(1.0)
+			await foto("maquina_c_%d" % i)
+			await esperar(1.3)
+			await foto("depois_%d" % i)
 	await esperar_estado("FIM", 60.0)
 	await esperar(3.8)
 	await foto("fim")
 	await esperar(2.0)
 	await foto("fim_2")
+	if _rodadas_antes != null:
+		Ajustes.definir("jogo", "rodadas", _rodadas_antes)
 	print("ROTEIRO OK")
 	get_tree().quit()

@@ -1,18 +1,19 @@
 class_name Hud
 extends Control
 
-## TUDO O QUE É 2D POR CIMA DO 3D: placar, mapa dos pinos, as 5 luzes dos
-## sensores, letreiros (STRIKE!...), faixa "VEZ DE...", modo replay e as
-## telas de atração, escolha, fim e inatividade.
+## TUDO O QUE É 2D POR CIMA DO 3D: placar, mapa dos pinos, o convite
+## "ROLE A BOLA!", letreiros (STRIKE!...), faixa "VEZ DE...", nome do
+## cenário, modo replay e as telas de atração, escolha, fim e inatividade.
+## Não há setinhas nem alvos na tela: a mira é sempre o STRIKE.
 ##
 ## Responsivo: tudo é reposicionado em `layout()` conforme a tela (em pé ou
 ## deitada). Unidade "u" = lado menor / 1080.
 
-const COR_TURBO := Color("#2E7BFF")
-const COR_ROSI := Color("#FF4FA3")
+const COR_BOB := Color("#13A3BC")
+const COR_MIA := Color("#8657F2")
+const DESTAQUE := Color("#FFB627")
 const ROXO := Color("#3B0A63")
 const ZONAS := ["Z", "X", "C", "V", "B"]
-const CORES_SENSOR := [Color("#FF4B5C"), Color("#FF9F2E"), Color("#FFD43B"), Color("#5ED16A"), Color("#4FC3F7")]
 
 var fonte: FontFile
 var fonte_titulo: FontFile
@@ -31,9 +32,11 @@ var _info: Label
 var _bolas_box: HBoxContainer
 var _mapa: Panel
 var _mapa_pontos := {}
-var _sensores: Array[Panel] = []
-var _sensores_box: Control
+var _toque: Control
 var _aviso: Label
+var _aviso_sub: Label
+var _cenario: TextureRect
+var _sequencia: Label
 var _centro: Control
 var _faixa: Panel
 var _faixa_texto: Label
@@ -57,16 +60,25 @@ var _inativo: Panel
 var _inativo_texto: Label
 var _tempo := 0.0
 var _convite := false
-var _aceso := -1
-var _aceso_t := 0.0
 var _retratos := {}
+# fotos das crianças (câmera da máquina)
+var _foto_tela: Control
+var _foto_fundo: ColorRect
+var _foto_titulo: Label
+var _foto_sub: Label
+var _foto_circulo: TextureRect
+var _foto_selo: TextureRect
+var _foto_numero: Label
+var _foto_destaque: TextureRect
+var _rec_foto: TextureRect
+var _shader_foto: Shader
 
 
 func montar(textura_3d: Texture2D) -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	fonte = load("res://fontes/fredoka_700.ttf")
 	fonte_titulo = load("res://fontes/titan_one.ttf")
-	for p in ["turbo", "rosi"]:
+	for p in ["bob", "mia"]:
 		_retratos[p] = Materiais.textura("retrato_" + p)
 	tela3d = TextureRect.new()
 	tela3d.texture = textura_3d
@@ -76,7 +88,7 @@ func montar(textura_3d: Texture2D) -> void:
 	add_child(tela3d)
 	_montar_placar()
 	_montar_mapa()
-	_montar_sensores()
+	_montar_toque()
 	_centro = Control.new()
 	_centro.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_centro)
@@ -90,6 +102,7 @@ func montar(textura_3d: Texture2D) -> void:
 	_fim.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_fim)
 	_montar_inatividade()
+	_montar_fotos()
 	_flash = ColorRect.new()
 	_flash.color = Color(1, 1, 1, 0)
 	_flash.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -148,7 +161,7 @@ func _tamanho_rotulo(l: Label, tam: float) -> void:
 # ================================================================ placar
 func _montar_placar() -> void:
 	for i in 2:
-		var cor := COR_TURBO if i == 0 else COR_ROSI
+		var cor := COR_BOB if i == 0 else COR_MIA
 		var p := painel(cor, 34, 6)
 		add_child(p)
 		var av := TextureRect.new()
@@ -156,6 +169,12 @@ func _montar_placar() -> void:
 		av.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		av.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		p.add_child(av)
+		var selo := TextureRect.new()
+		selo.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		selo.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		selo.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		selo.visible = false
+		p.add_child(selo)
 		var nome := rotulo("", 34, Color.WHITE, 8)
 		nome.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 		p.add_child(nome)
@@ -166,7 +185,7 @@ func _montar_placar() -> void:
 		rod.alignment = BoxContainer.ALIGNMENT_BEGIN
 		rod.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		p.add_child(rod)
-		_cartoes.append({"painel": p, "avatar": av, "nome": nome, "pontos": pts, "rodadas": rod, "cor": cor, "valor": 0.0, "alvo": 0})
+		_cartoes.append({"painel": p, "avatar": av, "selo": selo, "nome": nome, "pontos": pts, "rodadas": rod, "cor": cor, "valor": 0.0, "alvo": 0})
 	_info = rotulo("", 34, Color.WHITE, 9)
 	add_child(_info)
 	_bolas_box = HBoxContainer.new()
@@ -193,8 +212,13 @@ func configurar_placar(personagens: Array) -> void:
 		if i < personagens.size():
 			var p: String = personagens[i]
 			c["nome"].text = p.to_upper()
-			c["avatar"].texture = _retratos.get(p)
-			var cor := COR_TURBO if p == "turbo" else COR_ROSI
+			var cor := COR_BOB if p == "bob" else COR_MIA
+			var ft: Texture2D = Fotos.foto("j%d" % i)
+			c["foto"] = ft != null
+			c["avatar"].texture = ft if ft != null else _retratos.get(p)
+			c["avatar"].material = material_foto(Color.WHITE) if ft != null else null
+			c["selo"].texture = _retratos.get(p)
+			c["selo"].visible = ft != null
 			c["cor"] = cor
 			(c["painel"] as Panel).add_theme_stylebox_override("panel", caixa(cor, 34 * u, 6 * u))
 			c["valor"] = 0.0
@@ -262,7 +286,7 @@ func atualizar_placar(placar: Placar) -> void:
 
 
 func _cor_atual(placar: Placar) -> Color:
-	return COR_TURBO if placar.atual()["personagem"] == "turbo" else COR_ROSI
+	return COR_BOB if placar.atual()["personagem"] == "bob" else COR_MIA
 
 
 # ================================================================ mapa dos pinos
@@ -282,64 +306,102 @@ func mostrar_mapa(em_pe: Array) -> void:
 	for n in _mapa_pontos:
 		var d: Panel = _mapa_pontos[n]
 		var de_pe := em_pe.has(n)
-		d.add_theme_stylebox_override("panel", caixa(Color.WHITE if de_pe else Color(1, 1, 1, 0.12), 99, 3 if de_pe else 0, Color("#FF5FA8"), 0))
+		d.add_theme_stylebox_override("panel", caixa(Color.WHITE if de_pe else Color(1, 1, 1, 0.12), 99, 3 if de_pe else 0, DESTAQUE, 0))
 
 
-# ================================================================ sensores
-func _montar_sensores() -> void:
-	_sensores_box = Control.new()
-	_sensores_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(_sensores_box)
-	for i in 5:
-		var s := Panel.new()
-		s.mouse_filter = Control.MOUSE_FILTER_STOP
-		s.gui_input.connect(_toque_sensor.bind(i))
-		var seta := TextureRect.new()
-		seta.texture = Materiais.textura("seta")
-		seta.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		seta.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		seta.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		seta.name = "seta"
-		s.add_child(seta)
-		_sensores_box.add_child(s)
-		_sensores.append(s)
+# ================================================================ convite e toque
+## Sem luzes nem setas na tela. No PC/tablet dá para tocar na tela: a
+## posição do toque (5 faixas, da esquerda para a direita) vale como o sensor.
+func _montar_toque() -> void:
+	_toque = Control.new()
+	_toque.mouse_filter = Control.MOUSE_FILTER_STOP
+	_toque.gui_input.connect(_ao_tocar)
+	_toque.visible = false
+	add_child(_toque)
 	_aviso = rotulo("ROLE A BOLA!", 64, Color("#FFF6A8"), 16, ROXO, fonte_titulo)
 	add_child(_aviso)
 	_aviso.visible = false
+	_aviso_sub = rotulo("mire no STRIKE!", 40, Color.WHITE, 10, ROXO)
+	add_child(_aviso_sub)
+	_aviso_sub.visible = false
+	_cenario = TextureRect.new()
+	_cenario.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_cenario.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	_cenario.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_cenario.visible = false
+	add_child(_cenario)
+	_sequencia = rotulo("", 40, Color("#FFF6A8"), 10, Color("#7A1E00"), fonte_titulo)
+	_sequencia.visible = false
+	add_child(_sequencia)
 
 
 signal toque_sensor(zona: String)
 
 
-func _toque_sensor(ev: InputEvent, i: int) -> void:
-	if (ev is InputEventMouseButton and ev.pressed) or (ev is InputEventScreenTouch and ev.pressed):
-		toque_sensor.emit(ZONAS[i])
+func _ao_tocar(ev: InputEvent) -> void:
+	var pos := Vector2(-1, -1)
+	if ev is InputEventMouseButton and ev.pressed:
+		pos = ev.position
+	elif ev is InputEventScreenTouch and ev.pressed:
+		pos = ev.position
+	if pos.x < 0.0:
+		return
+	var i := clampi(int(pos.x / maxf(size.x, 1.0) * 5.0), 0, 4)
+	toque_sensor.emit(ZONAS[i])
 
 
 func convite(ligado: bool, texto := "ROLE A BOLA!") -> void:
 	_convite = ligado
 	_aviso.text = texto
 	_aviso.visible = ligado
-	_sensores_box.visible = true
+	_aviso_sub.visible = ligado
+	_toque.visible = true
 
 
 func mostrar_sensores(sim: bool) -> void:
-	_sensores_box.visible = sim
+	_toque.visible = sim
 	if not sim:
 		_aviso.visible = false
+		_aviso_sub.visible = false
 
 
-func sensor_acendeu(zona: String) -> void:
-	_aceso = ZONAS.find(zona)
-	_aceso_t = 1.2
+func sensor_acendeu(_zona: String) -> void:
 	_convite = false
 	_aviso.visible = false
-	if _aceso >= 0:
-		var s := _sensores[_aceso]
-		var tw := create_tween()
-		s.pivot_offset = s.size / 2
-		tw.tween_property(s, "scale", Vector2.ONE * 1.35, 0.08)
-		tw.tween_property(s, "scale", Vector2.ONE, 0.4).set_trans(Tween.TRANS_ELASTIC).set_ease(Tween.EASE_OUT)
+	_aviso_sub.visible = false
+
+
+## Nome do cenário (letreiro grande que entra girando e sai).
+func anunciar_cenario(tema: String, dur := 2.2) -> void:
+	var tex := Materiais.textura("cen_" + tema)
+	if tex == null:
+		return
+	_cenario.texture = tex
+	var T := size
+	var w: float = minf(T.x * 0.86, 900.0 * u)
+	var h: float = w * float(tex.get_height()) / float(tex.get_width())
+	_cenario.size = Vector2(w, h)
+	_cenario.position = Vector2((T.x - w) / 2, T.y * (0.3 if retrato else 0.24) - h / 2)
+	_cenario.pivot_offset = _cenario.size / 2
+	_cenario.visible = true
+	_cenario.scale = Vector2.ZERO
+	_cenario.rotation = -0.5
+	_cenario.modulate.a = 1.0
+	var tw := create_tween()
+	tw.tween_property(_cenario, "scale", Vector2.ONE, 0.55).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tw.parallel().tween_property(_cenario, "rotation", 0.0, 0.55).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tw.tween_interval(dur)
+	tw.tween_property(_cenario, "scale", Vector2.ONE * 1.25, 0.3)
+	tw.parallel().tween_property(_cenario, "modulate:a", 0.0, 0.3)
+	tw.tween_callback(func(): _cenario.visible = false)
+
+
+## Sequência de strikes (aparece embaixo do placar do jogador).
+func sequencia(n: int) -> void:
+	_sequencia.visible = n >= 2
+	if n >= 2:
+		_sequencia.text = "%d STRIKES SEGUIDOS!" % n
+		_pular(_sequencia)
 
 
 # ================================================================ letreiros
@@ -454,7 +516,7 @@ func _estrelas_2d(centro: Vector2, n: int) -> void:
 	p.scale_amount_max = 0.3 * u
 	var g := Gradient.new()
 	g.set_color(0, Color("#FFE14D"))
-	g.set_color(1, Color("#FF5FA8"))
+	g.set_color(1, Color("#FF9F2E"))
 	g.add_point(0.5, Color("#7FE7FF"))
 	p.color_initial_ramp = g
 	_centro.add_child(p)
@@ -470,7 +532,7 @@ func flash(cor := Color.WHITE, forca := 0.7, dur := 0.35) -> void:
 
 # ================================================================ faixa "VEZ DE"
 func _montar_faixa() -> void:
-	_faixa = painel(COR_TURBO, 40, 7)
+	_faixa = painel(COR_BOB, 40, 7)
 	_faixa.visible = false
 	add_child(_faixa)
 	_faixa_avatar = TextureRect.new()
@@ -482,17 +544,22 @@ func _montar_faixa() -> void:
 	_faixa.add_child(_faixa_texto)
 
 
-func faixa(personagem: String, texto: String, sub := "") -> void:
-	var cor := COR_TURBO if personagem == "turbo" else COR_ROSI
+func faixa(personagem: String, texto: String, sub := "", foto: Texture2D = null) -> void:
+	var cor := COR_BOB if personagem == "bob" else COR_MIA
 	_faixa.add_theme_stylebox_override("panel", caixa(cor, 40 * u, 7 * u))
-	_faixa_avatar.texture = _retratos.get(personagem)
+	_faixa_avatar.texture = foto if foto != null else _retratos.get(personagem)
+	_faixa_avatar.material = material_foto(Color.WHITE) if foto != null else null
 	_faixa_texto.text = texto + ("\n" + sub if sub != "" else "")
 	var T := size
 	var h := 210 * u
 	var w: float = min(T.x * 0.92, 980 * u)
 	_faixa.size = Vector2(w, h)
-	_faixa_avatar.size = Vector2(h * 1.25, h * 1.25)
-	_faixa_avatar.position = Vector2(-h * 0.15, -h * 0.35)
+	if foto != null:
+		_faixa_avatar.size = Vector2(h * 1.05, h * 1.05)
+		_faixa_avatar.position = Vector2(-h * 0.05, -h * 0.12)
+	else:
+		_faixa_avatar.size = Vector2(h * 1.25, h * 1.25)
+		_faixa_avatar.position = Vector2(-h * 0.15, -h * 0.35)
 	_faixa_texto.size = Vector2(w - h * 1.1, h)
 	_faixa_texto.position = Vector2(h * 1.05, 0)
 	_tamanho_rotulo(_faixa_texto, (70 if sub == "" else 58) * u)
@@ -563,13 +630,27 @@ func _montar_atracao() -> void:
 	_atracao.add_child(_recorde)
 	_creditos = rotulo("", 34, Color.WHITE, 9)
 	_atracao.add_child(_creditos)
+	_rec_foto = TextureRect.new()
+	_rec_foto.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_rec_foto.stretch_mode = TextureRect.STRETCH_SCALE
+	_rec_foto.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_rec_foto.material = material_foto(Color("#FFD43B"))
+	_rec_foto.visible = false
+	_atracao.add_child(_rec_foto)
 	_atracao.visible = false
 
 
-func atracao(ligado: bool, recorde := "", creditos := "") -> void:
+func atracao(ligado: bool, recorde := "", creditos := "", foto_recorde: Texture2D = null) -> void:
 	_atracao.visible = ligado
 	_recorde.text = recorde
 	_creditos.text = creditos
+	_rec_foto.texture = foto_recorde
+	_rec_foto.visible = foto_recorde != null and recorde != ""
+	if _rec_foto.visible:
+		var larg := _recorde.label_settings.font.get_string_size(recorde, HORIZONTAL_ALIGNMENT_LEFT, -1, _recorde.label_settings.font_size).x
+		var d := 110 * u
+		_rec_foto.size = Vector2(d, d)
+		_rec_foto.position = Vector2((size.x - larg) / 2 - d - 14 * u, _recorde.position.y + _recorde.size.y / 2 - d / 2)
 	if ligado:
 		mostrar_placar(false)
 		mostrar_sensores(false)
@@ -577,7 +658,7 @@ func atracao(ligado: bool, recorde := "", creditos := "") -> void:
 
 # ================================================================ modal (1 ou 2 jogadores)
 func _montar_modal() -> void:
-	_modal = painel(Color(0.18, 0.06, 0.38, 0.94), 44, 7, Color("#FFD6F0"))
+	_modal = painel(Color(0.18, 0.06, 0.38, 0.94), 44, 7, Color("#BFF3FF"))
 	_modal.visible = false
 	add_child(_modal)
 	_modal_titulo = rotulo("", 70, Color("#FFF6A8"), 16, ROXO, fonte_titulo)
@@ -613,11 +694,11 @@ func _montar_selecao() -> void:
 	_selecao.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_selecao.visible = false
 	add_child(_selecao)
-	var t := rotulo("ESCOLHA SEU ROBÔ!", 84, Color("#FFF6A8"), 18, ROXO, fonte_titulo)
+	var t := rotulo("ESCOLHA SEU AMIGO!", 84, Color("#FFF6A8"), 18, ROXO, fonte_titulo)
 	t.name = "titulo"
 	_selecao.add_child(t)
 	for i in 2:
-		var l := rotulo("TURBO" if i == 0 else "ROSI", 70, Color.WHITE, 16, COR_TURBO if i == 0 else COR_ROSI, fonte_titulo)
+		var l := rotulo("BOB" if i == 0 else "MIA", 70, Color.WHITE, 16, COR_BOB if i == 0 else COR_MIA, fonte_titulo)
 		_selecao.add_child(l)
 		_sel_nomes.append(l)
 	_sel_texto = rotulo("", 40, Color.WHITE, 10)
@@ -665,7 +746,7 @@ func tela_fim(ligado: bool, dados := {}) -> void:
 		y = T.y * 0.42
 	for i in n:
 		var j: Dictionary = js[i]
-		var cor := COR_TURBO if j["personagem"] == "turbo" else COR_ROSI
+		var cor := COR_BOB if j["personagem"] == "bob" else COR_MIA
 		var c := painel(cor, 40 * u, 7 * u)
 		c.size = Vector2(larg_card, alt_card)
 		var x := (T.x - larg_card * n - 30 * u * (n - 1)) / 2 + i * (larg_card + 30 * u)
@@ -678,6 +759,18 @@ func tela_fim(ligado: bool, dados := {}) -> void:
 		nome.size = Vector2(larg_card, 70 * u)
 		nome.position = Vector2(0, 18 * u)
 		c.add_child(nome)
+		var ft: Texture2D = j.get("foto")
+		if ft != null:
+			var fr := TextureRect.new()
+			fr.texture = ft
+			fr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+			fr.stretch_mode = TextureRect.STRETCH_SCALE
+			fr.material = material_foto(Color.WHITE)
+			fr.size = Vector2(150, 150) * u
+			fr.position = Vector2(larg_card - 116 * u, -70 * u)
+			fr.pivot_offset = fr.size / 2
+			fr.rotation = 0.12
+			c.add_child(fr)
 		var pts := rotulo("0", 120 * u, Color("#FFF6A8"), 22 * u, ROXO, fonte_titulo)
 		pts.size = Vector2(larg_card, 140 * u)
 		pts.position = Vector2(0, 90 * u)
@@ -746,7 +839,7 @@ func _atrasado(t: float, f: Callable) -> void:
 
 # ================================================================ inatividade
 func _montar_inatividade() -> void:
-	_inativo = painel(Color(0.18, 0.06, 0.38, 0.95), 44, 7, Color("#FFD6F0"))
+	_inativo = painel(Color(0.18, 0.06, 0.38, 0.95), 44, 7, Color("#BFF3FF"))
 	_inativo.visible = false
 	add_child(_inativo)
 	_inativo_texto = rotulo("", 52, Color.WHITE, 12)
@@ -757,6 +850,149 @@ func _montar_inatividade() -> void:
 func inatividade(ligado: bool, segundos := 10) -> void:
 	_inativo.visible = ligado
 	_inativo_texto.text = "AINDA ESTÁ AÍ?\n\nRole a bola para continuar!\n\n%d" % segundos
+
+
+# ================================================================ fotos (câmera da máquina)
+func material_foto(cor_aro: Color) -> ShaderMaterial:
+	if _shader_foto == null:
+		_shader_foto = load("res://shaders/foto_redonda.gdshader")
+	var m := ShaderMaterial.new()
+	m.shader = _shader_foto
+	m.set_shader_parameter("cor_aro", cor_aro)
+	return m
+
+
+func _montar_fotos() -> void:
+	_foto_tela = Control.new()
+	_foto_tela.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_foto_tela.visible = false
+	add_child(_foto_tela)
+	_foto_fundo = ColorRect.new()
+	_foto_fundo.color = Color(0.08, 0.02, 0.2, 0.55)
+	_foto_fundo.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_foto_tela.add_child(_foto_fundo)
+	_foto_titulo = rotulo("SORRIA!", 110, Color("#FFF6A8"), 24, ROXO, fonte_titulo)
+	_foto_tela.add_child(_foto_titulo)
+	_foto_circulo = TextureRect.new()
+	_foto_circulo.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_foto_circulo.stretch_mode = TextureRect.STRETCH_SCALE
+	_foto_circulo.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_foto_tela.add_child(_foto_circulo)
+	_foto_selo = TextureRect.new()
+	_foto_selo.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_foto_selo.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	_foto_selo.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_foto_tela.add_child(_foto_selo)
+	_foto_numero = rotulo("", 280, Color.WHITE, 44, ROXO, fonte_titulo)
+	_foto_tela.add_child(_foto_numero)
+	_foto_sub = rotulo("", 46, Color.WHITE, 12, ROXO)
+	_foto_sub.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_foto_tela.add_child(_foto_sub)
+	_foto_destaque = TextureRect.new()
+	_foto_destaque.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_foto_destaque.stretch_mode = TextureRect.STRETCH_SCALE
+	_foto_destaque.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_foto_destaque.visible = false
+	add_child(_foto_destaque)
+
+
+func _layout_fotos() -> void:
+	var T := size
+	_foto_fundo.size = T
+	var d: float = minf(T.x * 0.7, T.y * 0.44)
+	var cy := T.y * (0.47 if retrato else 0.52)
+	_foto_circulo.size = Vector2(d, d)
+	_foto_circulo.position = Vector2((T.x - d) / 2, cy - d / 2)
+	_foto_circulo.pivot_offset = _foto_circulo.size / 2
+	var sd := d * 0.42
+	_foto_selo.size = Vector2(sd, sd)
+	_foto_selo.position = _foto_circulo.position + Vector2(d * 0.74, d * 0.66)
+	_tamanho_rotulo(_foto_titulo, 110 * u)
+	_foto_titulo.label_settings.outline_size = int(24 * u)
+	_foto_titulo.size = Vector2(T.x, 150 * u)
+	_foto_titulo.position = Vector2(0, cy - d / 2 - 190 * u)
+	_foto_titulo.pivot_offset = _foto_titulo.size / 2
+	_tamanho_rotulo(_foto_numero, 280 * u)
+	_foto_numero.label_settings.outline_size = int(44 * u)
+	_foto_numero.size = Vector2(T.x, 360 * u)
+	_foto_numero.position = Vector2(0, cy - 180 * u)
+	_foto_numero.pivot_offset = _foto_numero.size / 2
+	_tamanho_rotulo(_foto_sub, 46 * u)
+	_foto_sub.label_settings.outline_size = int(12 * u)
+	_foto_sub.size = Vector2(T.x * 0.9, 140 * u)
+	_foto_sub.position = Vector2(T.x * 0.05, cy + d / 2 + 30 * u)
+
+
+## Tela "SORRIA!": a câmera ao vivo num círculo, com o mascote do lado.
+func foto_tela(ligado: bool, textura: Texture2D = null, personagem := "", titulo := "SORRIA!", sub := "") -> void:
+	_foto_tela.visible = ligado
+	if not ligado:
+		return
+	_layout_fotos()
+	var cor := COR_BOB if personagem == "bob" else COR_MIA
+	_foto_circulo.texture = textura
+	_foto_circulo.material = material_foto(cor.lightened(0.35))
+	_foto_selo.texture = _retratos.get(personagem)
+	_foto_titulo.text = titulo
+	_foto_sub.text = sub
+	_foto_numero.text = ""
+	_foto_circulo.scale = Vector2.ZERO
+	var tw := create_tween()
+	tw.tween_property(_foto_circulo, "scale", Vector2.ONE, 0.45).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	_pular(_foto_titulo)
+
+
+func foto_contagem(n: int) -> void:
+	_foto_numero.text = str(n) if n > 0 else ""
+	if n > 0:
+		_foto_numero.scale = Vector2.ONE * 1.6
+		_foto_numero.modulate.a = 1.0
+		var tw := create_tween()
+		tw.tween_property(_foto_numero, "scale", Vector2.ONE, 0.35).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		tw.parallel().tween_property(_foto_numero, "modulate:a", 0.75, 0.6)
+
+
+## A foto tirada (ou o mascote, se a câmera não mandou imagem).
+func foto_pronta(foto: Texture2D, personagem: String) -> void:
+	_foto_numero.text = ""
+	if foto != null:
+		_foto_circulo.texture = foto
+		_foto_titulo.text = "QUE FOTO LINDA!"
+		_foto_sub.text = ""
+	else:
+		_foto_circulo.texture = _retratos.get(personagem)
+		_foto_titulo.text = "VAMOS JOGAR!"
+		_foto_sub.text = "(a câmera não mandou imagem)"
+	_pular(_foto_titulo)
+	_foto_circulo.scale = Vector2.ONE * 1.12
+	create_tween().tween_property(_foto_circulo, "scale", Vector2.ONE, 0.4).set_trans(Tween.TRANS_ELASTIC).set_ease(Tween.EASE_OUT)
+	_estrelas_2d(_foto_circulo.position + _foto_circulo.size / 2, 26)
+
+
+## Foto da criança pulando na tela (no strike).
+func foto_destaque(foto: Texture2D, cor: Color, dur := 1.6) -> void:
+	if foto == null:
+		return
+	var T := size
+	var d: float = minf(T.x * 0.36, 360.0 * u)
+	_foto_destaque.texture = foto
+	_foto_destaque.material = material_foto(cor.lightened(0.3))
+	_foto_destaque.size = Vector2(d, d)
+	_foto_destaque.position = Vector2((T.x - d) / 2, T.y * (0.56 if retrato else 0.58) - d / 2)
+	_foto_destaque.pivot_offset = _foto_destaque.size / 2
+	_foto_destaque.visible = true
+	_foto_destaque.scale = Vector2.ZERO
+	_foto_destaque.rotation = -0.6
+	_foto_destaque.modulate.a = 1.0
+	var tw := create_tween()
+	tw.tween_property(_foto_destaque, "scale", Vector2.ONE, 0.5).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tw.parallel().tween_property(_foto_destaque, "rotation", 0.08, 0.5).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tw.tween_property(_foto_destaque, "rotation", -0.08, 0.4).set_trans(Tween.TRANS_SINE)
+	tw.tween_property(_foto_destaque, "rotation", 0.0, 0.3).set_trans(Tween.TRANS_SINE)
+	tw.tween_interval(maxf(dur - 1.2, 0.1))
+	tw.tween_property(_foto_destaque, "scale", Vector2.ZERO, 0.3).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_IN)
+	tw.tween_callback(func(): _foto_destaque.visible = false)
+	_estrelas_2d(_foto_destaque.position + _foto_destaque.size / 2, 22)
 
 
 # ================================================================ layout responsivo
@@ -798,8 +1034,16 @@ func layout() -> void:
 		p.position = Vector2(x, margem + 40 * u)
 		p.pivot_offset = p.size / 2
 		var av: TextureRect = c["avatar"]
-		av.size = Vector2(alt * 1.15, alt * 1.15)
-		av.position = Vector2(-alt * 0.12, -alt * 0.32)
+		if c.get("foto", false):
+			# foto da criança dentro do cartão + o mascote de "selo"
+			av.size = Vector2(alt * 0.86, alt * 0.86)
+			av.position = Vector2(alt * 0.07, alt * 0.07)
+			var selo: TextureRect = c["selo"]
+			selo.size = Vector2(alt * 0.5, alt * 0.5)
+			selo.position = Vector2(alt * 0.55, alt * 0.52)
+		else:
+			av.size = Vector2(alt * 1.15, alt * 1.15)
+			av.position = Vector2(-alt * 0.12, -alt * 0.32)
 		var nome: Label = c["nome"]
 		_tamanho_rotulo(nome, 42 * u)
 		nome.label_settings.outline_size = int(10 * u)
@@ -841,30 +1085,25 @@ func layout() -> void:
 		var fx := pos.x / (Mundo.ESPACO_PINOS * 1.5)  # -1..1
 		var fy := (Mundo.Z_PINO1 - pos.z) / (Mundo.FILEIRA * 3.0)  # 0..1 (fundo em cima)
 		d.position = Vector2(ms / 2 + fx * ms * 0.36 - r / 2, ms * 0.86 * (0.78 - fy * 0.56) - r / 2)
-	# sensores
-	var bs := (150 if retrato else 120) * u
-	var esp := (T.x - bs * 5) / 6.0 if retrato else 40 * u
-	var total := bs * 5 + esp * 4
-	var y0 := T.y - bs - 70 * u
-	_sensores_box.size = T
-	for i in 5:
-		var s := _sensores[i]
-		s.size = Vector2(bs, bs)
-		var curva: float = abs(i - 2) * 22 * u
-		s.position = Vector2((T.x - total) / 2 + i * (bs + esp), y0 + curva)
-		s.pivot_offset = s.size / 2
-		var seta: TextureRect = s.get_node("seta")
-		seta.size = Vector2(bs * 0.56, bs * 0.56)
-		seta.position = Vector2(bs * 0.22, bs * 0.2)
-		seta.pivot_offset = seta.size / 2
-		seta.rotation = deg_to_rad((i - 2) * 18.0)
-		_brilho_sensor[i] = -1.0
-		_estilo_sensor(i, 0.0)
-	_tamanho_rotulo(_aviso, 76 * u)
-	_aviso.label_settings.outline_size = int(18 * u)
-	_aviso.size = Vector2(T.x, 110 * u)
-	_aviso.position = Vector2(0, y0 - 130 * u)
+	# toque e convite
+	_toque.position = Vector2.ZERO
+	_toque.size = T
+	var y_aviso := T.y - (330 if retrato else 210) * u
+	_tamanho_rotulo(_aviso, 84 * u)
+	_aviso.label_settings.outline_size = int(20 * u)
+	_aviso.size = Vector2(T.x, 120 * u)
+	_aviso.position = Vector2(0, y_aviso)
 	_aviso.pivot_offset = _aviso.size / 2
+	_tamanho_rotulo(_aviso_sub, 44 * u)
+	_aviso_sub.label_settings.outline_size = int(11 * u)
+	_aviso_sub.size = Vector2(T.x, 64 * u)
+	_aviso_sub.position = Vector2(0, y_aviso + 112 * u)
+	_aviso_sub.pivot_offset = _aviso_sub.size / 2
+	_tamanho_rotulo(_sequencia, 40 * u)
+	_sequencia.label_settings.outline_size = int(10 * u)
+	_sequencia.size = Vector2(T.x if retrato else larg, 56 * u)
+	_sequencia.position = Vector2(0 if retrato else margem, base_y + 100 * u)
+	_sequencia.pivot_offset = _sequencia.size / 2
 	# atração
 	var lw: float = min(T.x * 0.9, 980 * u) if retrato else T.x * 0.36
 	var lt := _logo.texture
@@ -892,7 +1131,7 @@ func layout() -> void:
 	var mw: float = min(T.x * 0.86, 860 * u)
 	_modal.size = Vector2(mw, 560 * u)
 	_modal.position = (T - _modal.size) / 2
-	_modal.add_theme_stylebox_override("panel", caixa(Color(0.18, 0.06, 0.38, 0.94), 44 * u, 7 * u, Color("#FFD6F0")))
+	_modal.add_theme_stylebox_override("panel", caixa(Color(0.18, 0.06, 0.38, 0.94), 44 * u, 7 * u, Color("#BFF3FF")))
 	_tamanho_rotulo(_modal_titulo, 70 * u)
 	_modal_titulo.label_settings.outline_size = int(16 * u)
 	_modal_titulo.size = Vector2(mw, 120 * u)
@@ -924,32 +1163,15 @@ func layout() -> void:
 	# inatividade
 	_inativo.size = Vector2(mw, 600 * u)
 	_inativo.position = (T - _inativo.size) / 2
-	_inativo.add_theme_stylebox_override("panel", caixa(Color(0.18, 0.06, 0.38, 0.95), 44 * u, 7 * u, Color("#FFD6F0")))
+	_inativo.add_theme_stylebox_override("panel", caixa(Color(0.18, 0.06, 0.38, 0.95), 44 * u, 7 * u, Color("#BFF3FF")))
 	_tamanho_rotulo(_inativo_texto, 54 * u)
 	_inativo_texto.label_settings.outline_size = int(12 * u)
 	_inativo_texto.size = _inativo.size
 	_inativo_texto.position = Vector2.ZERO
-
-
-var _brilho_sensor := [-1.0, -1.0, -1.0, -1.0, -1.0]
-
-
-func _estilo_sensor(i: int, brilho: float) -> void:
-	# só refaz o estilo quando o brilho muda de verdade (economiza a TV Box)
-	if absf(brilho - _brilho_sensor[i]) < 0.04 and brilho != 0.0:
-		return
-	if brilho == 0.0 and _brilho_sensor[i] == 0.0:
-		return
-	_brilho_sensor[i] = brilho
-	var c: Color = CORES_SENSOR[i]
-	var fundo := c.darkened(0.55).lerp(c, brilho)
-	fundo.a = 0.85
-	var s := caixa(fundo, 999, 6 * u, Color.WHITE.lerp(Color("#FFF6A8"), brilho), 8 * u)
-	if brilho > 0.5:
-		s.shadow_color = Color(c.r, c.g, c.b, 0.9)
-		s.shadow_size = int(26 * u * brilho)
-		s.shadow_offset = Vector2.ZERO
-	_sensores[i].add_theme_stylebox_override("panel", s)
+	if _foto_tela.visible:
+		_layout_fotos()
+	if _atracao.visible:
+		atracao(true, _recorde.text, _creditos.text, _rec_foto.texture)
 
 
 func _process(delta: float) -> void:
@@ -959,19 +1181,9 @@ func _process(delta: float) -> void:
 		if c.get("usado", false) and c["valor"] < float(c["alvo"]):
 			c["valor"] = min(float(c["alvo"]), c["valor"] + delta * max(60.0, (float(c["alvo"]) - c["valor"]) * 3.0))
 			(c["pontos"] as Label).text = str(int(c["valor"]))
-	# luzes dos sensores
-	if _sensores_box.visible:
-		for i in 5:
-			var b := 0.0
-			if _convite:
-				var fase := fposmod(_tempo * 1.6 - i * 0.18, 1.0)
-				b = clamp(1.0 - fase * 3.0, 0.0, 1.0)
-			if i == _aceso and _aceso_t > 0.0:
-				b = 1.0
-			_estilo_sensor(i, b)
-		_aceso_t -= delta
 	if _aviso.visible:
 		_aviso.scale = Vector2.ONE * (1.0 + sin(_tempo * 5.0) * 0.05)
+		_aviso_sub.modulate.a = 0.6 + 0.4 * absf(sin(_tempo * 2.6))
 	if _atracao.visible:
 		_logo.scale = Vector2.ONE * (1.0 + sin(_tempo * 2.2) * 0.025)
 		_logo.rotation = sin(_tempo * 1.3) * 0.02

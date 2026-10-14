@@ -29,6 +29,7 @@ Ajustes="*res://autoload/Ajustes.gd"
 Sons="*res://autoload/Sons.gd"
 ArcadeControls="*res://autoload/ArcadeControls.gd"
 ArduinoBridge="*res://autoload/ArduinoBridge.gd"
+Fotos="*res://autoload/Fotos.gd"
 
 [input]
 
@@ -77,7 +78,10 @@ tela/giro=1
 [physics]
 
 3d/physics_engine="Jolt Physics"
-common/physics_ticks_per_second=90
+common/physics_ticks_per_second=120
+common/max_physics_steps_per_frame=10
+jolt_physics_3d/simulation/velocity_steps=16
+jolt_physics_3d/simulation/position_steps=4
 
 [rendering]
 

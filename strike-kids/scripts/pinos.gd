@@ -1,8 +1,10 @@
 class_name Pinos
 extends Node3D
 
-## OS 10 PINOS: montagem no triângulo, reposição animada, contagem dos
-## caídos, "ajuda" para o resultado planejado e gravação para o replay.
+## OS 10 PINOS: montagem no triângulo, contagem dos caídos, carinhas e
+## gravação para o replay. Quem varre e recoloca é a Maquina (maquina.gd).
+## A queda é 100% física (Jolt): um pino derruba o outro, batem nas
+## paredes e voltam, caem no fosso.
 ##
 ## Numeração oficial (vista de quem joga):
 ##          7   8   9   10
@@ -11,6 +13,7 @@ extends Node3D
 ##                1
 
 signal batida(posicao: Vector3, forca: float)
+signal som_pousar
 
 var pinos: Array[Pino] = []
 
@@ -60,14 +63,11 @@ func pino(n: int) -> Pino:
 	return pinos[n - 1]
 
 
-## Antes da bola chegar: libera a física dos que estão em pé; os que o
-## planejamento manda ficar ficam "teimosos" (balançam, mas aguentam).
-func preparar(planejados: Array) -> void:
+## Antes da bola chegar: libera a física dos pinos em pé.
+func soltar_todos() -> void:
 	for p in pinos:
-		if p.removido:
-			continue
-		p.definir_teimoso(not planejados.has(p.numero))
-		p.soltar()
+		if not p.removido:
+			p.soltar()
 
 
 ## Carinha de medo quando a bola se aproxima.
@@ -78,34 +78,6 @@ func susto(bola_pos: Vector3) -> void:
 		var d := p.global_position.distance_to(bola_pos)
 		if d < 3.2 and p._expr == "normal":
 			p.expressao("medo")
-
-
-## Empurrãozinho nos pinos que deviam cair e ainda estão em pé.
-func ajudar(planejados: Array, origem: Vector3) -> void:
-	for n in planejados:
-		var p := pino(n)
-		if p.removido or p.esta_caido():
-			continue
-		var dir := p.global_position - origem
-		dir.y = 0.0
-		if dir.length() < 0.01:
-			dir = Vector3(randf_range(-1, 1), 0, -1)
-		dir = (dir.normalized() + Vector3(randf_range(-0.35, 0.35), 0, randf_range(-0.2, 0.0))).normalized()
-		p.sleeping = false
-		p.apply_impulse(dir * 2.2 + Vector3(0, 0.6, 0), Vector3(0, 0.38, 0))
-
-
-## Efeito desenho animado no strike: os pinos "pulam" um pouco.
-func estourar(origem: Vector3) -> void:
-	for p in pinos:
-		if p.removido:
-			continue
-		var dir := p.global_position - origem
-		dir.y = 0.0
-		dir = dir.normalized() if dir.length() > 0.01 else Vector3(0, 0, -1)
-		p.sleeping = false
-		p.apply_impulse(dir * randf_range(1.0, 2.0) + Vector3(0, randf_range(2.2, 3.6), 0), Vector3(randf_range(-0.03, 0.03), 0.3, 0))
-		p.apply_torque_impulse(Vector3(randf_range(-0.4, 0.4), randf_range(-0.2, 0.2), randf_range(-0.4, 0.4)))
 
 
 ## Replay: os pinos voltam a ter cara normal (sem estrelinhas) para
@@ -141,39 +113,10 @@ func prender_todos() -> void:
 		p.prender()
 
 
-## Tira os caídos (com "puf") e devolve os em pé ao lugar certo.
-## Retorna a lista de posições onde houve "puf" (para efeitos).
-func varrer() -> Array[Vector3]:
-	var pufs: Array[Vector3] = []
+## Rack completo no lugar, sem animação.
+func repor_todos(_animar := false) -> void:
 	for p in pinos:
-		if p.removido:
-			continue
-		if p.esta_caido():
-			pufs.append(p.global_position + Vector3(0, 0.1, 0))
-			p.tirar()
-		else:
-			p.prender()
-			var tw := create_tween()
-			tw.tween_property(p, "global_transform", Transform3D(Basis(), p.lugar), 0.35).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-			p.definir_teimoso(false)
-			p.expressao("normal")
-	return pufs
-
-
-## Rack novo: os 10 caem do céu, um de cada vez, com quique.
-func repor_todos(animar := true) -> void:
-	var ordem := [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
-	for i in ordem.size():
-		var p := pino(ordem[i])
 		p.recolocar()
-		if animar:
-			p.global_position = p.lugar + Vector3(0, 1.4, 0)
-			p.malha.scale = Vector3(0.6, 1.4, 0.6)
-			var tw := create_tween()
-			tw.tween_interval(0.05 * i)
-			tw.tween_property(p, "global_position", p.lugar, 0.28).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
-			tw.tween_property(p.malha, "scale", Vector3(1.25, 0.75, 1.25), 0.07)
-			tw.tween_property(p.malha, "scale", Vector3.ONE, 0.25).set_trans(Tween.TRANS_ELASTIC).set_ease(Tween.EASE_OUT)
 
 
 # ---------------------------------------------------------------- replay
