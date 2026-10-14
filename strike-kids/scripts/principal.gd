@@ -667,7 +667,11 @@ func _finalizar_jogada() -> void:
 			return
 	# reação do personagem (câmera bem de frente)
 	var pa := a.global_position
-	cam.ir(pa + Vector3(0.35, 0.9, -2.3), pa + Vector3(0, 0.72, 0), 36, 30, 3.5)
+	if tipo == "strike":
+		# ele vai voar: plano mais aberto e mais alto para caber o voo inteiro
+		cam.ir(pa + Vector3(0.45, 1.35, -3.6), pa + Vector3(0, 1.2, 0), 44, 34, 3.0)
+	else:
+		cam.ir(pa + Vector3(0.35, 0.9, -2.3), pa + Vector3(0, 0.72, 0), 36, 30, 3.5)
 	match tipo:
 		"strike":
 			a.tocar("comemora_strike", 0.15, true)
@@ -732,8 +736,8 @@ func _replay() -> void:
 		if s != _seq:
 			return
 	# 2) no impacto: lateral, baixinho, câmera bem lenta
-	cam.corte(Vector3(1.05, 0.28, Mundo.Z_PINO1 + 0.75), Vector3(-0.05, 0.24, Mundo.Z_PINO1 - 0.35), 40, 48)
-	cam.orbitar(Vector3(0, 0.24, Mundo.Z_PINO1 - 0.4), 1.3, 0.12, -0.35, 40, 48)
+	cam.corte(Vector3(0.5, 0.32, Mundo.Z_PINO1 + 1.1), Vector3(-0.05, 0.24, Mundo.Z_PINO1 - 0.35), 40, 48)
+	cam.orbitar(Vector3(0, 0.24, Mundo.Z_PINO1 - 0.4), 1.55, 0.1, -0.3, 40, 48)
 	cam.tremer(0.02, 0.5)
 	Sons.tocar("pinos_queda", 0.8, 0.85)
 	while _replay_ativo and _replay_t < _t_impacto + 0.65:
