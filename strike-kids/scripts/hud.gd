@@ -720,7 +720,8 @@ func atracao(ligado: bool, recorde := "", creditos := "", foto_recorde: Texture2
 		var foto_l := d * 0.82 if _rec_foto.visible else 0.0
 		var w := minf(larg + foto_l + 80 * u, size.x * 0.94)
 		_recorde_placa.size = Vector2(w, h)
-		_recorde_placa.position = Vector2((size.x - w) / 2, _aperte_botao.position.y + _aperte_botao.size.y + 34 * u)
+		var cx := _aperte_botao.position.x + _aperte_botao.size.x / 2
+		_recorde_placa.position = Vector2(clampf(cx - w / 2, 16 * u, size.x - w - 16 * u), _aperte_botao.position.y + _aperte_botao.size.y + 34 * u)
 		_recorde.size = Vector2(w - foto_l - 50 * u, h - 10 * u)
 		_recorde.position = Vector2(foto_l + 30 * u, 0)
 		_rec_foto.size = Vector2(d, d)
@@ -1413,6 +1414,7 @@ func layout() -> void:
 	_aperte.label_settings.shadow_offset = Vector2(0, 3 * u)
 	_aperte.size = Vector2(bw, bh - 18 * u)
 	_aperte.position = Vector2.ZERO
+	_caber(_aperte, 84 * u, bw - 90 * u)
 	_tamanho_rotulo(_recorde, 40 * u)
 	_recorde.label_settings.outline_size = int(8 * u)
 	var mw_l: float = minf(T.x * 0.3, 320 * u)
