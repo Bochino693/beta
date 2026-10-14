@@ -4,7 +4,7 @@ extends Node3D
 ## EFEITOS 3D: explosão de estrelas, poeira do impacto, "puf" dos pinos
 ## que somem, chuva de confete e fogos (fim de jogo).
 
-const ARCO_IRIS := [Color("#FF4B5C"), Color("#FF9F2E"), Color("#FFE14D"), Color("#5ED16A"), Color("#4FC3F7"), Color("#B388FF"), Color("#FF7EC1")]
+const ARCO_IRIS := [Color("#FF4B5C"), Color("#FF9F2E"), Color("#FFE14D"), Color("#5ED16A"), Color("#4FC3F7"), Color("#2E7BFF"), Color("#FFFFFF")]
 
 var _mat_estrela: StandardMaterial3D
 var _mat_faisca: StandardMaterial3D

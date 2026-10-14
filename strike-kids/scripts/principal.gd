@@ -18,6 +18,8 @@ const X_MAO := 0.28            # a mão direita fica 0,28 m à direita do corpo
 const MESMA_BOLA_MS := 1200
 const VALIDADE_PENDENTE_MS := 10000
 const CENA_OPERADOR := "res://cenas/operador.tscn"
+## pódios da escolha do personagem e da foto (Bob à esquerda, Mia à direita)
+const PODIOS := [Vector3(-0.62, 0, 2.5), Vector3(0.62, 0, 2.5)]
 
 var estado := E.ABERTURA
 var vp: SubViewport
@@ -240,6 +242,14 @@ func _abertura() -> void:
 	_posicionar_atracao()
 	hud.atracao(false)
 	hud.mostrar_sensores(false)
+	# marca Lazer & Sport (continua a imagem de inicialização)
+	hud.marca(true)
+	_atrasado_som(0.3, "pop")
+	_atrasado_som(0.75, "brilho")
+	cam.trilho([[Vector3(0, 10, -24), Vector3(0, 0.5, -15), 0.0]], 52, 40)
+	if not await _esperar(2.5, s):
+		return
+	hud.marca(false)
 	Sons.musica("musica_menu")
 	cam.trilho([
 		[Vector3(0, 10, -24), Vector3(0, 0.5, -15), 0.0],
@@ -261,8 +271,9 @@ func _atracao() -> void:
 	Sons.atualizar_volume()
 	_novo_seq()
 	_limpar()
+	hud.marca(false, true)
 	hud.tela_fim(false)
-	hud.modal(false)
+	hud.jogadores(false)
 	hud.selecao(false)
 	hud.inatividade(false)
 	_modal_inativo = 0.0
@@ -301,7 +312,7 @@ func _atualizar_atracao() -> void:
 	if int(r1.get("pontos", 0)) > 0:
 		txt = "RECORDE: %d PONTOS (%s)" % [int(r1["pontos"]), str(r1.get("quem", "")).to_upper()]
 	var cred := "MODO LIVRE" if Ajustes.modo_livre() else "CRÉDITOS: %d" % Ajustes.creditos
-	hud.atracao(true, txt, cred + "    ·    Lazer & Sport Games", Fotos.foto_recorde(1))
+	hud.atracao(true, txt, cred, Fotos.foto_recorde(1))
 
 
 # ================================================================ escolha
@@ -314,6 +325,7 @@ func _escolher_jogadores() -> void:
 	Sons.tocar("start")
 	Sons.mudo_demo = false
 	Sons.atualizar_volume()
+	hud.marca(false, true)
 	hud.atracao(false)
 	hud.tela_fim(false)
 	_escolha_n = 1
@@ -324,7 +336,7 @@ func _escolher_jogadores() -> void:
 
 
 func _confirmar_jogadores() -> void:
-	hud.modal(false)
+	hud.jogadores(false)
 	if _escolha_n == 2:
 		_comecar(["bob", "mia"])
 	else:
@@ -337,8 +349,7 @@ func _escolher_personagem() -> void:
 	_escolha_t = 8.0
 	var t: Personagem = personagens["bob"]
 	var r: Personagem = personagens["mia"]
-	t.posicionar(Vector3(-0.62, 0, 2.5), 0)
-	r.posicionar(Vector3(0.62, 0, 2.5), 0)
+	_subir_nos_podios()
 	t.tocar("acenar", 0.3, true)
 	r.tocar("parado", 0.3, true)
 	cam.ir(Vector3(0, 1.05, 6.1), Vector3(0, 0.78, 2.5), 32, 52, 3.0)
@@ -355,7 +366,28 @@ func _marcar_destaque(i: int) -> void:
 	r.tocar("acenar" if i == 1 else "parado", 0.25)
 	t.destaque(0.12 if i == 0 else 0.0)
 	r.destaque(0.12 if i == 1 else 0.0)
+	mundo.podios(true, PODIOS, i)
 	_escolha_t = max(_escolha_t, 3.0)
+
+
+## Bob e Mia em cima dos pódios (escolha e foto).
+func _subir_nos_podios() -> void:
+	mundo.podios(true, PODIOS, -1)
+	(personagens["bob"] as Personagem).posicionar(PODIOS[0] + Vector3(0, Mundo.ALTURA_PODIO, 0), 0)
+	(personagens["mia"] as Personagem).posicionar(PODIOS[1] + Vector3(0, Mundo.ALTURA_PODIO, 0), 0)
+
+
+## Frente de cada pódio na tela (as placas com os nomes ficam logo abaixo).
+func _pes_na_tela() -> Array:
+	var r := []
+	var f := hud.size / Vector2(vp.size)
+	for p in PODIOS:
+		r.append(cam.unproject_position(p + Vector3(0, 0, 0.45)) * f)
+	return r
+
+
+func _atrasado_som(t: float, nome: String) -> void:
+	get_tree().create_timer(t).timeout.connect(func(): Sons.tocar(nome))
 
 
 func _confirmar_personagem() -> void:
@@ -404,14 +436,14 @@ func _sessao_de_fotos(lista: Array) -> bool:
 	Fotos.ligar()
 	var t: Personagem = personagens["bob"]
 	var r: Personagem = personagens["mia"]
-	t.posicionar(Vector3(-0.62, 0, 2.5), 0)
-	r.posicionar(Vector3(0.62, 0, 2.5), 0)
+	_subir_nos_podios()
 	t.destaque(0.0)
 	r.destaque(0.0)
 	cam.ir(Vector3(0, 1.05, 6.1), Vector3(0, 0.78, 2.5), 32, 52, 3.0)
 	for i in lista.size():
 		var p: String = lista[i]
 		var a: Personagem = personagens[p]
+		mundo.podios(true, PODIOS, 0 if p == "bob" else 1)
 		var sub := "olhe para a câmera da máquina!"
 		if lista.size() > 1:
 			sub = "quem joga com %s %s: olhe para a câmera!" % ["o" if p == "bob" else "a", "BOB" if p == "bob" else "MIA"]
@@ -439,6 +471,7 @@ func _sessao_de_fotos(lista: Array) -> bool:
 			return false
 	hud.foto_tela(false)
 	Fotos.desligar()
+	mundo.podios(false)
 	return true
 
 
@@ -453,6 +486,7 @@ func _vez(nova_rodada: bool) -> void:
 	_pular = false
 	_ativo = placar.atual()["personagem"]
 	_plateia = "mia" if _ativo == "bob" else "bob"
+	mundo.podios(false)
 	var a: Personagem = personagens[_ativo]
 	var p: Personagem = personagens[_plateia]
 	a.jatos(false)
@@ -598,15 +632,12 @@ func _process(delta: float) -> void:
 			_contar_inatividade(delta)
 		E.JOGADORES:
 			_escolha_t -= delta
-			var txt := "1 JOGADOR\n\nAperte START de novo para\n2 JOGADORES (Bob x Mia)"
-			if _escolha_n == 2:
-				txt = "2 JOGADORES!\n\nBob x Mia"
-			hud.modal(true, "QUANTOS VÃO JOGAR?", txt, _escolha_t / 3.0)
+			hud.jogadores(true, _escolha_n, _escolha_t / 3.0)
 			if _escolha_t <= 0.0:
 				_confirmar_jogadores()
 		E.PERSONAGEM:
 			_escolha_t -= delta
-			hud.selecao(true, _destaque, "◀  role a bola para escolher  ▶\nou aperte START   (%d)" % int(ceil(_escolha_t)))
+			hud.selecao(true, _destaque, "◀  role a bola para escolher  ▶\nou aperte START   (%d)" % int(ceil(_escolha_t)), _pes_na_tela())
 			if _escolha_t <= 0.0:
 				_confirmar_personagem()
 		E.ATRACAO:
@@ -1091,6 +1122,7 @@ func _limpar() -> void:
 	hud.inatividade(false)
 	hud.foto_tela(false)
 	Fotos.desligar()
+	mundo.podios(false)
 	_modal_inativo = 0.0
 	for nome in personagens:
 		var p: Personagem = personagens[nome]

@@ -23,6 +23,8 @@ def regra(rel):
         if nome.startswith(("rosto_", "bola_")) or nome == "madeira":
             return 2, True
         return 0, False
+    if rel.startswith("ui/marca/"):
+        return (0, False) if nome == "fundo" else (2, True)
     if rel.startswith("ui/"):
         if nome in LETREIROS or nome.startswith("cen_"):
             return 2, True
@@ -44,7 +46,8 @@ def ajustar(caminho, modo, hq):
 
 def main():
     mudou = 0
-    for imp in glob.glob(os.path.join(RAIZ, "texturas", "*.png.import")) + glob.glob(os.path.join(RAIZ, "ui", "*.png.import")):
+    for imp in glob.glob(os.path.join(RAIZ, "texturas", "*.png.import")) + glob.glob(os.path.join(RAIZ, "ui", "*.png.import")) + \
+            glob.glob(os.path.join(RAIZ, "ui", "marca", "*.png.import")):
         rel = os.path.relpath(imp, RAIZ).replace(os.sep, "/")[:-len(".import")]
         r = regra(rel)
         if r and ajustar(imp, *r):

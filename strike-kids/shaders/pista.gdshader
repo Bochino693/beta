@@ -35,7 +35,7 @@ void fragment() {
 	float d = -pm.z;       // distância da linha de falta
 	float ax = abs(pm.x);
 	// linha de falta
-	c = mix(c, vec3(0.9, 0.15, 0.3), step(abs(d - 0.02), 0.025));
+	c = mix(c, vec3(0.88, 0.1, 0.12), step(abs(d - 0.02), 0.025));
 	// pontos-guia (2 m)
 	for (int i = -2; i <= 2; i++) {
 		float x = float(i) * 0.17;

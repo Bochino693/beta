@@ -39,6 +39,7 @@ var _rabo: Node3D
 var _alegria := 0.5           # abana mais rápido quando está feliz
 # pernas (IK) e pés
 var _torn_y := 0.078          # altura do tornozelo com o pé apoiado
+var chao := 0.0               # altura do chão onde ele pisa (pódio da escolha)
 var _l1 := {}                 # coxa (quadril -> joelho)
 var _l2 := {}                 # canela (joelho -> tornozelo)
 var _pes := {}                # lado -> {preso, pos, passo (0..1 ou -1), de, para}
@@ -377,12 +378,13 @@ func _ik_pernas(delta: float, voo: float) -> void:
 		if st["passo"] >= 0.0:
 			passando = true
 	var corpo := juntas["corpo"] as Node3D
+	var ty := chao + _torn_y
 	for lado in ["e", "d"]:
 		var pe := juntas["pe_" + lado] as Node3D
 		var st: Dictionary = _pes[lado]
 		var fk := pe.global_position
-		var altura_pe := fk.y - _torn_y
-		var livre := Vector3(fk.x, maxf(fk.y, _torn_y), fk.z)
+		var altura_pe := fk.y - ty
+		var livre := Vector3(fk.x, maxf(fk.y, ty), fk.z)
 		var alvo := livre
 		if _modo_ik != "trava" or voo > 0.01:
 			st["preso"] = false
@@ -391,7 +393,7 @@ func _ik_pernas(delta: float, voo: float) -> void:
 			# passinho em andamento: vai do lugar antigo ao novo, subindo um pouco
 			st["passo"] = minf(1.0, float(st["passo"]) + delta / PASSO_DUR)
 			var u: float = st["passo"]
-			var para := Vector3(fk.x, _torn_y, fk.z)
+			var para := Vector3(fk.x, ty, fk.z)
 			var e := u * u * (3.0 - 2.0 * u)
 			alvo = (st["de"] as Vector3).lerp(para, e) + Vector3(0, PASSO_ALTURA * 4.0 * u * (1.0 - u), 0)
 			if u >= 1.0:
@@ -413,7 +415,7 @@ func _ik_pernas(delta: float, voo: float) -> void:
 				alvo = pos
 		elif altura_pe < 0.02:
 			st["preso"] = true
-			st["pos"] = Vector3(fk.x, _torn_y, fk.z)
+			st["pos"] = Vector3(fk.x, ty, fk.z)
 			alvo = st["pos"]
 		alvos[lado] = alvo
 		ancora[lado] = st["preso"] or st["passo"] >= 0.0
@@ -469,7 +471,7 @@ func _resolver_perna(lado: String, alvo: Vector3, apoiado: bool) -> void:
 	if de2.dot(para2) < 0.99999:
 		_girar_global(canela, Quaternion(de2, para2))
 	# pé de sola chata quando está no chão (ou perto dele)
-	var peso := 1.0 if apoiado else clampf(1.0 - (alvo.y - _torn_y) / 0.08, 0.0, 1.0)
+	var peso := 1.0 if apoiado else clampf(1.0 - (alvo.y - chao - _torn_y) / 0.08, 0.0, 1.0)
 	if peso > 0.0:
 		var pai := canela.global_transform.basis.orthonormalized()
 		var plano := pai.inverse() * Basis(Vector3.UP, global_rotation.y)
@@ -488,7 +490,7 @@ func _girar_global(no: Node3D, q: Quaternion) -> void:
 
 func _sombras(voo: float) -> void:
 	# sombra do corpo: fica no chão, menor quando voa
-	_sombra.global_position = Vector3(global_position.x, 0.006, global_position.z)
+	_sombra.global_position = Vector3(global_position.x, chao + 0.006, global_position.z)
 	_sombra.global_rotation = Vector3.ZERO
 	var esc: float = clamp(1.0 - voo * 0.9, 0.35, 1.0)
 	_sombra.scale = Vector3(esc, 1, esc)
@@ -500,9 +502,9 @@ func _sombras(voo: float) -> void:
 			continue
 		var pe := juntas["pe_" + lado] as Node3D
 		var p := pe.global_position + pe.global_transform.basis.z.normalized() * 0.025
-		var alto := maxf(0.0, p.y - _torn_y)
+		var alto := maxf(0.0, p.y - chao - _torn_y)
 		var e := clampf(1.0 - alto / 0.25, 0.25, 1.0)
-		sp.global_position = Vector3(p.x, 0.008, p.z)
+		sp.global_position = Vector3(p.x, chao + 0.008, p.z)
 		sp.global_rotation = Vector3(0, global_rotation.y, 0)
 		sp.scale = Vector3(e, 1, e)
 
@@ -550,6 +552,7 @@ func segurar_bola(sim: bool) -> void:
 ## Coloca o personagem num lugar, olhando para `direcao_y` (graus).
 func posicionar(pos: Vector3, direcao_y: float) -> void:
 	position = pos
+	chao = pos.y
 	rotation = Vector3(0, deg_to_rad(direcao_y), 0)
 	base = transform
 	for lado in _pes:

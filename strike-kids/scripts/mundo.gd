@@ -7,6 +7,9 @@ extends Node3D
 ## Fundo do Mar e Selva dos Dinos — um por rodada.
 ##
 ## Medidas: linha de falta em z = 0; os pinos em z = -14; a pista vai para -Z.
+##
+## Marca Lazer & Sport: duas placas iluminadas dos lados do letreiro dos
+## pinos. Pódios (escolha do personagem e foto) nas cores de Bob e Mia.
 
 const MEIA_LARGURA := 0.675
 const CANALETA := 0.25
@@ -22,6 +25,7 @@ const CAMADA_PINOS := 2
 const CAMADA_BOLA := 4
 const CAMADA_PISO_BOLA := 8
 const CAMADA_PISO_PINOS := 16
+const ALTURA_PODIO := 0.152
 
 var ambiente: Environment
 var sol: DirectionalLight3D
@@ -37,6 +41,9 @@ var mat_terreno: ShaderMaterial
 var temas: Temas
 var tema := ""
 var _bumpers: Array[Node3D] = []
+var _podios: Array[Node3D] = []
+var _mats_podio: Array[ShaderMaterial] = []
+var _podio_destaque := -1
 var _t := 0.0
 var _luz := 0.0
 var _luz_alvo := 0.0
@@ -49,6 +56,8 @@ func construir() -> void:
 	_terreno()
 	_pista()
 	_fundo_dos_pinos()
+	_placas_marca()
+	_montar_podios()
 	temas = Temas.new()
 	add_child(temas)
 	temas.construir(self)
@@ -106,7 +115,7 @@ func _ambiente() -> void:
 	ambiente.background_mode = Environment.BG_SKY
 	ambiente.sky = ceu
 	ambiente.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	ambiente.ambient_light_color = Color(0.66, 0.62, 0.92)
+	ambiente.ambient_light_color = Color(0.62, 0.7, 0.86)
 	ambiente.ambient_light_energy = 0.62
 	ambiente.reflected_light_source = Environment.REFLECTION_SOURCE_SKY
 	ambiente.tonemap_mode = Environment.TONE_MAPPER_FILMIC
@@ -242,7 +251,7 @@ func _pista() -> void:
 		_caixa(Vector3(0.12, 0.04, 6.2), Vector3(s * 3.3, 0.0, 3.2), mat_faixa, false, false)
 
 	# --- canaletas: cilindro visto por dentro (meia-cana côncava)
-	var mc := Materiais.toon(false, 0.0, {"tinta": Color("#BBA8FF"), "borda": 0.0})
+	var mc := Materiais.toon(false, 0.0, {"tinta": Color("#8FC4EE"), "borda": 0.0})
 	mc.render_priority = 0
 	var cull := mc.duplicate() as ShaderMaterial
 	for s in [-1, 1]:
@@ -258,7 +267,7 @@ func _pista() -> void:
 		cil.mesh = cm
 		cil.rotation_degrees.x = 90
 		cil.position = Vector3(x, 0.0, 0.1 - comp / 2)
-		var mcan := _material_por_dentro(Color("#B9A6FF"))
+		var mcan := _material_por_dentro(Color("#8FC4EE"))
 		mats_canaleta.append(mcan)
 		cil.material_override = mcan
 		cil.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
@@ -348,14 +357,14 @@ func definir_protecao(ligada: bool) -> void:
 
 # ================================================================ fundo dos pinos
 func _fundo_dos_pinos() -> void:
-	var roxo := Materiais.cor_toon(Color("#7C4DFF"), 0.0, {"borda": 0.3})
-	var lilas := Materiais.cor_toon(Color("#B388FF"), 0.0, {"borda": 0.3})
+	var fosso := Materiais.cor_toon(Color("#16336E"), 0.0, {"borda": 0.3})
+	var parede := Materiais.cor_toon(Color("#2A63C4"), 0.0, {"borda": 0.3})
 	# paredes laterais (kickbacks) — os pinos batem e voltam
 	for s in [-1, 1]:
 		_caixa(Vector3(0.12, 1.0, -Z_FUNDO + Z_PINO1 + 0.9), Vector3(s * (MEIA_LARGURA + CANALETA + 0.06), 0.35, (Z_PINO1 + 0.9 + Z_FUNDO) / 2),
-			lilas, true, true, 0.3, 0.35)
+			parede, true, true, 0.3, 0.35)
 	# fosso
-	_caixa(Vector3(2.0, 0.2, -Z_FUNDO + Z_FIM_DECK), Vector3(0, -0.24, (Z_FIM_DECK + Z_FUNDO) / 2), roxo, true, false, 0.9, 0.05)
+	_caixa(Vector3(2.0, 0.2, -Z_FUNDO + Z_FIM_DECK), Vector3(0, -0.24, (Z_FIM_DECK + Z_FUNDO) / 2), fosso, true, false, 0.9, 0.05)
 	# cortina do fundo (estrelinhas): colisão macia
 	mat_fundo = ShaderMaterial.new()
 	mat_fundo.shader = load("res://shaders/fundo_estrelas.gdshader")
@@ -369,10 +378,10 @@ func _fundo_dos_pinos() -> void:
 	_corpo_caixa(Vector3(2.4, 2.0, 0.2), Vector3(0, 0.5, Z_FUNDO - 0.1), 0.9, 0.0)
 	# teto escuro do fosso (esconde a parte de cima)
 	_caixa(Vector3(2.3, 0.1, -Z_FUNDO + Z_PINO1 + 0.7), Vector3(0, 2.12, (Z_PINO1 + 0.7 + Z_FUNDO) / 2),
-		Materiais.cor_toon(Color("#4A238F"), 0.0, {"borda": 0.0}), false, false)
+		Materiais.cor_toon(Color("#0B1B3A"), 0.0, {"borda": 0.0}), false, false)
 
 	# letreiro (masking) acima dos pinos, com o logo e lâmpadas
-	mat_placa = Materiais.cor_toon(Color("#3A1C7A"), 0.004, {"borda": 0.4})
+	mat_placa = Materiais.cor_toon(Color("#0E2A5C"), 0.004, {"borda": 0.4})
 	var placa := _caixa(Vector3(2.7, 0.95, 0.14), Vector3(0, 1.85, Z_PINO1 + 0.75), mat_placa, false, true)
 	placa.name = "placa"
 	var logo_tex := Materiais.textura("logo")
@@ -405,6 +414,94 @@ func _fundo_dos_pinos() -> void:
 	mat_lampadas = ShaderMaterial.new()
 	mat_lampadas.shader = load("res://shaders/lampadas.gdshader")
 	add_child(lampadas_em(pontos))
+
+
+## Placas da Lazer & Sport dos dois lados do letreiro (brancas, com a logo
+## acesa), formando um painel só com o STRIKE KIDS no meio.
+func _placas_marca() -> void:
+	var tex: Texture2D = load("res://ui/marca/lazer_sport.png")
+	var ml := StandardMaterial3D.new()
+	ml.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	ml.albedo_texture = tex
+	ml.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	ml.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC
+	ml.render_priority = 1
+	var branco := Materiais.cor_toon(Color("#F4F8FF"), 0.0, {"borda": 0.25, "luz_minima": 0.75})
+	var zc := Z_PINO1 + 0.75
+	for s in [-1, 1]:
+		var x: float = s * 1.93
+		_caixa(Vector3(1.16, 0.95, 0.14), Vector3(x, 1.85, zc), mat_placa, false, true)
+		_caixa(Vector3(1.02, 0.81, 0.02), Vector3(x, 1.85, zc + 0.075), branco, false, false)
+		var q := MeshInstance3D.new()
+		var qm := QuadMesh.new()
+		qm.size = Vector2(0.96, 0.96 * float(tex.get_height()) / float(tex.get_width()))
+		q.mesh = qm
+		q.material_override = ml
+		q.position = Vector3(x, 1.85, zc + 0.088)
+		q.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		q.name = "marca_%d" % s
+		add_child(q)
+
+
+# ================================================================ pódios
+func _montar_podios() -> void:
+	for i in 2:
+		var g := Node3D.new()
+		g.visible = false
+		g.name = "podio_%d" % i
+		add_child(g)
+		var cor := Color("#169BD5") if i == 0 else Color("#FF7A21")
+		var base := MeshInstance3D.new()
+		var cm := CylinderMesh.new()
+		cm.top_radius = 0.4
+		cm.bottom_radius = 0.45
+		cm.height = 0.14
+		cm.radial_segments = 48
+		cm.rings = 1
+		base.mesh = cm
+		base.position.y = 0.07
+		base.material_override = Materiais.cor_toon(cor, 0.004, {"borda": 0.35})
+		g.add_child(base)
+		var tampa := MeshInstance3D.new()
+		var ct := CylinderMesh.new()
+		ct.top_radius = 0.37
+		ct.bottom_radius = 0.37
+		ct.height = 0.012
+		ct.radial_segments = 48
+		ct.rings = 1
+		tampa.mesh = ct
+		tampa.position.y = 0.146
+		tampa.material_override = Materiais.cor_toon(Color("#F4F8FF"), 0.0, {"borda": 0.2})
+		g.add_child(tampa)
+		# anel de luz em volta da tampa (acende no escolhido)
+		var aro := MeshInstance3D.new()
+		var tm := TorusMesh.new()
+		tm.inner_radius = 0.37
+		tm.outer_radius = 0.405
+		tm.rings = 64
+		tm.ring_segments = 10
+		aro.mesh = tm
+		aro.position.y = 0.142
+		var ma := Materiais.cor_toon(Color("#FFD43B"), 0.0, {"borda": 0.0, "emissao": Color(0, 0, 0)})
+		aro.material_override = ma
+		aro.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		g.add_child(aro)
+		_podios.append(g)
+		_mats_podio.append(ma)
+
+
+## Liga/desliga os pódios (posições no chão) e acende o do escolhido.
+func podios(ligar: bool, posicoes: Array = [], destaque := -1) -> void:
+	for i in _podios.size():
+		var g := _podios[i]
+		var ia := not g.visible
+		g.visible = ligar and i < posicoes.size()
+		if g.visible:
+			g.position = posicoes[i]
+			if ia:
+				g.scale = Vector3(1, 0.2, 1)
+				create_tween().tween_property(g, "scale", Vector3.ONE, 0.35).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	_podio_destaque = destaque
 
 
 ## Fileira de lâmpadas (MultiMesh) que piscam com o material comum.
@@ -474,6 +571,11 @@ func _process(delta: float) -> void:
 	mat_pista.set_shader_parameter("bola_z", bola_z)
 	mat_lampadas.set_shader_parameter("fase", fposmod(_t * 0.9, 100.0))
 	mat_fundo.set_shader_parameter("fase", fposmod(_t * 0.4, 100.0))
+	for i in _mats_podio.size():
+		var on := 0.0
+		if i == _podio_destaque:
+			on = 0.75 + 0.25 * sin(_t * 6.0)
+		_mats_podio[i].set_shader_parameter("emissao", Color(1.0, 0.75, 0.15) * on * 1.6)
 
 
 ## Modo das lâmpadas: 0 corrida, 1 piscando todas (strike!), 2 alternado.

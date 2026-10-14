@@ -112,8 +112,8 @@ def gerar_pino():
 def gerar_cenario():
     pac = Pacote()
 
-    # --- pirulito gigante (espiral rosa/branca)
-    pal = Paleta(cabo=hex_cor("#FFF6E8"), doce=hex_cor("#FF5FA8"), listra=hex_cor("#FFFFFF"))
+    # --- pirulito gigante (espiral azul/amarela)
+    pal = Paleta(cabo=hex_cor("#FFF6E8"), doce=hex_cor("#1E88F0"), listra=hex_cor("#FFD43B"))
     disco = CilindroRedondo((0, 2.0, 0), 0.62, 0.11, 0.1, pal.doce, rot=rot_x(math.pi / 2))
     cabo = Capsula((0, 0, 0), (0, 1.5, 0), 0.06, pal.cabo)
 
@@ -125,9 +125,9 @@ def gerar_cenario():
     m = gerar_malha(disco | cabo, (-0.7, -0.1, -0.2), (0.7, 2.7, 0.2), 0.034, pal.cores, [Pintura(espiral, pal.listra)])
     pac.adicionar("pirulito", m)
 
-    # --- árvore fofa verde e árvore de algodão-doce
-    for nome, cor_copa, cor_tronco in (("arvore_verde", "#5ED16A", "#A86B3C"), ("arvore_rosa", "#FF9ED2", "#C98A5A"),
-                                       ("arvore_lilas", "#B79CFF", "#A86B3C")):
+    # --- árvores fofas: verde, laranja (outono) e verde-escura
+    for nome, cor_copa, cor_tronco in (("arvore_verde", "#5ED16A", "#A86B3C"), ("arvore_laranja", "#FFA23A", "#A86B3C"),
+                                       ("arvore_escura", "#2FA35A", "#8E5A32")):
         pal = Paleta(tronco=hex_cor(cor_tronco), copa=hex_cor(cor_copa))
         tronco = ConeRedondo((0, 0, 0), (0, 1.3, 0), 0.16, 0.09, pal.tronco)
         rng = np.random.default_rng(len(nome))
@@ -177,7 +177,7 @@ def gerar_cenario():
     pac.adicionar("presente", m)
 
     # --- rosquinha gigante (donut)
-    pal = Paleta(massa=hex_cor("#E9A55B"), cobertura=hex_cor("#FF7EC1"), conf1=hex_cor("#FFFFFF"), conf2=hex_cor("#FFD43B"), conf3=hex_cor("#4FC3F7"))
+    pal = Paleta(massa=hex_cor("#E9A55B"), cobertura=hex_cor("#7B4A2E"), conf1=hex_cor("#FFFFFF"), conf2=hex_cor("#FFD43B"), conf3=hex_cor("#4FC3F7"))
     donut = Toro((0, 0.3, 0), 0.5, 0.28, pal.massa, rot=rot_x(math.pi / 2) @ rot_x(-math.pi / 2))
     rng = np.random.default_rng(7)
     conf = rng.normal(size=(140, 3))
@@ -217,7 +217,7 @@ def gerar_cenario():
     pac.adicionar("balao", m)
 
     # --- cupcake
-    pal = Paleta(forma=hex_cor("#4FC3F7"), bolo=hex_cor("#C98A5A"), creme=hex_cor("#FFF0F7"), cereja=hex_cor("#FF3B4E"))
+    pal = Paleta(forma=hex_cor("#4FC3F7"), bolo=hex_cor("#C98A5A"), creme=hex_cor("#FFF7E6"), cereja=hex_cor("#FF3B4E"))
     forminha = ConeRedondo((0, 0, 0), (0, 0.42, 0), 0.32, 0.42, pal.forma)
     creme = unir(Esfera((0, 0.55, 0), 0.38, pal.creme), Esfera((0, 0.82, 0), 0.25, pal.creme), Esfera((0, 1.0, 0), 0.13, pal.creme), k=0.12)
     cereja = Esfera((0, 1.17, 0), 0.09, pal.cereja)
@@ -231,7 +231,7 @@ def gerar_cenario():
     pac.adicionar("cupcake", m)
 
     # --- arco-íris (portal no fim da pista): faixas pintadas pelo raio
-    cores_ai = ["#FF4B5C", "#FF9F2E", "#FFD43B", "#5ED16A", "#4FC3F7", "#8E5CF7"]
+    cores_ai = ["#FF4B5C", "#FF9F2E", "#FFD43B", "#5ED16A", "#4FC3F7", "#2E5BE6"]
     pal = Paleta(**{"c%d" % i: hex_cor(h) for i, h in enumerate(cores_ai)})
     R, r = 3.0, 0.42
     arco = Intersecao(Toro((0, 0, 0), R, r, 0, rot=rot_x(math.pi / 2)), SemiEspaco((0, -0.05, 0), (0, -1, 0)))
@@ -248,8 +248,8 @@ def gerar_cenario():
                     [Pintura(faixa(i), i) for i in range(6)])
     pac.adicionar("arco_iris", m)
 
-    # --- torre doce (lateral do fim da pista)
-    pal = Paleta(parede=hex_cor("#FFE3F1"), listra=hex_cor("#FF7EC1"), telhado=hex_cor("#8E5CF7"), bandeira=hex_cor("#FFD43B"), janela=hex_cor("#5B3A8C"))
+    # --- torre de circo (lateral do fim da pista): branca e vermelha, telhado azul
+    pal = Paleta(parede=hex_cor("#FFFFFF"), listra=hex_cor("#E8384F"), telhado=hex_cor("#1E6FE0"), bandeira=hex_cor("#FFD43B"), janela=hex_cor("#0E2A5C"))
     corpo = CilindroRedondo((0, 1.25, 0), 0.55, 1.25, 0.08, pal.parede)
     ameia = CilindroRedondo((0, 2.6, 0), 0.66, 0.14, 0.06, pal.parede)
     telhado = ConeRedondo((0, 2.7, 0), (0, 3.9, 0), 0.62, 0.04, pal.telhado)

@@ -1,7 +1,7 @@
 extends Node
 
 ## Gera os retratos (busto) do Bob e da Mia com fundo transparente:
-## ui/retrato_turbo.png, ui/retrato_rosi.png (placar, faixas, divulgação).
+## ui/retrato_bob.png, ui/retrato_mia.png (+ _empolgado) para placar, faixas e divulgação.
 ## godot --path . res://tools/testes/retratos.tscn
 
 const TAM := 768

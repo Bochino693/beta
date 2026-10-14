@@ -685,7 +685,7 @@ def bola_textura(nome, fundo, fundo2, desenho, cor_desenho, faixa):
                 img.paste(Image.new("RGBA", camada.size, cor(cor_desenho)), (int(cx + dx - cw / 2), int(cy - ch / 2)), camada)
     # três furos dos dedos (perto do polo de cima, vistos de lado)
     for (u, v, r) in ((0.25, 0.2, 0.04), (0.29, 0.13, 0.034), (0.21, 0.13, 0.034)):
-        elipse(d, u * w, v * h, r * h * 1.6, r * h, fill=cor("#26103A"))
+        elipse(d, u * w, v * h, r * h * 1.6, r * h, fill=cor("#0E1A33"))
     img = img.resize((W, H), Image.LANCZOS)
     img.convert("RGB").save(os.path.join(TEX, "bola_%s.png" % nome))
     print("  textura bola", nome)
@@ -766,7 +766,7 @@ def particulas():
 def texturas():
     madeira()
     bola_textura("bob", "#0E9DB8", "#3FD3E0", "pata", "#FFD43B", "#FFFFFF")
-    bola_textura("mia", "#7446F0", "#A27BFF", "estrela", "#FFF2A8", "#FFD43B")
+    bola_textura("mia", "#F2601E", "#FF9A3D", "estrela", "#FFF2A8", "#FFD43B")
     particulas()
 
 
@@ -788,7 +788,7 @@ def gradiente_vertical(tam, cores):
     return Image.fromarray(arr, "RGBA")
 
 
-def letreiro(texto, nome, cores, contorno="#3B0A63", tam_fonte=260, fonte_nome="titan_one.ttf", inclinar=-4,
+def letreiro(texto, nome, cores, contorno="#0B1F45", tam_fonte=260, fonte_nome="titan_one.ttf", inclinar=-4,
              brilho=True, estrelas=True, linhas=None, escala=None):
     """Texto de desenho animado: degradê, contorno grosso, sombra, brilho."""
     f = fonte(fonte_nome, tam_fonte * 2)
@@ -819,7 +819,7 @@ def letreiro(texto, nome, cores, contorno="#3B0A63", tam_fonte=260, fonte_nome="
     contorno_m = contorno_m.filter(ImageFilter.GaussianBlur(1.5))
     final = Image.new("RGBA", (W, H), (0, 0, 0, 0))
     # sombra
-    sombra = Image.new("RGBA", (W, H), (20, 0, 40, 0))
+    sombra = Image.new("RGBA", (W, H), (0, 12, 36, 0))
     sombra.putalpha(contorno_m.point(lambda v: int(v * 0.55)))
     final.alpha_composite(sombra, (0, int(tam_fonte * 0.09)))
     # contorno escuro
@@ -854,8 +854,8 @@ def letreiro(texto, nome, cores, contorno="#3B0A63", tam_fonte=260, fonte_nome="
             cx = rnd.choice([rnd.uniform(0.02, 0.18), rnd.uniform(0.82, 0.98)]) * W
             cy = rnd.uniform(0.08, 0.92) * H
             r = rnd.uniform(0.05, 0.09) * H
-            estrela(d, cx, cy, r, r * 0.42, cor("#3B0A63"), giro=rnd.uniform(-0.3, 0.3))
-            estrela(d, cx, cy, r * 0.78, r * 0.32, cor(rnd.choice(["#FFE14D", "#FFFFFF", "#7FE7FF", "#FF8FD0"])), giro=rnd.uniform(-0.3, 0.3))
+            estrela(d, cx, cy, r, r * 0.42, cor("#0B1F45"), giro=rnd.uniform(-0.3, 0.3))
+            estrela(d, cx, cy, r * 0.78, r * 0.32, cor(rnd.choice(["#FFE14D", "#FFFFFF", "#7FE7FF", "#FF9F2E"])), giro=rnd.uniform(-0.3, 0.3))
     if inclinar:
         final = final.rotate(inclinar, resample=Image.BICUBIC, expand=True)
     bbox = final.getbbox()
@@ -882,7 +882,7 @@ def logo():
         camada = Image.new("RGBA", (int(220 * esc * k), int(480 * esc * k)), (0, 0, 0, 0))
         dc = ImageDraw.Draw(camada)
         w, h = camada.size
-        for (contorno, cc) in ((True, "#3B0A63"), (False, "#FFFFFF")):
+        for (contorno, cc) in ((True, "#0B1F45"), (False, "#FFFFFF")):
             e = 10 * k * esc if contorno else 0
             elipse(dc, w / 2, h * 0.62, w * 0.42 + e, h * 0.3 + e, fill=cor(cc))
             elipse(dc, w / 2, h * 0.17, w * 0.24 + e, h * 0.13 + e, fill=cor(cc))
@@ -902,11 +902,11 @@ def logo():
     img.alpha_composite(t2, (int((W * k - t2.width) / 2), int(70 * k)))
     # bola com brilho
     bx, by, br = W * k - 210 * k, H * k - 150 * k, 95 * k
-    elipse(d, bx, by, br + 10 * k, br + 10 * k, fill=cor("#3B0A63"))
+    elipse(d, bx, by, br + 10 * k, br + 10 * k, fill=cor("#0B1F45"))
     elipse(d, bx, by, br, br, fill=cor("#2E7BFF"))
     elipse(d, bx - br * 0.15, by - br * 0.1, br * 0.82, br * 0.8, fill=cor("#4FA8FF"))
     for (u, v, r) in ((-0.25, -0.35, 0.13), (0.1, -0.45, 0.11), (0.0, -0.15, 0.11)):
-        elipse(d, bx + u * br, by + v * br, r * br, r * br, fill=cor("#1A0D3A"))
+        elipse(d, bx + u * br, by + v * br, r * br, r * br, fill=cor("#0B1F45"))
     estrela(d, bx + br * 0.35, by + br * 0.3, br * 0.32, br * 0.14, cor("#FFE14D"))
     elipse(d, bx - br * 0.45, by - br * 0.55, br * 0.18, br * 0.12, fill=cor("#FFFFFF"))
     img = img.crop(img.getbbox())
@@ -921,37 +921,37 @@ def icones():
     t = 128 * SS
     img = Image.new("RGBA", (t, t), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
-    estrela(d, t / 2, t / 2 + t * 0.04, t * 0.48, t * 0.21, cor("#3B0A63"))
+    estrela(d, t / 2, t / 2 + t * 0.04, t * 0.48, t * 0.21, cor("#0B1F45"))
     estrela(d, t / 2, t / 2 + t * 0.04, t * 0.38, t * 0.165, cor("#FFD43B"))
     estrela(d, t / 2 - t * 0.04, t / 2, t * 0.2, t * 0.09, cor("#FFF6A8"))
     reduzir(img, (128, 128)).save(os.path.join(UI, "estrela_placar.png"))
     img = Image.new("RGBA", (t, t), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
-    estrela(d, t / 2, t / 2 + t * 0.04, t * 0.48, t * 0.21, cor("#3B0A63", 160))
-    estrela(d, t / 2, t / 2 + t * 0.04, t * 0.38, t * 0.165, cor("#B9A6E8", 200))
+    estrela(d, t / 2, t / 2 + t * 0.04, t * 0.48, t * 0.21, cor("#0B1F45", 160))
+    estrela(d, t / 2, t / 2 + t * 0.04, t * 0.38, t * 0.165, cor("#9FB4D8", 200))
     reduzir(img, (128, 128)).save(os.path.join(UI, "estrela_vazia.png"))
     print("  ícones ok")
 
 
 def ui():
-    roxo = "#3B0A63"
+    roxo = "#0B1F45"   # contorno azul-marinho (cor da marca)
     letreiro("STRIKE!", "strike", ["#FFF6A8", "#FFD43B", "#FF6A1E"], roxo, 300)
     letreiro("SPARE!", "spare", ["#C9F7FF", "#4FD8FF", "#2E6BFF"], roxo, 280)
     letreiro("OPS!", "ops", ["#FFF1DA", "#FFB36B", "#F0602A"], roxo, 260)
     letreiro("BOA!", "boa", ["#E6FFD6", "#8DFF6A", "#2DBE4E"], roxo, 260)
-    letreiro("UAU!", "uau", ["#FFE6FF", "#D58BFF", "#8E3CF7"], roxo, 260)
+    letreiro("UAU!", "uau", ["#E6FFFB", "#5EE6E0", "#13A3BC"], roxo, 260)
     letreiro("QUASE!", "quase", ["#FFF1DA", "#FFB347", "#FF6A1E"], roxo, 250)
     letreiro("SUPER!", "super", ["#FFF6A8", "#FF9F2E", "#FF3B4E"], roxo, 260)
     letreiro("REPLAY", "replay", ["#FFFFFF", "#BFF3FF", "#20B4CC"], roxo, 200, inclinar=0, estrelas=False)
     letreiro("", "pegando_fogo", ["#FFF6A8", "#FF9F2E", "#FF3B1E"], roxo, 210, linhas=["PEGANDO", "FOGO!"])
     # cenários (um por rodada)
-    letreiro("", "cen_espaco", ["#F0F4FF", "#A9BCFF", "#6A4CFF"], roxo, 200, linhas=["VIAGEM AO", "ESPAÇO!"])
+    letreiro("", "cen_espaco", ["#F0F4FF", "#8FD3FF", "#2E6BFF"], roxo, 200, linhas=["VIAGEM AO", "ESPAÇO!"])
     letreiro("", "cen_mar", ["#E6FFFB", "#5EE6E0", "#1B8FD6"], roxo, 200, linhas=["FUNDO", "DO MAR!"])
     letreiro("", "cen_dinos", ["#F4FFD6", "#A6EC52", "#2FA84F"], roxo, 200, linhas=["SELVA DOS", "DINOS!"])
     letreiro("", "cen_parque", ["#FFF6A8", "#FFB627", "#FF6A1E"], roxo, 200, linhas=["PARQUE DE", "DIVERSÕES!"])
     letreiro("", "fim_de_jogo", ["#FFFFFF", "#D6E6FF", "#7F9CFF"], roxo, 210, linhas=["FIM DE", "JOGO!"])
     letreiro("", "novo_recorde", ["#FFF6A8", "#FFD43B", "#FF6A1E"], roxo, 200, linhas=["NOVO", "RECORDE!"])
-    letreiro("EMPATE!", "empate", ["#FFFFFF", "#D58BFF", "#8E3CF7"], roxo, 240)
+    letreiro("EMPATE!", "empate", ["#FFFFFF", "#8FD3FF", "#2E6BFF"], roxo, 240)
     letreiro("PARABÉNS!", "parabens", ["#FFF6A8", "#FFD43B", "#FF6A1E"], roxo, 220)
     letreiro("VENCEU!", "venceu", ["#FFF6A8", "#FFD43B", "#FF6A1E"], roxo, 240)
     logo()
@@ -963,7 +963,7 @@ def icone():
     Usa os retratos renderizados pelo Godot (tools/testes/retratos.tscn)."""
     import numpy as np
     T = 432
-    fundo = gradiente_vertical((T, T), [(0, "#6A4CFF"), (0.55, "#16A9BE"), (1, "#FFD43B")])
+    fundo = gradiente_vertical((T, T), [(0, "#123A7A"), (0.55, "#169BD5"), (1, "#FFD43B")])
     d = ImageDraw.Draw(fundo)
     rnd = random.Random(4)
     for _ in range(14):

@@ -148,7 +148,7 @@ func _init() -> void:
 static func _arco_iris() -> Gradient:
 	var g := Gradient.new()
 	g.set_color(0, Color("#FF4B5C"))
-	g.set_color(1, Color("#B388FF"))
+	g.set_color(1, Color("#2E7BFF"))
 	g.add_point(0.2, Color("#FF9F2E"))
 	g.add_point(0.4, Color("#FFE14D"))
 	g.add_point(0.6, Color("#5ED16A"))

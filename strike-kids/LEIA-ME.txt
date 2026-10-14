@@ -32,6 +32,17 @@ meio-direita, direita) vira a jogada na tela, em 3D:
 
 Na tela NAO tem setas nem alvo: a mira e sempre o STRIKE.
 
+MARCA LAZER & SPORT: aparece na inicializacao do aparelho e na abertura
+(o dardo acerta o alvo e entra "apresenta"), na tela de atracao, num selo
+no canto durante a partida, na tela final, no menu do operador e em duas
+placas iluminadas ao lado do letreiro STRIKE KIDS, em cima dos pinos.
+O GERAR_APK.bat escolhe a imagem de inicializacao ja girada conforme o
+-Giro (1, -1 ou 0).
+
+VISUAL: tema unissex e esportivo (azul-marinho, azul, laranja, amarelo e
+vermelho). As telas usam placas com volume (brilho, lateral e sombra),
+combinando com o 3D; na escolha do amigo, Bob e Mia ficam em podios.
+
 1 jogador (escolhe o Bob ou a Mia) ou 2 jogadores (Bob x Mia, vezes
 alternadas). Placar com pontos (10 por pino, +50 strike, +20 spare),
 estrelas no fim, recorde gravado na TV Box.

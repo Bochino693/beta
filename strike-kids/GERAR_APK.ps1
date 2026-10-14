@@ -32,6 +32,9 @@ $PresetTexto = [Regex]::Replace($PresetTexto, '(?m)^package/show_in_android_tv=.
 [IO.File]::WriteAllText($PresetAndroid, $PresetTexto, [Text.UTF8Encoding]::new($false))
 $Config = [IO.File]::ReadAllText($ProjectGodot)
 $Config = [Regex]::Replace($Config, '(?m)^tela/giro=.*$', "tela/giro=$Giro")
+# imagem de inicializacao (logo Lazer & Sport) ja girada como a tela do jogo
+if ($Giro -eq 1) { $Splash = "1" } elseif ($Giro -eq -1) { $Splash = "m1" } else { $Splash = "0" }
+$Config = [Regex]::Replace($Config, '(?m)^boot_splash/image\.android=.*$', "boot_splash/image.android=""res://ui/splash_giro_$Splash.png""")
 [IO.File]::WriteAllText($ProjectGodot, $Config, [Text.UTF8Encoding]::new($false))
 Write-Host "Giro da tela: $Giro"
 
