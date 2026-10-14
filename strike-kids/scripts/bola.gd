@@ -1,0 +1,214 @@
+class_name Bola
+extends RigidBody3D
+
+## A BOLA: corpo físico (Jolt), textura do personagem (estrelas do Turbo,
+## corações da Rosi), rastro de arco-íris no chão e brilhinhos.
+
+signal bateu(corpo: Node, velocidade: float)
+
+const RAIO := 0.14
+const MASSA := 6.5
+
+var malha: MeshInstance3D
+var _sombra: MeshInstance3D
+var _rastro: MeshInstance3D
+var _im: ImmediateMesh
+var _pontos: Array[Vector3] = []
+var _brilhos: CPUParticles3D
+var curva := 0.0              # força lateral (efeito "gancho")
+var rolando := false
+var _mat: ShaderMaterial
+
+
+static func material(nome: String) -> ShaderMaterial:
+	var m := ShaderMaterial.new()
+	m.shader = Materiais.shader("res://shaders/bola.gdshader")
+	m.set_shader_parameter("textura", Materiais.textura("bola_" + nome))
+	var c := ShaderMaterial.new()
+	c.shader = Materiais.shader(Materiais.CONTORNO)
+	c.set_shader_parameter("espessura", 0.0025)
+	c.set_shader_parameter("usa_cor_vertice", 0.0)
+	m.next_pass = c
+	return m
+
+
+func _init() -> void:
+	mass = MASSA
+	continuous_cd = true
+	contact_monitor = true
+	max_contacts_reported = 6
+	can_sleep = false
+	collision_layer = Mundo.CAMADA_BOLA
+	collision_mask = Mundo.CAMADA_MUNDO | Mundo.CAMADA_PINOS
+	var pm := PhysicsMaterial.new()
+	pm.friction = 0.12
+	pm.bounce = 0.12
+	physics_material_override = pm
+	var cs := CollisionShape3D.new()
+	var sh := SphereShape3D.new()
+	sh.radius = RAIO
+	cs.shape = sh
+	add_child(cs)
+	malha = MeshInstance3D.new()
+	var esfera := SphereMesh.new()
+	esfera.radius = RAIO
+	esfera.height = RAIO * 2
+	esfera.radial_segments = 32
+	esfera.rings = 16
+	malha.mesh = esfera
+	add_child(malha)
+	_sombra = MeshInstance3D.new()
+	var q := QuadMesh.new()
+	q.size = Vector2(0.42, 0.42)
+	q.orientation = PlaneMesh.FACE_Y
+	_sombra.mesh = q
+	_sombra.material_override = Materiais.sombra_blob(0.6)
+	_sombra.top_level = true
+	add_child(_sombra)
+	_im = ImmediateMesh.new()
+	_rastro = MeshInstance3D.new()
+	_rastro.mesh = _im
+	_rastro.top_level = true
+	var mr := StandardMaterial3D.new()
+	mr.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mr.vertex_color_use_as_albedo = true
+	mr.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mr.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	mr.cull_mode = BaseMaterial3D.CULL_DISABLED
+	mr.depth_draw_mode = BaseMaterial3D.DEPTH_DRAW_DISABLED
+	_rastro.material_override = mr
+	_rastro.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(_rastro)
+	_brilhos = CPUParticles3D.new()
+	_brilhos.amount = 40
+	_brilhos.lifetime = 0.7
+	_brilhos.emitting = false
+	_brilhos.local_coords = false
+	_brilhos.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE
+	_brilhos.emission_sphere_radius = RAIO
+	_brilhos.direction = Vector3(0, 1, 0)
+	_brilhos.spread = 70.0
+	_brilhos.initial_velocity_min = 0.3
+	_brilhos.initial_velocity_max = 0.9
+	_brilhos.gravity = Vector3(0, -0.6, 0)
+	_brilhos.scale_amount_min = 0.5
+	_brilhos.scale_amount_max = 1.0
+	var curva_esc := Curve.new()
+	curva_esc.add_point(Vector2(0, 1))
+	curva_esc.add_point(Vector2(1, 0))
+	_brilhos.scale_amount_curve = curva_esc
+	_brilhos.color_initial_ramp = _arco_iris()
+	var qm := QuadMesh.new()
+	qm.size = Vector2(0.09, 0.09)
+	qm.material = Materiais.particula("faisca")
+	_brilhos.mesh = qm
+	_brilhos.top_level = false
+	add_child(_brilhos)
+	body_entered.connect(_ao_bater)
+
+
+static func _arco_iris() -> Gradient:
+	var g := Gradient.new()
+	g.set_color(0, Color("#FF4B5C"))
+	g.set_color(1, Color("#B388FF"))
+	g.add_point(0.2, Color("#FF9F2E"))
+	g.add_point(0.4, Color("#FFE14D"))
+	g.add_point(0.6, Color("#5ED16A"))
+	g.add_point(0.8, Color("#4FC3F7"))
+	return g
+
+
+func vestir(nome: String) -> void:
+	_mat = material(nome)
+	malha.material_override = _mat
+
+
+func lancar(origem: Vector3, velocidade: Vector3, efeito := 0.0) -> void:
+	freeze = false
+	visible = true
+	global_position = origem
+	rotation = Vector3.ZERO
+	linear_velocity = velocidade
+	angular_velocity = Vector3.UP.cross(velocidade) / RAIO
+	curva = efeito
+	rolando = true
+	_pontos.clear()
+	_brilhos.emitting = true
+
+
+func guardar() -> void:
+	rolando = false
+	freeze = true
+	visible = false
+	linear_velocity = Vector3.ZERO
+	angular_velocity = Vector3.ZERO
+	global_position = Vector3(0, -5, 20)
+	_pontos.clear()
+	_im.clear_surfaces()
+	_brilhos.emitting = false
+
+
+func _physics_process(_delta: float) -> void:
+	if not rolando:
+		return
+	if curva != 0.0 and global_position.z > -12.6 and global_position.y > -0.02:
+		apply_central_force(Vector3(curva * mass, 0, 0))
+
+
+func _process(_delta: float) -> void:
+	if not visible:
+		return
+	_sombra.global_position = Vector3(global_position.x, max(global_position.y - RAIO, -0.3) + 0.008, global_position.z)
+	_sombra.global_rotation = Vector3.ZERO
+	var alt: float = clamp(1.0 - (global_position.y - RAIO) * 1.5, 0.3, 1.0)
+	_sombra.scale = Vector3(alt, 1, alt)
+	if rolando:
+		_pontos.push_front(Vector3(global_position.x, max(global_position.y - RAIO, -0.08) + 0.012, global_position.z))
+		if _pontos.size() > 28:
+			_pontos.pop_back()
+		if global_position.z < -13.6:
+			_brilhos.emitting = false
+	_desenhar_rastro()
+
+
+func _desenhar_rastro() -> void:
+	_im.clear_surfaces()
+	if _pontos.size() < 2:
+		return
+	var g := _arco_iris()
+	_im.surface_begin(Mesh.PRIMITIVE_TRIANGLE_STRIP)
+	var n := _pontos.size()
+	for i in n:
+		var p := _pontos[i]
+		var d: Vector3
+		if i < n - 1:
+			d = (p - _pontos[i + 1])
+		else:
+			d = (_pontos[i - 1] - p)
+		d.y = 0.0
+		if d.length() < 0.0001:
+			d = Vector3(0, 0, -1)
+		var lado := d.normalized().cross(Vector3.UP)
+		var f := 1.0 - float(i) / float(n - 1)
+		var w := RAIO * 0.95 * (0.35 + 0.65 * f)
+		var c := g.sample(fposmod(float(i) / 10.0, 1.0))
+		c.a = f * 0.75
+		_im.surface_set_color(c)
+		_im.surface_add_vertex(p + lado * w)
+		_im.surface_set_color(c)
+		_im.surface_add_vertex(p - lado * w)
+	_im.surface_end()
+
+
+func velocidade() -> float:
+	return linear_velocity.length() if rolando else 0.0
+
+
+func _ao_bater(corpo: Node) -> void:
+	bateu.emit(corpo, linear_velocity.length())
+
+
+## O brilho na bola (aceso no strike / replay).
+func acender(v: float) -> void:
+	if _mat:
+		_mat.set_shader_parameter("aceso", v)
