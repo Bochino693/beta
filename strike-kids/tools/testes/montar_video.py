@@ -181,7 +181,9 @@ def main():
         w.setframerate(TAXA)
         w.writeframes((trilha * 32767).astype(np.int16).tobytes())
     subprocess.run(["ffmpeg", "-y", "-v", "error", "-framerate", str(fps), "-start_number", str(pula), "-i", os.path.join(pasta, "q%05d.jpg"), "-i", wav,
-                    "-c:v", "libx264", "-preset", "slow", "-crf", "19", "-pix_fmt", "yuv420p", "-movflags", "+faststart",
+                    # qualidade alta com teto de taxa: arquivo leve para WhatsApp/Instagram (~25 MB)
+                    "-c:v", "libx264", "-preset", "slow", "-crf", "21", "-maxrate", "2300k", "-bufsize", "4600k",
+                    "-pix_fmt", "yuv420p", "-movflags", "+faststart",
                     "-c:a", "aac", "-b:a", "192k", "-shortest", saida], check=True)
     print("vídeo:", saida, "%.1f s" % dur)
 
