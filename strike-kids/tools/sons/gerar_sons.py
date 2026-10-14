@@ -1115,7 +1115,7 @@ def musica_jogo():
              "shaker": 0.135, "glock": 0.15, "crash": 0.14}
     sends = {"lead": 0.4, "pad": 0.5, "glock": 0.7, "clap": 0.35, "snare": 0.3, "shaker": 0.05, "crash": 0.2}
     return mixdown(s, r, gains, sends, wet=0.3, delay_bus="lead", delay_beats=1.0, delay_fb=0.18,
-                   target_rms_db=-20.0, label="jogo")
+                   target_rms_db=-19.2, label="jogo")
 
 
 # ---- 3) Fim/resultados: 126 BPM, 8 compassos, G maior, festivo -------------
@@ -1168,7 +1168,7 @@ def musica_fim():
         for _ in range(2):
             m = 84 + _pick(r, pcs) + (12 if r.random() < 0.35 else 0)
             s.put("glock", glock(float(mtof(m)), r.uniform(0.6, 1.0), r), b0 + _pick(r, [0.5, 1.5, 2.5, 3.5, 1.0, 3.0]), pan=r.uniform(-0.6, 0.6))
-    gains = {"lead": 0.42, "lead_low": 0.3, "bass": 0.85, "brass": 0.11, "pad": 0.1, "kick": 0.85, "snare": 0.37,
+    gains = {"lead": 0.42, "lead_low": 0.3, "bass": 0.6, "brass": 0.11, "pad": 0.1, "kick": 0.7, "snare": 0.37,
              "clap": 0.2, "hats": 0.22, "ohat": 0.18, "crash": 0.16, "glock": 0.12}
     sends = {"lead": 0.35, "lead_low": 0.2, "brass": 0.3, "pad": 0.5, "glock": 0.7, "snare": 0.25, "clap": 0.3,
              "hats": 0.05, "crash": 0.2}

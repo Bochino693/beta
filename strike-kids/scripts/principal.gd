@@ -150,7 +150,7 @@ func _input(event: InputEvent) -> void:
 		return
 	if ArcadeControls.eh_credito(event):
 		Ajustes.adicionar_credito()
-		Sons.tocar("moeda")
+		Sons.tocar("moeda", 0.65)
 		_atualizar_atracao()
 		return
 	if ArcadeControls.eh_start(event):
@@ -220,6 +220,7 @@ func _abertura() -> void:
 	var s := _novo_seq()
 	_posicionar_atracao()
 	hud.atracao(false)
+	hud.mostrar_sensores(false)
 	Sons.musica("musica_menu")
 	cam.trilho([
 		[Vector3(0, 10, -24), Vector3(0, 0.5, -15), 0.0],
@@ -637,7 +638,7 @@ func _finalizar_jogada() -> void:
 			mundo.lampadas(2)
 		"zero":
 			hud.letreiro("ops", "", 1.5)
-			Sons.tocar("ops")
+			Sons.tocar("ops", 0.75)
 			ArduinoBridge.send_led("MISS")
 		_:
 			var nome := "boa"

@@ -5,7 +5,7 @@ MONTA O VÍDEO DE DIVULGAÇÃO
 
 Depois de gravar os quadros com o diretor (tools/testes/video.gd):
 
-    python3 tools/testes/montar_video.py <pasta_dos_quadros> <saida.mp4> [fps]
+    python3 tools/testes/montar_video.py <pasta_dos_quadros> <saida.mp4> [fps] [primeiro_quadro]
 
 Mistura a trilha (músicas + efeitos nos quadros exatos em que tocaram no
 jogo), acrescenta um cartão final com o logo e gera o MP4 (H.264 + AAC).
@@ -95,6 +95,7 @@ def main():
     pasta = sys.argv[1]
     saida = sys.argv[2]
     fps = float(sys.argv[3]) if len(sys.argv) > 3 else 30.0
+    pula = int(sys.argv[4]) if len(sys.argv) > 4 else 0
     dados = json.load(open(os.path.join(pasta, "sons.json")))
     quadros = int(dados["quadros"])
     reg = dados["registro"]
@@ -102,11 +103,17 @@ def main():
     for r in reg:
         if r[1] == "inicio":
             base = int(r[0])
-    primeiro = Image.open(os.path.join(pasta, "q00000.jpg"))
+    base += pula
+    # a música que já tocava antes do corte começa no quadro 0
+    antes = [r for r in reg if str(r[1]).startswith("musica:") and int(r[0]) < base]
+    reg = [r for r in reg if int(r[0]) >= base or str(r[1]).startswith("rolando")]
+    if antes:
+        reg.insert(0, [base, antes[-1][1], 1.0, 1.0])
+    primeiro = Image.open(os.path.join(pasta, "q%05d.jpg" % pula))
     W, H = primeiro.size
     extra = int(fps * 3.0)
     cartao_final(pasta, quadros, extra, W, H)
-    total = quadros + extra
+    total = quadros + extra - pula
     dur = total / fps
     trilha = np.zeros((int(dur * TAXA) + TAXA, 2), dtype=np.float32)
 
@@ -169,7 +176,7 @@ def main():
         w.setsampwidth(2)
         w.setframerate(TAXA)
         w.writeframes((trilha * 32767).astype(np.int16).tobytes())
-    subprocess.run(["ffmpeg", "-y", "-v", "error", "-framerate", str(fps), "-i", os.path.join(pasta, "q%05d.jpg"), "-i", wav,
+    subprocess.run(["ffmpeg", "-y", "-v", "error", "-framerate", str(fps), "-start_number", str(pula), "-i", os.path.join(pasta, "q%05d.jpg"), "-i", wav,
                     "-c:v", "libx264", "-preset", "slow", "-crf", "19", "-pix_fmt", "yuv420p", "-movflags", "+faststart",
                     "-c:a", "aac", "-b:a", "192k", "-shortest", saida], check=True)
     print("vídeo:", saida, "%.1f s" % dur)
