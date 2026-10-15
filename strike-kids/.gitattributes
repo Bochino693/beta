@@ -11,3 +11,4 @@ LEIA-ME*.txt text eol=crlf
 *.scn binary
 *.aar binary
 *.mp4 binary
+*.keystore binary

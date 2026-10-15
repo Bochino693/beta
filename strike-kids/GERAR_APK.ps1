@@ -915,32 +915,34 @@ function Escrever-ConfigEditor {
     [IO.File]::WriteAllText($arq, $texto, (New-Object Text.UTF8Encoding($false)))
 }
 
-# Chave de assinatura: a mesma de sempre (%APPDATA%\Godot\keystores), para o
-# APK novo instalar POR CIMA do anterior na TV Box sem perder os recordes.
+# Chave de assinatura do Strike Kids: vai JUNTO do projeto
+# (tools\android\strikekids.keystore), entao o APK gerado em qualquer PC
+# (e o APK pronto que veio no pacote) instala POR CIMA do anterior na TV
+# Box, sem perder os recordes. Se ela faltar, usa a chave debug do Godot.
 function Garantir-Chave {
     $keytool = Join-Path $script:JavaHome "bin\keytool.exe"
-    $mestra = $null
-    if ($env:APPDATA) { $mestra = Join-Path $env:APPDATA "Godot\keystores\debug.keystore" }
     $local = Join-Path (Pasta (Join-Path $script:Trabalho "chave")) "strikekids.keystore"
-    $teste = { param($k) (Saida-De $keytool @("-list", "-keystore", $k, "-storepass", "android", "-alias", "androiddebugkey") 60) -match 'PrivateKeyEntry' }
-    $origem = $null
-    if ($mestra -and (Test-Path -LiteralPath $mestra) -and (& $teste $mestra)) { $origem = $mestra }
-    elseif ((Test-Path -LiteralPath $local) -and (& $teste $local)) { $origem = $local }
-    if (-not $origem) {
-        $alvo = $mestra
-        if (-not $alvo -or (Test-Path -LiteralPath $alvo)) { $alvo = $local }
-        Info "Criando a chave de assinatura do APK..."
-        [void](Pasta (Split-Path $alvo -Parent))
-        Apagar $alvo
-        [void](Executar $keytool @("-genkeypair", "-keystore", $alvo, "-storepass", "android", "-keypass", "android", "-alias", "androiddebugkey", "-dname", "CN=Android Debug,O=Android,C=US", "-keyalg", "RSA", "-keysize", "2048", "-validity", "9999") -Log (Join-Path $script:Logs "keytool.log") -LimiteMin 5 -Rotulo "keytool" -Quieto)
-        if (-not (Test-Path -LiteralPath $alvo)) { throw "nao consegui criar a chave de assinatura (veja keytool.log)." }
-        $origem = $alvo
+    $teste = { param($k, $alias, $senha) (Saida-De $keytool @("-list", "-keystore", $k, "-storepass", $senha, "-alias", $alias) 60) -match 'PrivateKeyEntry' }
+    $opcoes = @(@{ Arquivo = (Join-Path $Projeto "tools\android\strikekids.keystore"); Alias = "strikekids"; Senha = "strikekids" })
+    if ($env:APPDATA) { $opcoes += @{ Arquivo = (Join-Path $env:APPDATA "Godot\keystores\debug.keystore"); Alias = "androiddebugkey"; Senha = "android" } }
+    $opcoes += @{ Arquivo = (Join-Path $script:Trabalho "chave\nova.keystore"); Alias = "strikekids"; Senha = "strikekids" }
+    $escolhida = $null
+    foreach ($o in $opcoes) {
+        if ((Test-Path -LiteralPath $o.Arquivo) -and (& $teste $o.Arquivo $o.Alias $o.Senha)) { $escolhida = $o; break }
     }
-    if ($origem -ne $local) { Copy-Item -LiteralPath $origem -Destination $local -Force }
+    if (-not $escolhida) {
+        Info "Criando uma chave de assinatura para o APK..."
+        $escolhida = @{ Arquivo = (Join-Path $script:Trabalho "chave\nova.keystore"); Alias = "strikekids"; Senha = "strikekids" }
+        Apagar $escolhida.Arquivo
+        [void](Executar $keytool @("-genkeypair", "-keystore", $escolhida.Arquivo, "-storetype", "PKCS12", "-storepass", "strikekids", "-keypass", "strikekids", "-alias", "strikekids", "-dname", "CN=Strike Kids,O=Lazer e Sport,C=BR", "-keyalg", "RSA", "-keysize", "2048", "-validity", "10000") -Log (Join-Path $script:Logs "keytool.log") -LimiteMin 5 -Rotulo "keytool" -Quieto)
+        if (-not (Test-Path -LiteralPath $escolhida.Arquivo)) { throw "nao consegui criar a chave de assinatura (veja keytool.log)." }
+        Aviso "chave NOVA: se a TV Box ja tiver um Strike Kids com outra chave, desinstale-o antes de instalar este APK."
+    }
+    Copy-Item -LiteralPath $escolhida.Arquivo -Destination $local -Force
     $env:GODOT_ANDROID_KEYSTORE_RELEASE_PATH = $local
-    $env:GODOT_ANDROID_KEYSTORE_RELEASE_USER = "androiddebugkey"
-    $env:GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD = "android"
-    Ok "chave de assinatura: $origem"
+    $env:GODOT_ANDROID_KEYSTORE_RELEASE_USER = $escolhida.Alias
+    $env:GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD = $escolhida.Senha
+    Ok "chave de assinatura: $($escolhida.Arquivo)"
 }
 
 # ----------------------------------------------------------------- Gradle

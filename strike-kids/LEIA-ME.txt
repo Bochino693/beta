@@ -153,9 +153,11 @@ se acontecer, aperte ESC).
   GERAR_APK.bat -PastaTrabalho D:\SKB  -> outra pasta de trabalho
 
 Se der erro, envie o arquivo build\android\GERACAO-COMPLETA.log (os logs
-de cada programa ficam na mesma pasta). A chave de assinatura e a mesma
-de sempre (%APPDATA%\Godot\keystores\debug.keystore): o APK novo instala
-por cima do anterior na TV Box sem perder os recordes.
+de cada programa ficam na mesma pasta). A chave de assinatura vai junto
+do projeto (tools\android\strikekids.keystore): o APK gerado em qualquer
+PC - e o APK pronto que veio no pacote - instala POR CIMA do anterior na
+TV Box, sem perder os recordes. (Se a TV Box tiver um Strike Kids antigo
+assinado com outra chave, desinstale-o uma vez antes.)
 
 Pacote: com.lazersport.strikekids (nao briga com o Dragon Bowling).
 O giro tambem pode ser trocado na propria maquina, no menu do operador.
