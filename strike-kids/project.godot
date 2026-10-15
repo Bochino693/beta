@@ -130,4 +130,4 @@ tela/giro=1
 
 [editor_plugins]
 
-enabled=PackedStringArray("res://addons/StrikeCamera/plugin.cfg")
+enabled=PackedStringArray("res://addons/StrikeCamera/plugin.cfg", "res://addons/StrikeSerial/plugin.cfg")

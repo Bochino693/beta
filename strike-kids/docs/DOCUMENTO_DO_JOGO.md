@@ -371,11 +371,47 @@ para o próximo.
 | `godot --path . -- --medidor` | abre o jogo já com o painel de desempenho (o mesmo do F3) |
 | `godot --path . -- --camera-falsa` | simula a câmera no PC (imagem de teste) |
 
-## 10. LEDs no Android (plugin USB)
+## 10. Arduino da máquina: sensores, porta e botão (`autoload/ArduinoBridge.gd`)
 
-`GERAR_APK.bat -ComLeds` faz tudo sozinho: tira o `addons/.gdignore`, liga
-o plugin **DragonUsbSerial** no `project.godot`, ativa o Gradle no preset,
-instala o modelo de build Android (`--install-android-build-template`) e
-exporta. Sem `-ComLeds`, o APK usa o modelo pronto do Godot (sem Gradle,
-como no Pro Ultra) e sai sem o plugin. O `ArduinoBridge` já está pronto
-(mesmo protocolo do Dragon Bowling).
+- **Firmware** (`arduino/strike_kids/strike_kids.ino`, Uno/Nano/Pro Mini/
+  Mega/Leonardo): lê os 5 sensores (D2 D3 D4 D5 D7, esquerda → direita,
+  filtro de 2 ms e rearme de 120 ms para a bola balançando no sensor), o
+  botão de configuração (A0), START (A1) e moedeiro (A2, pulsos de 20 ms);
+  comanda a trava da porta por **servo** (D9, PWM do próprio Timer1 —
+  firme mesmo com a fita de LED segurando o processador; movimento suave)
+  e/ou **relé** (D8, polaridade e tempo máximo configuráveis para trava
+  solenoide); acende a fita WS2812 (D6) com os efeitos do Dragon Bowling.
+  O nível de repouso de cada sensor é **calibrado** (pista vazia) e fica na
+  EEPROM: serve sensor normalmente aberto ou fechado. Sem notícia do jogo
+  por 15 s com a porta aberta, ela fecha sozinha.
+- **Protocolo** (texto, 9600): Arduino → jogo `OLA/PONG:STRIKE_KIDS:1`,
+  `S:1..S:5`, `CFG`, `START`, `FICHA`, `SENS:00100` (ao vivo, no teste),
+  `PORTA:ABERTA/FECHADA`, `CAL:OK:HHHHH`, `INFO:...`, `AVISO:SEM_JOGO`;
+  jogo → Arduino `PING`, `PORTA:ABRE/FECHA`, `PORTA?`, `SENS?`,
+  `TESTE:1/0`, `CALIBRA`, `INFO?` e os comandos de LED.
+- **TV Box**: plugin **StrikeSerial** (`addons/StrikeSerial`, Java em
+  `tools/android/StrikeSerial`) com driver USB-serial **próprio** — CDC/ACM
+  (Arduinos originais, CH9102), CH340/CH341 (contas do divisor como o
+  `ch341.c` do Linux), FTDI e CP210x —, sem biblioteca de fora (nada de
+  JitPack: o APK pronto e o do Gradle levam). Lista em segundo plano,
+  abre em segundo plano, lê numa linha de execução própria e junta as
+  linhas; DTR+RTS ligados (o Uno reinicia e diz OLA). Atividade de encaixe
+  com o filtro dos Arduinos: a janela de permissão oferece "Usar por
+  padrão".
+- **Jogo**: `S:n` vira a mesma ação da Zero Delay (Z X C V B), `CFG`
+  vira a configuração, `START`/`FICHA` os botões — `InputEventAction` com
+  a marca `arduino`, aceita pelo `ArcadeControls`. A porta **abre no
+  START** (`_escolher_jogadores`) e **fecha** no fim da partida, na
+  atração, na abertura, no teste de desempenho e no menu. Ao (re)conectar
+  o jogo manda a porta como ela deve estar. Permissão USB: uma vez logo
+  no começo (depois da janela da câmera) e depois só na espera ou no menu.
+  Opções: porta invertida, sensores invertidos.
+- **Menu do operador**: teste dos sensores (ao vivo, com contagem),
+  calibrar sensores, teste da porta (com a confirmação do Arduino), teste
+  da câmera; sem o Arduino, mostram o relatório (USB, chip, permissão).
+- **Testes**: `tools/testes/arduino/rodar.sh` (firmware num ATmega328P
+  simulado pelo simavr: 34 verificações), `tools/testes/arduino_teste.tscn`
+  (plugin simulado: permissão, conexão, jogadas, porta, inversões, teste
+  ao vivo, calibração, reconexão, firmware antigo e uma partida inteira só
+  com o Arduino) e `tools/android/StrikeSerial/teste/rodar.sh` (contas dos
+  chips).

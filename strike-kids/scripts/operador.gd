@@ -1,7 +1,8 @@
 extends Control
 
-## MENU DO OPERADOR (botão de configuração da máquina: R2 da Zero Delay,
-## que no modo teclado manda a tecla 9 — igual ao Dragon Bowling).
+## MENU DO OPERADOR: o botão de CONFIGURAÇÃO da máquina (no Arduino, ou o
+## R2 da Zero Delay / tecla 9) entra aqui, e apertado de novo volta ao jogo.
+## Aqui se testa tudo: os sensores (ao vivo), a porta (trava), a câmera.
 ##
 ## Navegação com os próprios sensores/botões da máquina:
 ##   X (meio-esquerda) = sobe        V (meio-direita) = desce
@@ -35,6 +36,10 @@ const ITENS := [
 	["> TESTE DE DESEMPENHO (20 s)", "", "desempenho", "acao", []],
 	["Giro da tela", "tela", "giro", "lista", [1, -1, 0]],
 	["> TESTE DOS SENSORES", "", "teste", "acao", []],
+	["> CALIBRAR SENSORES (pista vazia)", "", "calibrar", "acao", []],
+	["Sensores invertidos (direita/esquerda)", "arduino", "sensores_invertidos", "bool", []],
+	["> TESTE DA PORTA (trava das bolas)", "", "porta", "acao", []],
+	["Porta invertida", "arduino", "porta_invertida", "bool", []],
 	["> TESTE DA CÂMERA", "", "camera", "acao", []],
 	["> CONFIGURAR BOTÕES DA PLACA", "", "botoes", "acao", []],
 	["> ZERAR RECORDES", "", "recordes", "acao", []],
@@ -56,6 +61,11 @@ var _camera := false
 var _camera_tela: TextureRect
 var _camera_ms := 0
 var _camera_t := 0.0
+var _porta := false            # teste da porta
+var _calibrando := false       # calibração dos sensores
+var _topo := 0                 # rolagem da lista (tela deitada)
+var _visiveis := 0
+var _esp := 0.0
 var u := 1.0
 
 
@@ -70,19 +80,21 @@ func _ready() -> void:
 	add_child(fundo)
 	var titulo := _rotulo("STRIKE KIDS · OPERADOR", Vector2(0, 40 * u), 58 * u, Color("#FFD43B"))
 	titulo.size.x = T.x
-	var esp: float = min(68.0 * u, (T.y - 420 * u) / ITENS.size())
-	var y := 150 * u
+	# a lista inteira se couber; senão, uma janela que rola com a seleção
+	var area: float = T.y - 420 * u
+	_esp = clampf(area / ITENS.size(), 44.0 * u, 68.0 * u)
+	_visiveis = mini(ITENS.size(), int(area / _esp))
 	for i in ITENS.size():
-		var l := _rotulo("", Vector2(60 * u, y), min(34 * u, esp * 0.55), Color.WHITE)
+		var l := _rotulo("", Vector2(60 * u, 150 * u), min(34 * u, _esp * 0.55), Color.WHITE)
 		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 		l.size.x = T.x - 120 * u
 		_linhas.append(l)
-		y += esp
 	_info = _rotulo("", Vector2(0, T.y - 250 * u), 26 * u, Color(1, 1, 1, 0.75))
 	_info.size = Vector2(T.x, 220 * u)
 	_info.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_teste_rotulo = _rotulo("", Vector2(0, T.y * 0.35), 54 * u, Color.WHITE)
 	_teste_rotulo.size = Vector2(T.x, 500 * u)
+	_teste_rotulo.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_teste_rotulo.visible = false
 	_camera_tela = TextureRect.new()
 	_camera_tela.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
@@ -94,6 +106,11 @@ func _ready() -> void:
 	_camera_tela.visible = false
 	add_child(_camera_tela)
 	Fotos.mudou.connect(_atualizar)
+	ArduinoBridge.mudou.connect(_arduino_mudou)
+	# no menu a porta das bolas fica fechada; aqui pode aparecer a janela
+	# de permissão USB do Arduino
+	ArduinoBridge.porta(false)
+	ArduinoBridge.na_espera(true)
 	_atualizar()
 
 
@@ -130,15 +147,37 @@ func _valor_texto(item: Array) -> String:
 
 
 func _atualizar() -> void:
+	if _sel < _topo:
+		_topo = _sel
+	elif _sel >= _topo + _visiveis:
+		_topo = _sel - _visiveis + 1
+	var em_teste := _teste or _camera or _porta or _calibrando
 	for i in ITENS.size():
 		var item: Array = ITENS[i]
 		var l := _linhas[i]
 		var v := _valor_texto(item)
+		var j := i - _topo
+		l.visible = not em_teste and j >= 0 and j < _visiveis
+		l.position.y = 150 * u + j * _esp
 		l.text = ("▶ " if i == _sel else "   ") + str(item[0]) + ("" if v == "" else ":   " + v)
 		l.label_settings.font_color = Color("#FFD43B") if i == _sel else Color(1, 1, 1, 0.85)
-	_info.text = "X sobe · V desce · Z diminui · B aumenta · C/START escolhe · CONFIGURAÇÃO volta\n" + \
-		"Partidas: %d   ·   Strikes: %d   ·   Moedas: %d   ·   Arduino: %s\nCâmera: %s" % [Ajustes.contador("partidas"),
+	var rolar := ""
+	if _visiveis < ITENS.size():
+		rolar = "   (%d de %d)" % [_sel + 1, ITENS.size()]
+	_info.text = "X sobe · V desce · Z diminui · B aumenta · C/START escolhe · CONFIGURAÇÃO volta%s\n" % rolar + \
+		"Partidas: %d   ·   Strikes: %d   ·   Moedas: %d\n%s\nCâmera: %s" % [Ajustes.contador("partidas"),
 		Ajustes.contador("strikes"), Ajustes.contador("moedas"), ArduinoBridge.status, Fotos.texto_status()]
+
+
+func _arduino_mudou() -> void:
+	if _teste:
+		_mostrar_teste("")
+	elif _porta:
+		_mostrar_porta()
+	elif _calibrando:
+		_mostrar_calibracao()
+	else:
+		_atualizar()
 
 
 func _input(event: InputEvent) -> void:
@@ -169,18 +208,15 @@ func _input(event: InputEvent) -> void:
 		Ajustes.definir("jogo", "camera_giro", g)
 		Sons.tocar("selecao")
 		return
-	if _teste or _camera:
+	if _porta and cmd == "ok":
+		# teste da porta: C ou START abre/fecha; CONFIGURAÇÃO sai
+		ArduinoBridge.porta(not ArduinoBridge.porta_quer)
+		Sons.tocar("selecao")
+		_mostrar_porta()
+		return
+	if _teste or _camera or _porta or _calibrando:
 		if cmd == "sair" or cmd == "ok":
-			_teste = false
-			_camera = false
-			_teste_rotulo.visible = false
-			_teste_rotulo.position.y = Tela.tamanho().y * 0.35
-			_teste_rotulo.size.y = 500 * u
-			_teste_rotulo.label_settings.font_size = int(54 * u)
-			_camera_tela.visible = false
-			Fotos.desligar(2.0)
-			for l in _linhas:
-				l.visible = true
+			_sair_do_teste()
 		return
 	match cmd:
 		"sobe":
@@ -221,6 +257,8 @@ func _mudar(d: int) -> void:
 	Ajustes.definir(item[1], item[2], v)
 	if item[2] == "foto":
 		Fotos.iniciar()
+	if item[2] == "porta_invertida":
+		ArduinoBridge.reenviar_porta()
 	Sons.atualizar_volume()
 	Sons.tocar("selecao")
 
@@ -233,15 +271,23 @@ func _acao() -> void:
 	match item[2]:
 		"teste":
 			_teste = true
-			for l in _linhas:
-				l.visible = false
-			_teste_rotulo.visible = true
+			_teste_contagem = [0, 0, 0, 0, 0]
+			_entrar_no_teste()
+			ArduinoBridge.modo_teste(true)
 			_mostrar_teste("")
+		"calibrar":
+			_calibrando = true
+			_entrar_no_teste()
+			ArduinoBridge.calibrar()
+			_mostrar_calibracao()
+		"porta":
+			_porta = true
+			_entrar_no_teste()
+			ArduinoBridge.porta(false)
+			_mostrar_porta()
 		"camera":
 			_camera = true
-			for l in _linhas:
-				l.visible = false
-			_teste_rotulo.visible = true
+			_entrar_no_teste()
 			# como na tela de espera: confere a câmera e pede o que faltar
 			Fotos.na_espera()
 			_camera_ms = Time.get_ticks_msec()
@@ -263,6 +309,75 @@ func _acao() -> void:
 			Sons.tocar("pop")
 		"voltar":
 			get_tree().change_scene_to_file.call_deferred(JOGO)
+
+
+func _entrar_no_teste() -> void:
+	for l in _linhas:
+		l.visible = false
+	_teste_rotulo.visible = true
+	_teste_rotulo.text = ""
+	_teste_rotulo.label_settings.font_size = int(42 * u)
+	_teste_rotulo.position = Vector2(40 * u, 120 * u)
+	_teste_rotulo.size = Vector2(Tela.tamanho().x - 80 * u, Tela.tamanho().y - 400 * u)
+
+
+func _sair_do_teste() -> void:
+	if _teste:
+		ArduinoBridge.modo_teste(false)
+	if _porta:
+		ArduinoBridge.porta(false)
+	_teste = false
+	_camera = false
+	_porta = false
+	_calibrando = false
+	_teste_rotulo.visible = false
+	_teste_rotulo.text = ""
+	_teste_rotulo.position = Vector2(0, Tela.tamanho().y * 0.35)
+	_teste_rotulo.size = Vector2(Tela.tamanho().x, 500 * u)
+	_teste_rotulo.label_settings.font_size = int(54 * u)
+	_camera_tela.visible = false
+	Fotos.desligar(2.0)
+	_atualizar()
+
+
+## As últimas linhas do relatório do Arduino (USB, chip, firmware), para
+## quando ele não está conectado.
+func _relatorio_arduino() -> String:
+	var linhas := ArduinoBridge.relatorio().split("\n")
+	return "\n".join(linhas.slice(0, mini(linhas.size(), 12)))
+
+
+## Teste da porta: o que o jogo pediu e o que o Arduino confirmou.
+func _mostrar_porta() -> void:
+	var t := "TESTE DA PORTA (trava das bolas)\n\n"
+	if ArduinoBridge.completo():
+		var pedida := "ABERTA" if ArduinoBridge.porta_quer else "FECHADA"
+		var confirmada := "ABERTA" if ArduinoBridge.porta_aberta else "FECHADA"
+		t += "Porta: %s\n" % pedida
+		t += ("(o Arduino confirmou)" if confirmada == pedida else "(esperando o Arduino...)") + "\n\n"
+		t += "C ou START: abre / fecha\nCONFIGURAÇÃO: sai (a porta fecha)\n\n"
+		t += "Abriu quando devia fechar? Ligue \"Porta invertida\" no menu."
+	else:
+		_teste_rotulo.label_settings.font_size = int(30 * u)
+		t += "SEM O ARDUINO\n%s\n\n%s\n\nCONFIGURAÇÃO ou START sai" % [ArduinoBridge.status, _relatorio_arduino()]
+	_teste_rotulo.text = t
+
+
+## Calibração: com a pista vazia, o nível de cada sensor vira o "sem bola".
+func _mostrar_calibracao() -> void:
+	var t := "CALIBRAR SENSORES\n\n"
+	if not ArduinoBridge.completo():
+		_teste_rotulo.label_settings.font_size = int(30 * u)
+		t += "SEM O ARDUINO\n%s\n\n%s\n\nCONFIGURAÇÃO ou START sai" % [ArduinoBridge.status, _relatorio_arduino()]
+	elif ArduinoBridge.calibracao.begins_with("CAL:OK:"):
+		var niveis := ArduinoBridge.calibracao.substr(7)
+		t += "PRONTO! Sem bola cada sensor fica em:\n"
+		for i in mini(5, niveis.length()):
+			t += "S%d: %s\n" % [i + 1, "ALTO (aciona em baixo)" if niveis[i] == "H" else "BAIXO (aciona em alto)"]
+		t += "\nRole a bola no TESTE DOS SENSORES para conferir.\nCONFIGURAÇÃO ou START sai"
+	else:
+		t += "Calibrando... deixe a pista VAZIA\n(nenhuma bola na frente dos sensores)"
+	_teste_rotulo.text = t
 
 
 ## Teste da câmera: a imagem ao vivo (Z / B giram).
@@ -302,10 +417,18 @@ func _process(delta: float) -> void:
 
 
 func _mostrar_teste(ultimo: String) -> void:
-	var nomes := ["ESQUERDA (Z)", "MEIO-ESQ. (X)", "CENTRO (C)", "MEIO-DIR. (V)", "DIREITA (B)"]
-	var txt := "TESTE DOS SENSORES\nrole a bola em cada posição\n\n"
+	var nomes := ["S1 ESQUERDA (Z)", "S2 MEIO-ESQ. (X)", "S3 CENTRO (C)", "S4 MEIO-DIR. (V)", "S5 DIREITA (B)"]
+	var ao_vivo := ArduinoBridge.sensores
+	var txt := "TESTE DOS SENSORES\nrole a bola (ou passe a mão) em cada um\n\n"
 	for i in 5:
-		txt += "%s%s:  %d\n" % ["▶ " if ["Z", "X", "C", "V", "B"][i] == ultimo else "", nomes[i], _teste_contagem[i]]
+		var agora := ""
+		if ao_vivo.length() == 5:
+			agora = "   ● BOLA" if ao_vivo[i] == "1" else "   ○ livre"
+		txt += "%s%s:  %d%s\n" % ["▶ " if ["Z", "X", "C", "V", "B"][i] == ultimo else "", nomes[i], _teste_contagem[i], agora]
+	if ArduinoBridge.completo():
+		txt += "\nArduino conectado: ● aparece enquanto a bola tapa o sensor."
+	else:
+		txt += "\nSem o Arduino (contando os botões da placa).\n%s" % ArduinoBridge.status
 	txt += "\nSTART ou CONFIGURAÇÃO para sair"
 	_teste_rotulo.text = txt
 	if ultimo != "":

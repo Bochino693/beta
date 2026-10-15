@@ -3,9 +3,9 @@
     [ValidateSet(1, -1, 0)][int]$Giro = 1,
     # Instala na TV Box pelo adb depois de gerar (TV Box ligada no adb)
     [switch]$Instalar,
-    # Leva o plugin USB do Arduino (LEDs) dentro do APK
+    # (antigo: nao precisa mais - o Arduino vai sempre no APK)
     [switch]$ComLeds,
-    # Gera direto o APK sem a camera (sem Gradle; mais rapido)
+    # Gera o APK sem a camera (o Arduino continua)
     [switch]$SemCamera,
     # Caminho do Godot 4.6.1 (opcional: se nao achar, o script baixa)
     [string]$CaminhoGodot = "",
@@ -21,8 +21,10 @@
 #    (licencas, platform-tools, build-tools 35.0.1, plataforma 35, NDK) e os
 #    templates Android do Godot (so a parte Android, ~300 MB, nao o pacote
 #    inteiro de 1,2 GB);
-#  - gera o APK COM a camera USB (plugin StrikeCamera, build Gradle); se o
-#    Gradle falhar, gera sozinho o APK SEM a camera (o jogo funciona igual);
+#  - gera o APK pelo Gradle COM o Arduino (plugin StrikeSerial: os 5
+#    sensores, a porta das bolas e o botao de configuracao) e a camera USB
+#    (plugin StrikeCamera); se a camera atrapalhar, tenta sem ela. So se o
+#    Gradle nao funcionar de jeito nenhum sai um APK sem os dois (e avisa);
 #  - nenhum passo fica parado para sempre: cada programa tem tempo-limite.
 # 1a vez: de 15 a 40 min (downloads). Depois: 2 a 5 min.
 # Historico completo: build\android\GERACAO-COMPLETA.log (envie se falhar).
@@ -855,9 +857,10 @@ function Copiar-Projeto {
     Ok "projeto copiado para $($script:Copia)"
 }
 
-# Liga/desliga a camera (Gradle + plugin) e o giro NA COPIA do projeto.
-function Preparar-Projeto([bool]$Camera, [bool]$Leds) {
-    $gradle = $Camera -or $Leds
+# Liga/desliga o Gradle, os plugins (Arduino e camera) e o giro NA COPIA
+# do projeto.
+function Preparar-Projeto([bool]$Gradle, [bool]$Camera) {
+    $gradle = $Gradle
     $utf8 = New-Object Text.UTF8Encoding($false)
     $presets = Join-Path $script:Copia "export_presets.cfg"
     $t = [IO.File]::ReadAllText($presets)
@@ -872,15 +875,16 @@ function Preparar-Projeto([bool]$Camera, [bool]$Leds) {
     # imagem de abertura (logo Lazer & Sport) ja girada como a tela do jogo
     if ($Giro -eq 1) { $s = "1" } elseif ($Giro -eq -1) { $s = "m1" } else { $s = "0" }
     $c = [Regex]::Replace($c, '(?m)^boot_splash/image\.android=[^\r\n]*', "boot_splash/image.android=""res://ui/splash_giro_$s.png""")
-    # plugins Android: cada um so entra no APK se estiver ligado
+    # plugins Android: so entram no APK pelo Gradle. O do Arduino vai
+    # sempre (sem ele a maquina nao le os sensores); o da camera, se pedido.
     $plugins = @()
     $ignCamera = Join-Path $script:Copia "addons\StrikeCamera\.gdignore"
-    $ignLeds = Join-Path $script:Copia "addons\DragonUsbSerial\.gdignore"
+    $ignSerial = Join-Path $script:Copia "addons\StrikeSerial\.gdignore"
     Apagar (Join-Path $script:Copia "addons\.gdignore")
-    if ($Camera) { $plugins += '"res://addons/StrikeCamera/plugin.cfg"'; Apagar $ignCamera }
+    if ($Gradle -and $Camera) { $plugins += '"res://addons/StrikeCamera/plugin.cfg"'; Apagar $ignCamera }
     else { [IO.File]::WriteAllText($ignCamera, "") }
-    if ($Leds) { $plugins += '"res://addons/DragonUsbSerial/plugin.cfg"'; Apagar $ignLeds }
-    else { [IO.File]::WriteAllText($ignLeds, "") }
+    if ($Gradle) { $plugins += '"res://addons/StrikeSerial/plugin.cfg"'; Apagar $ignSerial }
+    else { [IO.File]::WriteAllText($ignSerial, "") }
     $c = [Regex]::Replace($c, '(?ms)^\[editor_plugins\]\s*enabled=PackedStringArray\([^)]*\)\s*', '')
     if ($plugins.Count -gt 0) {
         $c = $c.TrimEnd() + "`n`n[editor_plugins]`n`nenabled=PackedStringArray(" + ($plugins -join ", ") + ")`n"
@@ -975,14 +979,15 @@ function Parar-Gradle {
 
 # ---------------------------------------------------------------- exportar
 
-function Exportar([bool]$Camera) {
-    Preparar-Projeto $Camera $ComLeds.IsPresent
-    $gradle = $Camera -or $ComLeds
+function Exportar([bool]$Gradle, [bool]$Camera) {
+    Preparar-Projeto $Gradle $Camera
+    $gradle = $Gradle
     $saida = Pasta (Join-Path $script:Trabalho "saida")
     Get-ChildItem -LiteralPath $saida -Force | Remove-Item -Recurse -Force
     $apk = Join-Path $saida "StrikeKids.apk"
-    $nome = "exportar-sem-camera.log"
-    if ($gradle) { $nome = "exportar-com-camera.log" }
+    $nome = "exportar-sem-gradle.log"
+    if ($gradle -and $Camera) { $nome = "exportar-gradle-com-camera.log" }
+    elseif ($gradle) { $nome = "exportar-gradle-sem-camera.log" }
     $log = Join-Path $script:Logs $nome
     $limite = 40
     if ($gradle) { $limite = 90 }
@@ -1027,7 +1032,9 @@ function Principal {
         throw "project.godot nao encontrado. Extraia o ZIP inteiro e rode o GERAR_APK.bat de dentro da pasta strike-kids."
     }
     if (-not [Environment]::Is64BitOperatingSystem) { throw "este gerador precisa do Windows 64 bits." }
-    $script:QuerGradle = (-not $SemCamera) -or $ComLeds
+    # o Gradle e sempre preciso: o plugin do Arduino (sensores, porta e
+    # botao de configuracao) so entra no APK por ele
+    $script:QuerGradle = $true
     if ($Instalar) { $script:TotalEtapas = 9 }
 
     Titulo "Pasta de trabalho"
@@ -1066,25 +1073,34 @@ function Principal {
     Titulo "Exportando o APK"
     $apk = $null
     $comCamera = $false
+    $comArduino = $false
     $motivo = ""
     if ($script:QuerGradle) {
         Instalar-ModeloGradle
         $motivo = Preparar-Gradle
         if (-not $motivo) {
-            Info "Exportando COM a camera (Godot + Gradle). Na 1a vez o Gradle ainda baixa"
-            Info "bibliotecas e trabalha uns minutos sem escrever nada: e normal."
-            $apk = Exportar (-not $SemCamera)
-            if (-not $apk -and -not $SemCamera) {
+            Info "Exportando COM o Arduino e a camera (Godot + Gradle). Na 1a vez o Gradle"
+            Info "ainda baixa bibliotecas e trabalha uns minutos sem escrever nada: e normal."
+            $querCamera = -not $SemCamera
+            $apk = Exportar $true $querCamera
+            if (-not $apk -and $querCamera) {
                 # a libuvc (webcam direto pelo USB) vem do JitPack: se ele
                 # falhar, a camera continua pela camera do sistema e Camera2
                 Mostrar-Motivo $script:UltimoLogExportacao
                 Aviso "o build com a UVC direta falhou; tentando a camera sem ela..."
                 $env:STRIKE_SEM_UVC = "1"
-                $apk = Exportar $true
+                $apk = Exportar $true $true
                 if ($apk) { $script:SemUvc = $true }
             }
+            if (-not $apk -and $querCamera) {
+                Mostrar-Motivo $script:UltimoLogExportacao
+                Aviso "o build com a camera falhou; tentando so com o Arduino..."
+                $querCamera = $false
+                $apk = Exportar $true $false
+            }
             if ($apk) {
-                $comCamera = -not $SemCamera
+                $comArduino = $true
+                $comCamera = $querCamera
                 [IO.File]::WriteAllText((Join-Path $env:GRADLE_USER_HOME "strikekids-ok.txt"), (Get-Date).ToString("s"))
             } else {
                 $motivo = "o build Gradle falhou"
@@ -1093,12 +1109,11 @@ function Principal {
         }
         Parar-Gradle
         if (-not $apk) {
-            if ($ComLeds) { throw "o APK com os LEDs precisa do Gradle, que falhou: $motivo" }
-            Aviso "$motivo. Gerando o APK SEM a camera (o jogo funciona igual, sem as fotos)..."
+            Aviso "$motivo. Gerando um APK SEM o Arduino e SEM a camera: os sensores, a porta e o botao de configuracao NAO funcionam nele (so a Zero Delay). Para a maquina, use o APK pronto que veio no pacote."
         }
     }
     if (-not $apk) {
-        $apk = Exportar $false
+        $apk = Exportar $false $false
         if (-not $apk) {
             Mostrar-Motivo $script:UltimoLogExportacao
             throw "o Godot nao gerou o APK (veja $($script:UltimoLogExportacao))."
@@ -1118,6 +1133,13 @@ function Principal {
     Write-Host "  Arquivo: $final"
     Write-Host ("  Tamanho: {0:N1} MB   (levou {1} min)" -f ($tamanho / 1MB), $minutos)
     Write-Host "  SHA256:  $hash"
+    if ($comArduino) {
+        Write-Host "  Arduino (5 sensores, porta das bolas, botao de configuracao, LEDs): INCLUIDO." -ForegroundColor Green
+        Write-Host "  Na 1a vez a TV Box pergunta sobre o Arduino no USB: marque 'Usar por padrao' e OK."
+    } else {
+        Write-Host "  Arduino: NAO incluido (sem o Gradle). Os sensores so funcionam pela Zero Delay." -ForegroundColor Red
+        Write-Host "  Para a maquina com o Arduino, use o APK pronto do pacote (StrikeKids_v5.0_TVBox.apk)." -ForegroundColor Red
+    }
     if ($comCamera) {
         Write-Host "  Camera USB: INCLUIDA (ligue a webcam na TV Box; teste no menu do operador > TESTE DA CAMERA)." -ForegroundColor Green
         if ($script:SemUvc) { Write-Host "  (sem a UVC direta: a webcam abre pela camera do sistema/Camera2)" -ForegroundColor Yellow }

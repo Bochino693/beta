@@ -334,6 +334,7 @@ func _jogada_recebida(zona: String) -> void:
 # ================================================================ abertura e atração
 func _abertura() -> void:
 	estado = E.ABERTURA
+	ArduinoBridge.porta(false)
 	var s := _novo_seq()
 	hud.atracao(false)
 	hud.mostrar_sensores(false)
@@ -424,6 +425,7 @@ func _abertura() -> void:
 ## pesadas; mostra a média de quadros por segundo e a qualidade recomendada.
 func _teste_desempenho() -> void:
 	estado = E.TESTE
+	ArduinoBridge.porta(false)
 	_novo_seq()
 	hud.atracao(false)
 	_posicionar_atracao()
@@ -434,6 +436,10 @@ func _teste_desempenho() -> void:
 
 func _atracao() -> void:
 	estado = E.ATRACAO
+	# a porta das bolas fica FECHADA na espera; o Arduino pode pedir a
+	# permissão USB aqui (janela do Android só na espera)
+	ArduinoBridge.porta(false)
+	ArduinoBridge.na_espera(true)
 	demo = false
 	Sons.mudo_demo = false
 	Sons.atualizar_volume()
@@ -491,6 +497,10 @@ func _atualizar_atracao() -> void:
 # ================================================================ escolha
 func _escolher_jogadores() -> void:
 	estado = E.JOGADORES
+	# START valeu: a porta das bolas ABRE (a criança já escolhe o amigo
+	# rolando a bola)
+	ArduinoBridge.porta(true)
+	ArduinoBridge.na_espera(false)
 	_novo_seq()
 	_limpar()
 	demo = false
@@ -1231,6 +1241,8 @@ func _quadro(t: float, com_pinos: bool) -> Dictionary:
 # ================================================================ fim de jogo
 func _fim_de_jogo() -> void:
 	estado = E.FIM
+	# fim da partida: a porta FECHA (as bolas da última jogada voltam e ficam)
+	ArduinoBridge.porta(false)
 	_novo_seq()
 	_fim_t = 0.0
 	hud.mostrar_placar(false)

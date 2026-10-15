@@ -2,7 +2,8 @@ STRIKE KIDS - BOLICHE INFANTIL 3D (Bob & Mia)
 =============================================
 Godot 4.6.1 - renderizador Compatibility (OpenGL ES 3) - fisica Jolt
 TV Box Android (Proeletronic SmartPro 4K, 2 GB; ou a Pro Ultra do Dragon
-Bowling), placa Zero Delay, LEDs no Arduino e camera USB (Sigma).
+Bowling), ARDUINO (5 sensores, porta das bolas, botao de configuracao e
+LEDs), camera USB (Sigma) e, se quiser, a placa Zero Delay.
 
 
 O QUE E
@@ -129,11 +130,16 @@ deixe os 3 pedacos e o JUNTAR_StrikeKids_APK_TVBox.bat na mesma pasta e
 de 2 cliques nele: sai o StrikeKids_v5.0_TVBox.apk. Copie para um
 pendrive e instale na TV Box pelo gerenciador de arquivos (ou
 adb install -r StrikeKids_v5.0_TVBox.apk).
+  - JA VEM COM O ARDUINO (plugin StrikeSerial): os 5 sensores, a porta
+    das bolas, o botao de configuracao e os LEDs (ver "ARDUINO DA
+    MAQUINA"). Grave o arduino/strike_kids no Arduino antes.
   - JA VEM COM A CAMERA (plugin StrikeCamera): camera do sistema e
     Camera2, o jeito que a maioria das TV Box mostra a webcam USB. A UVC
     direta (libuvc, para TV Box que nao mostra a webcam como camera) so
     vem no APK feito pelo GERAR_APK.bat.
   - Assinado com a chave do projeto: instala por cima do anterior.
+  - Na 1a vez o Android pergunta da CAMERA (Permitir) e do Arduino no USB
+    (marque "Usar por padrao" e OK).
 
 
 COMO GERAR O APK
@@ -160,12 +166,11 @@ Depois: 2 a 5 minutos. Precisa de internet so na primeira vez.
 Nao clique dentro da janela (o Windows pausa o texto quando se seleciona;
 se acontecer, aperte ESC).
 
-  GERAR_APK.bat            -> APK-Pronto\StrikeKids.apk (com camera)
+  GERAR_APK.bat            -> APK-Pronto\StrikeKids.apk (Arduino + camera)
   GERAR_APK.bat -Giro -1   -> se a imagem ficar de cabeca para baixo
   GERAR_APK.bat -Giro 0    -> monitor ja em pe / TV deitada (sem giro)
   GERAR_APK.bat -Instalar  -> instala na TV Box pelo adb
-  GERAR_APK.bat -ComLeds   -> com o plugin USB dos LEDs (Arduino)
-  GERAR_APK.bat -SemCamera -> sem a camera (mais rapido, sem Gradle)
+  GERAR_APK.bat -SemCamera -> sem a camera (o Arduino continua)
   GERAR_APK.bat -CaminhoGodot "D:\Godot\Godot_v4.6.1-stable_win64.exe"
   GERAR_APK.bat -PastaTrabalho D:\SKB  -> outra pasta de trabalho
 
@@ -219,10 +224,82 @@ Funciona do mesmo jeito do jogo de soco:
      camera do jogo). Com a TV Box na rede: CAMERA_TVBOX.bat 192.168.0.50
 
 
-BOTOES DA ZERO DELAY (mesmo mapa do Dragon Bowling)
----------------------------------------------------
-A placa vai no MODO TECLADO, como no Dragon Bowling: cada botao/sensor
-manda uma tecla. Os sensores da pista sao ligados nos botoes da placa.
+ARDUINO DA MAQUINA: 5 SENSORES, PORTA DAS BOLAS E BOTAO DE CONFIGURACAO
+-----------------------------------------------------------------------
+Os 5 sensores da pista, o botao de configuracao e a trava da porta das
+bolas ficam num Arduino (Uno, Nano - original ou clone CH340 -, Pro Mini
+5 V, Mega ou Leonardo) ligado num USB da TV Box. O firmware esta em
+arduino/strike_kids/strike_kids.ino.
+
+LIGACOES (padrao; da para mudar no comeco do .ino)
+  Sensores, da ESQUERDA para a DIREITA (olhando da crianca para a tela):
+    S1 = D2    S2 = D3    S3 = D4 (centro)    S4 = D5    S5 = D7
+    Sensor optico/infravermelho (saida NPN), chave ou micro-switch: o fio
+    de sinal no pino e o GND no GND do Arduino (o pino ja tem pull-up).
+    Sensor de 12 V: alimente pela fonte de 12 V, GND comum com o Arduino,
+    e so o fio de SINAL no pino.
+  Botao de CONFIGURACAO: A0 e GND (entra e sai do menu do operador)
+  START (opcional, a Zero Delay tambem vale): A1 e GND
+  Moedeiro / FICHA (opcional): A2 e GND
+  TRAVA DA PORTA:
+    SERVO no D9 (no Mega: D11). Alimente o servo por uma fonte de 5-6 V
+      propria (servo grande puxa muita corrente) e ligue o GND dela no
+      GND do Arduino. Fechada = 0 grau, aberta = 90 graus
+      (SERVO_FECHADA / SERVO_ABERTA no .ino).
+    ou RELE no D8 (modulo rele -> trava solenoide, motor ou eletroima).
+      O modulo comum liga com LOW (RELE_LIGA_EM_LOW = 1).
+      ATENCAO: trava SOLENOIDE comum nao pode ficar ligada muito tempo;
+      se a sua for assim, ponha RELE_TEMPO_MAX_S = 5 (liga 5 s e solta).
+  Fita de LED WS2812 (NeoPixel), opcional: D6 (60 LEDs; NUM_LEDS no .ino)
+  LED da placa (D13): pisca a cada sensor/botao acionado.
+
+GRAVAR O ARDUINO (uma vez)
+  1. Instale a IDE do Arduino no PC e, nela, a biblioteca "Adafruit
+     NeoPixel" (Ferramentas > Gerenciar bibliotecas). Sem fita de LED:
+     troque USAR_LEDS para 0 no comeco do .ino e nao precisa dela.
+  2. Abra arduino/strike_kids/strike_kids.ino, escolha a placa e a porta
+     (Nano clone: "Arduino Nano" e, se nao gravar, processador
+     "ATmega328P (Old Bootloader)") e clique em Carregar.
+  3. Teste no PC: Monitor Serial a 9600 -> aparece OLA:STRIKE_KIDS:1;
+     passe a mao num sensor -> S:1 ... S:5; o botao -> CFG.
+
+NA TV BOX
+  - Ligue o Arduino num USB da TV Box (o Arduino e alimentado por ele).
+  - Na 1a vez o Android pergunta "Permitir que o app Strike Kids acesse
+    o USB...?": marque "USAR POR PADRAO" e OK. Fica guardado; ao ligar o
+    Arduino depois, o proprio Android abre o jogo.
+  - A PORTA fica FECHADA na espera e ABRE logo depois do START (a crianca
+    ja escolhe o amigo rolando a bola). No fim da partida ela FECHA (as
+    bolas da ultima jogada voltam e ficam). No menu do operador fica
+    fechada. Se o jogo sumir (cabo solto, TV Box desligada) com a porta
+    aberta, o Arduino fecha sozinho em 15 s.
+  - O botao de CONFIGURACAO entra no menu do operador; apertado de novo,
+    volta ao jogo (dentro de um teste, sai do teste).
+  - MENU DO OPERADOR, para a instalacao:
+      TESTE DOS SENSORES: cada sensor mostra ao vivo "o livre" / "* BOLA"
+        e conta as passadas - para alinhar os sensores.
+      CALIBRAR SENSORES (pista vazia): o nivel de cada sensor sem bola
+        vira o "repouso" (serve para sensor normalmente fechado ou
+        aberto). Fica gravado no Arduino.
+      Sensores invertidos: ligou da direita para a esquerda? Troque aqui.
+      TESTE DA PORTA: C ou START abre/fecha, com a confirmacao do Arduino.
+      Porta invertida: abriu quando devia fechar? Troque aqui.
+      TESTE DA CAMERA: ver "FOTO DAS CRIANCAS NA TV BOX".
+    Sem o Arduino, os testes mostram o porque (USB, chip, permissao).
+  - No PC (versao Windows) nao tem Arduino: o teclado faz tudo
+    (A S D F G = sensores, 1 = START, 9 = configuracao).
+
+TESTES DO FIRMWARE (para quem mexer no .ino, no Linux): tools/testes/
+arduino/rodar.sh compila para Uno, Nano, Mega e Leonardo e roda o
+firmware num ATmega328P simulado (simavr), conferindo sensores, botoes,
+moedeiro, servo, rele, calibracao e o fechamento sozinho.
+
+
+BOTOES DA ZERO DELAY (opcional; mesmo mapa do Dragon Bowling)
+-------------------------------------------------------------
+Com o Arduino ela nao e mais necessaria, mas continua valendo junto
+(por exemplo, so para o START). No MODO TECLADO cada botao manda uma
+tecla.
 
   STR = START (1 / Espaco)        SELECT = credito (5)
   Quadrado = sensor ESQUERDA (A)  X = MEIO-ESQUERDA (S)
@@ -251,7 +328,8 @@ C ou START escolhe, CONFIGURACAO volta ao jogo.
   Qualidade grafica (automatica/alta/media/baixa)
   Mostrar desempenho na tela (QPS) - TESTE DE DESEMPENHO (20 s)
   Giro da tela (1, -1, 0)
-  Teste dos sensores (conta cada sensor acionado)
+  Teste dos sensores (ao vivo, com o Arduino) - Calibrar sensores
+  Sensores invertidos - Teste da porta - Porta invertida
   Foto das criancas (camera) - Teste da camera
   Zerar recordes - Restaurar padrao de fabrica
   Contadores: partidas, strikes, moedas, estado do Arduino e da camera
@@ -369,20 +447,14 @@ Com 2 GB de memoria o jogo cabe folgado. A qualidade grafica AUTOMATICA
 (menu do operador) baixa a resolucao do 3D sozinha se a placa for fraca.
 
 
-LEDS (ARDUINO) - igual ao Dragon Bowling
-----------------------------------------
-Mesmo protocolo (READY/PONG:DRAGON_BOWLING:1) e mesmos comandos: MENU,
-BLUE (vez do Bob), RED (vez da Mia), IDLE, NORMAL, STRIKE, SPARE, MISS.
-O sketch esta em arduino/leds_boliche. Para os LEDs no Android, gere o
-APK com:
-
-  GERAR_APK.bat -ComLeds
-
-Ele liga sozinho o plugin USB do Arduino, instala o modelo de build
-Android e usa Gradle (na primeira vez baixa as dependencias: precisa de
-internet). Sem -ComLeds o APK sai sem o plugin (o jogo funciona igual,
-so sem os LEDs). No primeiro encaixe do Arduino o Android pergunta se o
-Strike Kids pode usar o aparelho: marque "Usar por padrao" e confirme.
+LEDS (fita no Arduino da maquina)
+---------------------------------
+O mesmo Arduino dos sensores (arduino/strike_kids) acende a fita: MENU
+(arco-iris), BLUE (vez do Bob), RED (vez da Mia), IDLE, NORMAL, STRIKE,
+SPARE, MISS - os mesmos efeitos do Dragon Bowling. O APK pronto e o do
+GERAR_APK ja levam o plugin USB (StrikeSerial, driver proprio: nao baixa
+nada de fora). O firmware antigo so de LEDs (leds_boliche) ainda conecta,
+mas sem sensores, porta e botao: grave o strike_kids.
 
 
 SONS E VOZES
@@ -401,7 +473,9 @@ PASTAS
               animacoes, pinos, bola, jogada, placar, camera_cine, hud...)
   autoload/   Tela (responsiva + giro), Ajustes, Sons, ArcadeControls,
               ArduinoBridge, Fotos (camera: plugin Android, ffmpeg no PC)
-  addons/     StrikeCamera (camera USB no Android), DragonUsbSerial (LEDs)
+  addons/     StrikeCamera (camera USB no Android), StrikeSerial (Arduino:
+              sensores, porta, botao e LEDs pelo USB)
+  arduino/    strike_kids/ (firmware do Arduino da maquina)
   dados/      tabela de jogadas calibrada (vai no APK)
   modelos/    mascotes, pinos e cenarios 3D (gerados pelas ferramentas)
   texturas/ ui/ fontes/ sons/ shaders/

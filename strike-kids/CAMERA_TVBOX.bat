@@ -67,8 +67,8 @@ echo [4/4] Gravando o relatorio...
 >> "%SAIDA%" echo ===== PERMISSOES DO JOGO
 "%ADB%" shell "dumpsys package %PKG% | grep -i -E 'CAMERA|granted' | head -30" >> "%SAIDA%" 2>&1
 >> "%SAIDA%" echo.
->> "%SAIDA%" echo ===== O QUE O JOGO TENTOU (etiqueta StrikeCamera)
-"%ADB%" logcat -d -v time -s StrikeCamera:* godot:I UVCCamera:* libUVCCamera:* CameraService:W AndroidRuntime:E >> "%SAIDA%" 2>&1
+>> "%SAIDA%" echo ===== O QUE O JOGO TENTOU (camera: StrikeCamera, Arduino: StrikeSerial)
+"%ADB%" logcat -d -v time -s StrikeCamera:* StrikeSerial:* godot:I UVCCamera:* libUVCCamera:* CameraService:W AndroidRuntime:E >> "%SAIDA%" 2>&1
 
 echo.
 echo PRONTO. O relatorio esta em:
