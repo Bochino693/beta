@@ -71,7 +71,6 @@ var _tema_base := -1          # cada partida começa num cenário diferente
 var _qualidade := "media"
 ## resolução da imagem 3D: fator automático (0,6 a 1) sobre o LADO_3D
 var _fator := 1.0
-var _fator_teto := 1.0
 var _adaptar := true
 var _fps_t0 := 0
 var _fps_q := 0
@@ -1250,13 +1249,11 @@ func _medir_fps(_delta: float) -> void:
 	_fps_ruins = 0
 	if _fator > 0.65:
 		_fator = maxf(0.6, _fator - 0.1)
-		_fator_teto = _fator
 		_tela_mudou(Tela.tamanho())
 		print("Imagem 3D menor: %d%% (%d quadros/s)" % [int(_fator * 100), int(fps)])
 	elif str(Ajustes.valor("video", "qualidade")) == "auto" and _qualidade != "baixa":
 		_qualidade = "media" if _qualidade == "alta" else "baixa"
 		_fator = 1.0
-		_fator_teto = 1.0
 		mundo.aplicar_qualidade(_qualidade)
 		_qualidade_viewport()
 		_tela_mudou(Tela.tamanho())

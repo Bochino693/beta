@@ -1109,7 +1109,7 @@ func tela_fim(ligado: bool, dados := {}) -> void:
 	titulo.texture = Materiais.textura("fim_de_jogo")
 	titulo.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	titulo.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	var tw_l: float = minf(T.x * 0.46, 500 * u) if retrato else 340 * u
+	var tw_l: float = minf(T.x * 0.42, 440 * u) if retrato else 340 * u
 	titulo.size = Vector2(tw_l, tw_l * 0.61)
 	titulo.position = Vector2((T.x - tw_l) / 2, (40 if retrato else 14) * u)
 	titulo.pivot_offset = titulo.size / 2
@@ -1120,8 +1120,8 @@ func tela_fim(ligado: bool, dados := {}) -> void:
 	var area_c: Rect2
 	var area_q: Rect2
 	if retrato:
-		area_c = Rect2(36 * u, y0, T.x - 72 * u, 520 * u)
-		area_q = Rect2(36 * u, y0 + 550 * u, T.x - 72 * u, y_botao - (y0 + 550 * u) - 26 * u)
+		area_c = Rect2(36 * u, y0, T.x - 72 * u, 590 * u)
+		area_q = Rect2(36 * u, y0 + 620 * u, T.x - 72 * u, y_botao - (y0 + 620 * u) - 26 * u)
 	else:
 		var meio := T.x * 0.5
 		area_c = Rect2(30 * u, y0, meio - 50 * u, y_botao - y0 - 20 * u)
@@ -1156,7 +1156,7 @@ func _cartao_fim(j: Dictionary, i: int, n: int, area: Rect2, venceu: bool) -> vo
 	var gap := 26 * u
 	var w: float = minf((area.size.x - gap * (n - 1)) / n, 620 * u)
 	var d: float = minf(w * (0.5 if n == 1 else 0.56), 250 * u)
-	var h: float = minf(area.size.y - d * 0.42, 470 * u)
+	var h: float = minf(area.size.y - d * 0.42, 472 * u)
 	var x := area.position.x + (area.size.x - (w * n + gap * (n - 1))) / 2 + i * (w + gap)
 	var y := area.position.y + d * 0.42
 	var c := Painel3D.new(cor, 44, 18, 8)
@@ -1191,17 +1191,17 @@ func _cartao_fim(j: Dictionary, i: int, n: int, area: Rect2, venceu: bool) -> vo
 	nome.size = Vector2(w, 58 * u)
 	nome.position = Vector2(0, yy)
 	c.add_child(nome)
-	var pts := rotulo("0", 104 * u, CREME, 20 * u, MARINHO, fonte_titulo)
-	pts.size = Vector2(w, 116 * u)
-	pts.position = Vector2(0, yy + 48 * u)
+	var pts := rotulo("0", 96 * u, CREME, 20 * u, MARINHO, fonte_titulo)
+	pts.size = Vector2(w, 100 * u)
+	pts.position = Vector2(0, yy + 44 * u)
 	c.add_child(pts)
 	var alvo := int(j["pontos"])
 	var tw2 := create_tween()
 	tw2.tween_interval(0.8 + i * 0.2)
 	tw2.tween_method(func(v: float): pts.text = str(int(v)), 0.0, float(alvo), 1.4).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 	var leg := rotulo("PONTOS", 30 * u, Color.WHITE, 7 * u)
-	leg.size = Vector2(w, 38 * u)
-	leg.position = Vector2(0, yy + 150 * u)
+	leg.size = Vector2(w, 34 * u)
+	leg.position = Vector2(0, yy + 136 * u)
 	c.add_child(leg)
 	var ne := int(j.get("estrelas", 1))
 	for k in 3:
@@ -1209,24 +1209,27 @@ func _cartao_fim(j: Dictionary, i: int, n: int, area: Rect2, venceu: bool) -> vo
 		e.texture = Materiais.textura("estrela_placar" if k < ne else "estrela_vazia")
 		e.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		e.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		var es := 70 * u if k == 1 else 58 * u
+		var es := 64 * u if k == 1 else 54 * u
 		e.size = Vector2(es, es)
-		e.position = Vector2(w / 2 - es / 2 + (k - 1) * 78 * u, yy + 190 * u - (8 * u if k == 1 else 0.0))
+		e.position = Vector2(w / 2 - es / 2 + (k - 1) * 72 * u, yy + 176 * u - (6 * u if k == 1 else 0.0))
 		e.pivot_offset = e.size / 2
 		e.scale = Vector2.ZERO
 		c.add_child(e)
 		var tw3 := create_tween()
 		tw3.tween_interval(2.2 + k * 0.25 + i * 0.1)
 		tw3.tween_property(e, "scale", Vector2.ONE, 0.35).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	# lugar no dia
+	# lugar no dia (e quem venceu a partida de 2)
 	var pos := int(j.get("posicao", 0))
-	if pos > 0:
-		var fita_h := 62 * u
-		var fita := Painel3D.new(_cor_medalha(pos), 28, 8, 5)
-		fita.size = Vector2(w * 0.86, fita_h)
-		fita.position = Vector2(w * 0.07, h - fita_h - 18 * u)
+	if pos > 0 or venceu:
+		var fita_h := 58 * u
+		var fita := Painel3D.new(DESTAQUE if venceu else _cor_medalha(pos), 28, 8, 5)
+		fita.size = Vector2(w * 0.88, fita_h)
+		fita.position = Vector2(w * 0.06, h - fita_h - 16 * u)
 		c.add_child(fita)
 		var txt := "%dº LUGAR HOJE!" % pos if pos <= 3 else "%dº LUGAR HOJE" % pos
+		if venceu:
+			txt = "VENCEU!  %dº HOJE" % pos if pos > 0 else "VENCEU!"
+			pos = mini(pos, 3) if pos > 0 else 1
 		var lf := rotulo(txt, 34 * u, MARINHO if pos <= 3 else Color.WHITE, 0 if pos <= 3 else 7 * u, MARINHO, fonte_titulo)
 		lf.size = Vector2(w * 0.86, fita_h - 6 * u)
 		fita.add_child(lf)
@@ -1237,19 +1240,7 @@ func _cartao_fim(j: Dictionary, i: int, n: int, area: Rect2, venceu: bool) -> vo
 		tw5.tween_interval(2.8 + i * 0.15)
 		tw5.tween_property(fita, "scale", Vector2.ONE, 0.4).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	if venceu:
-		var v := TextureRect.new()
-		v.texture = Materiais.textura("venceu")
-		v.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		v.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		v.size = Vector2(w * 0.8, w * 0.23)
-		v.position = Vector2(w * 0.1, yy + 96 * u)
-		v.pivot_offset = v.size / 2
-		v.scale = Vector2.ZERO
-		v.rotation = -0.08
-		c.add_child(v)
-		var tw4 := create_tween()
-		tw4.tween_interval(2.9)
-		tw4.tween_property(v, "scale", Vector2.ONE, 0.4).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		c.realcar(0.55)
 
 
 func _cor_medalha(pos: int) -> Color:
