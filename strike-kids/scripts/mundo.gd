@@ -145,6 +145,10 @@ func aplicar_tema(nome: String) -> void:
 	mat_boca_luz.set_shader_parameter("emissao", (c["halo"] as Color) * 0.9)
 	mat_placa.set_shader_parameter("tinta", c["placa"])
 	var portal: Array = c["portal"]
+	# a pista: neon das bordas e o reflexo do portal no verniz
+	mat_pista.set_shader_parameter("cor_luz", c.get("neon", portal[0]))
+	mat_pista.set_shader_parameter("cor_reflexo_a", portal[0])
+	mat_pista.set_shader_parameter("cor_reflexo_b", portal[1])
 	mat_portal.set_shader_parameter("cor_a", portal[0])
 	mat_portal.set_shader_parameter("cor_b", portal[1])
 	mat_gabinete.set_shader_parameter("tinta", c["gabinete"])
@@ -972,6 +976,10 @@ func _process(delta: float) -> void:
 	_luz = move_toward(_luz, _luz_alvo, delta * 2.5)
 	mat_pista.set_shader_parameter("luz", _luz)
 	mat_pista.set_shader_parameter("fase", fposmod(_t * 2.2, 1.0))
+	mat_pista.set_shader_parameter("fase_lenta", fposmod(_t * 0.75, 1.0))
+	mat_pista.set_shader_parameter("pulso", 0.5 + 0.5 * sin(_t * 3.1))
+	if mat_piso:
+		mat_piso.set_shader_parameter("pulso", 0.5 + 0.5 * sin(_t * 3.1))
 	mat_pista.set_shader_parameter("bola_z", bola_z)
 	mat_lampadas.set_shader_parameter("fase", fposmod(_t * 0.9, 100.0))
 	# balão da marca: flutua — sobe e desce, vai e volta e balança

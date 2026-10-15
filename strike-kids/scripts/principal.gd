@@ -76,19 +76,24 @@ var _demo_vez := 0
 var _ultimo_som_pino := 0
 var _tema_base := -1          # cada partida começa num cenário diferente
 var _qualidade := "media"
-## resolução da imagem 3D: fator automático (0,6 a 1) sobre o LADO_3D
+## resolução da imagem 3D: fator (70% a 100%) sobre o LADO_3D — automático
+## (desce se a máquina não segura 60 quadros e VOLTA A SUBIR quando sobra
+## folga) ou travado pelo operador ("Nitidez do 3D" no menu)
 var _fator := 1.0
 var _adaptar := true
 var _fps_t0 := 0
 var _fps_q := 0
 var _fps_ruins := 0
+var _fps_bons := 0
+var _teto := 1.0            # fator que já se mostrou pesado demais...
+var _teto_ate := 0          # ...até esta hora (ms): não tenta subir acima dele
 var _mouse_parado := 0.0
 
-## Lado menor da IMAGEM 3D, em pixels, em cada qualidade. O 3D é desenhado
-## nesse tamanho fixo e ESTICADO SOZINHO até a tela inteira (TV Box 4K ou
-## 1080p, PC, monitor em pé) — a interface continua nítida por cima.
-## Se a placa de vídeo não segurar 60 quadros, o fator abaixa sozinho.
-const LADO_3D := {"alta": 1440, "media": 640, "baixa": 540}
+## Lado menor da IMAGEM 3D, em pixels, em cada qualidade (nunca maior que a
+## própria tela): NATIVO — 3D tão nítido quanto a interface. Na TV Box
+## 1080p o 3D sai em 1080 px com antisserrilhado 4x; no PC, até 4K.
+const LADO_3D := {"alta": 2160, "media": 1080, "baixa": 720}
+const FATOR_MIN := 0.7
 
 
 func _ready() -> void:
@@ -106,10 +111,18 @@ func _ready() -> void:
 		else:
 			_qualidade = "alta" if OS.get_name() != "Android" else "media"
 	Materiais.contornos_ligados = _qualidade != "baixa"
+	# NITIDEZ: automática (começa do último fator bom desta máquina) ou fixa
+	var nitidez := str(Ajustes.valor("video", "nitidez"))
+	if nitidez == "auto":
+		_fator = clampf(float(Ajustes.valor("video", "fator")), FATOR_MIN, 1.0)
+	else:
+		_adaptar = false
+		_fator = clampf(float(nitidez.trim_suffix("%")) / 100.0, FATOR_MIN, 1.0)
 	for a in OS.get_cmdline_user_args():
-		# testes e vídeos: resolução fixa (a máquina de teste é lenta)
+		# testes e vídeos: resolução fixa e cheia (a máquina de teste é lenta)
 		if a.begins_with("--roteiro") or a.begins_with("--video") or a.begins_with("--instantes") or a.begins_with("--replay-teste"):
 			_adaptar = false
+			_fator = 1.0
 	_montar_3d()
 	hud = Hud.new()
 	add_child(hud)
@@ -201,15 +214,16 @@ func _montar_3d() -> void:
 
 
 ## Antisserrilhado e nível de detalhe conforme a qualidade:
-##   alta  (PC): MSAA 4x, malhas no detalhe máximo;
-##   media (TV Box): sem MSAA, simplifica as malhas de longe mais cedo;
-##   baixa (TV Box fraca): sem MSAA, malhas bem simplificadas.
+##   alta  (PC): MSAA 4x, filtro anisotrópico 4x, malhas no detalhe máximo;
+##   media (TV Box): MSAA 4x, anisotrópico 2x, malhas de longe mais simples;
+##   baixa (TV Box fraca): MSAA 2x, malhas bem simplificadas.
+## Na TV Box (placa Mali) o MSAA é resolvido DENTRO da placa (extensão
+## GL_EXT_multisampled_render_to_texture, que o Godot usa no Android): bordas
+## lisas quase de graça — não é preciso abrir mão dele.
 func _qualidade_viewport() -> void:
-	# MSAA só no PC: na TV Box ele pesa ~30% do quadro (a imagem esticada já
-	# suaviza os serrilhados)
-	vp.msaa_3d = Viewport.MSAA_4X if _qualidade == "alta" else Viewport.MSAA_DISABLED
-	vp.mesh_lod_threshold = {"alta": 1.0, "media": 2.0, "baixa": 4.0}.get(_qualidade, 2.0)
-	vp.anisotropic_filtering_level = Viewport.ANISOTROPY_4X if _qualidade == "alta" else Viewport.ANISOTROPY_DISABLED
+	vp.msaa_3d = Viewport.MSAA_2X if _qualidade == "baixa" else Viewport.MSAA_4X
+	vp.mesh_lod_threshold = {"alta": 1.0, "media": 1.5, "baixa": 3.0}.get(_qualidade, 1.5)
+	vp.anisotropic_filtering_level = {"alta": Viewport.ANISOTROPY_4X, "media": Viewport.ANISOTROPY_2X}.get(_qualidade, Viewport.ANISOTROPY_DISABLED)
 
 
 ## Tamanho da imagem 3D: o lado menor da tela, limitado pelo LADO_3D da
@@ -222,6 +236,10 @@ func _tela_mudou(_t: Vector2) -> void:
 	vp.size = Vector2i(maxi(64, int(round(f.x * k))), maxi(64, int(round(f.y * k))))
 	if hud:
 		hud.layout()
+		# imagem 3D menor que a tela, no PC: realce de bordas ao esticar
+		var m := hud.tela3d.material as ShaderMaterial
+		if m:
+			m.set_shader_parameter("nitidez", 0.5 if _qualidade == "alta" and k < 0.97 else 0.0)
 
 
 # ================================================================ entrada
@@ -1438,41 +1456,64 @@ func _esperar(t: float, s: int, pulavel := true) -> bool:
 	return s == _seq
 
 
-## RODAR LISO: a cada 2,5 s mede os quadros por segundo de verdade (relógio,
-## não o tempo do jogo). Abaixo de ~52 duas vezes seguidas, a imagem 3D
-## fica um pouco menor (até 60%); se ainda assim não der, e a qualidade for
-## "auto", desce um nível (alta -> média -> baixa). Não volta a subir no
-## meio do jogo (nada de imagem "pulando").
+## NITIDEZ x LISURA, sozinho: a cada 2 s mede os quadros por segundo de
+## verdade (relógio). Abaixo de ~88% do alvo duas vezes seguidas, a imagem
+## 3D diminui 10% (até 70%). Com folga (quadros no máximo por ~8 s), ela
+## VOLTA A CRESCER 5% — sem passar, por 90 s, de um tamanho que já se
+## mostrou pesado. Se quem não dá conta é o PROCESSADOR (não a placa de
+## vídeo), diminuir a imagem não ajuda: aí não mexe. O fator bom fica
+## guardado para a próxima vez que a máquina ligar. Só em último caso (já
+## em 70% e ainda muito lento), e na qualidade "auto", desce um nível.
 func _medir_fps(_delta: float) -> void:
 	if not _adaptar:
 		return
 	var agora := Time.get_ticks_msec()
-	if _fps_t0 == 0 or estado == E.ABERTURA:
+	if _fps_t0 == 0 or estado == E.ABERTURA or estado == E.TESTE:
 		_fps_t0 = agora
 		_fps_q = Engine.get_process_frames()
 		return
-	if agora - _fps_t0 < 2500:
+	if agora - _fps_t0 < 2000:
 		return
 	var fps := float(Engine.get_process_frames() - _fps_q) * 1000.0 / float(agora - _fps_t0)
 	_fps_t0 = agora
 	_fps_q = Engine.get_process_frames()
 	var hz := DisplayServer.screen_get_refresh_rate()
 	var alvo := clampf(hz if hz > 0.0 else 60.0, 30.0, 60.0)
-	if fps >= alvo * 0.87:
+	if fps < alvo * 0.88:
+		_fps_bons = 0
+		_fps_ruins += 1
+		# processador no limite (jogo + física por quadro): a imagem não é o problema
+		var passos := float(Engine.physics_ticks_per_second) / maxf(fps, 1.0)
+		var cpu := (Performance.get_monitor(Performance.TIME_PROCESS) + Performance.get_monitor(Performance.TIME_PHYSICS_PROCESS) * passos) * 1000.0
+		if _fps_ruins < 2 or cpu > 800.0 / alvo:
+			return
 		_fps_ruins = 0
-		return
-	_fps_ruins += 1
-	if _fps_ruins < 2:
-		return
-	_fps_ruins = 0
-	if _fator > 0.65:
-		_fator = maxf(0.6, _fator - 0.1)
-		_tela_mudou(Tela.tamanho())
-		print("Imagem 3D menor: %d%% (%d quadros/s)" % [int(_fator * 100), int(fps)])
-	elif str(Ajustes.valor("video", "qualidade")) == "auto" and _qualidade != "baixa":
-		_qualidade = "media" if _qualidade == "alta" else "baixa"
-		_fator = 1.0
-		mundo.aplicar_qualidade(_qualidade)
-		_qualidade_viewport()
-		_tela_mudou(Tela.tamanho())
-		print("Qualidade automática: ", _qualidade, " (", int(fps), " quadros/s)")
+		if _fator > FATOR_MIN + 0.01:
+			_teto = _fator
+			_teto_ate = agora + 90000
+			_mudar_fator(maxf(FATOR_MIN, _fator - 0.1), fps)
+		elif str(Ajustes.valor("video", "qualidade")) == "auto" and _qualidade != "baixa" and fps < alvo * 0.7:
+			_qualidade = "media" if _qualidade == "alta" else "baixa"
+			mundo.aplicar_qualidade(_qualidade)
+			_qualidade_viewport()
+			_mudar_fator(1.0, fps)
+			print("Qualidade automática: ", _qualidade, " (", int(fps), " quadros/s)")
+	elif fps >= alvo * 0.97:
+		_fps_ruins = 0
+		_fps_bons += 1
+		if _fps_bons >= 4 and _fator < 1.0:
+			_fps_bons = 0
+			var limite := _teto - 0.01 if agora < _teto_ate else 1.0
+			var novo := minf(minf(1.0, _fator + 0.05), limite)
+			if novo > _fator + 0.001:
+				_mudar_fator(novo, fps)
+	else:
+		_fps_ruins = 0
+		_fps_bons = 0
+
+
+func _mudar_fator(novo: float, fps: float) -> void:
+	_fator = novo
+	_tela_mudou(Tela.tamanho())
+	Ajustes.definir("video", "fator", snappedf(_fator, 0.01))
+	print("Imagem 3D: %d%% (%d quadros/s)" % [int(round(_fator * 100.0)), int(fps)])

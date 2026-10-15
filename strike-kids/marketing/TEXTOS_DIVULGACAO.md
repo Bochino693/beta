@@ -20,6 +20,7 @@ divulgação é exatamente o que a criança vê na máquina.
 - Role a bola e faça STRIKE no espaço, no fundo do mar, na selva dos dinos e no parque!
 - Pinos que caem de verdade, câmera lenta e replay do strike — a mesma jogada, lisinha, em câmera lenta.
 - A bola cai na caçapa e volta rolando no retorno de bolas, igual ao boliche de verdade.
+- Pista neon na cor de cada cenário, setas arco-íris e uma trilha de estrelas que pisca até os pinos: a criança sabe para onde mirar!
 - Classificação do dia com a foto de cada criança: quem fez mais pontos hoje?
 - Sorria! A foto da criança aparece no placar e no quadro de recordes.
 - Boliche infantil 3D com 5 sensores: diversão para meninos e meninas, do primeiro ao último pino.

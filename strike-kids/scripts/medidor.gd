@@ -103,12 +103,16 @@ func _process(_d: float) -> void:
 	var gputela := RenderingServer.viewport_get_measured_render_time_gpu(get_viewport().get_viewport_rid())
 	var cor := Color("#7CFF7C") if qps >= 50.0 else (Color("#FFE14D") if qps >= 30.0 else Color("#FF6B6B"))
 	_texto.label_settings.font_color = cor
-	_texto.text = "%d QPS   (%.1f ms, pior %.0f ms)\nCPU %.1f ms · placa: 3D %.1f ms, tela %.1f ms\n%d desenhos · %d mil triângulos\n3D %dx%d · %s · memória %d MB · vídeo %d MB" % [
+	# o tempo da placa de vídeo só é medido no PC (OpenGL); no Android
+	# (TV Box) o Godot não recebe essa medida — vale o QPS e os ms
+	var placa := "placa: 3D %.1f ms, tela %.1f ms" % [gpu3d, gputela] if gpu3d + gputela > 0.01 else "placa: (o Android não informa)"
+	_texto.text = "%d QPS   (%.1f ms, pior %.0f ms)\nCPU %.1f ms · %s\n%d desenhos · %d mil triângulos\n3D %dx%d (%d%%) · %s · memória %d MB · vídeo %d MB" % [
 		int(round(qps)), ms, _pior,
-		Performance.get_monitor(Performance.TIME_PROCESS) * 1000.0, gpu3d, gputela,
+		Performance.get_monitor(Performance.TIME_PROCESS) * 1000.0, placa,
 		Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME),
 		Performance.get_monitor(Performance.RENDER_TOTAL_PRIMITIVES_IN_FRAME) / 1000,
-		vp.size.x if vp else 0, vp.size.y if vp else 0, _nome(str(principal.get("_qualidade"))),
+		vp.size.x if vp else 0, vp.size.y if vp else 0, int(round(float(principal.get("_fator")) * 100.0)),
+		_nome(str(principal.get("_qualidade"))),
 		int(OS.get_static_memory_usage() / 1048576), int(Performance.get_monitor(Performance.RENDER_VIDEO_MEM_USED) / 1048576)]
 	_t0 = agora
 	_quadros = 0
