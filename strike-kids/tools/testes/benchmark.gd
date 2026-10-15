@@ -7,7 +7,13 @@ extends Node
 ## tela (medidos pela placa de vídeo), desenhos e triângulos.
 ## Na máquina de teste (sem placa de vídeo, o "llvmpipe" desenha no
 ## processador) os números se parecem com os de uma TV Box fraca: o que
-## pesa aqui, pesa lá.
+## pesa aqui, pesa lá — COM UMA EXCEÇÃO: imagens com compressão de alta
+## qualidade (BPTC no PC / ASTC na TV Box: logo, madeira, rostos, bola)
+## parecem caras aqui porque o llvmpipe as descomprime no processador;
+## numa placa de vídeo de verdade (inclusive a Mali-G31) isso é de graça.
+## Ex.: "sem_logo" tira ~60 ms aqui e quase nada na TV Box.
+## Configs extras: sem_arco, sem_logo, sem_lampadas, sem_tiras;
+## --planos=cacapa,espera mede só esses planos.
 
 const PLANOS := {
 	"espera": [Vector3(0.0, 1.05, 2.2), Vector3(0.0, 0.18, -9.9), 34.0, 40.0],
@@ -53,9 +59,13 @@ func _rodar() -> void:
 			cfgs = Array(a.substr(10).split(","))
 	print("BENCH qualidade=%s 3D=%dx%d janela=%s" % [principal.get("_qualidade"), vp.size.x, vp.size.y, str(get_window().size)])
 	print("BENCH %-16s %-8s %8s %8s %8s %6s %8s" % ["config", "plano", "quadro", "gpu3d", "gputela", "desen", "triang"])
+	var planos: Array = PLANOS.keys()
+	for a in OS.get_cmdline_user_args():
+		if a.begins_with("--planos="):
+			planos = Array(a.substr(9).split(","))
 	for cfg in cfgs:
 		_aplicar(cfg, true)
-		for nome in PLANOS:
+		for nome in planos:
 			var p: Array = PLANOS[nome]
 			principal._demo_t = -1000.0
 			principal.cam.corte(p[0], p[1], p[2], p[3])
@@ -144,6 +154,15 @@ func _aplicar(cfg: String, ligar: bool) -> void:
 					(no as Node3D).visible = not ligar
 			for no in mundo.find_children("*", "MultiMeshInstance3D", false, false):
 				(no as Node3D).visible = not ligar
+		"sem_arco", "sem_logo":
+			for no in mundo.find_children(cfg.substr(4), "Node3D", true, false):
+				(no as Node3D).visible = not ligar
+		"sem_lampadas":
+			for no in mundo.find_children("*", "MultiMeshInstance3D", true, false):
+				if (no as GeometryInstance3D).material_override == mundo.mat_lampadas:
+					(no as Node3D).visible = not ligar
+		"sem_tiras":
+			mundo._tiras.visible = not ligar
 		"toon_simples":
 			# troca o shader toon por um de cor chapada (quanto custa o toon?)
 			if ligar:

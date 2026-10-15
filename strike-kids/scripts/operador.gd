@@ -30,6 +30,7 @@ const ITENS := [
 	["Volume dos efeitos", "som", "efeitos", "vol", []],
 	["Som na demonstração", "som", "som_na_demo", "bool", []],
 	["Qualidade gráfica", "video", "qualidade", "lista", ["auto", "alta", "media", "baixa"]],
+	["Nitidez do 3D (resolução)", "video", "nitidez", "lista", ["auto", "100%", "90%", "80%", "70%"]],
 	["Mostrar desempenho na tela (QPS)", "video", "medidor", "bool", []],
 	["> TESTE DE DESEMPENHO (20 s)", "", "desempenho", "acao", []],
 	["Giro da tela", "tela", "giro", "lista", [1, -1, 0]],

@@ -56,8 +56,10 @@ func _ready() -> void:
 	_texto = Label.new()
 	var ls := LabelSettings.new()
 	ls.font = load("res://fontes/fredoka_600.ttf")
-	ls.font_size = 22
+	ls.font_size = 28
 	ls.font_color = Color.WHITE
+	ls.outline_size = 4
+	ls.outline_color = Color(0.0, 0.03, 0.1)
 	_texto.label_settings = ls
 	_painel.add_child(_texto)
 	mostrar(bool(Ajustes.valor("video", "medidor")))
@@ -101,12 +103,16 @@ func _process(_d: float) -> void:
 	var gputela := RenderingServer.viewport_get_measured_render_time_gpu(get_viewport().get_viewport_rid())
 	var cor := Color("#7CFF7C") if qps >= 50.0 else (Color("#FFE14D") if qps >= 30.0 else Color("#FF6B6B"))
 	_texto.label_settings.font_color = cor
-	_texto.text = "%d QPS   (%.1f ms, pior %.0f ms)\nCPU %.1f ms · placa: 3D %.1f ms, tela %.1f ms\n%d desenhos · %d mil triângulos\n3D %dx%d · %s · memória %d MB · vídeo %d MB" % [
+	# o tempo da placa de vídeo só é medido no PC (OpenGL); no Android
+	# (TV Box) o Godot não recebe essa medida — vale o QPS e os ms
+	var placa := "placa: 3D %.1f ms, tela %.1f ms" % [gpu3d, gputela] if gpu3d + gputela > 0.01 else "placa: (o Android não informa)"
+	_texto.text = "%d QPS   (%.1f ms, pior %.0f ms)\nCPU %.1f ms · %s\n%d desenhos · %d mil triângulos\n3D %dx%d (%d%%) · %s · memória %d MB · vídeo %d MB" % [
 		int(round(qps)), ms, _pior,
-		Performance.get_monitor(Performance.TIME_PROCESS) * 1000.0, gpu3d, gputela,
+		Performance.get_monitor(Performance.TIME_PROCESS) * 1000.0, placa,
 		Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME),
 		Performance.get_monitor(Performance.RENDER_TOTAL_PRIMITIVES_IN_FRAME) / 1000,
-		vp.size.x if vp else 0, vp.size.y if vp else 0, str(principal.get("_qualidade")).to_upper(),
+		vp.size.x if vp else 0, vp.size.y if vp else 0, int(round(float(principal.get("_fator")) * 100.0)),
+		_nome(str(principal.get("_qualidade"))),
 		int(OS.get_static_memory_usage() / 1048576), int(Performance.get_monitor(Performance.RENDER_VIDEO_MEM_USED) / 1048576)]
 	_t0 = agora
 	_quadros = 0
@@ -178,12 +184,15 @@ func testar() -> Dictionary:
 	else:
 		veredito = "FRACO: travado nesta qualidade"
 		recomendada = "baixa"
+	var d := Time.get_datetime_dict_from_system()
+	var data := "%02d/%02d/%04d %02d:%02d" % [d["day"], d["month"], d["year"], d["hour"], d["minute"]]
+	var vs: Vector2i = principal.vp.size
 	var r := {"media_qps": media_qps, "pior_quadro_ms": p99, "pior_plano": pior_plano, "pior_plano_qps": pior_qps,
 		"qualidade": qual, "recomendada": recomendada, "veredito": veredito, "por_plano": por_plano,
-		"resolucao_3d": str(principal.vp.size), "tela": str(get_window().size), "data": Time.get_datetime_string_from_system()}
-	var linhas := "TESTE DE DESEMPENHO - %s\n%s\n\nMédia: %d quadros por segundo (QPS)\nPior momento: %.0f ms (%s: %d QPS)\nQualidade usada: %s (3D %s)\nRECOMENDADA: %s\n" % [
-		r["data"], veredito, int(round(media_qps)), p99, pior_plano, int(round(pior_qps)), qual.to_upper(), r["resolucao_3d"],
-		recomendada.to_upper()]
+		"resolucao_3d": "%dx%d" % [vs.x, vs.y], "tela": "%dx%d" % [get_window().size.x, get_window().size.y], "data": data}
+	var linhas := "TESTE DE DESEMPENHO\n%s\n\n%s\n\nMédia: %d quadros por segundo (QPS)\nPior momento: %.0f ms (%s: %d QPS)\nQualidade usada: %s (imagem 3D %s)\nRECOMENDADA: %s\n\n" % [
+		data, veredito, int(round(media_qps)), p99, pior_plano, int(round(pior_qps)), _nome(qual), r["resolucao_3d"],
+		_nome(recomendada)]
 	for k in por_plano:
 		linhas += "  %s: %d QPS\n" % [k, int(round(por_plano[k]))]
 	var f := FileAccess.open("user://desempenho.txt", FileAccess.WRITE)
@@ -198,6 +207,10 @@ func testar() -> Dictionary:
 	r["cartaz"] = aviso
 	teste_terminou.emit(r)
 	return r
+
+
+func _nome(q: String) -> String:
+	return {"alta": "ALTA", "media": "MÉDIA", "baixa": "BAIXA"}.get(q, q.to_upper())
 
 
 func _media(v: Array[float]) -> float:

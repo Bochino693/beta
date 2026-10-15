@@ -97,6 +97,10 @@ COMO TESTAR NO PC
    sozinha). Para testar numa janela em pe, como o monitor da maquina:
      godot --path . -- --janela=540x960
    O jogo se adapta a qualquer tela: em pe ou deitada.
+   ATENCAO: o Godot 4.6 pode abrir o jogo DENTRO do editor (aba "Game"),
+   pequeno e menos nitido. Para ver em tela cheia e nitido: na aba Game,
+   no menu de opcoes, desmarque "Embed Game on Next Play" - ou use a
+   versao Windows pronta (StrikeKids.exe), que e a mais fiel.
 
 
 VERSAO WINDOWS PRONTA (StrikeKids.exe) - para testar no PC
@@ -176,20 +180,25 @@ C ou START escolhe, CONFIGURACAO volta ao jogo.
   Contadores: partidas, strikes, moedas, estado do Arduino e da camera
 
 RODANDO LISO (PC e TV Box):
-  * IMAGEM 3D EM TAMANHO FIXO, ESTICADA SOZINHA ate a tela inteira: na
-    TV Box o 3D e desenhado com 640 px no lado menor (640 x 1138 numa
-    tela em pe) e esticado para 1080p/4K; os textos e placas continuam
-    nitidos por cima. No PC (qualidade alta), ate 1440 px.
-  * A cada 2,5 s o jogo mede os quadros por segundo: se cair abaixo de
-    ~52, a imagem 3D diminui um pouco (ate 60%); se ainda nao der e a
-    qualidade for AUTOMATICA, desce de nivel (alta > media > baixa).
+  * 3D NITIDO, NO TAMANHO DA TELA: na TV Box 1080p o 3D e desenhado em
+    1080 x 1920 (o mesmo tamanho da tela) com ANTISSERRILHADO 4x - na
+    placa Mali da TV Box o antisserrilhado e feito dentro da propria placa
+    e sai quase de graca. No PC, no tamanho da tela (ate 4K).
+  * NITIDEZ AUTOMATICA: a cada 2 s o jogo mede os quadros por segundo. Se
+    a placa nao segurar (~52 ou menos), a imagem 3D diminui 10% (no
+    maximo ate 70%) e e esticada ate a tela; quando sobra folga, ela VOLTA
+    A CRESCER sozinha ate 100%. O ponto bom fica guardado para quando a
+    maquina ligar de novo. (Antes ela so diminuia e nunca voltava - era o
+    que deixava a imagem borrada.)
+  * Menu do operador > "Nitidez do 3D": AUTOMATICA (padrao) ou fixa em
+    100%, 90%, 80% ou 70% - para quem prefere nitidez maxima sempre.
   * O que mais pesa numa placa de video fraca e PINTAR PIXELS. Por isso a
     pista, o piso e o arco do portal sao desenhados "sem luz" (a luz ja
     vem pintada nas cores), com conta fixa por pixel; nao tem sombra do
     sol (no Godot "Compatibilidade" ela desenha tudo 2 vezes): as sombras
     sao manchas pintadas; MSAA e brilho (glow) so no PC.
   * Bonecos, pinos e cenario com malhas leves; pecas paradas juntadas em
-    poucas malhas (por material e regiao): ~140 desenhos por quadro.
+    poucas malhas (por material e regiao): 100 a 200 desenhos por quadro.
   * MOVIMENTO LISO EM QUALQUER TELA: a fisica anda 120 passos por segundo
     e a tela 60, 75, 144... A bola, os pinos e a maquina de pinos aparecem
     sempre no lugar certo do instante de cada quadro (interpolacao da
@@ -201,9 +210,10 @@ RODANDO LISO (PC e TV Box):
     (materiais de todos os cenarios, particulas, telas): nada de engasgo
     na primeira troca de cenario, primeiro strike ou bola de fogo.
 
-  ALTA  (PC): MSAA 4x, brilho (glow), filtro anisotropico, 3D ate 1440 px.
-  MEDIA (TV Box): sem MSAA, 3D com 640 px no lado menor.
-  BAIXA (TV Box fraca): sem MSAA, sem neblina e sem contornos, 3D 540 px.
+  ALTA  (PC): MSAA 4x, brilho (glow), anisotropico 4x, 3D no tamanho da
+        tela ate 4K (e realce de bordas se precisar esticar).
+  MEDIA (TV Box): MSAA 4x, anisotropico 2x, 3D ate 1080 px (tela 1080p).
+  BAIXA (TV Box fraca): MSAA 2x, sem neblina e sem contornos, 3D 720 px.
 Todas as imagens tem mipmaps (nada cintila nem serrilha quando aparece
 pequeno); rostos, bola, madeira e letreiros usam compressao de alta
 qualidade da placa de video (pouca memoria, sem perder nitidez).
@@ -219,7 +229,7 @@ Nao precisa de programa nenhum: o medidor esta dentro do jogo.
      58 QPS   (17.2 ms, pior 24 ms)          <- verde, amarelo ou vermelho
      CPU 4.1 ms - placa: 3D 9.8 ms, tela 1.2 ms
      142 desenhos - 168 mil triangulos
-     3D 640x1138 - MEDIA - memoria 180 MB - video 120 MB
+     3D 1080x1920 (100%) - MEDIA - memoria 180 MB - video 120 MB
 
    QPS = quadros por segundo. 60 = perfeito; 50 ou mais = liso (verde);
          30 a 50 = joga, mas da para ver travadinhas (amarelo);
@@ -228,10 +238,13 @@ Nao precisa de programa nenhum: o medidor esta dentro do jogo.
          "pior" = o quadro mais demorado do ultimo meio segundo (engasgo).
    CPU = o processador (regras do jogo, fisica, preparar os desenhos).
    placa: 3D / tela = quanto a PLACA DE VIDEO leva para desenhar o 3D e a
-         interface. Se "placa 3D" passar de ~14 ms, quem pesa e a placa
-         de video: baixe a qualidade (ou deixe na AUTOMATICA). Se a CPU
-         passar de ~14 ms, o processador e que nao da conta.
+         interface (so no PC: no Android o Godot nao recebe essa medida e
+         aparece "o Android nao informa" - na TV Box valem o QPS e os ms).
+         Se "placa 3D" passar de ~14 ms, quem pesa e a placa de video:
+         baixe a qualidade (ou deixe na AUTOMATICA). Se a CPU passar de
+         ~14 ms, o processador e que nao da conta.
    desenhos / triangulos = quantas coisas a placa desenha por quadro.
+   3D 1080x1920 (100%) = tamanho da imagem 3D e a nitidez automatica.
 
 2) TESTE DE DESEMPENHO - menu do operador > "TESTE DE DESEMPENHO".
    Por 20 segundos o jogo passa pelas 4 vistas mais pesadas (pista de
@@ -249,10 +262,13 @@ Nao precisa de programa nenhum: o medidor esta dentro do jogo.
 DICAS PARA OS PROXIMOS JOGOS 3D NA TV BOX (Mali-G31, 2 GB):
   * Meta: 16 ms por quadro. Na TV Box quem estoura quase sempre e a placa
     de video pintando pixels, nao o processador.
-  * Desenhe o 3D em ~640-720 px e estique ate a tela (SubViewport); os
-    textos por cima na resolucao da tela.
-  * Nada de sombra em tempo real, brilho (glow), SSAO, reflexos, neblina
-    volumetrica nem MSAA na TV Box.
+  * Desenhe o 3D numa SubViewport no tamanho da tela e deixe uma
+    nitidez automatica diminuir/aumentar esse tamanho (70% a 100%) conforme
+    os quadros por segundo; os textos sempre na resolucao da tela.
+  * Na TV Box (placa Mali) use MSAA 4x: e quase de graca e deixa tudo
+    liso. Nao confie em testes feitos sem placa de video para decidir isso.
+  * Nada de sombra em tempo real, brilho (glow), SSAO, reflexos nem
+    neblina volumetrica na TV Box.
   * Superficies grandes (chao, pista, ceu, paredes) com shader simples e
     "unshaded", com a luz pintada nas cores.
   * Ate ~150 desenhos e ~200 mil triangulos por quadro; junte as pecas

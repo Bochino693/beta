@@ -34,6 +34,8 @@ const PADRAO := {
 	},
 	"video": {
 		"qualidade": "auto",
+		"nitidez": "auto",         # resolução do 3D: auto (sobe e desce sozinha) ou 100%/90%/80%/70% fixa
+		"fator": 1.0,              # o último fator automático bom (começa dele ao ligar)
 		"medidor": false,          # painel de desempenho na tela (F3 no PC)
 		"qualidade_auto": "",      # o que o TESTE DE DESEMPENHO recomendou
 		"testar": false,           # pedido do menu: rodar o teste ao voltar

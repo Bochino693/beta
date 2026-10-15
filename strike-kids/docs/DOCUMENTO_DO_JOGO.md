@@ -254,13 +254,17 @@ para o próximo.
     Bob 120 mil → 26 mil triângulos, pino 14,6 mil → 2,4 mil, cenário
     1,1 milhão → 98 mil; lâmpadas de 64 triângulos;
   - peças paradas com o mesmo material juntadas numa malha só
-    (`scripts/lote.gd`): ~90 desenhos por quadro na TV Box (eram ~450);
+    (`scripts/lote.gd`): 100 a 200 desenhos por quadro conforme a vista (eram ~450);
   - sem sombra do sol (no "Compatibilidade" ela desenha tudo 2 vezes):
     sombras pintadas nos pinos (uma MultiMesh que deita junto com o pino),
     bola e bichinhos;
-  - imagem 3D em **tamanho fixo esticada sozinha** (TV Box 640 px no lado
-    menor, PC até 1440) e **resolução automática**: se cair de ~52 quadros
-    por segundo, o 3D diminui até 60% e, no automático, desce a qualidade;
+  - imagem 3D **no tamanho da tela** (TV Box 1080 px com MSAA 4x — na Mali
+    o MSAA é resolvido dentro da placa via `GL_EXT_multisampled_render_to_texture`;
+    PC até 4K) e **nitidez automática**: se cair de ~52 quadros por segundo
+    o 3D diminui 10% (até 70%) e, com folga, **volta a crescer** até 100%;
+    o ponto bom fica guardado (`video/fator`); o operador pode fixar em
+    100/90/80/70% ("Nitidez do 3D"); no PC, realce de bordas (tipo CAS) ao
+    esticar;
   - superfícies grandes **sem luz por pixel** (pista, piso e arco do
     portal com a luz já pintada; marcações da pista com conta fixa por
     pixel); MSAA e brilho só no PC; cores convertidas por vértice no toon;
@@ -283,9 +287,14 @@ para o próximo.
   - PC em **tela cheia** (exclusiva), mouse some sozinho.
 - **Shader toon** próprio: duas faixas de luz, sombra colorida, brilho de
   borda, rosto projetado (atlas). Contorno por casca invertida.
-- **Pista**: madeira com verniz, setas e pontos de pista (decoração de
-  boliche de verdade), linha de falta, marcas dos pinos e luzes que correm
-  acompanhando a bola (tudo no shader).
+- **Pista** (boliche kids, tudo no shader, com bordas suaves por `fwidth`):
+  madeira mel envernizada (reflete o céu e o portal colorido), **bordas de
+  neon** na cor do cenário sempre acesas (luzes correndo para os pinos
+  esperando a bola; na jogada, um brilho segue a bola), **setas
+  arco-íris** com contorno branco, **trilha de estrelas** no meio da pista
+  piscando em sequência até os pinos (a última é um "alvo" na frente do
+  pino 1), pontos coloridos, linha de falta neon e holofote nos pinos.
+  Na área de arremesso: pontos arco-íris e a estrela da saída.
 - **Efeitos**: rastro de arco-íris (ou de fogo) da bola, brilhos, estrelas,
   poeira, confete 3D, fogos, câmera lenta, tremida, "soco" de zoom, flash,
   tarjas de cinema no replay.
