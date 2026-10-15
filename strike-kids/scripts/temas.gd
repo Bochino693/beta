@@ -17,8 +17,10 @@ const CONFIG := {
 		"ambiente": Color(0.62, 0.7, 0.86), "ambiente_forca": 0.62,
 		"neblina": Color(0.84, 0.92, 1.0), "neblina_densidade": 0.0045,
 		"sol": Color(1.0, 0.95, 0.86), "sol_forca": 1.05,
-		"fundo": [Color(0.02, 0.06, 0.16), Color(0.05, 0.16, 0.38)],
-		"placa": Color("#0E2A5C"), "divisoria": Color("#FFB627"), "faixa": Color("#E8384F"), "canaleta": Color("#8FC4EE"),
+		"fundo": [Color("#3A1C8C"), Color("#7A3FD6")], "halo": Color("#FFD6F4"),
+		"portal": [Color("#FFC21A"), Color("#E8384F")], "gabinete": Color("#E8384F"), "coluna": Color("#1E62C8"),
+		"parede": Color("#2A63C4"),
+		"placa": Color("#1E3FA0"), "divisoria": Color("#FFB627"), "faixa": Color("#E8384F"), "canaleta": Color("#8FC4EE"),
 		"chao": [Color("#6BCB5D"), Color("#5BB54E"), Color("#FFFFFF"), Color("#FFE873")], "chao_modo": 0,
 		"balao": {"cor": Color("#E8384F")},   # balão com a marca Lazer & Sport
 	},
@@ -28,8 +30,10 @@ const CONFIG := {
 		"ambiente": Color(0.6, 0.7, 1.0), "ambiente_forca": 0.78,
 		"neblina": Color(0.14, 0.24, 0.5), "neblina_densidade": 0.006,
 		"sol": Color(0.9, 0.94, 1.0), "sol_forca": 1.05,
-		"fundo": [Color(0.01, 0.02, 0.08), Color(0.03, 0.08, 0.26)],
-		"placa": Color("#0C1C4A"), "divisoria": Color("#4FD8FF"), "faixa": Color("#FF9F2E"), "canaleta": Color("#7FB2FF"),
+		"fundo": [Color("#0B1450"), Color("#2A3FB0")], "halo": Color("#9FE8FF"),
+		"portal": [Color("#4FD8FF"), Color("#3B2FA8")], "gabinete": Color("#3B3FA8"), "coluna": Color("#6A3FD0"),
+		"parede": Color("#3B4FC8"),
+		"placa": Color("#141E66"), "divisoria": Color("#4FD8FF"), "faixa": Color("#FF9F2E"), "canaleta": Color("#7FB2FF"),
 		"chao": [Color("#9AA8C4"), Color("#8494B3"), Color("#C3CEE2"), Color("#E2F5FF")], "chao_modo": 1,
 	},
 	"mar": {
@@ -38,8 +42,10 @@ const CONFIG := {
 		"ambiente": Color(0.5, 0.82, 0.92), "ambiente_forca": 0.72,
 		"neblina": Color(0.32, 0.72, 0.84), "neblina_densidade": 0.014,
 		"sol": Color(0.88, 1.0, 0.96), "sol_forca": 1.0,
-		"fundo": [Color(0.01, 0.10, 0.20), Color(0.03, 0.30, 0.44)],
-		"placa": Color("#0B4C6E"), "divisoria": Color("#FF8A5C"), "faixa": Color("#2EC4B6"), "canaleta": Color("#7FD8E8"),
+		"fundo": [Color("#064A70"), Color("#0FA0B8")], "halo": Color("#C8FFF4"),
+		"portal": [Color("#2EE6C8"), Color("#FF7A5C")], "gabinete": Color("#0E8C9C"), "coluna": Color("#FF7A5C"),
+		"parede": Color("#18A6B8"),
+		"placa": Color("#0B5A80"), "divisoria": Color("#FF8A5C"), "faixa": Color("#2EC4B6"), "canaleta": Color("#7FD8E8"),
 		"chao": [Color("#F9DCA2"), Color("#EDC98A"), Color("#FFB09E"), Color("#9EDDE6")], "chao_modo": 2,
 	},
 	"dinos": {
@@ -48,8 +54,10 @@ const CONFIG := {
 		"ambiente": Color(0.72, 0.72, 0.62), "ambiente_forca": 0.62,
 		"neblina": Color(0.92, 0.9, 0.78), "neblina_densidade": 0.006,
 		"sol": Color(1.0, 0.93, 0.8), "sol_forca": 1.1,
-		"fundo": [Color(0.04, 0.14, 0.06), Color(0.10, 0.32, 0.12)],
-		"placa": Color("#23502A"), "divisoria": Color("#FF9F2E"), "faixa": Color("#8BD33F"), "canaleta": Color("#9BD58A"),
+		"fundo": [Color("#14501E"), Color("#3E9A2E")], "halo": Color("#FFF2A8"),
+		"portal": [Color("#9BE04A"), Color("#FF8A1E")], "gabinete": Color("#8A5228"), "coluna": Color("#2E9A3E"),
+		"parede": Color("#3E9A3A"),
+		"placa": Color("#1E5A28"), "divisoria": Color("#FF9F2E"), "faixa": Color("#8BD33F"), "canaleta": Color("#9BD58A"),
 		"chao": [Color("#46A44E"), Color("#57B948"), Color("#FF9F33"), Color("#FFE65A")], "chao_modo": 3,
 	},
 }
@@ -81,6 +89,21 @@ func construir(m: Mundo) -> void:
 	_espaco()
 	_mar()
 	_dinos()
+	# atrás de quem joga (a câmera vira para o mascote): o próprio cenário
+	_atras("parque", [["carrossel", 0.9], ["tenda", 1.0], ["arvore_verde", 1.4], ["pirulito", 1.3], ["arvore_laranja", 1.4], ["cupcake", 1.5]])
+	_atras("espaco", [["foguete", 1.1], ["pedra_lua", 1.7], ["cristal", 1.5], ["cristal", 1.1], ["pedra_lua", 1.3], ["foguete", 0.9]])
+	_atras("mar", [["coral_roxo", 1.5], ["concha", 1.3], ["alga", 1.6], ["coral", 1.5], ["alga", 1.3], ["bau", 1.2]])
+	_atras("dinos", [["palmeira", 1.1], ["samambaia", 1.5], ["ovo_dino", 1.3], ["pedra", 1.4], ["palmeira", 0.95], ["flor_gigante", 1.4]])
+	# o que fica parado em cada cenário vira poucas malhas (uma por material)
+	for nome in ORDEM:
+		var fora: Array = []
+		for item in _anim[nome]:
+			for k in ["no", "roda", "particulas"]:
+				if item.has(k):
+					fora.append(item[k])
+			if item.has("cabines"):
+				fora.append_array(item["cabines"])
+		Lote.juntar(grupos[nome], fora)
 
 
 func mostrar(nome: String) -> void:
@@ -117,7 +140,8 @@ func _obj(tema: String, nome: String, pos: Vector3, rot_y := 0.0, esc := 1.0, co
 	mi.position = pos
 	mi.rotation.y = rot_y
 	mi.scale = Vector3.ONE * esc
-	if absf(pos.x) > 4.5 or pos.z < -18.0 or pos.y > 1.5:
+	# sombra só dos que ficam colados na pista (os de longe não precisam)
+	if absf(pos.x) > 3.6 or pos.z < -15.0 or pos.z > 4.0 or pos.y > 1.5:
 		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	(pai if pai != null else grupos[tema] as Node3D).add_child(mi)
 	return mi
@@ -169,6 +193,18 @@ func _destaques(tema: String, itens: Array) -> void:
 		var z: float = d[1]
 		var y: float = 0.0 if (z > 0.0 and absf(x) < 3.3) else _chao(x, z)
 		_obj(tema, it[0], Vector3(x, y - 0.02, z), d[2], it[1], it[2] if it.size() > 2 else 0.0)
+
+
+## Lugares atrás da mureta dos jogadores (x, z, giro).
+const ATRAS := [[-5.4, 10.6, 0.4], [5.3, 11.2, -0.5], [-2.5, 12.9, 0.2], [2.6, 13.6, -0.2], [-8.6, 13.2, 0.8], [8.4, 12.4, -0.9]]
+
+
+func _atras(tema: String, itens: Array) -> void:
+	for i in mini(itens.size(), ATRAS.size()):
+		var a: Array = ATRAS[i]
+		var x: float = a[0]
+		var z: float = a[1]
+		_obj(tema, itens[i][0], Vector3(x, _chao(x, z) - 0.05, z), PI + float(a[2]), float(itens[i][1]))
 
 
 func _torres(tema: String, nome: String, esc := 1.0, contorno := 0.004) -> void:

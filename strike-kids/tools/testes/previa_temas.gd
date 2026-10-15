@@ -6,7 +6,7 @@ extends SceneTree
 ## contorno do jogo, enquadrado pela própria caixa, e monta uma folha em
 ## grade (nome, triângulos e tamanho em cada quadro).
 ##
-## godot --path . --resolution 480x480 --script res://tools/testes/previa_temas.gd -- \
+## godot --path . --script res://tools/testes/previa_temas.gd -- --janela=480x480 \
 ##     saida.png [vista] [nome,nome,...] [colunas]
 ## vista: frente (padrão), lado, tras, cima, baixo
 ## 5º argumento opcional "sem_contorno": desliga o contorno (para depurar)
@@ -46,7 +46,7 @@ var contorno: Shader
 
 
 func _init() -> void:
-	var args := OS.get_cmdline_user_args()
+	var args := Array(OS.get_cmdline_user_args()).filter(func(x): return not str(x).begins_with("--janela="))
 	if args.size() > 0:
 		saida = args[0]
 	if args.size() > 1:

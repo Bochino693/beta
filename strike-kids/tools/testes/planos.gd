@@ -1,7 +1,7 @@
 extends Node
 
 ## BANCO DE PLANOS DE CÂMERA (conferir enquadramentos e acabamento).
-##   godot --path . --resolution 1080x1920 res://tools/testes/planos.tscn -- --saida=pasta [--tema=parque]
+##   godot --path . res://tools/testes/planos.tscn -- --janela=1080x1920 --saida=pasta [--tema=parque]
 ##      [--plano=nome:px,py,pz:ax,ay,az:fov_v:fov_h] (pode repetir)
 ## Monta o mundo (pista, pinos, cenário, Bob com a bola, Mia torcendo) e
 ## tira uma foto por plano, com a mesma abertura responsiva do jogo.

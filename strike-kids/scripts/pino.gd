@@ -22,7 +22,6 @@ var _expr := "normal"
 var _piscar := randf_range(1.0, 4.0)
 var _piscando := 0.0
 var _estrelas: Node3D
-var _sombra: MeshInstance3D
 var _ultimo_som := 0
 var _pulo: Tween
 var _base_pulo := Transform3D()
@@ -60,15 +59,6 @@ func montar(n: int, pos: Vector3, malha_pino: Mesh, forma: Shape3D, rosto: Textu
 	malha.material_override = mat
 	malha.lod_bias = 3.0
 	add_child(malha)
-	_sombra = MeshInstance3D.new()
-	var q := QuadMesh.new()
-	q.size = Vector2(0.3, 0.3)
-	q.orientation = PlaneMesh.FACE_Y
-	_sombra.mesh = q
-	_sombra.material_override = Materiais.sombra_blob(0.45)
-	_sombra.top_level = true
-	_sombra.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	add_child(_sombra)
 	_estrelas = Node3D.new()
 	_estrelas.top_level = true
 	_estrelas.visible = false
@@ -158,11 +148,6 @@ func _celula(nome: String) -> void:
 func _process(delta: float) -> void:
 	if not visible:
 		return
-	var p := global_position
-	_sombra.visible = p.y > -0.1
-	if _sombra.visible:
-		_sombra.global_position = Vector3(p.x, 0.007, p.z)
-		_sombra.global_rotation = Vector3.ZERO
 	# tontura: estrelinhas girando em volta da cabeça
 	if _estrelas.visible:
 		var topo := global_transform * Vector3(0, 0.42, 0)

@@ -30,9 +30,23 @@ var _fisico := Vector2i(1080, 1920)
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
+	_janela_de_teste()
 	giro = _giro_configurado()
 	get_tree().root.size_changed.connect(_aplicar)
 	_aplicar()
+
+
+## O jogo abre em TELA CHEIA (project.godot). Para testar no PC numa
+## janela: godot --path . -- --janela=540x960
+func _janela_de_teste() -> void:
+	for a in OS.get_cmdline_user_args():
+		if a.begins_with("--janela="):
+			var p := a.substr(9).split("x")
+			var w := get_window()
+			w.mode = Window.MODE_WINDOWED
+			if p.size() == 2:
+				w.size = Vector2i(int(p[0]), int(p[1]))
+			return
 
 
 func _giro_configurado() -> int:

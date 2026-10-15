@@ -689,8 +689,12 @@ func _montar_atracao() -> void:
 	_atracao.visible = false
 
 
-func atracao(ligado: bool, recorde := "", creditos := "", foto_recorde: Texture2D = null) -> void:
+func atracao(ligado: bool, recorde := "", creditos := "", foto_recorde: Texture2D = null, melhores := []) -> void:
 	_atracao.visible = ligado
+	_melhores_hoje = melhores
+	_montar_melhores(melhores, recorde)
+	if not melhores.is_empty():
+		recorde = ""
 	_recorde.text = recorde
 	_creditos.text = creditos
 	_rec_foto.texture = foto_recorde
@@ -713,6 +717,65 @@ func atracao(ligado: bool, recorde := "", creditos := "", foto_recorde: Texture2
 	if ligado:
 		mostrar_placar(false)
 		mostrar_sensores(false)
+
+
+## "MELHORES DE HOJE" na atração: os 3 primeiros do dia, com a foto de
+## cada um (chama a criançada: "olha eu ali!").
+var _melhores: Control
+var _melhores_hoje := []
+
+
+func _montar_melhores(lista: Array, recorde: String) -> void:
+	if _melhores != null:
+		_melhores.queue_free()
+		_melhores = null
+	if lista.is_empty():
+		return
+	var T := size
+	var d := 150 * u
+	var gap := 34 * u
+	var w := lista.size() * d + (lista.size() - 1) * gap + 80 * u
+	var cab_h := 70 * u
+	var h := cab_h + d + 96 * u
+	w = maxf(w, 560 * u)
+	var p := Painel3D.new(Color("#0E2A5C"), 40, 14, 7)
+	p.size = Vector2(w, h)
+	if retrato:
+		var y := _aperte_botao.position.y + _aperte_botao.size.y + 34 * u
+		p.position = Vector2((T.x - w) / 2, minf(y, T.y - h - 110 * u))
+	else:
+		p.position = Vector2(T.x - w - 40 * u, T.y * 0.06)
+	_atracao.add_child(p)
+	_melhores = p
+	var cab_txt := "MELHORES DE HOJE"
+	var cab := rotulo(cab_txt, 42 * u, CREME, 10 * u, MARINHO, fonte_titulo)
+	cab.size = Vector2(w, cab_h)
+	p.add_child(cab)
+	_caber(cab, 42 * u, w - 40 * u)
+	var x0 := (w - (lista.size() * d + (lista.size() - 1) * gap)) / 2
+	for k in lista.size():
+		var e: Dictionary = lista[k]
+		var fr := TextureRect.new()
+		var ft := Fotos.carregar(str(e.get("foto", "")))
+		fr.texture = ft if ft != null else _retratos.get(str(e.get("personagem", "bob")))
+		fr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		fr.stretch_mode = TextureRect.STRETCH_SCALE
+		fr.material = material_foto(_cor_medalha(k + 1))
+		fr.size = Vector2(d, d)
+		fr.position = Vector2(x0 + k * (d + gap), cab_h)
+		p.add_child(fr)
+		var md := 54 * u
+		var med := Painel3D.new(_cor_medalha(k + 1), md / 2.0 / u, 5, 4)
+		med.size = Vector2(md, md)
+		med.position = fr.position + Vector2(-md * 0.2, -md * 0.15)
+		p.add_child(med)
+		var ln := rotulo(str(k + 1), md * 0.56, MARINHO, 0, MARINHO, fonte_titulo)
+		ln.size = Vector2(md, md - 4 * u)
+		med.add_child(ln)
+		var lp := rotulo("%d" % int(e.get("pontos", 0)), 46 * u, Color.WHITE, 10 * u, MARINHO, fonte_titulo)
+		lp.size = Vector2(d + gap, 60 * u)
+		lp.position = Vector2(fr.position.x - gap / 2, cab_h + d + 8 * u)
+		p.add_child(lp)
 
 
 # ================================================================ etapas
@@ -1027,6 +1090,10 @@ func selecao(ligado: bool, destaque := 0, texto := "", pes: Array = []) -> void:
 
 # ================================================================ fim de jogo
 ## dados: {jogadores: [{personagem, pontos, estrelas, strikes, spares}], vencedor, recorde: bool, recorde_valor}
+## FIM DE JOGO + CLASSIFICAÇÃO: o cartão de cada jogador com a FOTO grande
+## dele (ou o mascote), pontos, estrelas e a posição no dia; embaixo (em
+## pé) ou ao lado (deitada) o quadro "CLASSIFICAÇÃO DE HOJE" com a foto de
+## cada um — quem acabou de jogar aparece brilhando, com "VOCÊ!".
 func tela_fim(ligado: bool, dados := {}) -> void:
 	for f in _fim.get_children():
 		f.queue_free()
@@ -1036,104 +1103,42 @@ func tela_fim(ligado: bool, dados := {}) -> void:
 	mostrar_placar(false)
 	mostrar_sensores(false)
 	var T := size
+	var bh := 116 * u
+	var y_botao := T.y - bh - (110 if retrato else 34) * u
 	var titulo := TextureRect.new()
 	titulo.texture = Materiais.textura("fim_de_jogo")
 	titulo.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	titulo.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	var tw_l: float = min(T.x * 0.62, 640 * u)
+	var tw_l: float = minf(T.x * 0.46, 500 * u) if retrato else 340 * u
 	titulo.size = Vector2(tw_l, tw_l * 0.61)
-	titulo.position = Vector2((T.x - tw_l) / 2, T.y * 0.04)
+	titulo.position = Vector2((T.x - tw_l) / 2, (40 if retrato else 14) * u)
 	titulo.pivot_offset = titulo.size / 2
 	titulo.scale = Vector2.ZERO
 	_fim.add_child(titulo)
 	create_tween().tween_property(titulo, "scale", Vector2.ONE, 0.45).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	var y0 := titulo.position.y + titulo.size.y + 6 * u
+	var area_c: Rect2
+	var area_q: Rect2
+	if retrato:
+		area_c = Rect2(36 * u, y0, T.x - 72 * u, 520 * u)
+		area_q = Rect2(36 * u, y0 + 550 * u, T.x - 72 * u, y_botao - (y0 + 550 * u) - 26 * u)
+	else:
+		var meio := T.x * 0.5
+		area_c = Rect2(30 * u, y0, meio - 50 * u, y_botao - y0 - 20 * u)
+		area_q = Rect2(meio + 20 * u, y0, meio - 50 * u, y_botao - y0 - 20 * u)
 	var js: Array = dados.get("jogadores", [])
-	var n := js.size()
-	var larg_card: float = min(T.x * (0.88 if n == 1 else 0.45), 520 * u if n == 2 else 700 * u)
-	var alt_card := 440 * u
-	var y := T.y * (0.58 if retrato else 0.42)
-	for i in n:
-		var j: Dictionary = js[i]
-		var cor := COR_BOB if j["personagem"] == "bob" else COR_MIA
-		var c := Painel3D.new(cor, 44, 18, 8)
-		c.size = Vector2(larg_card, alt_card)
-		var x := (T.x - larg_card * n - 30 * u * (n - 1)) / 2 + i * (larg_card + 30 * u)
-		c.position = Vector2(x, y + 900 * u)
-		_fim.add_child(c)
-		var tw := create_tween()
-		tw.tween_interval(0.3 + i * 0.2)
-		tw.tween_property(c, "position:y", y, 0.5).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-		var nome := rotulo(str(j["personagem"]).to_upper(), 54 * u, Color.WHITE, 12 * u, MARINHO, fonte_titulo)
-		nome.size = Vector2(larg_card, 70 * u)
-		nome.position = Vector2(0, 18 * u)
-		c.add_child(nome)
-		var ft: Texture2D = j.get("foto")
-		if ft != null:
-			var fr := TextureRect.new()
-			fr.texture = ft
-			fr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-			fr.stretch_mode = TextureRect.STRETCH_SCALE
-			fr.material = material_foto(Color.WHITE)
-			fr.size = Vector2(150, 150) * u
-			fr.position = Vector2(larg_card - 116 * u, -70 * u)
-			fr.pivot_offset = fr.size / 2
-			fr.rotation = 0.12
-			c.add_child(fr)
-		var pts := rotulo("0", 120 * u, CREME, 22 * u, MARINHO, fonte_titulo)
-		pts.size = Vector2(larg_card, 140 * u)
-		pts.position = Vector2(0, 90 * u)
-		c.add_child(pts)
-		var alvo := int(j["pontos"])
-		var tw2 := create_tween()
-		tw2.tween_interval(0.8 + i * 0.2)
-		tw2.tween_method(func(v: float): pts.text = str(int(v)), 0.0, float(alvo), 1.4).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-		var leg := rotulo("PONTOS", 34 * u, Color.WHITE, 8 * u)
-		leg.size = Vector2(larg_card, 44 * u)
-		leg.position = Vector2(0, 225 * u)
-		c.add_child(leg)
-		# estrelas
-		var ne := int(j.get("estrelas", 1))
-		for k in 3:
-			var e := TextureRect.new()
-			e.texture = Materiais.textura("estrela_placar" if k < ne else "estrela_vazia")
-			e.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-			e.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-			var es := 92 * u if k == 1 else 76 * u
-			e.size = Vector2(es, es)
-			e.position = Vector2(larg_card / 2 - es / 2 + (k - 1) * 100 * u, 280 * u - (10 * u if k == 1 else 0.0))
-			e.pivot_offset = e.size / 2
-			e.scale = Vector2.ZERO
-			c.add_child(e)
-			var tw3 := create_tween()
-			tw3.tween_interval(2.2 + k * 0.25 + i * 0.1)
-			tw3.tween_property(e, "scale", Vector2.ONE, 0.35).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-		var det := rotulo("%d STRIKES   %d SPARES" % [j.get("strikes", 0), j.get("spares", 0)], 30 * u, Color.WHITE, 8 * u)
-		det.size = Vector2(larg_card, 40 * u)
-		det.position = Vector2(0, alt_card - 74 * u)
-		c.add_child(det)
-		if dados.get("vencedor", -9) == i and n > 1:
-			var v := TextureRect.new()
-			v.texture = Materiais.textura("venceu")
-			v.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-			v.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-			v.size = Vector2(larg_card * 0.9, larg_card * 0.26)
-			v.position = Vector2(larg_card * 0.05, -larg_card * 0.2)
-			v.pivot_offset = v.size / 2
-			v.scale = Vector2.ZERO
-			c.add_child(v)
-			var tw4 := create_tween()
-			tw4.tween_interval(2.9)
-			tw4.tween_property(v, "scale", Vector2.ONE, 0.4).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	if dados.get("vencedor", -9) == -1 and n > 1:
+	for i in js.size():
+		_cartao_fim(js[i], i, js.size(), area_c, dados.get("vencedor", -9) == i and js.size() > 1)
+	_quadro_classificacao(dados.get("classificacao", []), js, area_q)
+	if dados.get("vencedor", -9) == -1 and js.size() > 1:
 		_atrasado(3.0, func(): letreiro("empate", "", 2.5, 0.55))
 	if dados.get("recorde", false):
 		_atrasado(3.4, func(): letreiro("novo_recorde", "%d PONTOS" % dados.get("recorde_valor", 0), 3.0, 0.42 if retrato else 0.3))
 	# botão "jogar de novo"
 	var bw: float = minf(T.x * 0.92, 940 * u)
-	var bh := 116 * u
 	var botao := Painel3D.new(DESTAQUE, 58, 14, 7)
 	botao.size = Vector2(bw, bh)
-	botao.position = Vector2((T.x - bw) / 2, T.y - bh - (110 if retrato else 40) * u)
+	botao.position = Vector2((T.x - bw) / 2, y_botao)
 	botao.name = "botao"
 	_fim.add_child(botao)
 	var ap := rotulo("APERTE START PARA JOGAR DE NOVO", 44 * u, MARINHO, 0, MARINHO, fonte_titulo)
@@ -1142,6 +1147,215 @@ func tela_fim(ligado: bool, dados := {}) -> void:
 	ap.name = "aperte"
 	botao.add_child(ap)
 	_caber(ap, 44 * u, bw - 70 * u)
+
+
+## Cartão de um jogador: foto grande em cima, nome, pontos, estrelas e o
+## lugar na classificação do dia.
+func _cartao_fim(j: Dictionary, i: int, n: int, area: Rect2, venceu: bool) -> void:
+	var cor := COR_BOB if j["personagem"] == "bob" else COR_MIA
+	var gap := 26 * u
+	var w: float = minf((area.size.x - gap * (n - 1)) / n, 620 * u)
+	var d: float = minf(w * (0.5 if n == 1 else 0.56), 250 * u)
+	var h: float = minf(area.size.y - d * 0.42, 470 * u)
+	var x := area.position.x + (area.size.x - (w * n + gap * (n - 1))) / 2 + i * (w + gap)
+	var y := area.position.y + d * 0.42
+	var c := Painel3D.new(cor, 44, 18, 8)
+	c.size = Vector2(w, h)
+	c.position = Vector2(x, y + 900 * u)
+	_fim.add_child(c)
+	var tw := create_tween()
+	tw.tween_interval(0.3 + i * 0.2)
+	tw.tween_property(c, "position:y", y, 0.5).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	# foto (da câmera; sem câmera, o mascote)
+	var ft: Texture2D = j.get("foto")
+	var fr := TextureRect.new()
+	fr.texture = ft if ft != null else _retratos.get(j["personagem"])
+	fr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	fr.stretch_mode = TextureRect.STRETCH_SCALE
+	fr.material = material_foto(DESTAQUE if venceu else Color.WHITE)
+	fr.size = Vector2(d, d)
+	fr.position = Vector2((w - d) / 2, -d * 0.42)
+	fr.pivot_offset = fr.size / 2
+	c.add_child(fr)
+	if ft != null:
+		# o mascote com quem jogou, no cantinho da foto
+		var selo := TextureRect.new()
+		selo.texture = _retratos.get(j["personagem"])
+		selo.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		selo.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		selo.size = Vector2(d, d) * 0.4
+		selo.position = fr.position + Vector2(d * 0.7, d * 0.62)
+		c.add_child(selo)
+	var yy := d * 0.6
+	var nome := rotulo(str(j["personagem"]).to_upper(), 46 * u, Color.WHITE, 10 * u, MARINHO, fonte_titulo)
+	nome.size = Vector2(w, 58 * u)
+	nome.position = Vector2(0, yy)
+	c.add_child(nome)
+	var pts := rotulo("0", 104 * u, CREME, 20 * u, MARINHO, fonte_titulo)
+	pts.size = Vector2(w, 116 * u)
+	pts.position = Vector2(0, yy + 48 * u)
+	c.add_child(pts)
+	var alvo := int(j["pontos"])
+	var tw2 := create_tween()
+	tw2.tween_interval(0.8 + i * 0.2)
+	tw2.tween_method(func(v: float): pts.text = str(int(v)), 0.0, float(alvo), 1.4).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	var leg := rotulo("PONTOS", 30 * u, Color.WHITE, 7 * u)
+	leg.size = Vector2(w, 38 * u)
+	leg.position = Vector2(0, yy + 150 * u)
+	c.add_child(leg)
+	var ne := int(j.get("estrelas", 1))
+	for k in 3:
+		var e := TextureRect.new()
+		e.texture = Materiais.textura("estrela_placar" if k < ne else "estrela_vazia")
+		e.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		e.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		var es := 70 * u if k == 1 else 58 * u
+		e.size = Vector2(es, es)
+		e.position = Vector2(w / 2 - es / 2 + (k - 1) * 78 * u, yy + 190 * u - (8 * u if k == 1 else 0.0))
+		e.pivot_offset = e.size / 2
+		e.scale = Vector2.ZERO
+		c.add_child(e)
+		var tw3 := create_tween()
+		tw3.tween_interval(2.2 + k * 0.25 + i * 0.1)
+		tw3.tween_property(e, "scale", Vector2.ONE, 0.35).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	# lugar no dia
+	var pos := int(j.get("posicao", 0))
+	if pos > 0:
+		var fita_h := 62 * u
+		var fita := Painel3D.new(_cor_medalha(pos), 28, 8, 5)
+		fita.size = Vector2(w * 0.86, fita_h)
+		fita.position = Vector2(w * 0.07, h - fita_h - 18 * u)
+		c.add_child(fita)
+		var txt := "%dº LUGAR HOJE!" % pos if pos <= 3 else "%dº LUGAR HOJE" % pos
+		var lf := rotulo(txt, 34 * u, MARINHO if pos <= 3 else Color.WHITE, 0 if pos <= 3 else 7 * u, MARINHO, fonte_titulo)
+		lf.size = Vector2(w * 0.86, fita_h - 6 * u)
+		fita.add_child(lf)
+		_caber(lf, 34 * u, w * 0.8)
+		fita.pivot_offset = fita.size / 2
+		fita.scale = Vector2.ZERO
+		var tw5 := create_tween()
+		tw5.tween_interval(2.8 + i * 0.15)
+		tw5.tween_property(fita, "scale", Vector2.ONE, 0.4).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	if venceu:
+		var v := TextureRect.new()
+		v.texture = Materiais.textura("venceu")
+		v.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		v.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		v.size = Vector2(w * 0.8, w * 0.23)
+		v.position = Vector2(w * 0.1, yy + 96 * u)
+		v.pivot_offset = v.size / 2
+		v.scale = Vector2.ZERO
+		v.rotation = -0.08
+		c.add_child(v)
+		var tw4 := create_tween()
+		tw4.tween_interval(2.9)
+		tw4.tween_property(v, "scale", Vector2.ONE, 0.4).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+
+
+func _cor_medalha(pos: int) -> Color:
+	match pos:
+		1:
+			return Color("#FFC21A")
+		2:
+			return Color("#DCE6F2")
+		3:
+			return Color("#F0A25A")
+	return AZUL
+
+
+## Quadro "CLASSIFICAÇÃO DE HOJE": os 5 primeiros do dia, cada um com a sua
+## foto; quem jogou agora e ficou mais para trás aparece numa linha a mais.
+func _quadro_classificacao(lista: Array, js: Array, area: Rect2) -> void:
+	if area.size.y < 200 * u:
+		return
+	var linhas := []
+	for k in mini(5, lista.size()):
+		linhas.append({"pos": k + 1, "e": lista[k]})
+	for j in js:
+		var pos := int(j.get("posicao", 0))
+		if pos > 5:
+			linhas.append({"pos": pos, "e": {"pontos": j["pontos"], "personagem": j["personagem"], "hora": ""}, "foto": j.get("foto")})
+	var atuais := {}
+	for j in js:
+		atuais[int(j.get("posicao", 0))] = true
+	var cab_h := 86 * u
+	var gap := 12 * u
+	var n := maxi(linhas.size(), 1)
+	var lh: float = clampf((area.size.y - cab_h - gap * (n + 1)) / n, 70 * u, 112 * u)
+	var altura := cab_h + gap + n * (lh + gap)
+	var quadro := Painel3D.new(Color("#0E2A5C"), 40, 14, 7)
+	quadro.size = Vector2(area.size.x, altura)
+	quadro.position = area.position
+	quadro.modulate.a = 0.0
+	_fim.add_child(quadro)
+	create_tween().tween_property(quadro, "modulate:a", 1.0, 0.4).set_delay(1.0)
+	var cab := rotulo("CLASSIFICAÇÃO DE HOJE", 50 * u, CREME, 12 * u, MARINHO, fonte_titulo)
+	cab.size = Vector2(area.size.x, cab_h)
+	quadro.add_child(cab)
+	_caber(cab, 50 * u, area.size.x - 60 * u)
+	if lista.is_empty() and linhas.is_empty():
+		return
+	var lw := area.size.x - 36 * u
+	for k in linhas.size():
+		var l: Dictionary = linhas[k]
+		var e: Dictionary = l["e"]
+		var pos: int = l["pos"]
+		var minha: bool = atuais.has(pos)
+		var cor := Color("#2A63C4") if not minha else Color("#FFB627")
+		var lin := Painel3D.new(cor, 26, 8, 4)
+		lin.size = Vector2(lw, lh)
+		lin.position = Vector2(18 * u, cab_h + gap + k * (lh + gap))
+		quadro.add_child(lin)
+		lin.modulate.a = 0.0
+		var tw := create_tween()
+		tw.tween_interval(1.2 + k * 0.12)
+		tw.tween_property(lin, "modulate:a", 1.0, 0.25)
+		# número (medalha para os 3 primeiros)
+		var md := lh * 0.74
+		var med := Painel3D.new(_cor_medalha(pos), md / 2.0 / u, 6, 4)
+		med.size = Vector2(md, md)
+		med.position = Vector2(12 * u, (lh - md) / 2 - 3 * u)
+		lin.add_child(med)
+		var ln := rotulo(str(pos), md * 0.55, MARINHO if pos <= 3 else Color.WHITE, 0 if pos <= 3 else 6 * u, MARINHO, fonte_titulo)
+		ln.size = Vector2(md, md - 4 * u)
+		med.add_child(ln)
+		# foto da criança (ou o mascote)
+		var fd := lh * 0.92
+		var ft: Texture2D = l.get("foto")
+		if ft == null:
+			ft = Fotos.carregar(str(e.get("foto", "")))
+		var fr := TextureRect.new()
+		fr.texture = ft if ft != null else _retratos.get(str(e.get("personagem", "bob")))
+		fr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		fr.stretch_mode = TextureRect.STRETCH_SCALE
+		fr.material = material_foto(Color.WHITE)
+		fr.size = Vector2(fd, fd)
+		fr.position = Vector2(24 * u + md, (lh - fd) / 2 - 3 * u)
+		lin.add_child(fr)
+		var px := 24 * u + md + fd + 14 * u
+		var quem := "com %s" % str(e.get("personagem", "")).to_upper()
+		if str(e.get("hora", "")) != "":
+			quem += "  ·  %s" % e["hora"]
+		var lq := rotulo(quem, 30 * u, Color.WHITE, 7 * u, MARINHO)
+		lq.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+		lq.size = Vector2(lw * 0.5, lh - 6 * u)
+		lq.position = Vector2(px, 0)
+		lin.add_child(lq)
+		if minha:
+			var voce := rotulo("VOCÊ!", 34 * u, MARINHO, 0, MARINHO, fonte_titulo)
+			voce.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+			voce.size = Vector2(lw * 0.3, lh * 0.5)
+			voce.position = Vector2(px, -2 * u)
+			lq.position.y = lh * 0.36
+			lq.size.y = lh * 0.6
+			lq.label_settings.font_color = MARINHO
+			lq.label_settings.outline_size = 0
+			lin.add_child(voce)
+		var lp := rotulo(str(int(e.get("pontos", 0))), lh * 0.6, CREME if not minha else MARINHO, 0 if minha else 10 * u, MARINHO, fonte_titulo)
+		lp.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		lp.size = Vector2(lw * 0.3, lh - 6 * u)
+		lp.position = Vector2(lw * 0.7 - 24 * u, 0)
+		lin.add_child(lp)
 
 
 func fim_contagem(segundos: int) -> void:
@@ -1589,7 +1803,7 @@ func layout() -> void:
 	if _marca_tela.visible:
 		_layout_marca(T)
 	if _atracao.visible:
-		atracao(true, _recorde.text, _creditos.text, _rec_foto.texture)
+		atracao(true, _recorde.text, _creditos.text, _rec_foto.texture, _melhores_hoje)
 
 
 func _process(delta: float) -> void:

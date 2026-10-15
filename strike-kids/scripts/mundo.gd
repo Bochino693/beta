@@ -27,7 +27,7 @@ const CAMADA_BOLA := 4
 const CAMADA_PISO_BOLA := 8
 const CAMADA_PISO_PINOS := 16
 const ALTURA_PODIO := 0.152
-const BALAO_POS := Vector3(-2.9, 2.9, Z_PINO1 + 1.6)
+const BALAO_POS := Vector3(-1.75, 2.2, Z_PINO1 + 3.0)
 
 var ambiente: Environment
 var sol: DirectionalLight3D
@@ -40,6 +40,11 @@ var mat_divisoria: ShaderMaterial
 var mat_faixa: ShaderMaterial
 var mats_canaleta: Array[ShaderMaterial] = []
 var mat_terreno: ShaderMaterial
+var mat_gabinete: ShaderMaterial
+var mat_parede: ShaderMaterial
+var mat_coluna: ShaderMaterial
+var mat_friso: ShaderMaterial
+var mat_portal: ShaderMaterial
 var temas: Temas
 var tema := ""
 var _bumpers: Array[Node3D] = []
@@ -67,6 +72,11 @@ func construir() -> void:
 	temas = Temas.new()
 	add_child(temas)
 	temas.construir(self)
+	# peças paradas com o mesmo material viram uma malha só (menos desenhos)
+	var fora: Array = [balao, temas]
+	fora.append_array(_podios)
+	fora.append_array(_bumpers)
+	Lote.juntar(self, fora)
 	aplicar_tema("parque")
 	definir_protecao(Ajustes.protecao_canaleta())
 
@@ -96,7 +106,14 @@ func aplicar_tema(nome: String) -> void:
 	var f: Array = c["fundo"]
 	mat_fundo.set_shader_parameter("cor_a", f[0])
 	mat_fundo.set_shader_parameter("cor_b", f[1])
+	mat_fundo.set_shader_parameter("cor_halo", c["halo"])
 	mat_placa.set_shader_parameter("tinta", c["placa"])
+	var portal: Array = c["portal"]
+	mat_portal.set_shader_parameter("cor_a", portal[0])
+	mat_portal.set_shader_parameter("cor_b", portal[1])
+	mat_gabinete.set_shader_parameter("tinta", c["gabinete"])
+	mat_coluna.set_shader_parameter("tinta", c["coluna"])
+	mat_parede.set_shader_parameter("tinta", c["parede"])
 	mat_divisoria.set_shader_parameter("tinta", c["divisoria"])
 	mat_faixa.set_shader_parameter("tinta", c["faixa"])
 	for m in mats_canaleta:
@@ -150,26 +167,21 @@ func _sol() -> void:
 	sol.rotation_degrees = Vector3(-52, 28, 0)
 	sol.light_color = Color(1.0, 0.95, 0.86)
 	sol.light_energy = 1.05
-	sol.shadow_enabled = true
-	sol.shadow_bias = 0.04
-	sol.shadow_normal_bias = 1.2
-	sol.shadow_blur = 1.5
-	sol.directional_shadow_mode = DirectionalLight3D.SHADOW_ORTHOGONAL
-	sol.directional_shadow_max_distance = 26.0
+	sol.shadow_enabled = false
 	add_child(sol)
 
 
-## Qualidade: "alta" (sombras reais + glow), "media" (glow, sombra só da
-## pista), "baixa" (sem glow nem sombra; para TV Box fraca).
+## Qualidade (o sol NÃO faz sombra de verdade em nenhuma: no Godot
+## "Compatibilidade" isso desenha a cena inteira duas vezes. Pinos, bola e
+## bichinhos têm sombrinha pintada no chão, que acompanha cada um):
+##   alta  (PC): brilho (glow), neblina e ajuste de cor;
+##   media (TV Box): neblina e ajuste de cor;
+##   baixa (TV Box fraca): o mínimo.
 func aplicar_qualidade(q: String) -> void:
-	sol.shadow_enabled = q != "baixa"
-	ambiente.glow_enabled = q != "baixa"
-	ambiente.fog_enabled = q == "alta" or q == "media"
-	# sombra nítida perto da câmera (2 divisões) na alta; uma só na média
-	sol.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS if q == "alta" else DirectionalLight3D.SHADOW_ORTHOGONAL
-	sol.directional_shadow_split_1 = 0.25
-	sol.directional_shadow_max_distance = 32.0 if q == "alta" else 26.0
-	RenderingServer.directional_shadow_atlas_set_size(4096 if q == "alta" else 2048, true)
+	sol.shadow_enabled = false
+	ambiente.glow_enabled = q == "alta"
+	ambiente.fog_enabled = q != "baixa"
+	ambiente.adjustment_enabled = q != "baixa"
 
 
 # ================================================================ terreno
@@ -193,7 +205,7 @@ func _terreno() -> void:
 
 
 # ================================================================ pista
-func _caixa(tam: Vector3, pos: Vector3, mat: Material, colisao := true, sombra := true, atrito := 0.4, quique := 0.2) -> MeshInstance3D:
+func _caixa(tam: Vector3, pos: Vector3, mat: Material, colisao := true, sombra := false, atrito := 0.4, quique := 0.2) -> MeshInstance3D:
 	var mi := MeshInstance3D.new()
 	var bm := BoxMesh.new()
 	bm.size = tam
@@ -303,8 +315,8 @@ func _pista() -> void:
 	var mb := CapsuleMesh.new()
 	mb.radius = 0.07
 	mb.height = 1.14
-	mb.radial_segments = 24
-	mb.rings = 6
+	mb.radial_segments = 14
+	mb.rings = 3
 	var mat_b := ShaderMaterial.new()
 	mat_b.shader = load("res://shaders/doce_listrado.gdshader")
 	if Materiais.contornos_ligados:
@@ -357,7 +369,7 @@ func definir_protecao(ligada: bool) -> void:
 
 # ================================================================ fundo dos pinos
 ## Peça lisa feita por perfil (scripts/perfis.gd).
-func _peca(perfil: PackedVector2Array, z0: float, z1: float, mat: Material, nome := "", sombra := true) -> MeshInstance3D:
+func _peca(perfil: PackedVector2Array, z0: float, z1: float, mat: Material, nome := "", sombra := false) -> MeshInstance3D:
 	var mi := MeshInstance3D.new()
 	mi.mesh = Perfis.extrudar(perfil, z0, z1)
 	mi.material_override = mat
@@ -369,26 +381,27 @@ func _peca(perfil: PackedVector2Array, z0: float, z1: float, mat: Material, nome
 	return mi
 
 
-## A CAÇAPA e o GABINETE DA MÁQUINA: paredes laterais acolchoadas (os pinos
-## batem e voltam), cortina pregueada de estrelas com almofada embaixo e, por
-## fora, um gabinete fechado (laterais, teto e fundo com a marca) — de
-## qualquer ângulo, inclusive por trás, é uma máquina de boliche inteira.
+## A CAÇAPA e o PORTAL no fim da pista: paredes laterais acolchoadas (os
+## pinos batem e voltam), cortina pregueada nas cores do cenário com um
+## halo de luz atrás dos pinos, e por fora um gabinete alto (esconde a
+## máquina de pinos) com o letreiro STRIKE KIDS e, em cima, um ARCO de
+## raios coloridos com lâmpadas — o fundo da pista é um portal de parque,
+## nas cores de cada cenário. De qualquer ângulo é uma máquina inteira.
 func _fundo_dos_pinos() -> void:
 	var fosso := Materiais.cor_toon(Color("#16336E"), 0.0, {"borda": 0.3})
-	var parede := Materiais.cor_toon(Color("#2A63C4"), 0.0, {"borda": 0.3, "especular": 0.25})
-	var friso := Materiais.cor_toon(Color("#FFB627"), 0.0, {"borda": 0.25, "especular": 0.5})
-	var gabinete := Materiais.cor_toon(Color("#123A7A"), 0.004, {"borda": 0.35, "especular": 0.2})
+	mat_parede = Materiais.cor_toon(Color("#2A63C4"), 0.0, {"borda": 0.3, "especular": 0.25})
+	mat_friso = Materiais.cor_toon(Color("#FFB627"), 0.0, {"borda": 0.25, "especular": 0.5})
+	mat_gabinete = Materiais.cor_toon(Color("#E8384F"), 0.004, {"borda": 0.35, "especular": 0.12, "luz_minima": 0.3})
 	var z_frente := Z_PINO1 + 0.9
 	# paredes laterais (kickbacks): visual arredondado + a mesma colisão de antes
 	for s in [-1, 1]:
 		var x: float = s * (MEIA_LARGURA + CANALETA + 0.06)
-		var kb := _peca(Perfis.retangulo(0.12, 1.0, 0.05, Vector2(x, 0.35)), Z_FUNDO, z_frente, parede, "parede_%d" % s)
-		kb.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
-		_peca(Perfis.retangulo(0.17, 0.07, 0.034, Vector2(x, 0.875)), Z_FUNDO, z_frente + 0.02, friso, "", false)
+		_peca(Perfis.retangulo(0.12, 1.0, 0.05, Vector2(x, 0.35)), Z_FUNDO, z_frente, mat_parede, "parede_%d" % s)
+		_peca(Perfis.retangulo(0.17, 0.07, 0.034, Vector2(x, 0.875)), Z_FUNDO, z_frente + 0.02, mat_friso)
 		_corpo_caixa(Vector3(0.12, 1.0, -Z_FUNDO + z_frente), Vector3(x, 0.35, (z_frente + Z_FUNDO) / 2), 0.3, 0.35)
 	# fosso
 	_caixa(Vector3(2.0, 0.2, -Z_FUNDO + Z_FIM_DECK), Vector3(0, -0.24, (Z_FIM_DECK + Z_FUNDO) / 2), fosso, true, false, 0.9, 0.05)
-	# cortina pregueada (estrelinhas) + almofada de borracha embaixo
+	# cortina pregueada (estrelinhas + halo atrás dos pinos) + almofada embaixo
 	mat_fundo = ShaderMaterial.new()
 	mat_fundo.shader = load("res://shaders/fundo_estrelas.gdshader")
 	var fundo := MeshInstance3D.new()
@@ -402,28 +415,29 @@ func _fundo_dos_pinos() -> void:
 	var cap := CapsuleMesh.new()
 	cap.radius = 0.075
 	cap.height = 2.0
-	cap.radial_segments = 32
-	cap.rings = 8
+	cap.radial_segments = 20
+	cap.rings = 4
 	almofada.mesh = cap
 	almofada.rotation_degrees.z = 90
 	almofada.position = Vector3(0, -0.07, Z_FUNDO + 0.1)
 	almofada.material_override = Materiais.cor_toon(Color("#1A2236"), 0.0, {"borda": 0.4, "especular": 0.35})
 	add_child(almofada)
 	_corpo_caixa(Vector3(2.4, 2.0, 0.2), Vector3(0, 0.5, Z_FUNDO - 0.1), 0.9, 0.0)
-	# teto escuro do fosso (esconde a parte de cima)
+	# teto escuro do fosso (esconde a parte de cima, vista de dentro)
 	_caixa(Vector3(2.3, 0.1, -Z_FUNDO + Z_PINO1 + 0.7), Vector3(0, 2.12, (Z_PINO1 + 0.7 + Z_FUNDO) / 2),
 		Materiais.cor_toon(Color("#0B1B3A"), 0.0, {"borda": 0.0}), false, false)
-	# gabinete por fora: laterais, teto e fundo
+	# gabinete por fora: laterais, teto e fundo — alto, esconde a máquina
 	var z_tras := Z_FUNDO - 0.95
 	var z_masc := Z_PINO1 + 0.68
 	for s in [-1, 1]:
-		_peca(Perfis.retangulo(0.34, 2.8, 0.12, Vector2(s * 1.23, 1.1)), z_tras + 0.3, z_masc, gabinete, "gabinete_lado_%d" % s)
-	_peca(Perfis.retangulo(2.8, 0.32, 0.1, Vector2(0, 2.36)), z_tras + 0.3, z_masc, gabinete, "gabinete_teto")
-	_peca(Perfis.retangulo(2.9, 2.85, 0.22, Vector2(0, 1.1)), z_tras, Z_FUNDO - 0.02, gabinete, "gabinete_fundo")
-	_peca(Perfis.retangulo(2.96, 0.09, 0.04, Vector2(0, 2.5)), z_tras - 0.03, z_masc, friso, "", false)
+		_peca(Perfis.retangulo(0.34, 3.7, 0.12, Vector2(s * 1.23, 1.55)), z_tras + 0.3, z_masc, mat_gabinete, "gabinete_lado_%d" % s)
+	_peca(Perfis.retangulo(2.8, 0.32, 0.1, Vector2(0, 3.24)), z_tras + 0.3, z_masc, mat_gabinete, "gabinete_teto")
+	_peca(Perfis.retangulo(2.9, 3.75, 0.22, Vector2(0, 1.53)), z_tras, Z_FUNDO - 0.02, mat_gabinete, "gabinete_fundo")
+	_peca(Perfis.retangulo(2.96, 0.09, 0.04, Vector2(0, 3.42)), z_tras - 0.03, z_masc, mat_friso)
 	# letreiro (masking) acima dos pinos, com o logo e lâmpadas
-	mat_placa = Materiais.cor_toon(Color("#0E2A5C"), 0.004, {"borda": 0.4})
-	var placa := _peca(Perfis.retangulo(2.7, 0.95, 0.07, Vector2(0, 1.85)), Z_PINO1 + 0.68, Z_PINO1 + 0.82, mat_placa, "placa")
+	mat_placa = Materiais.cor_toon(Color("#1E3FA0"), 0.004, {"borda": 0.4})
+	_peca(Perfis.retangulo(2.7, 0.95, 0.07, Vector2(0, 1.85)), Z_PINO1 + 0.68, Z_PINO1 + 0.82, mat_placa, "placa")
+	_peca(Perfis.retangulo(2.8, 1.05, 0.09, Vector2(0, 1.85)), Z_PINO1 + 0.66, Z_PINO1 + 0.78, mat_friso)
 	var logo_tex := Materiais.textura("logo")
 	if logo_tex != null:
 		var logo := MeshInstance3D.new()
@@ -441,49 +455,76 @@ func _fundo_dos_pinos() -> void:
 		logo.position = Vector3(0, 1.86, Z_PINO1 + 0.83)
 		logo.name = "logo"
 		add_child(logo)
-
-	# lâmpadas: contorno da placa (o arco-íris do parque tem as suas: temas.gd)
+	# ARCO em cima do letreiro: raios nas cores do cenário + moldura amarela
+	mat_portal = ShaderMaterial.new()
+	mat_portal.shader = load("res://shaders/raios.gdshader")
+	mat_portal.set_shader_parameter("centro", Vector2(0, 2.25))
+	var arco := MeshInstance3D.new()
+	arco.mesh = Perfis.extrudar(_perfil_arco(1.42, 2.22, 2.45, 0.86), Z_PINO1 + 0.69, Z_PINO1 + 0.79)
+	arco.material_override = mat_portal
+	arco.name = "arco"
+	add_child(arco)
+	_peca(_perfil_arco(1.52, 2.2, 2.45, 0.96), Z_PINO1 + 0.66, Z_PINO1 + 0.76, mat_friso)
+	# lâmpadas: contorno do letreiro e do arco
 	var pontos: Array[Vector3] = []
 	var zc := Z_PINO1 + 0.83
 	for i in 26:
-		pontos.append(Vector3(-1.3 + i * 0.104, 2.29, zc))
 		pontos.append(Vector3(-1.3 + i * 0.104, 1.41, zc))
 	for i in 9:
 		pontos.append(Vector3(-1.33, 1.41 + i * 0.11, zc))
 		pontos.append(Vector3(1.33, 1.41 + i * 0.11, zc))
+	for i in 31:
+		var a := PI * float(i) / 30.0
+		pontos.append(Vector3(cos(a) * 1.47, 2.45 + sin(a) * 0.91, zc - 0.02))
 	mat_lampadas = ShaderMaterial.new()
 	mat_lampadas.shader = load("res://shaders/lampadas.gdshader")
 	add_child(lampadas_em(pontos))
 
 
-## Colunas dos dois lados do letreiro STRIKE KIDS, com faixas de lâmpadas:
-## fecham a frente do gabinete da máquina.
+## Contorno do arco: base reta em y0, laterais até yc e meia-elipse
+## (raio r na largura, `alto` na altura) por cima. Anti-horário.
+static func _perfil_arco(r: float, y0: float, yc: float, alto: float) -> PackedVector2Array:
+	var p := PackedVector2Array()
+	p.append(Vector2(r, y0))
+	for i in 49:
+		var a := PI * float(i) / 48.0
+		p.append(Vector2(cos(a) * r, yc + sin(a) * alto))
+	p.append(Vector2(-r, y0))
+	return p
+
+
+## Colunas dos dois lados do letreiro, com faixas de lâmpadas: fecham a
+## frente do gabinete da máquina (cor do cenário).
 func _colunas() -> void:
 	var zc := Z_PINO1 + 0.75
 	var pontos: Array[Vector3] = []
+	mat_coluna = Materiais.cor_toon(Color("#1E62C8"), 0.004, {"borda": 0.35, "especular": 0.3})
 	for s in [-1, 1]:
 		var x: float = s * 1.93
-		_peca(Perfis.retangulo(1.16, 2.7, 0.12, Vector2(x, 1.0)), zc - 0.07, zc + 0.07, mat_placa, "coluna_%d" % s)
-		for i in 21:
+		_peca(Perfis.retangulo(1.16, 3.0, 0.14, Vector2(x, 1.15)), zc - 0.07, zc + 0.07, mat_coluna, "coluna_%d" % s)
+		_peca(Perfis.retangulo(1.26, 0.12, 0.05, Vector2(x, 2.7)), zc - 0.09, zc + 0.09, mat_friso)
+		for i in 23:
 			pontos.append(Vector3(x - s * 0.5, 0.2 + i * 0.1, zc + 0.08))
 			pontos.append(Vector3(x + s * 0.5, 0.2 + i * 0.1, zc + 0.08))
 	add_child(lampadas_em(pontos, 50))
 
 
-## BALÃO DA MARCA: a logo Lazer & Sport (sem fundo) impressa num balão que
-## flutua ao lado da pista — só no cenário do Parque de Diversões.
+## BALÃO DA MARCA: um balãozinho com a logo Lazer & Sport (sem fundo)
+## flutuando ao lado da pista — só no cenário do Parque de Diversões.
 func _balao_marca() -> void:
 	balao = Node3D.new()
 	balao.name = "balao_marca"
 	balao.position = BALAO_POS
+	# pequeno: ~60 cm de diâmetro (o modelo é feito com raio 1)
+	balao.scale = Vector3.ONE * 0.3
 	add_child(balao)
 	var logo: Texture2D = load("res://ui/marca/lazer_sport.png")
 	var corpo := MeshInstance3D.new()
 	var sm := SphereMesh.new()
 	sm.radius = 1.0
 	sm.height = 2.0
-	sm.radial_segments = 72
-	sm.rings = 36
+	sm.radial_segments = 32
+	sm.rings = 16
 	corpo.mesh = sm
 	corpo.scale = Vector3(1.0, 1.12, 1.0)
 	var w := 1.32
@@ -494,23 +535,25 @@ func _balao_marca() -> void:
 	corpo.material_override = mat_balao
 	corpo.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	balao.add_child(corpo)
-	# nó e cordão (balão)
+	# nó e cordão
 	var no := MeshInstance3D.new()
 	var cm := CylinderMesh.new()
 	cm.top_radius = 0.025
 	cm.bottom_radius = 0.09
 	cm.height = 0.14
+	cm.radial_segments = 12
 	no.mesh = cm
 	no.position.y = -1.17
 	no.material_override = mat_balao
 	balao.add_child(no)
 	var cordao := MeshInstance3D.new()
 	var cc := CylinderMesh.new()
-	cc.top_radius = 0.008
-	cc.bottom_radius = 0.008
-	cc.height = 2.3
+	cc.top_radius = 0.012
+	cc.bottom_radius = 0.012
+	cc.height = 4.2
+	cc.radial_segments = 6
 	cordao.mesh = cc
-	cordao.position.y = -1.24 - 1.15
+	cordao.position.y = -1.24 - 2.1
 	cordao.material_override = Materiais.cor_toon(Color("#FFFFFF"), 0.0, {"borda": 0.0, "luz_minima": 0.6})
 	balao.add_child(cordao)
 
@@ -523,25 +566,26 @@ func _tema_balao(b: Dictionary) -> void:
 
 
 # ================================================================ área dos jogadores
-## Atrás de quem joga: tapete, parede com o letreiro STRIKE KIDS aceso,
-## sofás e o retorno de bolas. Quando a câmera vira para
-## o mascote (reação, comemoração), o fundo é o salão — nada de chão
-## infinito.
+## Atrás de quem joga: tapete, uma mureta nas cores do cenário (por cima
+## dela aparece o cenário — o parque, o fundo do mar...), o letreiro STRIKE
+## KIDS em dois postes, sofás e o retorno de bolas. Quando a câmera vira
+## para o mascote, o fundo é o próprio cenário, sem chão infinito.
 func _area_dos_jogadores() -> void:
 	var z_parede := 7.7
 	var marinho := Materiais.cor_toon(Color("#123A7A"), 0.004, {"borda": 0.3, "especular": 0.2})
 	var azul := Materiais.cor_toon(Color("#1E62C8"), 0.0, {"borda": 0.3})
-	var amarelo := Materiais.cor_toon(Color("#FFB627"), 0.0, {"borda": 0.25, "especular": 0.4})
 	var vermelho := Materiais.cor_toon(Color("#E8384F"), 0.004, {"borda": 0.3, "especular": 0.3})
 	var tapete := Materiais.cor_toon(Color("#1B3E86"), 0.0, {"borda": 0.15})
-	# tapete entre a área de aproximação e a parede (+ friso amarelo)
+	# tapete entre a área de aproximação e a mureta (+ friso amarelo)
 	_caixa(Vector3(9.6, 0.06, z_parede - 6.3), Vector3(0, -0.03, (6.3 + z_parede) / 2), tapete, false, false)
-	_caixa(Vector3(6.6, 0.065, 0.07), Vector3(0, -0.03, 6.33), amarelo, false, false)
-	# parede: barra azul embaixo, friso amarelo, parte de cima azul-marinho
-	_peca(Perfis.retangulo(9.6, 3.5, 0.2, Vector2(0, 1.65)), z_parede, z_parede + 0.3, marinho, "parede_fundo")
-	_peca(Perfis.retangulo(9.4, 1.0, 0.06, Vector2(0, 0.5)), z_parede - 0.05, z_parede, azul, "", false)
-	_peca(Perfis.retangulo(9.4, 0.09, 0.04, Vector2(0, 1.04)), z_parede - 0.07, z_parede, amarelo, "", false)
-	# letreiro STRIKE KIDS virado para a pista, com lâmpadas em volta
+	_caixa(Vector3(6.6, 0.065, 0.07), Vector3(0, -0.03, 6.33), mat_friso, false, false)
+	# mureta (cor do cenário) com friso amarelo em cima
+	_peca(Perfis.retangulo(9.6, 1.1, 0.12, Vector2(0, 0.55)), z_parede, z_parede + 0.3, mat_gabinete, "mureta")
+	_peca(Perfis.retangulo(9.7, 0.1, 0.05, Vector2(0, 1.12)), z_parede - 0.03, z_parede + 0.33, mat_friso)
+	# letreiro STRIKE KIDS em dois postes, virado para a pista, com lâmpadas
+	for s in [-1, 1]:
+		_peca(Perfis.retangulo(0.16, 3.0, 0.07, Vector2(s * 1.9, 1.5)), z_parede - 0.2, z_parede - 0.04, mat_coluna)
+	_peca(Perfis.retangulo(4.0, 1.75, 0.16, Vector2(0, 2.55)), z_parede - 0.18, z_parede - 0.06, mat_placa, "placa_fundo")
 	var logo_tex := Materiais.textura("logo")
 	var pontos: Array[Vector3] = []
 	if logo_tex != null:
@@ -551,24 +595,25 @@ func _area_dos_jogadores() -> void:
 		var ml := StandardMaterial3D.new()
 		ml.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 		ml.albedo_texture = logo_tex
-		ml.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		ml.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR
+		ml.alpha_scissor_threshold = 0.4
 		ml.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC
 		var logo := MeshInstance3D.new()
 		logo.mesh = lq
 		logo.material_override = ml
 		logo.rotation_degrees.y = 180
-		logo.position = Vector3(0, 2.3, z_parede - 0.03)
+		logo.position = Vector3(0, 2.55, z_parede - 0.2)
 		logo.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		add_child(logo)
 		for i in 30:
-			var x := -1.75 + i * (3.5 / 29.0)
-			pontos.append(Vector3(x, 3.1, z_parede - 0.04))
-			pontos.append(Vector3(x, 1.55, z_parede - 0.04))
+			var x := -1.85 + i * (3.7 / 29.0)
+			pontos.append(Vector3(x, 3.35, z_parede - 0.21))
+			pontos.append(Vector3(x, 1.75, z_parede - 0.21))
 	add_child(lampadas_em(pontos, 200))
-	# sofás vermelhos encostados na parede
+	# sofás vermelhos encostados na mureta
 	for s in [-1, 1]:
 		var sofa := Node3D.new()
-		sofa.position = Vector3(s * 2.75, 0, z_parede - 0.42)
+		sofa.position = Vector3(s * 3.4, 0, z_parede - 0.42)
 		sofa.rotation_degrees.y = 90
 		add_child(sofa)
 		for parte in [[Perfis.retangulo(0.66, 0.42, 0.12, Vector2(0.0, 0.21)), 0.0],
@@ -576,15 +621,15 @@ func _area_dos_jogadores() -> void:
 				[Perfis.retangulo(0.66, 0.6, 0.1, Vector2(0.0, 0.3)), 1.0]]:
 			var mi := MeshInstance3D.new()
 			if parte[1] == 0.0:
-				mi.mesh = Perfis.extrudar(parte[0], -1.25, 1.25)
+				mi.mesh = Perfis.extrudar(parte[0], -1.1, 1.1)
 			else:
 				mi.mesh = Perfis.extrudar(parte[0], -0.12, 0.12)
 			mi.material_override = vermelho if parte[1] == 0.0 else marinho
 			sofa.add_child(mi)
 			if parte[1] == 1.0:
 				var outro := mi.duplicate() as MeshInstance3D
-				mi.position.z = -1.35
-				outro.position.z = 1.35
+				mi.position.z = -1.2
+				outro.position.z = 1.2
 				sofa.add_child(outro)
 	# retorno de bolas (como num boliche de verdade), do lado direito
 	var ret := Node3D.new()
@@ -600,7 +645,7 @@ func _area_dos_jogadores() -> void:
 	ret.add_child(capo)
 	var trilho := MeshInstance3D.new()
 	trilho.mesh = Perfis.extrudar(Perfis.retangulo(0.5, 0.06, 0.03, Vector2(0, 0.53)), -0.78, 0.3)
-	trilho.material_override = amarelo
+	trilho.material_override = mat_friso
 	ret.add_child(trilho)
 	var cores := [Color("#169BD5"), Color("#FF7A21"), Color("#2DBE4E")]
 	for i in 3:
@@ -608,8 +653,8 @@ func _area_dos_jogadores() -> void:
 		var sm := SphereMesh.new()
 		sm.radius = 0.13
 		sm.height = 0.26
-		sm.radial_segments = 32
-		sm.rings = 16
+		sm.radial_segments = 24
+		sm.rings = 12
 		b.mesh = sm
 		b.material_override = Materiais.cor_toon(cores[i], 0.003, {"borda": 0.4, "especular": 0.8})
 		b.position = Vector3(0, 0.69, -0.62 + i * 0.29)
@@ -677,6 +722,20 @@ func podios(ligar: bool, posicoes: Array = [], destaque := -1) -> void:
 	_podio_destaque = destaque
 
 
+## Lâmpada: bolinha de 64 triângulos (são centenas delas na tela).
+static var _lampada: SphereMesh
+
+
+static func _malha_lampada() -> SphereMesh:
+	if _lampada == null:
+		_lampada = SphereMesh.new()
+		_lampada.radius = 0.07
+		_lampada.height = 0.14
+		_lampada.radial_segments = 8
+		_lampada.rings = 4
+	return _lampada
+
+
 ## Fileira de lâmpadas (MultiMesh) que piscam com o material comum.
 func lampadas_em(pontos: Array[Vector3], fase0 := 0) -> MultiMeshInstance3D:
 	var cores := [Color("#FFE14D"), Color("#FF9F2E"), Color("#4FD8FF"), Color("#8DFF6A")]
@@ -684,7 +743,7 @@ func lampadas_em(pontos: Array[Vector3], fase0 := 0) -> MultiMeshInstance3D:
 	mm.transform_format = MultiMesh.TRANSFORM_3D
 	mm.use_colors = true
 	mm.use_custom_data = true
-	mm.mesh = load("res://modelos/cenario/lampada.res")
+	mm.mesh = _malha_lampada()
 	mm.instance_count = pontos.size()
 	for i in pontos.size():
 		mm.set_instance_transform(i, Transform3D(Basis().scaled(Vector3.ONE * 0.75), pontos[i]))
@@ -743,10 +802,12 @@ func _process(delta: float) -> void:
 	mat_pista.set_shader_parameter("fase", fposmod(_t * 2.2, 1.0))
 	mat_pista.set_shader_parameter("bola_z", bola_z)
 	mat_lampadas.set_shader_parameter("fase", fposmod(_t * 0.9, 100.0))
-	# balão da marca: sobe e desce devagar e balança um pouquinho
-	balao.position = BALAO_POS + Vector3(0, sin(_t * 0.8) * 0.12, 0)
-	balao.rotation = Vector3(0, sin(_t * 0.45) * 0.14, sin(_t * 0.6) * 0.04)
+	# balão da marca: flutua — sobe e desce, vai e volta e balança
+	if balao.visible:
+		balao.position = BALAO_POS + Vector3(sin(_t * 0.31) * 0.18, sin(_t * 0.8) * 0.14, sin(_t * 0.23) * 0.1)
+		balao.rotation = Vector3(sin(_t * 0.5) * 0.05, sin(_t * 0.45) * 0.3, sin(_t * 0.6) * 0.08)
 	mat_fundo.set_shader_parameter("fase", fposmod(_t * 0.4, 100.0))
+	mat_portal.set_shader_parameter("giro", fposmod(_t * 0.12, TAU))
 	for i in _mats_podio.size():
 		var on := 0.0
 		if i == _podio_destaque:

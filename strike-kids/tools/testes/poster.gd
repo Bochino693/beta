@@ -3,7 +3,7 @@ extends Node
 ## CENA DO PÔSTER (sem HUD): Bob voando com os jatos, Mia pulando e os
 ## pinos explodindo atrás. Renderiza a imagem "crua" que o
 ## tools/testes/montar_posteres.py transforma em pôster/banner.
-##   godot --path . --fixed-fps 30 --resolution 1080x1920 res://tools/testes/poster.tscn -- --saida=arquivo.png --formato=vertical
+##   godot --path . --fixed-fps 30 res://tools/testes/poster.tscn -- --janela=1080x1920 --saida=arquivo.png --formato=vertical
 ## --tema=parque|espaco|mar|dinos escolhe o cenário. --formato=cenario faz
 ## um plano aberto do cenário (para a folha dos 4 cenários).
 

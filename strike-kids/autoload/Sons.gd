@@ -39,11 +39,31 @@ func _ready() -> void:
 	add_child(_musica_b)
 	_rolando = AudioStreamPlayer.new()
 	add_child(_rolando)
+	_pre_carregar()
+
+
+## Todos os sons começam a carregar já na abertura, em segundo plano: o
+## primeiro "STRIKE!" não espera o disco (nada de engasgo).
+var _pendentes := {}
+
+
+func _pre_carregar() -> void:
+	for f in ResourceLoader.list_directory(PASTA):
+		if f.get_extension() in ["wav", "ogg"]:
+			var caminho: String = PASTA + f
+			_pendentes[f.get_basename()] = caminho
+			ResourceLoader.load_threaded_request(caminho)
 
 
 func _carregar(nome: String) -> AudioStream:
 	if _cache.has(nome):
 		return _cache[nome]
+	if _pendentes.has(nome):
+		var a := ResourceLoader.load_threaded_get(_pendentes[nome]) as AudioStream
+		_pendentes.erase(nome)
+		if a != null:
+			_cache[nome] = a
+			return a
 	var s: AudioStream = null
 	for ext in [".wav", ".ogg"]:
 		var caminho: String = PASTA + nome + ext

@@ -1,7 +1,7 @@
 extends Node
 
 ## FOTOS EM INSTANTES FIXOS do jogo rodando (diagnóstico de qualidade).
-##   godot --path . --fixed-fps 30 --resolution 1080x1920 -- --instantes=pasta --em=1.0,2.5,6.0
+##   godot --path . --fixed-fps 30 -- --janela=1080x1920 --instantes=pasta --em=1.0,2.5,6.0
 ## Tira uma foto da tela em cada instante (segundos desde o começo) e sai.
 
 var pasta := "user://instantes"

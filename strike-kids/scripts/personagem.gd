@@ -95,8 +95,8 @@ func montar(nome: String) -> void:
 			parametros.merge(_parametros_estampa(modelo.get_meta("estampa", {})), true)
 		var m := Materiais.toon(true, 0.0032, parametros)
 		mi.material_override = m
-		# detalhe alto até de longe (orelhas e focinho não podem sumir)
-		mi.lod_bias = 6.0
+		# a malha já é leve; de longe ainda simplifica, mas sem sumir orelha
+		mi.lod_bias = 1.5
 		_mats.append(m)
 		if j == "cabeca":
 			_mat_cabeca = m

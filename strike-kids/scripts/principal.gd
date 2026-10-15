@@ -22,6 +22,9 @@ const CENA_OPERADOR := "res://cenas/operador.tscn"
 const TEMPO_JOGADORES := 4.0
 ## pódios da escolha do personagem e da foto (Bob à esquerda, Mia à direita)
 const PODIOS := [Vector3(-0.62, 0, 2.5), Vector3(0.62, 0, 2.5)]
+## a vista da espera: a pista de frente, como a criança vê da máquina
+const POS_PISTA := Vector3(0.0, 1.05, 2.2)
+const ALVO_PISTA := Vector3(0.0, 0.18, Mundo.Z_PINO1 + 0.6)
 
 var estado := E.ABERTURA
 var vp: SubViewport
@@ -66,9 +69,20 @@ var _demo_vez := 0
 var _ultimo_som_pino := 0
 var _tema_base := -1          # cada partida começa num cenário diferente
 var _qualidade := "media"
-var _fps_soma := 0.0
-var _fps_n := 0
-var _escala := 1.0
+## resolução da imagem 3D: fator automático (0,6 a 1) sobre o LADO_3D
+var _fator := 1.0
+var _fator_teto := 1.0
+var _adaptar := true
+var _fps_t0 := 0
+var _fps_q := 0
+var _fps_ruins := 0
+var _mouse_parado := 0.0
+
+## Lado menor da IMAGEM 3D, em pixels, em cada qualidade. O 3D é desenhado
+## nesse tamanho fixo e ESTICADO SOZINHO até a tela inteira (TV Box 4K ou
+## 1080p, PC, monitor em pé) — a interface continua nítida por cima.
+## Se a placa de vídeo não segurar 60 quadros, o fator abaixa sozinho.
+const LADO_3D := {"alta": 1440, "media": 720, "baixa": 600}
 
 
 func _ready() -> void:
@@ -79,12 +93,19 @@ func _ready() -> void:
 		_qualidade = OS.get_environment("STRIKE_QUALIDADE")
 	if _qualidade == "auto":
 		_qualidade = "alta" if OS.get_name() != "Android" else "media"
-	_escala = {"alta": 1.0, "media": 0.85, "baixa": 0.7}.get(_qualidade, 0.85)
 	Materiais.contornos_ligados = _qualidade != "baixa"
+	for a in OS.get_cmdline_user_args():
+		# testes e vídeos: resolução fixa (a máquina de teste é lenta)
+		if a.begins_with("--roteiro") or a.begins_with("--video") or a.begins_with("--instantes"):
+			_adaptar = false
 	_montar_3d()
 	hud = Hud.new()
 	add_child(hud)
 	hud.montar(vp.get_texture())
+	# prepara os shaders de tudo enquanto a marca cobre a tela
+	var aq := Aquecer.new()
+	add_child(aq)
+	aq.preparar(vp, hud)
 	hud.toque_sensor.connect(_jogada_recebida)
 	Tela.mudou.connect(_tela_mudou)
 	_tela_mudou(Tela.tamanho())
@@ -95,6 +116,8 @@ func _ready() -> void:
 
 ## Teste automático (PC): godot --path . -- --roteiro=pasta
 func _ligar_roteiro_de_teste() -> void:
+	if OS.get_cmdline_user_args().has("--desempenho") and ResourceLoader.exists("res://tools/testes/desempenho.gd"):
+		add_child(load("res://tools/testes/desempenho.gd").new())
 	for a in OS.get_cmdline_user_args():
 		if a.begins_with("--roteiro") and ResourceLoader.exists("res://tools/testes/roteiro.gd"):
 			add_child(load("res://tools/testes/roteiro.gd").new())
@@ -153,19 +176,28 @@ func _montar_3d() -> void:
 ##   baixa (TV Box fraca): sem MSAA, malhas bem simplificadas.
 func _qualidade_viewport() -> void:
 	vp.msaa_3d = {"alta": Viewport.MSAA_4X, "media": Viewport.MSAA_2X}.get(_qualidade, Viewport.MSAA_DISABLED)
-	vp.mesh_lod_threshold = {"alta": 1.0, "media": 2.5, "baixa": 6.0}.get(_qualidade, 2.5)
-	vp.anisotropic_filtering_level = Viewport.ANISOTROPY_8X if _qualidade == "alta" else Viewport.ANISOTROPY_4X
+	vp.mesh_lod_threshold = {"alta": 1.0, "media": 2.0, "baixa": 4.0}.get(_qualidade, 2.0)
+	vp.anisotropic_filtering_level = Viewport.ANISOTROPY_4X if _qualidade == "alta" else Viewport.ANISOTROPY_2X
 
 
-func _tela_mudou(t: Vector2) -> void:
-	var f := Vector2(Tela.tamanho_fisico()) * _escala
-	vp.size = Vector2i(max(64, int(f.x)), max(64, int(f.y)))
+## Tamanho da imagem 3D: o lado menor da tela, limitado pelo LADO_3D da
+## qualidade e pelo fator automático; a imagem é esticada até a tela.
+func _tela_mudou(_t: Vector2) -> void:
+	var f := Vector2(Tela.tamanho_fisico())
+	var menor := minf(f.x, f.y)
+	var lado := minf(menor, float(LADO_3D.get(_qualidade, 720))) * _fator
+	var k := lado / maxf(menor, 1.0)
+	vp.size = Vector2i(maxi(64, int(round(f.x * k))), maxi(64, int(round(f.y * k))))
 	if hud:
 		hud.layout()
 
 
 # ================================================================ entrada
 func _input(event: InputEvent) -> void:
+	if event is InputEventMouseMotion:
+		_mouse_parado = 0.0
+		if Input.mouse_mode != Input.MOUSE_MODE_VISIBLE:
+			Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	if ArcadeControls.eh_config(event):
 		get_viewport().set_input_as_handled()
 		Engine.time_scale = 1.0
@@ -318,7 +350,7 @@ func _atualizar_atracao() -> void:
 	if int(r1.get("pontos", 0)) > 0:
 		txt = "RECORDE: %d PONTOS (%s)" % [int(r1["pontos"]), str(r1.get("quem", "")).to_upper()]
 	var cred := "MODO LIVRE" if Ajustes.modo_livre() else "CRÉDITOS: %d" % Ajustes.creditos
-	hud.atracao(true, txt, cred, Fotos.foto_recorde(1))
+	hud.atracao(true, txt, cred, Fotos.foto_recorde(1), Classificacao.lista().slice(0, 3))
 
 
 # ================================================================ escolha
@@ -335,6 +367,8 @@ func _escolher_jogadores() -> void:
 	hud.atracao(false)
 	hud.tela_fim(false)
 	hud.etapa(1)
+	# a câmera pode ter sido ligada depois: procura de novo antes da foto
+	Fotos.procurar_agora()
 	_escolha_n = 1
 	_escolha_t = TEMPO_JOGADORES
 	ArduinoBridge.send_led("MENU")
@@ -527,15 +561,17 @@ func _vez(nova_rodada: bool) -> void:
 		Sons.tocar("brilho")
 		Sons.tocar("whoosh", 0.6)
 		hud.anunciar_cenario(tema, 1.7)
+		# passeio pelo cenário que termina na PISTA DE FRENTE (a vista da
+		# espera): o mascote só aparece depois que a bola for jogada
 		cam.trilho([
 			[Vector3(-2.6, 4.6, Mundo.Z_PINO1 + 1.0), Vector3(0, 2.2, Mundo.Z_FUNDO - 3.0), 0.0],
 			[Vector3(2.2, 3.4, -5.0), Vector3(0, 1.4, Mundo.Z_FUNDO), 1.4],
-			[Vector3(0.95, 2.15, Z_INICIO + 3.1), Vector3(-0.12, 0.05, -7.0), 1.3],
-		], 50, 40)
+			[POS_PISTA, ALVO_PISTA, 1.3],
+		], 34, 40)
 		if not await _esperar(2.9, s, false):
 			return
 	elif nova_rodada:
-		_plano_pronto(false)
+		_plano_pista(false)
 	if nova_rodada:
 		var artigo := "DO" if _ativo == "bob" else "DA"
 		var sub := "RODADA %d" % (placar.rodada_atual + 1)
@@ -547,27 +583,14 @@ func _vez(nova_rodada: bool) -> void:
 	_pronto()
 
 
-func _plano_pronto(corte := false) -> void:
-	# por cima do ombro direito: o personagem embaixo à esquerda, a pista
-	# inteira e os pinos no meio da tela
-	var pos := Vector3(0.95, 2.15, Z_INICIO + 3.1)
-	var alvo := Vector3(-0.12, 0.05, -7.0)
-	if corte:
-		cam.corte(pos, alvo, 50, 40)
-	else:
-		cam.ir(pos, alvo, 50, 40, 2.6)
-
-
 ## Esperando a jogada: a PISTA DE FRENTE, como a criança vê da máquina —
 ## pinos lá no fim, nada na frente. O mascote fica fora do quadro e só
 ## aparece depois que o sensor dispara (corte para ele arremessando).
 func _plano_pista(corte := false) -> void:
-	var pos := Vector3(0.0, 1.05, 2.2)
-	var alvo := Vector3(0.0, 0.18, Mundo.Z_PINO1 + 0.6)
 	if corte:
-		cam.corte(pos, alvo, 34, 40)
+		cam.corte(POS_PISTA, ALVO_PISTA, 34, 40)
 	else:
-		cam.ir(pos, alvo, 34, 40, 2.6)
+		cam.ir(POS_PISTA, ALVO_PISTA, 34, 40, 2.6)
 
 
 func _pronto() -> void:
@@ -650,6 +673,10 @@ func _soltou_bola(pos: Vector3) -> void:
 
 func _process(delta: float) -> void:
 	_medir_fps(delta)
+	# PC em tela cheia: a setinha do mouse some sozinha quando ninguém mexe
+	_mouse_parado += delta
+	if _mouse_parado > 2.5 and Input.mouse_mode == Input.MOUSE_MODE_VISIBLE:
+		Input.mouse_mode = Input.MOUSE_MODE_HIDDEN
 	match estado:
 		E.ROLANDO:
 			_rolando(delta)
@@ -989,6 +1016,16 @@ func _fim_de_jogo() -> void:
 		dados["recorde"] = true
 		dados["recorde_valor"] = melhor
 		get_tree().create_timer(3.3).timeout.connect(func(): Sons.tocar("recorde"))
+	# classificação do dia, com a foto de cada um
+	var entradas := []
+	for i in placar.jogadores.size():
+		var j: Dictionary = placar.jogadores[i]
+		entradas.append({"pontos": j["pontos"], "personagem": j["personagem"],
+			"chave_foto": "j%d" % i if Fotos.foto("j%d" % i) != null else ""})
+	var posicoes := Classificacao.registrar(entradas)
+	for i in posicoes.size():
+		dados["jogadores"][i]["posicao"] = posicoes[i]
+	dados["classificacao"] = Classificacao.lista()
 	hud.tela_fim(true, dados)
 	# personagens no "pódio"
 	var t: Personagem = personagens["bob"]
@@ -1046,8 +1083,8 @@ func _jogada_demo() -> void:
 	var lado := 1.0 if _ativo == "bob" else -1.0
 	p.posicionar(Vector3(lado * 1.85, 0, 1.0), 180 - lado * 38)
 	p.tocar("torcida", 0.2, true)
-	_plano_pronto(true)
-	if not await _esperar(1.2, s, false):
+	_plano_pista(true)
+	if not await _esperar(1.6, s, false):
 		return
 	var zonas := ["C", "C", "X", "V", "C", "Z", "B", "C"]
 	_ultima_jogada_ms = -100000
@@ -1184,21 +1221,43 @@ func _esperar(t: float, s: int, pulavel := true) -> bool:
 	return s == _seq
 
 
-## Qualidade automática: se a TV Box não segurar ~40 quadros por segundo
-## na atração, o jogo baixa a qualidade sozinho.
-func _medir_fps(delta: float) -> void:
-	if str(Ajustes.valor("video", "qualidade")) != "auto" or estado != E.ATRACAO:
+## RODAR LISO: a cada 2,5 s mede os quadros por segundo de verdade (relógio,
+## não o tempo do jogo). Abaixo de ~52 duas vezes seguidas, a imagem 3D
+## fica um pouco menor (até 60%); se ainda assim não der, e a qualidade for
+## "auto", desce um nível (alta -> média -> baixa). Não volta a subir no
+## meio do jogo (nada de imagem "pulando").
+func _medir_fps(_delta: float) -> void:
+	if not _adaptar:
 		return
-	_fps_soma += delta
-	_fps_n += 1
-	if _fps_soma > 5.0:
-		var fps := _fps_n / _fps_soma
-		_fps_soma = 0.0
-		_fps_n = 0
-		if fps < 40.0 and _qualidade != "baixa":
-			_qualidade = "media" if _qualidade == "alta" else "baixa"
-			_escala = {"alta": 1.0, "media": 0.85, "baixa": 0.7}[_qualidade]
-			mundo.aplicar_qualidade(_qualidade)
-			_qualidade_viewport()
-			_tela_mudou(Tela.tamanho())
-			print("Qualidade automática: ", _qualidade, " (", int(fps), " fps)")
+	var agora := Time.get_ticks_msec()
+	if _fps_t0 == 0 or estado == E.ABERTURA:
+		_fps_t0 = agora
+		_fps_q = Engine.get_process_frames()
+		return
+	if agora - _fps_t0 < 2500:
+		return
+	var fps := float(Engine.get_process_frames() - _fps_q) * 1000.0 / float(agora - _fps_t0)
+	_fps_t0 = agora
+	_fps_q = Engine.get_process_frames()
+	var hz := DisplayServer.screen_get_refresh_rate()
+	var alvo := clampf(hz if hz > 0.0 else 60.0, 30.0, 60.0)
+	if fps >= alvo * 0.87:
+		_fps_ruins = 0
+		return
+	_fps_ruins += 1
+	if _fps_ruins < 2:
+		return
+	_fps_ruins = 0
+	if _fator > 0.65:
+		_fator = maxf(0.6, _fator - 0.1)
+		_fator_teto = _fator
+		_tela_mudou(Tela.tamanho())
+		print("Imagem 3D menor: %d%% (%d quadros/s)" % [int(_fator * 100), int(fps)])
+	elif str(Ajustes.valor("video", "qualidade")) == "auto" and _qualidade != "baixa":
+		_qualidade = "media" if _qualidade == "alta" else "baixa"
+		_fator = 1.0
+		_fator_teto = 1.0
+		mundo.aplicar_qualidade(_qualidade)
+		_qualidade_viewport()
+		_tela_mudou(Tela.tamanho())
+		print("Qualidade automática: ", _qualidade, " (", int(fps), " quadros/s)")

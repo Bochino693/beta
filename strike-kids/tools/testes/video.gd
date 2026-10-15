@@ -1,7 +1,7 @@
 extends Node
 
 ## DIRETOR DO VÍDEO DE DIVULGAÇÃO (só no PC).
-##   godot --path . --fixed-fps 30 --resolution 1080x1920 -- --video=pasta [--cena=promo|curto]
+##   godot --path . --fixed-fps 30 -- --janela=1080x1920 --video=pasta [--cena=promo|curto]
 ## Joga uma partida roteirada e grava CADA quadro (jpg) + os sons com o
 ## número do quadro (sons.json). Depois: python3 tools/testes/montar_video.py pasta
 

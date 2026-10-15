@@ -16,6 +16,9 @@ signal batida(posicao: Vector3, forca: float)
 signal som_pousar
 
 var pinos: Array[Pino] = []
+## sombrinhas pintadas no chão embaixo de cada pino (deitam junto com ele).
+## Uma MultiMesh só para os 10 pinos = um desenho.
+var _sombras: MultiMeshInstance3D
 
 
 static func posicao_do_pino(n: int) -> Vector3:
@@ -40,6 +43,36 @@ func montar() -> void:
 		p.montar(n, posicao_do_pino(n), malha, forma, rosto, meta)
 		p.bateu.connect(func(pino: Pino, f: float): batida.emit(pino.global_position, f))
 		pinos.append(p)
+	var q := QuadMesh.new()
+	q.size = Vector2(0.28, 0.28)
+	q.orientation = PlaneMesh.FACE_Y
+	var mm := MultiMesh.new()
+	mm.transform_format = MultiMesh.TRANSFORM_3D
+	mm.mesh = q
+	mm.instance_count = pinos.size()
+	_sombras = MultiMeshInstance3D.new()
+	_sombras.multimesh = mm
+	_sombras.material_override = Materiais.sombra_blob(0.5)
+	_sombras.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(_sombras)
+
+
+func _process(_d: float) -> void:
+	var mm := _sombras.multimesh
+	for i in pinos.size():
+		var p := pinos[i]
+		var g := p.global_position
+		# pino levantado pela máquina ou longe do chão: a sombra some
+		var f := 0.0 if p.removido or not p.visible or g.y < -0.1 else clampf(1.0 - g.y * 2.2, 0.0, 1.0)
+		# deitado: a sombra fica comprida no sentido do pino
+		var eixo := p.global_basis.y
+		var deitado := 1.0 - absf(eixo.y)
+		var b := Basis().scaled(Vector3(f * (1.0 + deitado * 0.2), 1.0, f * (1.0 + deitado * 1.6)))
+		var giro := atan2(eixo.x, eixo.z)
+		b = Basis(Vector3.UP, giro) * b
+		var chao := 0.004 if absf(g.x) < Mundo.MEIA_LARGURA and g.z > Mundo.Z_FIM_DECK else -0.2
+		var centro := g + Vector3(eixo.x, 0, eixo.z) * 0.19 * deitado
+		mm.set_instance_transform(i, Transform3D(b, Vector3(centro.x, chao, centro.z)))
 
 
 func em_pe() -> Array[int]:

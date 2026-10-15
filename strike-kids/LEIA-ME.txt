@@ -28,7 +28,12 @@ meio-direita, direita) vira a jogada na tela, em 3D:
   * 2 ou mais strikes seguidos: "PEGANDO FOGO!" e a bola vira bola de fogo.
   * FOTO DA CRIANCA: com a camera da maquina ligada, no comeco da partida
     cada jogador tira uma foto ("SORRIA!" 3, 2, 1). O rostinho aparece no
-    placar, na faixa "VEZ DO BOB", no strike, na tela final e no recorde.
+    placar, na faixa "VEZ DO BOB", no strike e na CLASSIFICACAO.
+  * CLASSIFICACAO DE HOJE: no fim da partida cada jogador ve a sua foto
+    grande, os pontos, as estrelas e em que lugar ficou no dia ("2o LUGAR
+    HOJE!"), e o quadro com os 5 melhores do dia, cada um com a sua foto
+    (sem camera: o mascote com que jogou). A tela inicial mostra os 3
+    melhores de hoje com as fotos. Vira sozinha a cada dia.
 
 Na tela NAO tem setas nem alvo: a mira e sempre o STRIKE.
 
@@ -38,15 +43,22 @@ COMO SE JOGA (tudo pela placa Zero Delay)
   2. 1 jogador: ESCOLHA SEU AMIGO. Rolar a bola pela ESQUERDA = Bob,
      pela DIREITA = Mia; bola no MEIO ou START confirma (ou espera 8 s).
   3. SORRIA! (se tiver camera): foto de cada jogador.
-  4. Na vez de jogar, a tela mostra a PISTA DE FRENTE esperando a bola.
-     Quando a bola passa no sensor, o mascote arremessa e a bola vai
-     pela linha daquele sensor ate os pinos.
+  4. Na vez de jogar (inclusive no comeco de cada vez e no passeio pelo
+     cenario novo) a tela mostra so a PISTA DE FRENTE esperando a bola.
+     So quando a bola passa no sensor aparece o mascote arremessando, e a
+     bola vai pela linha daquele sensor ate os pinos.
   No alto das telas de preparacao aparece em que passo esta
   (1 JOGADORES > 2 AMIGO > 3 FOTO > 4 JOGAR).
 
 MARCA LAZER & SPORT: so na inicializacao do aparelho e na abertura (o
-dardo acerta o alvo e entra "apresenta") e num balao, sem fundo, que
-flutua ao lado da pista no cenario do Parque de Diversoes.
+dardo acerta o alvo e entra "apresenta") e num BALAOZINHO (uns 60 cm),
+sem fundo, que flutua ao lado da pista no cenario do Parque de Diversoes.
+
+FUNDO DA PISTA: um PORTAL de parque nas cores de cada cenario - arco de
+raios coloridos com lampadas, letreiro STRIKE KIDS, colunas iluminadas e
+a cortina com um halo de luz atras dos pinos. Atras de quem joga: mureta
+nas cores do cenario, o letreiro em dois postes e o proprio cenario
+(parque, fundo do mar, espaco, selva) aparecendo por cima.
 O GERAR_APK.bat escolhe a imagem de inicializacao ja girada conforme o
 -Giro (1, -1 ou 0).
 
@@ -71,8 +83,10 @@ COMO TESTAR NO PC
    - Tambem da para CLICAR/TOCAR na tela: a tela e dividida em 5 faixas
      (da esquerda para a direita), cada faixa vale um sensor.
    - Sem webcam no PC: rode com -- --camera-falsa para ver a tela da foto.
-3. No PC a tela nao gira. Para simular o monitor em pe da maquina, deixe a
-   janela em pe (o jogo se adapta a qualquer tamanho: em pe ou deitado).
+3. O jogo abre em TELA CHEIA (nada de janela; a setinha do mouse some
+   sozinha). Para testar numa janela em pe, como o monitor da maquina:
+     godot --path . -- --janela=540x960
+   O jogo se adapta a qualquer tela: em pe ou deitada.
 
 
 COMO GERAR O APK (igual ao Pro Ultra)
@@ -85,6 +99,12 @@ C:\AndroidSdk. Os Export Templates 4.6.1 sao baixados sozinhos.
   GERAR_APK.bat -Giro 0    -> monitor ja em pe / TV deitada (sem giro)
   GERAR_APK.bat -Instalar  -> instala na TV Box pelo adb
   GERAR_APK.bat -ComLeds   -> com o plugin USB dos LEDs (Arduino)
+  GERAR_APK.bat -SemCamera -> sem a camera (so se o build com camera falhar)
+
+A CAMERA USB entra no APK pelo plugin StrikeCamera (addons/StrikeCamera),
+e plugin Android exige o build Gradle: na PRIMEIRA vez o GERAR_APK baixa
+as dependencias (precisa de internet, demora uns minutos). Se o Gradle
+falhar, o script gera sozinho um APK sem camera e avisa no final.
 
 Pacote: com.lazersport.strikekids (nao briga com o Dragon Bowling).
 O giro tambem pode ser trocado na propria maquina, no menu do operador.
@@ -126,13 +146,24 @@ C ou START escolhe, CONFIGURACAO volta ao jogo.
   Zerar recordes - Restaurar padrao de fabrica
   Contadores: partidas, strikes, moedas, estado do Arduino e da camera
 
-Qualidade AUTOMATICA: se a TV Box nao segurar ~40 quadros por segundo na
-tela inicial, o jogo baixa a qualidade sozinho (sombras, brilho, resolucao).
+RODANDO LISO (PC e TV Box):
+  * IMAGEM 3D EM TAMANHO FIXO, ESTICADA SOZINHA ate a tela inteira: na
+    TV Box o 3D e desenhado em 720 x 1280 (alta: ate 1440) e esticado
+    para 1080p/4K; os textos e placas continuam nitidos por cima.
+  * A cada 2,5 s o jogo mede os quadros por segundo: se cair abaixo de
+    ~52, a imagem 3D diminui um pouco (ate 60%); se ainda nao der e a
+    qualidade for AUTOMATICA, desce de nivel (alta > media > baixa).
+  * Bonecos, pinos e cenario com malhas leves (Bob 26 mil triangulos,
+    pino 2,4 mil; antes 120 mil e 14 mil), pecas paradas juntadas em
+    poucas malhas, sombras pintadas (pinos, bola e bichinhos) no lugar da
+    sombra do sol (que no Godot "Compatibilidade" desenha tudo 2 vezes).
+  * Na abertura (com a marca na tela) o jogo prepara todos os desenhos
+    (materiais de todos os cenarios, particulas, telas): nada de engasgo
+    na primeira troca de cenario, primeiro strike ou bola de fogo.
 
-  ALTA  (PC, TV 4K): MSAA 4x, sombra em 2 divisoes, malhas no detalhe maximo,
-        filtro anisotropico 8x. Tudo nitido ate 3840 x 2160.
-  MEDIA (TV Box boa): MSAA 2x, as malhas simplificam mais cedo de longe.
-  BAIXA (TV Box fraca): sem MSAA nem sombra, malhas bem simplificadas.
+  ALTA  (PC): MSAA 4x, brilho (glow), 3D ate 1440 px no lado menor.
+  MEDIA (TV Box): MSAA 2x, 3D em 720 px no lado menor.
+  BAIXA (TV Box fraca): sem MSAA, sem neblina, 3D em 600 px.
 Todas as imagens tem mipmaps (nada cintila nem serrilha quando aparece
 pequeno); rostos, bola, madeira e letreiros usam compressao de alta
 qualidade da placa de video (pouca memoria, sem perder nitidez).
@@ -162,8 +193,21 @@ e confira:  ... calibrar.tscn -- --validar=normal
 
 CAMERA (FOTO DAS CRIANCAS) - camera USB Sigma na TV Box
 -----------------------------------------------------------
-1. Ligue a camera USB na TV Box ANTES de abrir o jogo e deixe-a virada
-   para quem joga (em cima ou embaixo da tela).
+O Godot 4.6 sozinho NAO enxerga webcam USB no Android (ele ignora camera
+"externa") e nao tem camera no Windows. Por isso:
+  * TV Box: plugin StrikeCamera (Java, vai no APK) - abre a webcam USB
+    pela Camera2 (camera externa) ou, nas TV Box com driver antigo, pela
+    Camera1. Fonte em tools/android/StrikeCamera (construir.sh refaz o
+    addons/StrikeCamera/bin/StrikeCamera.aar).
+  * PC com Windows: pelo ffmpeg. Baixe o ffmpeg (ffmpeg.exe, versao
+    "essentials") e coloque o ffmpeg.exe na pasta do jogo (ou no PATH).
+    O jogo acha a webcam sozinho (prefere nomes com USB/Sigma/UVC).
+  * Linux: direto (CameraServer do Godot).
+O jogo procura a camera ao abrir, de novo a cada 8 s enquanto nao achar e
+na hora de escolher os jogadores (pode ligar o cabo com o jogo aberto).
+
+1. Ligue a camera USB na TV Box e deixe-a virada para quem joga (em cima
+   ou embaixo da tela).
 2. Na primeira vez o Android pergunta se o Strike Kids pode usar a camera:
    responda PERMITIR (fica gravado).
 3. Menu do operador > TESTE DA CAMERA: aparece a imagem ao vivo. Se ela
@@ -175,15 +219,17 @@ Sem camera (ou se ela nao mandar imagem) o jogo segue normal, com os
 mascotes no lugar das fotos.
 
 Onde ficam as fotos: SO na TV Box. As da partida ficam na memoria e somem
-quando comeca outra partida; so a foto de quem fez o RECORDE fica gravada
-(user://fotos/recorde_j1.png e recorde_j2.png) e e apagada em
-"ZERAR RECORDES". Nada vai para a internet. Como sao fotos de criancas,
+quando comeca outra partida; ficam gravadas so as da CLASSIFICACAO DE
+HOJE (os 10 melhores do dia, user://fotos/rank_*.png - apagadas na virada
+do dia) e a de quem fez o RECORDE (user://fotos/recorde_j1.png e
+recorde_j2.png). "ZERAR RECORDES" apaga tudo. Nada vai para a internet. Como sao fotos de criancas,
 deixe um aviso na maquina ("este jogo tira uma foto para o placar").
 
-Se o teste mostrar "nenhuma camera encontrada" com a camera ligada: a TV
-Box nao entrega a webcam USB para os apps como camera do Android (algumas
-placas nao tem esse suporte). Nesse caso e preciso o plugin USB de camera
-(como o do Super Boxing) - me avise que eu adapto.
+Se o teste mostrar "nenhuma camera encontrada" com a camera ligada:
+confira se o APK foi gerado COM a camera (fim do GERAR_APK) e se a TV Box
+mostra a webcam no app de camera do Android. Algumas placas nao entregam
+a webcam USB para os apps (nem pela Camera1) - ai e preciso outro caminho
+(driver UVC direto pelo USB); me mande o modelo da TV Box.
 
 No PC (sem webcam), para testar: godot --path . -- --camera-falsa
 
@@ -198,7 +244,7 @@ Se aparecer Mali-400 ou Mali-450 (so OpenGL ES 2.0), o Godot 4 nao abre
 nessa placa (e o caso da S905L do DragonBowling1-android7.1) e seria
 preciso a versao em Godot 3 - me avise o resultado.
 Com 2 GB de memoria o jogo cabe folgado. A qualidade grafica AUTOMATICA
-(menu do operador) baixa sombras e resolucao sozinha se a placa for fraca.
+(menu do operador) baixa a resolucao do 3D sozinha se a placa for fraca.
 
 
 LEDS (ARDUINO) - igual ao Dragon Bowling
@@ -232,7 +278,8 @@ PASTAS
   scripts/    o jogo (principal, mundo, temas, maquina, personagem,
               animacoes, pinos, bola, jogada, placar, camera_cine, hud...)
   autoload/   Tela (responsiva + giro), Ajustes, Sons, ArcadeControls,
-              ArduinoBridge, Fotos (camera)
+              ArduinoBridge, Fotos (camera: plugin Android, ffmpeg no PC)
+  addons/     StrikeCamera (camera USB no Android), DragonUsbSerial (LEDs)
   dados/      tabela de jogadas calibrada (vai no APK)
   modelos/    mascotes, pinos e cenarios 3D (gerados pelas ferramentas)
   texturas/ ui/ fontes/ sons/ shaders/
