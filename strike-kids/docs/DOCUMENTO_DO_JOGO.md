@@ -254,7 +254,7 @@ para o próximo.
     Bob 120 mil → 26 mil triângulos, pino 14,6 mil → 2,4 mil, cenário
     1,1 milhão → 98 mil; lâmpadas de 64 triângulos;
   - peças paradas com o mesmo material juntadas numa malha só
-    (`scripts/lote.gd`): ~90 desenhos por quadro na TV Box (eram ~450);
+    (`scripts/lote.gd`): 100 a 200 desenhos por quadro conforme a vista (eram ~450);
   - sem sombra do sol (no "Compatibilidade" ela desenha tudo 2 vezes):
     sombras pintadas nos pinos (uma MultiMesh que deita junto com o pino),
     bola e bichinhos;

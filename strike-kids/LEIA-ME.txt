@@ -189,7 +189,7 @@ RODANDO LISO (PC e TV Box):
     sol (no Godot "Compatibilidade" ela desenha tudo 2 vezes): as sombras
     sao manchas pintadas; MSAA e brilho (glow) so no PC.
   * Bonecos, pinos e cenario com malhas leves; pecas paradas juntadas em
-    poucas malhas (por material e regiao): ~140 desenhos por quadro.
+    poucas malhas (por material e regiao): 100 a 200 desenhos por quadro.
   * MOVIMENTO LISO EM QUALQUER TELA: a fisica anda 120 passos por segundo
     e a tela 60, 75, 144... A bola, os pinos e a maquina de pinos aparecem
     sempre no lugar certo do instante de cada quadro (interpolacao da
