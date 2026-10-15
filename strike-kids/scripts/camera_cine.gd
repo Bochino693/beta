@@ -151,8 +151,11 @@ func _aplicar(delta: float) -> void:
 		_pos_dest = _orbita_centro + Vector3(sin(_orbita_ang) * _orbita_raio, _orbita_altura, cos(_orbita_ang) * _orbita_raio)
 		_alvo_dest = _orbita_centro
 	elif _seguir != null and is_instance_valid(_seguir):
-		_pos_dest = _seguir.global_position + _desl_pos
-		_alvo_dest = _seguir.global_position + _desl_alvo
+		# a bola aparece interpolada entre os passos da física: a câmera
+		# segue onde ela APARECE (senão a bola tremeria na tela)
+		var g := Mundo.na_tela(_seguir).origin
+		_pos_dest = g + _desl_pos
+		_alvo_dest = g + _desl_alvo
 	if delta > 0.0 and _trilho.is_empty():
 		var k := 1.0 - exp(-_rapidez * delta)
 		_pos = _pos.lerp(_pos_dest, k)

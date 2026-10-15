@@ -98,6 +98,8 @@ var _shader_foto: Shader
 # marca Lazer & Sport
 var _marca_tela: Control
 var _marca_fundo: TextureRect
+var _marca_games: TextureRect
+var _marca_veu: TextureRect
 var _marca_alvo: TextureRect
 var _marca_placa: TextureRect
 var _marca_texto: Label
@@ -114,6 +116,9 @@ func montar(textura_3d: Texture2D) -> void:
 	tela3d.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	tela3d.stretch_mode = TextureRect.STRETCH_SCALE
 	tela3d.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR   # imagem 3D (sem mipmaps)
+	var m3d := ShaderMaterial.new()
+	m3d.shader = load("res://shaders/tela3d.gdshader")
+	tela3d.material = m3d
 	tela3d.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(tela3d)
 	_montar_placar()
@@ -138,6 +143,9 @@ func montar(textura_3d: Texture2D) -> void:
 	_flash = ColorRect.new()
 	_flash.color = Color(1, 1, 1, 0)
 	_flash.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# escondido quando transparente: um retângulo da tela inteira desenhado
+	# à toa a cada quadro custa caro na TV Box
+	_flash.visible = false
 	add_child(_flash)
 	layout()
 
@@ -567,8 +575,10 @@ func _estrelas_2d(centro: Vector2, n: int) -> void:
 
 func flash(cor := Color.WHITE, forca := 0.7, dur := 0.35) -> void:
 	_flash.color = Color(cor.r, cor.g, cor.b, forca)
+	_flash.visible = true
 	var tw := create_tween()
 	tw.tween_property(_flash, "color:a", 0.0, dur)
+	tw.tween_callback(func(): _flash.visible = false)
 
 
 # ================================================================ faixa "VEZ DE"
@@ -635,6 +645,16 @@ func _montar_replay() -> void:
 	add_child(_replay_ponto)
 
 
+## Faixas pretas de cinema (abertura), sem o selo de replay.
+func tarjas(ligado: bool) -> void:
+	var T := size
+	var h := T.y * (0.09 if retrato else 0.1) if ligado else 0.0
+	var tw := create_tween().set_parallel(true)
+	tw.tween_property(_tarja_cima, "size:y", h, 0.4).set_trans(Tween.TRANS_QUAD)
+	tw.tween_property(_tarja_baixo, "size:y", h, 0.4).set_trans(Tween.TRANS_QUAD)
+	tw.tween_property(_tarja_baixo, "position:y", T.y - h, 0.4).set_trans(Tween.TRANS_QUAD)
+
+
 func modo_replay(ligado: bool) -> void:
 	var T := size
 	var h := T.y * (0.1 if retrato else 0.12) if ligado else 0.0
@@ -644,6 +664,8 @@ func modo_replay(ligado: bool) -> void:
 	tw.tween_property(_tarja_baixo, "position:y", T.y - h, 0.35).set_trans(Tween.TRANS_QUAD)
 	_replay.visible = ligado
 	_replay_ponto.visible = ligado
+	# na demonstração (tela inicial) o logo grande sai da frente do selo REPLAY
+	create_tween().tween_property(_logo, "modulate:a", 0.0 if ligado else 1.0, 0.3)
 	var w := 420 * u
 	_replay.size = Vector2(w, w * 0.236)
 	_replay.position = Vector2(T.x - w - 40 * u, T.y * (0.1 if retrato else 0.12) * 0.5 - w * 0.118)
@@ -1550,9 +1572,33 @@ func _montar_marca() -> void:
 			_marca_alvo = t
 		else:
 			_marca_placa = t
+	# véu escuro redondo atrás da logo (quando ela aparece sobre o 3D)
+	_marca_veu = TextureRect.new()
+	var g := Gradient.new()
+	g.set_color(0, Color(0.0, 0.03, 0.12, 0.72))
+	g.set_color(1, Color(0.0, 0.03, 0.12, 0.0))
+	var gt := GradientTexture2D.new()
+	gt.gradient = g
+	gt.fill = GradientTexture2D.FILL_RADIAL
+	gt.fill_from = Vector2(0.5, 0.5)
+	gt.fill_to = Vector2(1.0, 0.5)
+	gt.width = 256
+	gt.height = 256
+	_marca_veu.texture = gt
+	_marca_veu.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_marca_veu.stretch_mode = TextureRect.STRETCH_SCALE
+	_marca_veu.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_marca_tela.add_child(_marca_veu)
 	# o alvo fica atrás da placa (como na logo)
 	_marca_tela.add_child(_marca_alvo)
 	_marca_tela.add_child(_marca_placa)
+	# selo GAMES embaixo da placa: LAZER & SPORT GAMES
+	_marca_games = TextureRect.new()
+	_marca_games.texture = load(MARCA + "games.png")
+	_marca_games.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_marca_games.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	_marca_games.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_marca_tela.add_child(_marca_games)
 	_marca_texto = rotulo("apresenta", 52, Color(1, 1, 1, 0.92), 0, MARINHO)
 	_marca_tela.add_child(_marca_texto)
 
@@ -1561,7 +1607,8 @@ func _layout_marca(T: Vector2) -> void:
 	_marca_fundo.size = T
 	var lw: float = minf(T.x * 0.82, T.y * 0.62 / PROPORCAO_LOGO)
 	var lh := lw * PROPORCAO_LOGO
-	var origem := Vector2((T.x - lw) / 2, T.y * 0.46 - lh / 2)
+	var centro_y := 0.4 if _marca_veu.visible else 0.46
+	var origem := Vector2((T.x - lw) / 2, T.y * centro_y - lh / 2)
 	var ref := float(_marca_placa.texture.get_width())     # a placa tem a largura da logo inteira
 	for par in [[_marca_alvo, CENTRO_ALVO], [_marca_placa, CENTRO_PLACA]]:
 		var t: TextureRect = par[0]
@@ -1569,15 +1616,25 @@ func _layout_marca(T: Vector2) -> void:
 		t.size = tam
 		t.position = origem + Vector2(lw, lh) * (par[1] as Vector2) - tam / 2
 		t.pivot_offset = tam / 2
+	var gw := lw * 0.46
+	var gh := gw * 188.0 / 616.0
+	_marca_games.size = Vector2(gw, gh)
+	_marca_games.position = Vector2((T.x - gw) / 2, origem.y + lh + 10 * u)
+	_marca_games.pivot_offset = _marca_games.size / 2
+	var vw := maxf(T.x, T.y) * 1.25
+	_marca_veu.size = Vector2(vw, vw)
+	_marca_veu.position = origem + Vector2(lw, lh) * 0.5 - _marca_veu.size / 2
 	_tamanho_rotulo(_marca_texto, 52 * u)
-	_marca_texto.label_settings.shadow_size = 0
+	_marca_texto.label_settings.shadow_size = int(4 * u)
 	_marca_texto.size = Vector2(T.x, 80 * u)
-	_marca_texto.position = Vector2(0, origem.y + lh + 40 * u)
+	_marca_texto.position = Vector2(0, origem.y + lh + gh + 26 * u)
 
 
-## Abertura: a logo aparece igual à imagem de inicialização, o dardo "acerta"
-## o alvo (tremidinha + estrelas), um brilho passa e entra "apresenta".
-func marca(ligado: bool, na_hora := false) -> void:
+## Abertura: a logo aparece (sobre o fundo azul da inicialização ou, com
+## `sobre_3d`, por cima do strike da abertura), o dardo "acerta" o alvo
+## (tremidinha + estrelas), sobe o selo GAMES, passa um brilho e entra
+## "apresenta".
+func marca(ligado: bool, na_hora := false, sobre_3d := false) -> void:
 	if not ligado:
 		if not _marca_tela.visible:
 			return
@@ -1588,11 +1645,29 @@ func marca(ligado: bool, na_hora := false) -> void:
 		tw.tween_property(_marca_tela, "modulate:a", 0.0, 0.4)
 		tw.tween_callback(func(): _marca_tela.visible = false)
 		return
+	_marca_fundo.visible = not sobre_3d
+	_marca_veu.visible = sobre_3d
 	_layout_marca(size)
 	_marca_tela.visible = true
 	_marca_tela.modulate.a = 1.0
 	_marca_texto.modulate.a = 0.0
 	_marca_alvo.scale = Vector2.ONE
+	_marca_games.visible = true
+	_marca_games.scale = Vector2.ZERO
+	var tg := create_tween()
+	tg.tween_interval(0.55)
+	tg.tween_property(_marca_games, "scale", Vector2(1.12, 1.12), 0.2).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tg.tween_property(_marca_games, "scale", Vector2.ONE, 0.18)
+	if sobre_3d:
+		# logo "estoura" na tela
+		for t in [_marca_alvo, _marca_placa]:
+			(t as Control).scale = Vector2.ZERO
+			var tp := create_tween()
+			tp.tween_interval(0.0 if t == _marca_placa else 0.08)
+			tp.tween_property(t, "scale", Vector2.ONE, 0.42).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		_marca_veu.modulate.a = 0.0
+		create_tween().tween_property(_marca_veu, "modulate:a", 1.0, 0.3)
+		_atrasado(0.12, func(): _estrelas_2d(_marca_placa.position + _marca_placa.size * 0.5, 36))
 	var tw := create_tween()
 	tw.tween_interval(0.3)
 	tw.tween_property(_marca_alvo, "scale", Vector2(1.07, 0.94), 0.07)

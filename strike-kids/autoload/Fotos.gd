@@ -41,7 +41,6 @@ var _tex_a: Texture2D
 var _tex_b: Texture2D
 var _ligada := false
 var _desligar_em := -1.0
-var _procurar_t := 0.0
 var _recordes := {}
 # câmera de teste (PC)
 var _falsa: CameraFeed
@@ -77,6 +76,7 @@ func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	DirAccess.make_dir_recursive_absolute(PASTA)
 	_vp = SubViewport.new()
+	_vp.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
 	_vp.size = Vector2i(LADO, LADO)
 	_vp.disable_3d = true
 	_vp.transparent_bg = false
@@ -152,6 +152,8 @@ func iniciar() -> void:
 ## alguém pode ter ligado a câmera depois).
 func procurar_agora() -> void:
 	if status != "pronta" and status != "desligada":
+		if fonte == "servidor" and _falsa == null:
+			CameraServer.monitoring_feeds = false
 		iniciar()
 
 
@@ -381,15 +383,8 @@ func _process(delta: float) -> void:
 		_desligar_em -= delta
 		if _desligar_em < 0.0:
 			_parar()
-	# sem câmera: procura de novo de vez em quando (alguém pode ligar o cabo)
-	if status == "sem_camera":
-		_procurar_t += delta
-		if _procurar_t > 8.0:
-			_procurar_t = 0.0
-			if fonte == "servidor":
-				CameraServer.monitoring_feeds = false
-				CameraServer.monitoring_feeds = true
-			iniciar()
+	# (procurar câmera trava o quadro por dezenas de ms: só na abertura e
+	# quando alguém aperta START — procurar_agora — nunca no meio do jogo)
 	if not _ligada:
 		return
 	match fonte:
@@ -534,6 +529,12 @@ func _exit_tree() -> void:
 		_ff_busca.wait_to_finish()
 	if _plugin != null:
 		_plugin.call("fechar")
+	# a câmera de teste (feita em GDScript) sai do CameraServer antes do
+	# motor desligar (senão ele a apaga depois dos scripts e o jogo cai ao sair)
+	if _falsa != null:
+		_falsa.feed_is_active = false
+		CameraServer.remove_feed(_falsa)
+		_falsa = null
 
 
 # ================================================================ foto

@@ -17,7 +17,14 @@ func _ready() -> void:
 		OS.low_processor_usage_mode_sleep_usec = 0
 
 
+var _ult_pico := 0
+
+
 func _process(delta: float) -> void:
+	var agora_p := Time.get_ticks_usec()
+	if _ult_pico > 0 and agora_p - _ult_pico > 40000 and principal and "estado" in principal:
+		print("PICO %.1f ms estado=%s quadro=%d" % [(agora_p - _ult_pico) / 1000.0, principal.E.keys()[principal.estado], Engine.get_process_frames()])
+	_ult_pico = agora_p
 	if OS.get_cmdline_user_args().has("--contar-objetos") and not _contou and Engine.get_process_frames() > 400:
 		_contou = true
 		_contar()

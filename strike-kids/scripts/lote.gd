@@ -11,8 +11,10 @@ extends RefCounted
 
 
 ## Junta as malhas paradas debaixo de `raiz` (menos as de `fora` e os filhos
-## delas). Devolve quantas peças sumiram.
-static func juntar(raiz: Node3D, fora: Array = []) -> int:
+## delas), por material e por REGIÃO (quadrados de `celula` metros): poucos
+## desenhos e a câmera ainda deixa de desenhar o que está fora do quadro.
+## Devolve quantas peças sumiram.
+static func juntar(raiz: Node3D, fora: Array = [], celula := 10.0) -> int:
 	var excluir := {}
 	for n in fora:
 		if n != null:
@@ -21,7 +23,9 @@ static func juntar(raiz: Node3D, fora: Array = []) -> int:
 	_coletar(raiz, excluir, pecas)
 	var grupos := {}
 	for mi in pecas:
-		var chave := "%d|%d|%d" % [mi.material_override.get_instance_id(), mi.cast_shadow, int(_tem_cor(mi.mesh))]
+		var c := mi.global_transform.origin
+		var regiao := Vector2i(floori(c.x / celula), floori(c.z / celula)) if celula > 0.0 else Vector2i.ZERO
+		var chave := "%d|%d|%d|%s" % [mi.material_override.get_instance_id(), mi.cast_shadow, int(_tem_cor(mi.mesh)), regiao]
 		if not grupos.has(chave):
 			grupos[chave] = []
 		grupos[chave].append(mi)

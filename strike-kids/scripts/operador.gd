@@ -30,6 +30,8 @@ const ITENS := [
 	["Volume dos efeitos", "som", "efeitos", "vol", []],
 	["Som na demonstração", "som", "som_na_demo", "bool", []],
 	["Qualidade gráfica", "video", "qualidade", "lista", ["auto", "alta", "media", "baixa"]],
+	["Mostrar desempenho na tela (QPS)", "video", "medidor", "bool", []],
+	["> TESTE DE DESEMPENHO (20 s)", "", "desempenho", "acao", []],
 	["Giro da tela", "tela", "giro", "lista", [1, -1, 0]],
 	["> TESTE DOS SENSORES", "", "teste", "acao", []],
 	["> TESTE DA CÂMERA", "", "camera", "acao", []],
@@ -246,6 +248,10 @@ func _acao() -> void:
 				_teste_rotulo.text = "TESTE DA CÂMERA\n\nCâmera: %s\n\nConfira o cabo USB da câmera e se a\nTV Box mostra a câmera no Android.\n\nSTART ou CONFIGURAÇÃO para sair" % Fotos.texto_status()
 		"botoes":
 			get_tree().change_scene_to_file.call_deferred(BOTOES)
+		"desempenho":
+			# volta ao jogo e, depois da abertura, roda o teste
+			Ajustes.definir("video", "testar", true)
+			get_tree().change_scene_to_file.call_deferred(JOGO)
 		"recordes":
 			Ajustes.zerar_recordes()
 			Sons.tocar("pop")

@@ -202,6 +202,30 @@ func tocar(nome: String, mistura := 0.22, reiniciar := false) -> void:
 	_de["giro"] = 0.0
 
 
+## Modo "à vontade" (atração, escolha): fica parado respirando e, de vez
+## em quando, faz uma coisinha — acena, olha em volta, dança um pouquinho —
+## e volta. Cada bichinho no seu tempo (nada de os dois quicando juntos).
+var _ocioso := false
+var _ocioso_t := 0.0
+const OCIOSO_CLIPES := ["acenar_uma", "olhar_volta", "danca_curta", "acenar_uma", "danca_curta"]
+
+
+func ocioso(ligar: bool) -> void:
+	_ocioso = ligar
+	_ocioso_t = randf_range(1.5, 4.0)
+	if ligar:
+		tocar("parado", 0.3)
+
+
+func _ocioso_passo(delta: float) -> void:
+	if not _ocioso or _nome_clip != "parado":
+		return
+	_ocioso_t -= delta
+	if _ocioso_t <= 0.0:
+		_ocioso_t = randf_range(4.0, 8.5)
+		tocar(OCIOSO_CLIPES[randi() % OCIOSO_CLIPES.size()], 0.35, true)
+
+
 func animacao() -> String:
 	return _nome_clip
 
@@ -253,6 +277,10 @@ func _process(delta: float) -> void:
 		_t = dur
 		if t_antes < dur:
 			animacao_terminou.emit.call_deferred(_nome_clip)
+			# clipe que emenda em outro (ex.: vitória -> festa, aceno -> parado)
+			if _clip.has("depois"):
+				tocar.call_deferred(str(_clip["depois"]), 0.35)
+	_ocioso_passo(delta)
 	_eventos(t_antes, _t, loop and _t < t_antes)
 	var pose := _amostra(_t)
 	if _mistura < 1.0:

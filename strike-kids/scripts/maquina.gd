@@ -98,6 +98,10 @@ func montar(p: Pinos) -> void:
 		barra.add_child(haste)
 	add_child(barra)
 	barra.position = Vector3(0, Y_BARRA_CIMA, _z_barra)
+	# mesa e barra andam nos passos da física (tweens de física): interpoladas
+	for n in [mesa, barra]:
+		(n as Node).physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_ON
+		(n as Node).reset_physics_interpolation()
 
 
 func _physics_process(_delta: float) -> void:
@@ -186,6 +190,9 @@ func _ciclo(manter: bool) -> void:
 			p.collision_layer = 0
 			var off := p.lugar - Vector3(0, Y_ENCAIXE, _z_mesa)
 			_carregando.append([p, off, off])
+			# já na mesa (sem aparecer um quadro na pista)
+			p.global_transform = Transform3D(Basis(), mesa.global_position + off)
+			p.reset_physics_interpolation()
 	if not _carregando.is_empty():
 		som.emit("mesa")
 		if not await _ok(_tw(mesa, "position:y", Y_ENCAIXE, 0.85 if not manter else 0.75), s):
@@ -217,6 +224,8 @@ func instantaneo() -> void:
 	_centrar = 0.0
 	mesa.position = Vector3(0, Y_REPOUSO, _z_mesa)
 	barra.position = Vector3(0, Y_BARRA_CIMA, _z_barra)
+	mesa.reset_physics_interpolation()
+	barra.reset_physics_interpolation()
 	for p in pinos.pinos:
 		p.recolocar()
 	trabalhando = false

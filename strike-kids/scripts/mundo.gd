@@ -26,12 +26,19 @@ const CAMADA_PINOS := 2
 const CAMADA_BOLA := 4
 const CAMADA_PISO_BOLA := 8
 const CAMADA_PISO_PINOS := 16
+const CAMADA_SO_PINOS := 32      # parede que segura os pinos mas deixa a bola passar (caçapa)
+## topo da boca da caçapa das bolas (no fundo do fosso)
+const Y_BOCA := 0.28
+const LARGURA_BOCA := 1.5
+## retorno de bolas (perto de quem joga)
+const RETORNO := Vector3(2.35, 0, 5.2)
 const ALTURA_PODIO := 0.152
 const BALAO_POS := Vector3(-1.75, 2.2, Z_PINO1 + 3.0)
 
 var ambiente: Environment
 var sol: DirectionalLight3D
 var mat_pista: ShaderMaterial
+var mat_piso: ShaderMaterial
 var mat_lampadas: ShaderMaterial
 var mat_fundo: ShaderMaterial
 var mat_ceu: ShaderMaterial
@@ -57,6 +64,24 @@ var _t := 0.0
 var _luz := 0.0
 var _luz_alvo := 0.0
 var bola_z := 100.0
+var bola: Node3D                 # a bola do jogo (as tiras da caçapa abrem quando ela passa)
+var _tiras: MultiMeshInstance3D
+var _abertura_tiras: PackedFloat32Array = PackedFloat32Array()
+var _bola_volta: MeshInstance3D
+var mat_boca_luz: ShaderMaterial
+
+
+## Onde um objeto movido pela física APARECE neste quadro (interpolado
+## entre dois passos). No quadro de um teletransporte (bola saindo da mão,
+## pino recolocado) o Godot ainda devolve o lugar antigo: aí vale o atual.
+static func na_tela(n: Node3D) -> Transform3D:
+	if not n.is_physics_interpolated_and_enabled():
+		return n.global_transform
+	var t := n.get_global_transform_interpolated()
+	var g := n.global_transform
+	if t.origin.distance_squared_to(g.origin) > 1.0:
+		return g
+	return t
 
 
 func construir() -> void:
@@ -76,7 +101,7 @@ func construir() -> void:
 	var fora: Array = [balao, temas]
 	fora.append_array(_podios)
 	fora.append_array(_bumpers)
-	Lote.juntar(self, fora)
+	Lote.juntar(self, fora, 0.0)
 	aplicar_tema("parque")
 	definir_protecao(Ajustes.protecao_canaleta())
 
@@ -103,10 +128,21 @@ func aplicar_tema(nome: String) -> void:
 	ambiente.fog_density = c.get("neblina_densidade", 0.0045)
 	sol.light_color = c["sol"]
 	sol.light_energy = c.get("sol_forca", 1.05)
+	# a pista e o piso não usam o cálculo de luz do motor (são leves): a luz
+	# da cena (ambiente + sol batendo no chão) vai pronta para o shader
+	var para_sol := sol.global_transform.basis.z.normalized() if sol.is_inside_tree() else Vector3(0.35, 0.79, 0.5)
+	var amb: Color = (c["ambiente"] as Color).srgb_to_linear() * float(c.get("ambiente_forca", 0.62))
+	var luz_sol: Color = (c["sol"] as Color).srgb_to_linear() * float(c.get("sol_forca", 1.05)) * maxf(para_sol.y, 0.0)
+	var luz_cena := Vector3(amb.r + luz_sol.r, amb.g + luz_sol.g, amb.b + luz_sol.b)
+	for m in [mat_pista, mat_piso]:
+		m.set_shader_parameter("luz_cena", luz_cena)
+		m.set_shader_parameter("cor_ceu", ceu[2])
+	mat_pista.set_shader_parameter("dir_sol", para_sol)
 	var f: Array = c["fundo"]
 	mat_fundo.set_shader_parameter("cor_a", f[0])
 	mat_fundo.set_shader_parameter("cor_b", f[1])
 	mat_fundo.set_shader_parameter("cor_halo", c["halo"])
+	mat_boca_luz.set_shader_parameter("emissao", (c["halo"] as Color) * 0.9)
 	mat_placa.set_shader_parameter("tinta", c["placa"])
 	var portal: Array = c["portal"]
 	mat_portal.set_shader_parameter("cor_a", portal[0])
@@ -141,7 +177,9 @@ func _ambiente() -> void:
 	ambiente.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
 	ambiente.ambient_light_color = Color(0.62, 0.7, 0.86)
 	ambiente.ambient_light_energy = 0.62
-	ambiente.reflected_light_source = Environment.REFLECTION_SOURCE_SKY
+	# sem reflexo do céu nos materiais (o toon não usa; a pista e o piso
+	# desenham o próprio verniz): economiza uma busca de textura por pixel
+	ambiente.reflected_light_source = Environment.REFLECTION_SOURCE_DISABLED
 	ambiente.tonemap_mode = Environment.TONE_MAPPER_FILMIC
 	ambiente.tonemap_exposure = 1.0
 	ambiente.tonemap_white = 1.6
@@ -155,9 +193,9 @@ func _ambiente() -> void:
 	ambiente.fog_light_color = Color(0.86, 0.9, 1.0)
 	ambiente.fog_density = 0.0045
 	ambiente.fog_sky_affect = 0.0
-	ambiente.adjustment_enabled = true
-	ambiente.adjustment_saturation = 1.12
-	ambiente.adjustment_contrast = 1.04
+	# saturação e contraste: feitos na hora de colocar o 3D na tela (hud),
+	# sem a passada extra de pós-processamento do motor
+	ambiente.adjustment_enabled = false
 	we.environment = ambiente
 	add_child(we)
 
@@ -181,7 +219,6 @@ func aplicar_qualidade(q: String) -> void:
 	sol.shadow_enabled = false
 	ambiente.glow_enabled = q == "alta"
 	ambiente.fog_enabled = q != "baixa"
-	ambiente.adjustment_enabled = q != "baixa"
 
 
 # ================================================================ terreno
@@ -257,14 +294,11 @@ func _pista() -> void:
 	var piso_pinos := _corpo_caixa(Vector3(MEIA_LARGURA * 2, 0.2, cb), Vector3(0, -0.1, 1.2 - cb / 2), 0.42, 0.1)
 	piso_pinos.collision_layer = CAMADA_PISO_PINOS
 
-	# --- área de aproximação (onde o personagem corre)
-	var ma := StandardMaterial3D.new()
-	ma.albedo_texture = Materiais.textura("madeira")
-	ma.albedo_color = Color(0.93, 0.84, 0.76)
-	ma.uv1_scale = Vector3(4.2, 1.6, 1)
-	ma.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC
-	ma.roughness = 0.35
-	var aprox := _caixa(Vector3(6.6, 0.2, 6.2), Vector3(0, -0.101, 3.2), ma, true, false, 0.8, 0.0)
+	# --- área de aproximação (onde o personagem corre): madeira leve
+	mat_piso = ShaderMaterial.new()
+	mat_piso.shader = load("res://shaders/piso.gdshader")
+	mat_piso.set_shader_parameter("madeira", Materiais.textura("madeira"))
+	var aprox := _caixa(Vector3(6.6, 0.2, 6.2), Vector3(0, -0.101, 3.2), mat_piso, true, false, 0.8, 0.0)
 	aprox.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	# faixa colorida nas bordas da aproximação
 	mat_faixa = Materiais.cor_toon(Color("#FF9F2E"))
@@ -401,28 +435,22 @@ func _fundo_dos_pinos() -> void:
 		_corpo_caixa(Vector3(0.12, 1.0, -Z_FUNDO + z_frente), Vector3(x, 0.35, (z_frente + Z_FUNDO) / 2), 0.3, 0.35)
 	# fosso
 	_caixa(Vector3(2.0, 0.2, -Z_FUNDO + Z_FIM_DECK), Vector3(0, -0.24, (Z_FIM_DECK + Z_FUNDO) / 2), fosso, true, false, 0.9, 0.05)
-	# cortina pregueada (estrelinhas + halo atrás dos pinos) + almofada embaixo
+	_cacapa_das_bolas()
+	# cortina pregueada (estrelinhas + halo atrás dos pinos) em cima da boca
 	mat_fundo = ShaderMaterial.new()
 	mat_fundo.shader = load("res://shaders/fundo_estrelas.gdshader")
 	var fundo := MeshInstance3D.new()
-	fundo.mesh = Perfis.cortina(2.2, 2.6, 11, 0.07)
+	fundo.mesh = Perfis.cortina(2.2, 1.95, 11, 0.07)
 	fundo.material_override = mat_fundo
-	fundo.position = Vector3(0, 0.9, Z_FUNDO + 0.04)
+	fundo.position = Vector3(0, Y_BOCA + 0.08 + 0.975, Z_FUNDO + 0.04)
 	fundo.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	fundo.name = "cortina"
 	add_child(fundo)
-	var almofada := MeshInstance3D.new()
-	var cap := CapsuleMesh.new()
-	cap.radius = 0.075
-	cap.height = 2.0
-	cap.radial_segments = 20
-	cap.rings = 4
-	almofada.mesh = cap
-	almofada.rotation_degrees.z = 90
-	almofada.position = Vector3(0, -0.07, Z_FUNDO + 0.1)
-	almofada.material_override = Materiais.cor_toon(Color("#1A2236"), 0.0, {"borda": 0.4, "especular": 0.35})
-	add_child(almofada)
-	_corpo_caixa(Vector3(2.4, 2.0, 0.2), Vector3(0, 0.5, Z_FUNDO - 0.1), 0.9, 0.0)
+	# parede de trás: em cima vale para tudo; embaixo (a boca) só para os
+	# pinos — a bola passa e cai na caçapa
+	_corpo_caixa(Vector3(2.4, 1.6, 0.2), Vector3(0, Y_BOCA + 0.8, Z_FUNDO - 0.1), 0.9, 0.0)
+	var so_pinos := _corpo_caixa(Vector3(2.4, 0.9, 0.2), Vector3(0, Y_BOCA - 0.45, Z_FUNDO - 0.1), 0.9, 0.0)
+	so_pinos.collision_layer = CAMADA_SO_PINOS
 	# teto escuro do fosso (esconde a parte de cima, vista de dentro)
 	_caixa(Vector3(2.3, 0.1, -Z_FUNDO + Z_PINO1 + 0.7), Vector3(0, 2.12, (Z_PINO1 + 0.7 + Z_FUNDO) / 2),
 		Materiais.cor_toon(Color("#0B1B3A"), 0.0, {"borda": 0.0}), false, false)
@@ -450,18 +478,21 @@ func _fundo_dos_pinos() -> void:
 		ml.albedo_texture = logo_tex
 		ml.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR
 		ml.alpha_scissor_threshold = 0.4
-		ml.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC
+		ml.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 		logo.material_override = ml
 		logo.position = Vector3(0, 1.86, Z_PINO1 + 0.83)
 		logo.name = "logo"
 		add_child(logo)
-	# ARCO em cima do letreiro: raios nas cores do cenário + moldura amarela
+	# ARCO em cima do letreiro: leque de raios nas cores do cenário (a frente)
+	# sobre uma chapa escura, e a moldura amarela atrás
 	mat_portal = ShaderMaterial.new()
 	mat_portal.shader = load("res://shaders/raios.gdshader")
-	mat_portal.set_shader_parameter("centro", Vector2(0, 2.25))
+	var chapa := Materiais.cor_toon(Color("#2A1E3A"), 0.0, {"borda": 0.2})
+	_peca(_perfil_arco(1.42, 2.22, 2.45, 0.86), Z_PINO1 + 0.69, Z_PINO1 + 0.79, chapa)
 	var arco := MeshInstance3D.new()
-	arco.mesh = Perfis.extrudar(_perfil_arco(1.42, 2.22, 2.45, 0.86), Z_PINO1 + 0.69, Z_PINO1 + 0.79)
+	arco.mesh = _leque_raios(1.42, 2.22, 2.45, 0.86, 22, Z_PINO1 + 0.792)
 	arco.material_override = mat_portal
+	arco.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	arco.name = "arco"
 	add_child(arco)
 	_peca(_perfil_arco(1.52, 2.2, 2.45, 0.96), Z_PINO1 + 0.66, Z_PINO1 + 0.76, mat_friso)
@@ -479,6 +510,147 @@ func _fundo_dos_pinos() -> void:
 	mat_lampadas = ShaderMaterial.new()
 	mat_lampadas.shader = load("res://shaders/lampadas.gdshader")
 	add_child(lampadas_em(pontos))
+
+
+## CAÇAPA DAS BOLAS: no fundo do fosso, embaixo da cortina, uma boca
+## escura com moldura e cortina de tiras de borracha. A bola rola até lá,
+## empurra as tiras e some no túnel (depois volta no retorno de bolas, perto
+## de quem joga). Os pinos batem na boca e ficam no fosso.
+const N_TIRAS := 7
+const Y_CHAO_FOSSO := -0.14
+
+
+func _cacapa_das_bolas() -> void:
+	var escuro := StandardMaterial3D.new()
+	escuro.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	escuro.albedo_color = Color("#05070D")
+	var borracha := Materiais.cor_toon(Color("#20263A"), 0.0, {"borda": 0.3, "luz_minima": 0.35})
+	var meia := LARGURA_BOCA / 2.0
+	var alto := Y_BOCA - Y_CHAO_FOSSO
+	var fundo := 1.0
+	# túnel: chão (a bola rola para dentro), paredes, teto e fundo — escuros
+	_caixa(Vector3(LARGURA_BOCA + 0.2, 0.2, fundo), Vector3(0, Y_CHAO_FOSSO - 0.1, Z_FUNDO - fundo / 2), escuro, true, false, 0.3, 0.0)
+	for s in [-1, 1]:
+		_caixa(Vector3(0.1, alto + 0.1, fundo), Vector3(s * (meia + 0.05), Y_CHAO_FOSSO + alto / 2, Z_FUNDO - fundo / 2), escuro, true, false)
+	_caixa(Vector3(LARGURA_BOCA + 0.2, 0.1, fundo), Vector3(0, Y_BOCA + 0.05, Z_FUNDO - fundo / 2), escuro, false, false)
+	_caixa(Vector3(LARGURA_BOCA + 0.2, alto + 0.2, 0.1), Vector3(0, Y_CHAO_FOSSO + alto / 2, Z_FUNDO - fundo - 0.05), escuro, true, false)
+	# dos lados da boca, a parede de borracha (até as paredes da caçapa)
+	for s in [-1, 1]:
+		var x0 := meia + 0.06
+		var x1 := MEIA_LARGURA + CANALETA + 0.06
+		_caixa(Vector3(x1 - x0, alto + 0.14, 0.12), Vector3(s * (x0 + x1) / 2.0, Y_CHAO_FOSSO + (alto + 0.14) / 2.0 - 0.07, Z_FUNDO - 0.02),
+			borracha, false, false)
+	# moldura amarela em volta da boca + filete de luz em cima
+	_peca(Perfis.retangulo(LARGURA_BOCA + 0.26, 0.12, 0.05, Vector2(0, Y_BOCA + 0.06)), Z_FUNDO - 0.04, Z_FUNDO + 0.1, mat_friso)
+	for s in [-1, 1]:
+		_peca(Perfis.retangulo(0.13, alto + 0.12, 0.05, Vector2(s * (meia + 0.065), Y_CHAO_FOSSO + (alto + 0.12) / 2.0 - 0.02)),
+			Z_FUNDO - 0.04, Z_FUNDO + 0.1, mat_friso)
+	mat_boca_luz = Materiais.cor_toon(Color("#FFFFFF"), 0.0, {"emissao": Color(0.6, 0.9, 1.0), "borda": 0.0})
+	_caixa(Vector3(LARGURA_BOCA, 0.025, 0.02), Vector3(0, Y_BOCA + 0.005, Z_FUNDO + 0.105), mat_boca_luz, false, false)
+	# cortina de tiras de borracha (uma MultiMesh: um desenho só)
+	var tira := BoxMesh.new()
+	var larg_tira := LARGURA_BOCA / N_TIRAS - 0.012
+	tira.size = Vector3(larg_tira, alto - 0.03, 0.012)
+	var mm := MultiMesh.new()
+	mm.transform_format = MultiMesh.TRANSFORM_3D
+	mm.mesh = tira
+	mm.instance_count = N_TIRAS
+	_tiras = MultiMeshInstance3D.new()
+	_tiras.multimesh = mm
+	_tiras.material_override = Materiais.cor_toon(Color("#151A28"), 0.0, {"borda": 0.25, "luz_minima": 0.3})
+	_tiras.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(_tiras)
+	_abertura_tiras.resize(N_TIRAS)
+	_mexer_tiras(0.0)
+
+
+## As tiras abrem (giram para trás, presas em cima) quando a bola passa.
+func _mexer_tiras(delta: float) -> void:
+	var mm := _tiras.multimesh
+	var alto := Y_BOCA - Y_CHAO_FOSSO - 0.03
+	var meia := LARGURA_BOCA / 2.0
+	var pb := bola.global_position if bola != null and bola.visible else Vector3(100, 100, 100)
+	var mexeu := delta <= 0.0
+	for i in N_TIRAS:
+		var x := -meia + LARGURA_BOCA * (float(i) + 0.5) / N_TIRAS
+		var alvo := 0.0
+		if absf(pb.z - Z_FUNDO) < 0.45 and absf(pb.x - x) < 0.28 and pb.y < Y_BOCA:
+			alvo = 1.25
+		var a := _abertura_tiras[i]
+		var novo := move_toward(a, alvo, delta * (9.0 if alvo > a else 2.2))
+		if novo != a or mexeu:
+			_abertura_tiras[i] = novo
+			# balancinho depois que a bola passa
+			var t := Transform3D(Basis(Vector3.RIGHT, -novo), Vector3(x, Y_BOCA - 0.015, Z_FUNDO + 0.03))
+			mm.set_instance_transform(i, t * Transform3D(Basis(), Vector3(0, -alto / 2.0, 0)))
+
+
+## A bola que caiu na caçapa sai rolando de baixo da capota do retorno de
+## bolas e encosta nas outras.
+func retorno_bola(mat: Material) -> void:
+	if _bola_volta == null:
+		_bola_volta = MeshInstance3D.new()
+		var sm := SphereMesh.new()
+		sm.radius = Bola.RAIO
+		sm.height = Bola.RAIO * 2.0
+		sm.radial_segments = 24
+		sm.rings = 12
+		_bola_volta.mesh = sm
+		_bola_volta.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		add_child(_bola_volta)
+	_bola_volta.material_override = mat
+	_bola_volta.visible = true
+	_bola_volta.position = RETORNO + Vector3(0, 0.69, 0.62)
+	_bola_volta.rotation = Vector3.ZERO
+	var tw := create_tween()
+	tw.tween_property(_bola_volta, "position:z", RETORNO.z + 0.26, 0.55).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tw.parallel().tween_property(_bola_volta, "rotation:x", -4.0, 0.55).set_ease(Tween.EASE_OUT)
+	tw.tween_property(_bola_volta, "position:z", RETORNO.z + 0.29, 0.08)
+	tw.tween_property(_bola_volta, "position:z", RETORNO.z + 0.26, 0.1)
+
+
+## Esconde a bola do retorno (ela vai para a mão do bichinho).
+func guardar_retorno() -> void:
+	if _bola_volta:
+		_bola_volta.visible = false
+
+
+## Leque de raios do arco: do meio da base (0, y0) até o contorno do arco
+## (laterais retas até yc + meia-elipse), `setores` raios alternando cor.
+## COLOR.r = qual das 2 cores; COLOR.g = 0 no centro, 1 na borda.
+static func _leque_raios(r: float, y0: float, yc: float, alto: float, setores: int, z: float) -> ArrayMesh:
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var borda := func(ang: float) -> Vector2:
+		var d := Vector2(cos(ang), sin(ang))
+		# laterais retas (x = ±r, até yc)
+		if absf(d.x) > 1e-4:
+			var t_lado := r / absf(d.x)
+			var y_lado := y0 + t_lado * d.y
+			if y_lado <= yc:
+				return Vector2(t_lado * d.x, y_lado)
+		# meia-elipse: (x/r)² + ((y - yc)/alto)² = 1, com x = t·dx, y = y0 + t·dy
+		var a := (d.x * d.x) / (r * r) + (d.y * d.y) / (alto * alto)
+		var b := 2.0 * (y0 - yc) * d.y / (alto * alto)
+		var c := (y0 - yc) * (y0 - yc) / (alto * alto) - 1.0
+		var t := (-b + sqrt(maxf(b * b - 4.0 * a * c, 0.0))) / (2.0 * a)
+		return Vector2(t * d.x, y0 + t * d.y)
+	var sub := 4
+	var centro := Vector3(0, y0, z)
+	for k in setores:
+		var cor := Color(float(k % 2), 1.0, 0.0)
+		var cor_c := Color(float(k % 2), 0.0, 0.0)
+		for j in sub:
+			var a0 := PI * (float(k) + float(j) / sub) / setores
+			var a1 := PI * (float(k) + float(j + 1) / sub) / setores
+			var p0: Vector2 = borda.call(a0)
+			var p1: Vector2 = borda.call(a1)
+			# frente virada para +Z (horário visto de +Z: centro, p1, p0)
+			for v in [[centro, cor_c], [Vector3(p1.x, p1.y, z), cor], [Vector3(p0.x, p0.y, z), cor]]:
+				st.set_color(v[1])
+				st.set_normal(Vector3(0, 0, 1))
+				st.add_vertex(v[0])
+	return st.commit()
 
 
 ## Contorno do arco: base reta em y0, laterais até yc e meia-elipse
@@ -597,7 +769,7 @@ func _area_dos_jogadores() -> void:
 		ml.albedo_texture = logo_tex
 		ml.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR
 		ml.alpha_scissor_threshold = 0.4
-		ml.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC
+		ml.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 		var logo := MeshInstance3D.new()
 		logo.mesh = lq
 		logo.material_override = ml
@@ -633,7 +805,7 @@ func _area_dos_jogadores() -> void:
 				sofa.add_child(outro)
 	# retorno de bolas (como num boliche de verdade), do lado direito
 	var ret := Node3D.new()
-	ret.position = Vector3(2.35, 0, 5.2)
+	ret.position = RETORNO
 	add_child(ret)
 	var corpo := MeshInstance3D.new()
 	corpo.mesh = Perfis.extrudar(Perfis.retangulo(0.56, 0.5, 0.1, Vector2(0, 0.25)), -0.8, 0.8)
@@ -807,7 +979,8 @@ func _process(delta: float) -> void:
 		balao.position = BALAO_POS + Vector3(sin(_t * 0.31) * 0.18, sin(_t * 0.8) * 0.14, sin(_t * 0.23) * 0.1)
 		balao.rotation = Vector3(sin(_t * 0.5) * 0.05, sin(_t * 0.45) * 0.3, sin(_t * 0.6) * 0.08)
 	mat_fundo.set_shader_parameter("fase", fposmod(_t * 0.4, 100.0))
-	mat_portal.set_shader_parameter("giro", fposmod(_t * 0.12, TAU))
+	mat_portal.set_shader_parameter("pulso", sin(_t * 2.2))
+	_mexer_tiras(delta)
 	for i in _mats_podio.size():
 		var on := 0.0
 		if i == _podio_destaque:

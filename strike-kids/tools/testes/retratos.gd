@@ -18,6 +18,7 @@ func _ready() -> void:
 
 func _montar(nome: String, expr: String) -> Array:
 	var vp := SubViewport.new()
+	vp.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
 	vp.size = Vector2i(TAM, TAM)
 	vp.transparent_bg = true
 	vp.own_world_3d = true

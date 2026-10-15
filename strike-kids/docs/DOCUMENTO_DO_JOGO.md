@@ -16,7 +16,7 @@ do Dragon Bowling), física **Jolt**, câmera USB (Sigma) pelo plugin StrikeCame
 | 2D, pista e pinos em imagem | 3D de verdade: pista, pinos, mascotes e cenários modelados |
 | Câmera fixa com zoom | Câmera de cinema: segue o mascote, persegue a bola, vai aos pinos, treme no impacto, câmera lenta |
 | Sem personagem | Bob e Mia jogam de verdade (passada, balanço, soltura na linha do sensor) e reagem a cada jogada |
-| Resultado mostrado | Pinos caindo com física real, um derrubando o outro; REPLAY do strike com câmera colada nos pinos |
+| Resultado mostrado | Pinos caindo com física real, um derrubando o outro; REPLAY do strike: a mesma jogada (cada passo da física gravado) em câmera lenta lisa |
 | Pinos somem | Máquina de pinos de verdade: barra varredora e mesa que desce com os pinos |
 | Um tema | 4 cenários, um por rodada: Parque de Diversões, Espaço, Fundo do Mar, Selva dos Dinos |
 
@@ -62,10 +62,12 @@ acenar, andar, vitória (pulinhos), escolhido.
 
 ## 3. Fluxo
 
-1. **Abertura**: a marca **Lazer & Sport** (continua exatamente a imagem
-   de inicialização do aparelho): o dardo "acerta" o alvo, estrelinhas, um
-   brilho passa pela placa e entra "apresenta". Depois a câmera desce do
-   céu até os mascotes (3 s).
+1. **Abertura Lazer & Sport Games** (tema boliche kids): tarjas de cinema,
+   a **bola com o alvo da Lazer & Sport** rola pela pista com a câmera
+   colada nela, faz **STRIKE em câmera lenta** visto de lado e, por cima da
+   explosão de pinos, a marca **LAZER & SPORT GAMES** "estoura" na tela
+   (estrelinhas, brilho passando, "apresenta"). Depois a câmera voa pelo
+   cenário até a tela inicial, onde chegam o Bob e a Mia (~9 s).
 2. **Atração**: logo, botão "APERTE START" com volume, placa do recorde
    (com a foto); Bob e Mia dançam; câmera
    orbitando; de 9 em 9 s uma **jogada de demonstração** completa, e a cada
@@ -91,6 +93,14 @@ acenar, andar, vitória (pulinhos), escolhido.
    correndo) → impacto com física → resultado (STRIKE!/SPARE!/UAU!/BOA!/
    QUASE!/OPS!, pontos voando para o placar) → replay (strike) → reação do
    mascote → **máquina de pinos** (câmera baixinha na frente dos pinos).
+   A bola cai no fosso, entra na **caçapa** e volta rolando no **retorno de
+   bolas** ao lado de quem joga.
+   **Replay do strike**: cada passo da física (120 por segundo) é gravado
+   com o seu instante; o replay mostra a MESMA jogada interpolando entre os
+   passos, em câmera lenta constante (45%, 27% na batida, sempre suave):
+   câmera rasante colada na bola, corte lateral na batida (som dos pinos
+   mais grave, junto com a imagem) e plano aberto da explosão — com o
+   rastro de arco-íris, os brilhinhos e o barulho da bola em câmera lenta.
 6. **Fim de jogo**: cartão de cada jogador com a **foto grande**, pontos,
    1 a 3 estrelas e o **lugar no dia**; quadro **CLASSIFICAÇÃO DE HOJE**
    (5 primeiros com foto); VENCEU!/EMPATE!, NOVO RECORDE!, confete e
@@ -157,7 +167,7 @@ Pontos: 10 por pino, +50 strike, +20 spare.
   reserva; entrega os planos Y e UV), **ffmpeg** no PC Windows (quadros
   RGB crus por um cano, lidos numa linha de execução separada) e o
   **CameraServer** no Linux. Permissão CAMERA pedida uma vez; resolução
-  perto de 640×480. Procura de novo a cada 8 s e ao escolher jogadores.
+  perto de 640×480. Procura na abertura e ao apertar START (nunca no meio do jogo: trava o quadro).
 - A imagem (RGB ou YCbCr, conforme a câmera) é convertida num shader,
   recortada no quadrado do meio e espelhada; a foto (384×384) sai de uma
   SubViewport. A câmera só fica ligada na hora da foto (e desliga uns
@@ -188,7 +198,11 @@ Depois de cada bola, como num boliche de verdade:
 
 - **Caçapa**: paredes laterais acolchoadas com friso amarelo, cortina de
   veludo pregueada nas cores do cenário com **halo de luz atrás dos pinos**
-  e estrelinhas, almofada de borracha embaixo.
+  e estrelinhas, almofada de borracha embaixo. No fundo do fosso, a **boca
+  da caçapa** (túnel escuro com moldura amarela e filete de luz) com uma
+  **cortina de tiras de borracha** (uma MultiMesh) que abre quando a bola
+  passa e balança depois; a "esteira" do fosso leva a bola até ela, e a
+  bola reaparece rolando no **retorno de bolas** da área dos jogadores.
 - **Portal no fim da pista**: gabinete alto (esconde a máquina de pinos),
   letreiro STRIKE KIDS com moldura, **arco de raios coloridos** girando
   devagar (`shaders/raios.gdshader`) com lâmpadas e duas **colunas**
@@ -244,9 +258,25 @@ para o próximo.
   - sem sombra do sol (no "Compatibilidade" ela desenha tudo 2 vezes):
     sombras pintadas nos pinos (uma MultiMesh que deita junto com o pino),
     bola e bichinhos;
-  - imagem 3D em **tamanho fixo esticada sozinha** (TV Box 720 px no lado
+  - imagem 3D em **tamanho fixo esticada sozinha** (TV Box 640 px no lado
     menor, PC até 1440) e **resolução automática**: se cair de ~52 quadros
     por segundo, o 3D diminui até 60% e, no automático, desce a qualidade;
+  - superfícies grandes **sem luz por pixel** (pista, piso e arco do
+    portal com a luz já pintada; marcações da pista com conta fixa por
+    pixel); MSAA e brilho só no PC; cores convertidas por vértice no toon;
+  - **interpolação da física** só para o que a física move (bola, pinos,
+    mesa e barra da máquina): eles aparecem no lugar exato do instante de
+    cada quadro, lisos em 60, 75 ou 144 Hz e com QPS oscilando; câmera,
+    sombras e rastro seguem a posição interpolada; o resto do jogo (que
+    anda a cada quadro) fica sem interpolação;
+  - **câmera lenta sem mexer na física**: o passo da física é sempre de
+    1/120 s (o mesmo da calibração das jogadas); na câmera lenta a física
+    só dá menos passos por segundo (0,4 = 48/s) e a interpolação deixa a
+    imagem lisa — o resultado da jogada não depende do QPS da máquina;
+  - **medidor** (`scripts/medidor.gd`): painel de QPS/ms/CPU/placa de vídeo/
+    desenhos/memória (F3 ou menu do operador) e TESTE DE DESEMPENHO de 20 s
+    com qualidade recomendada (grava `user://desempenho.txt`); bancada
+    `--benchmark` no PC mede o custo de cada parte;
   - **aquecimento** (`scripts/aquecer.gd`): na abertura, uma telinha
     escondida desenha uma amostra de cada material (todos os cenários,
     partículas, lâmpadas, painéis 2D) — sem engasgo na primeira vez;
@@ -283,6 +313,9 @@ para o próximo.
 | `python3 tools/sons/gerar_sons.py` | efeitos e músicas originais |
 | `godot --headless --path . --fixed-fps 120 res://tools/testes/calibrar.tscn` | calibra a tabela de jogadas (`-- --validar=normal` confere) |
 | `godot --path . -- --roteiro=pasta` | teste automático: joga sozinho e tira fotos |
+| `godot --path . -- --janela=720x1280 --benchmark [--configs=base,sem_portal]` | bancada de desempenho: custo de cada parte do desenho (placa de vídeo e quadro) em 4 vistas |
+| `godot --path . --fixed-fps 50 -- --janela=540x960 --replay-teste[=pasta]` | faz um strike de demonstração e mede, quadro a quadro, a bola rolando (interpolada) e o replay (sem trancos) |
+| `godot --path . -- --medidor` | abre o jogo já com o painel de desempenho (o mesmo do F3) |
 | `godot --path . -- --camera-falsa` | simula a câmera no PC (imagem de teste) |
 
 ## 10. LEDs no Android (plugin USB)

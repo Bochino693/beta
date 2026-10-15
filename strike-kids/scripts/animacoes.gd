@@ -64,12 +64,11 @@ static func _montar() -> void:
 		],
 	}
 	_cache["pronto"] = {
-		"dur": 2.0, "loop": true,
+		"dur": 3.2, "loop": true,
 		"chaves": [
 			[0.0, PRONTO],
-			[1.0, _p(PRONTO, {"altura": -0.025, "corpo": Vector3(8, 0, 0), "canela_e": Vector3(14, 0, 0), "canela_d": Vector3(14, 0, 0),
-				"coxa_e": Vector3(-7, 0, 0), "coxa_d": Vector3(-7, 0, 0)})],
-			[2.0, PRONTO],
+			[1.6, _p(PRONTO, {"altura": -0.008, "corpo": Vector3(7, 0, 0)})],
+			[3.2, PRONTO],
 		],
 	}
 	# ---------------------------------------------------- o ARREMESSO
@@ -161,7 +160,7 @@ static func _montar() -> void:
 		"braco_d": Vector3(-72, 0, 12), "antebraco_d": Vector3(-48, 20, 25), "corpo": Vector3(4, 0, 0)})
 	var palma_abre := _p(palma_junta, {"braco_e": Vector3(-70, 0, 14), "braco_d": Vector3(-70, 0, -14), "altura": 0.02})
 	_cache["feliz"] = {
-		"dur": 1.9, "loop": false,
+		"depois": "parado", "dur": 1.9, "loop": false,
 		"pulos": [[0.22, 0.56, 0.2]],
 		"chaves": [
 			[0.0, PARADO],
@@ -178,7 +177,7 @@ static func _montar() -> void:
 	var baixa := _p(PARADO, {"cabeca": Vector3(26, 0, 0), "corpo": Vector3(10, 0, 0), "braco_e": Vector3(6, 0, 3), "braco_d": Vector3(6, 0, -3),
 		"altura": -0.03})
 	_cache["triste"] = {
-		"dur": 2.0, "loop": false,
+		"depois": "parado", "dur": 2.0, "loop": false,
 		"chaves": [[0.0, PARADO], [0.3, baixa], [0.6, _p(baixa, {"cabeca": Vector3(24, -22, 0)})], [0.9, _p(baixa, {"cabeca": Vector3(24, 22, 0)})],
 			[1.2, _p(baixa, {"cabeca": Vector3(20, 0, 0)})], [1.5, baixa],
 			[2.0, _p(PARADO, {"braco_e": Vector3(-20, 0, 40), "braco_d": Vector3(-20, 0, -40), "antebraco_e": Vector3(-80, 0, 0), "antebraco_d": Vector3(-80, 0, 0)})]],
@@ -188,11 +187,16 @@ static func _montar() -> void:
 	var t1 := _p(PARADO, {"braco_e": Vector3(-155, 0, 28), "antebraco_e": Vector3(-30, 0, 0), "braco_d": Vector3(-110, 0, -40), "antebraco_d": Vector3(-70, 0, 0)})
 	var t2 := _p(PARADO, {"braco_d": Vector3(-155, 0, -28), "antebraco_d": Vector3(-30, 0, 0), "braco_e": Vector3(-110, 0, 40), "antebraco_e": Vector3(-70, 0, 0)})
 	_cache["torcida"] = {
-		"dur": 1.0, "loop": true,
-		"pulos": [[0.08, 0.36, 0.06], [0.58, 0.86, 0.06]],
-		"chaves": [[0.0, _p(t1, {"altura": -0.035})], [0.22, t1], [0.46, _p(t2, {"altura": -0.035})], [0.72, t2],
-			[0.96, _p(t1, {"altura": -0.035})], [1.0, _p(t1, {"altura": -0.035})]],
+		"dur": 2.4, "loop": true,
+		"chaves": [[0.0, _p(t1, {"quadril": Vector3(0.01, 0, 0)})], [0.6, _p(t1, {"quadril": Vector3(0.012, 0, 0), "altura": -0.006})],
+			[1.2, _p(t2, {"quadril": Vector3(-0.01, 0, 0)})], [1.8, _p(t2, {"quadril": Vector3(-0.012, 0, 0), "altura": -0.006})],
+			[2.4, _p(t1, {"quadril": Vector3(0.01, 0, 0)})]],
 	}
+	# festa (fim de jogo): braços para cima balançando, sem pular
+	var f1 := _p(PARADO, {"braco_e": Vector3(-160, 0, 30), "antebraco_e": Vector3(-15, 0, 0), "braco_d": Vector3(-160, 0, -30),
+		"antebraco_d": Vector3(-15, 0, 0), "corpo": Vector3(-3, 0, -5), "cabeca": Vector3(-6, 0, 6), "quadril": Vector3(0.015, 0, 0)})
+	var f2 := _p(f1, {"corpo": Vector3(-3, 0, 5), "cabeca": Vector3(-6, 0, -6), "quadril": Vector3(-0.015, 0, 0)})
+	_cache["festa"] = {"dur": 2.0, "loop": true, "chaves": [[0.0, f1], [1.0, f2], [2.0, f1]]}
 	# ---------------------------------------------------- dança (atração / fim): o quadril vai de um lado
 	# para o outro no ritmo, joelhos dobram no tempo forte, um pezinho bate.
 	var d1 := _p(PARADO, {"braco_e": Vector3(-95, 0, 22), "antebraco_e": Vector3(-85, 0, 0), "braco_d": Vector3(-8, 0, -30),
@@ -200,19 +204,35 @@ static func _montar() -> void:
 	var d2 := _p(PARADO, {"braco_d": Vector3(-95, 0, -22), "antebraco_d": Vector3(-85, 0, 0), "braco_e": Vector3(-8, 0, 30),
 		"antebraco_e": Vector3(-90, 0, 0), "corpo": Vector3(2, -10, -7), "cabeca": Vector3(0, 10, 8), "quadril": Vector3(-0.035, 0, 0)})
 	_cache["danca"] = {
-		"dur": 2.0, "loop": true,
-		"chaves": [[0.0, d1], [0.25, _p(d1, {"altura": -0.055, "quadril": Vector3(0.025, 0, 0)})], [0.5, _p(d1, {"altura": -0.01})],
-			[0.62, _p(d1, {"coxa_d": Vector3(-28, 0, 0), "canela_d": Vector3(56, 0, 0), "pe_d": Vector3(15, 0, 0)})], [0.78, _p(d1, {"altura": -0.02})],
-			[1.0, d2], [1.25, _p(d2, {"altura": -0.055, "quadril": Vector3(-0.025, 0, 0)})], [1.5, _p(d2, {"altura": -0.01})],
-			[1.62, _p(d2, {"coxa_e": Vector3(-28, 0, 0), "canela_e": Vector3(56, 0, 0), "pe_e": Vector3(15, 0, 0)})], [1.78, _p(d2, {"altura": -0.02})],
-			[2.0, d1]],
-		"eventos": [[0.7, "som", "passo"], [1.7, "som", "passo"]],
+		"dur": 2.8, "loop": true,
+		"chaves": [[0.0, d1], [0.4, _p(d1, {"altura": -0.018, "quadril": Vector3(0.025, 0, 0)})], [0.7, d1],
+			[0.95, _p(d1, {"coxa_d": Vector3(-22, 0, 0), "canela_d": Vector3(40, 0, 0), "pe_d": Vector3(12, 0, 0)})], [1.2, d1],
+			[1.4, d2], [1.8, _p(d2, {"altura": -0.018, "quadril": Vector3(-0.025, 0, 0)})], [2.1, d2],
+			[2.35, _p(d2, {"coxa_e": Vector3(-22, 0, 0), "canela_e": Vector3(40, 0, 0), "pe_e": Vector3(12, 0, 0)})], [2.6, d2],
+			[2.8, d1]],
 	}
+	# um pedacinho de dança e volta a ficar parado (atração)
+	var dc := []
+	for c in _cache["danca"]["chaves"]:
+		dc.append(c)
+	for c in (_cache["danca"]["chaves"] as Array).slice(1):
+		dc.append([float(c[0]) + 2.8, c[1]])
+	_cache["danca_curta"] = {"dur": 5.6, "loop": false, "depois": "parado", "chaves": dc}
 	# ---------------------------------------------------- acenar (oi!)
 	var a1 := _p(PARADO, {"braco_d": Vector3(-10, 0, -150), "antebraco_d": Vector3(0, 0, -25), "cabeca": Vector3(0, 0, 6),
 		"quadril": Vector3(0.015, 0, 0), "corpo": Vector3(0, 0, -3)})
-	var a2 := _p(a1, {"antebraco_d": Vector3(0, 0, 25), "cabeca": Vector3(0, 0, -4), "quadril": Vector3(0.008, 0, 0), "altura": -0.012})
-	_cache["acenar"] = {"dur": 1.0, "loop": true, "chaves": [[0.0, a1], [0.25, a2], [0.5, a1], [0.75, a2], [1.0, a1]]}
+	var a2 := _p(a1, {"antebraco_d": Vector3(0, 0, 25), "cabeca": Vector3(0, 0, -4), "quadril": Vector3(0.008, 0, 0)})
+	_cache["acenar"] = {"dur": 1.2, "loop": true, "chaves": [[0.0, a1], [0.3, a2], [0.6, a1], [0.9, a2], [1.2, a1]]}
+	# "oi!" uma vez e volta a ficar parado (atração)
+	_cache["acenar_uma"] = {"dur": 2.6, "loop": false, "depois": "parado",
+		"chaves": [[0.0, PARADO], [0.35, a1], [0.65, a2], [0.95, a1], [1.25, a2], [1.55, a1], [1.85, a2], [2.6, PARADO]],
+		"eventos": [[0.0, "expressao", "feliz"]]}
+	# olha para os lados, curioso (atração)
+	_cache["olhar_volta"] = {"dur": 3.2, "loop": false, "depois": "parado",
+		"chaves": [[0.0, PARADO], [0.6, _p(PARADO, {"cabeca": Vector3(4, 35, 4), "corpo": Vector3(0, 8, 0)})],
+			[1.5, _p(PARADO, {"cabeca": Vector3(4, 35, 4), "corpo": Vector3(0, 8, 0)})],
+			[2.1, _p(PARADO, {"cabeca": Vector3(2, -30, -4), "corpo": Vector3(0, -6, 0)})],
+			[2.7, _p(PARADO, {"cabeca": Vector3(2, -30, -4), "corpo": Vector3(0, -6, 0)})], [3.2, PARADO]]}
 	# ---------------------------------------------------- andar
 	var w1 := _p(PARADO, {"coxa_e": Vector3(-26, 0, 0), "canela_e": Vector3(8, 0, 0), "coxa_d": Vector3(22, 0, 0), "canela_d": Vector3(30, 0, 0),
 		"braco_e": Vector3(25, 0, 10), "braco_d": Vector3(-25, 0, -10), "altura": -0.015})
@@ -223,7 +243,7 @@ static func _montar() -> void:
 	var v_baixo := _p(agacha, {"altura": -0.08, "braco_e": Vector3(-150, 0, 40), "braco_d": Vector3(-150, 0, -40)})
 	var v_alto := _p(voando, {})
 	_cache["vitoria"] = {
-		"dur": 1.4, "loop": true,
+		"dur": 1.4, "loop": false, "depois": "festa",
 		"pulos": [[0.12, 0.58, 0.3], [0.82, 1.24, 0.24]],
 		"chaves": [[0.0, v_baixo], [0.12, _p(esticado, {})], [0.35, v_alto], [0.58, _p(esticado, {})], [0.7, v_baixo],
 			[0.82, _p(esticado, {"corpo": Vector3(-6, 0, 8)})], [1.03, _p(v_alto, {"corpo": Vector3(-6, 0, 10)})],
@@ -242,7 +262,7 @@ static func _montar() -> void:
 	}
 	# ---------------------------------------------------- quase (ficou 1 pino): mãos na cabeça
 	_cache["quase"] = {
-		"dur": 1.7, "loop": false,
+		"depois": "parado", "dur": 1.7, "loop": false,
 		"chaves": [[0.0, PARADO],
 			[0.3, _p(PARADO, {"braco_e": Vector3(-150, 0, 50), "antebraco_e": Vector3(-110, 0, 0), "braco_d": Vector3(-150, 0, -50), "antebraco_d": Vector3(-110, 0, 0),
 				"corpo": Vector3(-6, 0, 0), "cabeca": Vector3(-10, 0, 0)})],

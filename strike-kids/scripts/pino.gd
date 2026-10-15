@@ -40,7 +40,7 @@ func montar(n: int, pos: Vector3, malha_pino: Mesh, forma: Shape3D, rosto: Textu
 	contact_monitor = true
 	max_contacts_reported = 4
 	collision_layer = Mundo.CAMADA_PINOS
-	collision_mask = Mundo.CAMADA_MUNDO | Mundo.CAMADA_PINOS | Mundo.CAMADA_BOLA | Mundo.CAMADA_PISO_PINOS
+	collision_mask = Mundo.CAMADA_MUNDO | Mundo.CAMADA_PINOS | Mundo.CAMADA_BOLA | Mundo.CAMADA_PISO_PINOS | Mundo.CAMADA_SO_PINOS
 	var pm := PhysicsMaterial.new()
 	pm.friction = 0.38
 	pm.bounce = 0.38
@@ -79,6 +79,10 @@ func montar(n: int, pos: Vector3, malha_pino: Mesh, forma: Shape3D, rosto: Textu
 		_estrelas.add_child(e)
 	add_child(_estrelas)
 	body_entered.connect(_ao_bater)
+	# o pino anda pela física e pela máquina (passos da física): interpolado.
+	# As estrelinhas da tontura são postas a cada quadro.
+	physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_ON
+	_estrelas.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
 	recolocar()
 
 
@@ -92,10 +96,12 @@ func recolocar() -> void:
 	linear_velocity = Vector3.ZERO
 	angular_velocity = Vector3.ZERO
 	collision_layer = Mundo.CAMADA_PINOS
-	collision_mask = Mundo.CAMADA_MUNDO | Mundo.CAMADA_PINOS | Mundo.CAMADA_BOLA | Mundo.CAMADA_PISO_PINOS
+	collision_mask = Mundo.CAMADA_MUNDO | Mundo.CAMADA_PINOS | Mundo.CAMADA_BOLA | Mundo.CAMADA_PISO_PINOS | Mundo.CAMADA_SO_PINOS
 	malha.scale = Vector3.ONE
 	_estrelas.visible = false
 	expressao("normal")
+	if is_inside_tree():
+		reset_physics_interpolation()
 
 
 ## Libera a física (antes da bola chegar).
@@ -103,6 +109,8 @@ func soltar() -> void:
 	if removido:
 		return
 	parar_pulo()
+	if physics_interpolation_mode != Node.PHYSICS_INTERPOLATION_MODE_ON:
+		interpolar(true)
 	freeze = false
 	sleeping = false
 
@@ -201,6 +209,8 @@ func comemorar(atraso: float, pulos: int) -> void:
 	prender()
 	_base_pulo = global_transform
 	_pulando = true
+	# os pulinhos são animados a cada quadro: sem interpolar
+	physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
 	_pulo = create_tween()
 	_pulo.tween_interval(atraso)
 	for i in pulos:
@@ -233,6 +243,14 @@ func parar_pulo() -> void:
 	if _pulando:
 		global_transform = _base_pulo
 		_pulando = false
+		interpolar(true)
+
+
+## Liga/desliga a interpolação da física (desligada no replay e nos pulinhos).
+func interpolar(sim: bool) -> void:
+	physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_ON if sim else Node.PHYSICS_INTERPOLATION_MODE_OFF
+	if sim and is_inside_tree():
+		reset_physics_interpolation()
 
 
 func _ao_bater(corpo: Node) -> void:

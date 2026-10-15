@@ -6,6 +6,8 @@ extends RigidBody3D
 ## mais strikes seguidos ela vira BOLA DE FOGO (rastro e chamas).
 
 signal bateu(corpo: Node, velocidade: float)
+## entrou na caçapa das bolas (no fundo do fosso)
+signal recolhida
 
 const RAIO := 0.14
 const MASSA := 6.5
@@ -23,6 +25,8 @@ var _grad_arco: Gradient
 var _grad_fogo: Gradient
 var curva := 0.0              # força lateral (efeito "gancho")
 var rolando := false
+## no replay a bola só é "posta" nos lugares gravados (sem física)
+var em_replay := false
 var _mat: ShaderMaterial
 
 
@@ -143,6 +147,15 @@ func _init() -> void:
 	_grad_fogo.offsets = PackedFloat32Array([0.0, 0.25, 0.5, 0.75, 1.0])
 	_grad_fogo.colors = PackedColorArray(FOGO)
 	body_entered.connect(_ao_bater)
+	# a bola anda pela física: aparece interpolada entre os passos (lisa em
+	# qualquer monitor); sombra, rastro e brilhos são postos a cada quadro
+	physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_ON
+	for n in [_sombra, _rastro, _brilhos, _chamas]:
+		(n as Node).physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
+
+
+func _ready() -> void:
+	get_global_transform_interpolated()
 
 
 static func _arco_iris() -> Gradient:
@@ -170,18 +183,24 @@ func lancar(origem: Vector3, velocidade: Vector3, efeito := 0.0) -> void:
 	angular_velocity = Vector3.UP.cross(velocidade) / RAIO
 	curva = efeito
 	rolando = true
+	em_replay = false
+	physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_ON
+	reset_physics_interpolation()
 	_pontos.clear()
+	replay_ritmo(1.0)
 	_brilhos.emitting = true
 	_chamas.emitting = _fogo
 
 
 func guardar() -> void:
 	rolando = false
+	em_replay = false
 	freeze = true
 	visible = false
 	linear_velocity = Vector3.ZERO
 	angular_velocity = Vector3.ZERO
 	global_position = Vector3(0, -5, 20)
+	reset_physics_interpolation()
 	_pontos.clear()
 	_im.clear_surfaces()
 	_brilhos.emitting = false
@@ -199,25 +218,65 @@ func fogo(ligar: bool) -> void:
 func _physics_process(_delta: float) -> void:
 	if not rolando:
 		return
-	if curva != 0.0 and global_position.z > Mundo.Z_PINO1 + 1.4 and global_position.y > -0.02:
+	var p := global_position
+	if curva != 0.0 and p.z > Mundo.Z_PINO1 + 1.4 and p.y > -0.02:
 		apply_central_force(Vector3(curva * mass, 0, 0))
+	# no fosso: o chão "puxa" a bola para a caçapa (como a esteira de verdade)
+	if p.z < Mundo.Z_FIM_DECK and p.y < 0.0 and linear_velocity.z > -1.6:
+		apply_central_force(Vector3(-p.x * 3.0, 0, -4.0) * mass)
+	# entrou no túnel da caçapa: some (e volta no retorno de bolas)
+	if p.z < Mundo.Z_FUNDO - 0.35:
+		rolando = false
+		_brilhos.emitting = false
+		_chamas.emitting = false
+		visible = false
+		set_deferred("freeze", true)
+		recolhida.emit()
 
 
 func _process(_delta: float) -> void:
 	if not visible:
 		return
-	_sombra.global_position = Vector3(global_position.x, max(global_position.y - RAIO, -0.3) + 0.008, global_position.z)
+	# onde a bola APARECE neste quadro (entre dois passos da física)
+	var g := Mundo.na_tela(self).origin
+	_sombra.global_position = Vector3(g.x, max(g.y - RAIO, -0.3) + 0.008, g.z)
 	_sombra.global_rotation = Vector3.ZERO
-	var alt: float = clamp(1.0 - (global_position.y - RAIO) * 1.5, 0.3, 1.0)
+	var alt: float = clamp(1.0 - (g.y - RAIO) * 1.5, 0.3, 1.0)
 	_sombra.scale = Vector3(alt, 1, alt)
 	if rolando:
-		_pontos.push_front(Vector3(global_position.x, max(global_position.y - RAIO, -0.08) + 0.012, global_position.z))
-		if _pontos.size() > 28:
-			_pontos.pop_back()
-		if global_position.z < Mundo.Z_PINO1 + 0.4:
-			_brilhos.emitting = false
-			_chamas.emitting = false
+		marcar_rastro(g)
+	if (rolando or em_replay) and g.z < Mundo.Z_PINO1 + 0.4:
+		_brilhos.emitting = false
+		_chamas.emitting = false
 	_desenhar_rastro()
+
+
+## Mais um ponto do rastro de arco-íris (o replay chama nos mesmos
+## instantes da jogada de verdade).
+func marcar_rastro(p: Vector3) -> void:
+	_pontos.push_front(Vector3(p.x, max(p.y - RAIO, -0.08) + 0.012, p.z))
+	if _pontos.size() > 28:
+		_pontos.pop_back()
+
+
+## REPLAY: rastro recomeça e os brilhinhos voltam (em câmera lenta).
+func replay(ligar: bool) -> void:
+	em_replay = ligar
+	# no replay quem move a bola é o jogo, quadro a quadro (sem interpolar)
+	physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF if ligar else Node.PHYSICS_INTERPOLATION_MODE_ON
+	if not ligar:
+		reset_physics_interpolation()
+	_pontos.clear()
+	_im.clear_surfaces()
+	_brilhos.emitting = ligar
+	_chamas.emitting = ligar and _fogo
+	replay_ritmo(1.0)
+
+
+## Os brilhinhos andam no ritmo do replay (0,45 = 45% da velocidade).
+func replay_ritmo(vel: float) -> void:
+	_brilhos.speed_scale = vel
+	_chamas.speed_scale = vel
 
 
 func _desenhar_rastro() -> void:

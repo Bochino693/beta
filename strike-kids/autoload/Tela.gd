@@ -30,6 +30,12 @@ var _fisico := Vector2i(1080, 1920)
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
+	# INTERPOLAÇÃO DA FÍSICA: a física anda 120 passos por segundo; a tela,
+	# 60, 75, 144... Só o que é movido PELA FÍSICA (bola, pinos, máquina de
+	# pinos) liga a interpolação e aparece sempre no lugar certo do instante
+	# do quadro — liso em qualquer monitor. Todo o resto (câmera, bichinhos,
+	# telas), que anda a cada quadro, fica desligado.
+	get_tree().root.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
 	_janela_de_teste()
 	giro = _giro_configurado()
 	get_tree().root.size_changed.connect(_aplicar)

@@ -61,11 +61,13 @@ func _process(_d: float) -> void:
 	var mm := _sombras.multimesh
 	for i in pinos.size():
 		var p := pinos[i]
-		var g := p.global_position
+		# onde o pino APARECE neste quadro (interpolado entre passos da física)
+		var tp := Mundo.na_tela(p)
+		var g := tp.origin
 		# pino levantado pela máquina ou longe do chão: a sombra some
 		var f := 0.0 if p.removido or not p.visible or g.y < -0.1 else clampf(1.0 - g.y * 2.2, 0.0, 1.0)
 		# deitado: a sombra fica comprida no sentido do pino
-		var eixo := p.global_basis.y
+		var eixo := tp.basis.y.normalized()
 		var deitado := 1.0 - absf(eixo.y)
 		var b := Basis().scaled(Vector3(f * (1.0 + deitado * 0.2), 1.0, f * (1.0 + deitado * 1.6)))
 		var giro := atan2(eixo.x, eixo.z)
@@ -162,6 +164,12 @@ func prender_todos() -> void:
 	for p in pinos:
 		p.parar_pulo()
 		p.prender()
+
+
+## Interpolação da física dos pinos (o replay desliga: ele mesmo os move).
+func interpolar(sim: bool) -> void:
+	for p in pinos:
+		p.interpolar(sim)
 
 
 ## Rack completo no lugar, sem animação.
