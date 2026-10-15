@@ -97,6 +97,10 @@ COMO TESTAR NO PC
    sozinha). Para testar numa janela em pe, como o monitor da maquina:
      godot --path . -- --janela=540x960
    O jogo se adapta a qualquer tela: em pe ou deitada.
+   ATENCAO: o Godot 4.6 pode abrir o jogo DENTRO do editor (aba "Game"),
+   pequeno e menos nitido. Para ver em tela cheia e nitido: na aba Game,
+   no menu de opcoes, desmarque "Embed Game on Next Play" - ou use a
+   versao Windows pronta (StrikeKids.exe), que e a mais fiel.
 
 
 VERSAO WINDOWS PRONTA (StrikeKids.exe) - para testar no PC
