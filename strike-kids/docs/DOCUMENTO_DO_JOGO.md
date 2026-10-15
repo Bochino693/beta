@@ -46,13 +46,23 @@ piscando, empolgado (brilhinhos nos olhos), triste (pálpebra caída e
 lagriminha), concentrado, surpreso, risada, piscadinha. Piscam sozinhos e
 olham para a bola enquanto ela rola.
 
-**Movimento com peso de verdade** (`scripts/personagem.gd`): rig com
-quadril, joelho, tornozelo e pé. IK de duas juntas nas pernas: o pé que
-apoia fica travado no chão (não escorrega nem flutua), o joelho dobra
-sozinho quando o corpo abaixa, o quadril desce se o pé não alcançaria, e
-se o corpo anda ou gira o pé dá um passinho automático. Pulos com arco de
-gravidade e "mola" (agacha ao aterrissar, estica ao decolar). Sombra de
-contato embaixo de cada pé. Banco de teste: `tools/testes/anim_teste.tscn`.
+**Movimento suave e com peso de verdade** (`scripts/personagem.gd`): rig
+com quadril, joelho, tornozelo e pé. IK de duas juntas nas pernas: o pé
+que apoia fica travado no chão (não escorrega nem flutua), o joelho dobra
+sozinho quando o corpo abaixa, o quadril desce (suave) se o pé não
+alcançaria, e se o corpo anda ou gira o pé dá um passinho automático.
+Prender e soltar o pé é sempre gradual (0,14 s), sem tranco. Pulos com
+arco de gravidade; o corpo **nunca muda de tamanho** (sem encolher/esticar:
+quem amortece a aterrissagem são os joelhos). Entre as poses-chave, curva
+monotônica no tempo de cada chave (PCHIP: não passa do ponto nem troca de
+velocidade de repente) e troca de animação **por inércia** (o gesto que
+estava acontecendo continua e se acomoda na animação nova, com tempo
+proporcional ao tamanho do movimento). Olhar e rabinho com mola
+amortecida. Sombra de contato embaixo de cada pé.
+Bancos de teste: `tools/testes/anim_teste.tscn` (fotos das poses) e
+`tools/testes/anim_medir.tscn` (mede tremor, deformação e saltos dos pés
+quadro a quadro: o pior tremor caiu de 146 mm para 26 mm e a deformação
+de 1% para 0).
 
 Animações (poses-chave, `scripts/animacoes.gd`): parado, pronto (bola no
 peito), **arremesso** (passos + deslize, solta a bola no quadro certo),

@@ -6,14 +6,21 @@ extends Node3D
 ## + rabinho que abana + brilhos de festa + bola na mão (solta no momento
 ## certo do arremesso).
 ##
-## Movimento com peso de verdade:
+## Movimento suave e natural (nada treme, nada encolhe/estica):
+##   * Entre as poses-chave: curva monotônica (PCHIP) no tempo de verdade de
+##     cada chave - passa por todas as poses sem passar do ponto e sem trocar
+##     de velocidade de repente em cada pose.
+##   * Troca de animação por INÉRCIA: o movimento que estava acontecendo
+##     continua e se acomoda na animação nova (polinômio de 5º grau: posição,
+##     velocidade e aceleração contínuas) - sem "congelar" no meio do gesto.
 ##   * IK de duas juntas nas pernas (quadril > joelho > tornozelo): o pé que
 ##     apoia fica TRAVADO no chão (não escorrega nem flutua) e o joelho dobra
-##     sozinho quando o corpo abaixa; se o corpo anda/gira, o pé dá um
-##     passinho para acompanhar; o quadril desce se o pé não alcançaria.
+##     sozinho quando o corpo abaixa; prender/soltar o pé é sempre gradual;
+##     se o corpo anda/gira, o pé dá um passinho para acompanhar; o quadril
+##     desce (suave) se o pé não alcançaria.
 ##   * Pé sempre de sola chata no chão; sombra de contato embaixo de cada pé.
-##   * Pulos com arco de gravidade e "mola" (agacha na aterrissagem, estica
-##     na subida).
+##   * Pulos com arco de gravidade; o corpo NUNCA muda de tamanho (escala 1).
+##   * Olhar e rabinho com mola amortecida (sem trancos).
 
 signal soltou_bola(posicao: Vector3)
 signal som(nome: String)
@@ -22,9 +29,11 @@ signal animacao_terminou(nome: String)
 const EXPRESSOES := ["feliz", "piscando", "empolgado", "triste", "concentrado", "surpreso", "risada", "piscadinha"]
 const JUNTAS := ["corpo", "cabeca", "braco_e", "antebraco_e", "braco_d", "antebraco_d",
 	"coxa_e", "canela_e", "pe_e", "coxa_d", "canela_d", "pe_d"]
-const PASSO_DUR := 0.17          # duração de um passinho automático (s)
+const PASSO_DUR := 0.22          # duração de um passinho automático (s)
 const PASSO_ALTURA := 0.045      # quanto o pé sobe no passinho (m)
 const DIST_PASSO := 0.13         # pé travado longe assim do lugar certo = dá um passo
+const TROCA_PE := 0.14           # prender/soltar o pé leva este tempo (s)
+const ESCALARES := ["altura", "frente", "giro", "voo"]
 
 var nome_modelo := "bob"
 var modelo: Node3D
@@ -45,20 +54,18 @@ var _l2 := {}                 # canela (joelho -> tornozelo)
 var _pes := {}                # lado -> {preso, pos, passo (0..1 ou -1), de, para}
 var _sombras_pe := {}
 var _modo_ik := "trava"       # "trava" (pé preso), "chao" (só não afunda), "livre"
-# pulo e mola (agacha/estica)
-var _voo_antes := 0.0
-var _vel_voo := 0.0
-var _mola := 0.0
-var _mola_v := 0.0
+var _descer := 0.0             # quanto o quadril desce para o pé alcançar (suave)
 
 var _clip := {}
 var _nome_clip := ""
 var _t := 0.0
-var _de := {}
-var _mistura := 1.0
-var _dur_mistura := 0.2
 var _eventos_feitos := {}
-var _ultima_pose := {}
+var _ultima_pose := {}         # pose mostrada agora
+var _pose_ant := {}            # pose do quadro anterior (para a velocidade)
+var _dt_ant := 1.0 / 60.0
+var _inercia := {}             # canal -> coeficientes da transição por inércia
+var _inercia_t := 0.0
+var _inercia_dur := 0.0
 var base := Transform3D()      # onde a animação "começou" (a corrida parte daqui)
 var giro_base := 0.0
 
@@ -67,7 +74,10 @@ var _piscar_em := 2.0
 var _piscando := 0.0
 var olhar_alvo = null          # Vector3 (mundo) ou null
 var _olhar := Vector2.ZERO     # yaw, pitch atuais
-var _tempo := 0.0
+var _olhar_v := Vector2.ZERO
+var _fase_resp := 0.0
+var _fase_rabo := 0.0
+var _alegria_suave := 0.5
 var brilho := 1.4
 
 
@@ -187,10 +197,14 @@ func montar(nome: String) -> void:
 func tocar(nome: String, mistura := 0.22, reiniciar := false) -> void:
 	if nome == _nome_clip and not reiniciar:
 		return
-	_de = _ultima_pose.duplicate()
-	_mistura = 0.0 if not _de.is_empty() else 1.0
-	_dur_mistura = max(mistura, 0.001)
-	_clip = Animacoes.pegar(nome)
+	# o que está na tela agora e para onde estava indo (velocidade)
+	var antes := _ultima_pose.duplicate()
+	var vel := {}
+	if not _pose_ant.is_empty():
+		for k in antes:
+			if _pose_ant.has(k):
+				vel[k] = (antes[k] - _pose_ant[k]) / maxf(_dt_ant, 0.001)
+	_clip = _preparar(Animacoes.pegar(nome))
 	_nome_clip = nome
 	_modo_ik = str(_clip.get("ik", "trava"))
 	_t = 0.0
@@ -198,8 +212,74 @@ func tocar(nome: String, mistura := 0.22, reiniciar := false) -> void:
 	# o quanto ele andou/girou na animação anterior vira o novo ponto de partida
 	if modelo != null:
 		base = Transform3D(Basis(Vector3.UP, rotation.y), Vector3(position.x, base.origin.y, position.z))
-	_de["frente"] = 0.0
-	_de["giro"] = 0.0
+	# (a velocidade continua: depois de soltar a bola ele desliza e para aos poucos)
+	antes["frente"] = 0.0
+	antes["giro"] = 0.0
+	# inércia: a diferença entre a pose de agora e o começo da nova some aos
+	# poucos, levando junto a velocidade que o gesto tinha
+	_inercia.clear()
+	_inercia_t = 0.0
+	_inercia_dur = maxf(mistura, 0.001)
+	if _ultima_pose.is_empty():
+		return
+	var novo0 := _amostra_clip(_clip, 0.0)
+	var novo1 := _amostra_clip(_clip, 1.0 / 60.0)
+	var canais := {}
+	for k in antes:
+		canais[k] = true
+	for k in novo0:
+		canais[k] = true
+	for k in canais:
+		var zero = 0.0 if k in ESCALARES else Vector3.ZERO
+		var x0 = antes.get(k, zero) - novo0.get(k, zero)
+		var v0 = vel.get(k, zero) - (novo1.get(k, zero) - novo0.get(k, zero)) * 60.0
+		if k == "giro":
+			_inercia[k] = [_inercia_coef(float(x0), float(v0), _inercia_dur, 420.0, 10.0)]
+		elif k in ESCALARES:
+			_inercia[k] = [_inercia_coef(float(x0), float(v0), _inercia_dur, 0.8, 0.015)]
+		else:
+			var a: Vector3 = x0
+			var b: Vector3 = v0
+			var vmax := 0.8 if k == "quadril" else 420.0
+			var lim := 0.015 if k == "quadril" else 12.0
+			_inercia[k] = [_inercia_coef(a.x, b.x, _inercia_dur, vmax, lim), _inercia_coef(a.y, b.y, _inercia_dur, vmax, lim),
+				_inercia_coef(a.z, b.z, _inercia_dur, vmax, lim)]
+	for k in _inercia:
+		for c in _inercia[k]:
+			if not (c as PackedFloat32Array).is_empty():
+				_inercia_dur = maxf(_inercia_dur, c[5])
+
+
+## Transição por inércia de solavanco mínimo: o deslocamento x0 entre a pose
+## de agora e a nova, com a velocidade v0 que o gesto tinha, vai a zero por
+## um polinômio de 5º grau que começa SEM arranque (aceleração 0) e chega
+## parado (posição, velocidade e aceleração contínuas). O tempo cresce com o
+## tamanho do movimento (no máximo `vmax` por segundo: nada de chicotada) e
+## a velocidade herdada é limitada para nunca passar do ponto (indo para a
+## pose nova) nem seguir longe demais (indo para o outro lado: `lim`).
+## Devolve [A, B, C, v0, x0, t1, sinal].
+static func _inercia_coef(x0: float, v0: float, t1: float, vmax: float, lim: float) -> PackedFloat32Array:
+	if absf(x0) < 0.00001 and absf(v0) < 0.0001:
+		return PackedFloat32Array()
+	var s := 1.0 if x0 >= 0.0 else -1.0
+	var x := x0 * s
+	var v := v0 * s
+	var t := clampf(maxf(t1, 1.875 * x / vmax), t1, 0.7)
+	if v < 0.0 and -v * t > 2.5 * x:
+		t = maxf(2.5 * x / -v, minf(t1, 0.12))
+		v = maxf(v, -2.5 * x / t)
+	elif v > 0.0:
+		v = minf(v, maxf(2.0 * x, lim / 0.185) / t)
+	var cc := -(6.0 * v * t + 10.0 * x) / pow(t, 3.0)
+	var bb := (8.0 * v * t + 15.0 * x) / pow(t, 4.0)
+	var aa := -(3.0 * v * t + 6.0 * x) / pow(t, 5.0)
+	return PackedFloat32Array([aa, bb, cc, v, x, t, s])
+
+
+static func _inercia_valor(c: PackedFloat32Array, t: float) -> float:
+	if c.is_empty() or t >= c[5]:
+		return 0.0
+	return c[6] * ((((c[0] * t + c[1]) * t + c[2]) * t * t * t) + c[3] * t + c[4])
 
 
 ## Modo "à vontade" (atração, escolha): fica parado respirando e, de vez
@@ -230,43 +310,119 @@ func animacao() -> String:
 	return _nome_clip
 
 
-func _amostra(t: float) -> Dictionary:
-	var chaves: Array = _clip["chaves"]
-	var n := chaves.size()
-	if n == 1:
-		return chaves[0][1]
-	var i := 0
-	while i < n - 2 and t >= float(chaves[i + 1][0]):
-		i += 1
-	var t0: float = chaves[i][0]
-	var t1: float = chaves[i + 1][0]
-	var u: float = clamp((t - t0) / max(t1 - t0, 0.0001), 0.0, 1.0)
-	var a: Dictionary = chaves[i][1]
-	var b: Dictionary = chaves[i + 1][1]
-	var a0: Dictionary = chaves[max(i - 1, 0)][1]
-	var b1: Dictionary = chaves[min(i + 2, n - 1)][1]
-	var res := {}
-	var nomes := {}
-	for k in a:
-		nomes[k] = true
-	for k in b:
-		nomes[k] = true
-	for k in nomes:
-		var zero = 0.0 if (k == "altura" or k == "frente" or k == "giro" or k == "voo") else Vector3.ZERO
-		res[k] = _catmull(a0.get(k, zero), a.get(k, zero), b.get(k, zero), b1.get(k, zero), u)
+## Prepara o clipe uma vez: tempos, valores de cada canal em cada chave e as
+## tangentes da curva (PCHIP, no tempo de verdade de cada chave).
+static func _preparar(clip: Dictionary) -> Dictionary:
+	if clip.has("_tempos"):
+		return clip
+	var chaves: Array = clip["chaves"]
+	var tempos := PackedFloat32Array()
+	var canais := {}
+	for c in chaves:
+		tempos.append(float(c[0]))
+		for k in (c[1] as Dictionary):
+			canais[k] = true
+	var valores := {}
+	var tangentes := {}
+	var loop: bool = clip.get("loop", false)
+	var dur := float(clip.get("dur", 1.0))
+	for k in canais:
+		var escalar: bool = k in ESCALARES
+		var lista := []
+		for c in chaves:
+			var v = (c[1] as Dictionary).get(k, 0.0 if escalar else Vector3.ZERO)
+			lista.append(float(v) if escalar else v)
+		valores[k] = lista
+		tangentes[k] = _tangentes(lista, tempos, loop, dur, escalar)
+	clip["_tempos"] = tempos
+	clip["_valores"] = valores
+	clip["_tangentes"] = tangentes
+	return clip
+
+
+static func _tangentes(vals: Array, tempos: PackedFloat32Array, loop: bool, dur: float, escalar: bool) -> Array:
+	var n := vals.size()
+	var res := []
+	for i in n:
+		var ant = null
+		var prox = null
+		var h0 := 0.0
+		var h1 := 0.0
+		if i > 0:
+			ant = vals[i - 1]
+			h0 = tempos[i] - tempos[i - 1]
+		elif loop and n > 2:
+			ant = vals[n - 2]
+			h0 = tempos[i] - (tempos[n - 2] - dur)
+		if i < n - 1:
+			prox = vals[i + 1]
+			h1 = tempos[i + 1] - tempos[i]
+		elif loop and n > 2:
+			prox = vals[1]
+			h1 = (tempos[1] + dur) - tempos[i]
+		if ant == null or prox == null:
+			# começo/fim do clipe: chega e sai devagar
+			res.append(0.0 if escalar else Vector3.ZERO)
+		elif escalar:
+			res.append(_pchip(float(ant), float(vals[i]), float(prox), h0, h1))
+		else:
+			var a: Vector3 = ant
+			var b: Vector3 = vals[i]
+			var c: Vector3 = prox
+			res.append(Vector3(_pchip(a.x, b.x, c.x, h0, h1), _pchip(a.y, b.y, c.y, h0, h1), _pchip(a.z, b.z, c.z, h0, h1)))
 	return res
 
 
-static func _catmull(p0, p1, p2, p3, t: float):
-	var t2 := t * t
-	var t3 := t2 * t
-	return 0.5 * ((2.0 * p1) + (-p0 + p2) * t + (2.0 * p0 - 5.0 * p1 + 4.0 * p2 - p3) * t2 + (-p0 + 3.0 * p1 - 3.0 * p2 + p3) * t3)
+## Tangente monotônica (Fritsch-Carlson): zero nos picos e vales (não passa
+## do ponto) e média ponderada pelo tempo nas subidas/descidas.
+static func _pchip(a: float, b: float, c: float, h0: float, h1: float) -> float:
+	h0 = maxf(h0, 0.0001)
+	h1 = maxf(h1, 0.0001)
+	var d0 := (b - a) / h0
+	var d1 := (c - b) / h1
+	if d0 * d1 <= 0.0:
+		return 0.0
+	var w1 := 2.0 * h1 + h0
+	var w2 := h1 + 2.0 * h0
+	return (w1 + w2) / (w1 / d0 + w2 / d1)
+
+
+## A pose do clipe no instante t (Hermite cúbica com as tangentes PCHIP).
+## Os pulos (arco de gravidade) entram no "voo".
+func _amostra_clip(clip: Dictionary, t: float) -> Dictionary:
+	var tempos: PackedFloat32Array = clip["_tempos"]
+	var valores: Dictionary = clip["_valores"]
+	var tangentes: Dictionary = clip["_tangentes"]
+	var n := tempos.size()
+	var res := {}
+	if n == 1:
+		for k in valores:
+			res[k] = valores[k][0]
+	else:
+		var i := 0
+		while i < n - 2 and t >= tempos[i + 1]:
+			i += 1
+		var h := maxf(tempos[i + 1] - tempos[i], 0.0001)
+		var u := clampf((t - tempos[i]) / h, 0.0, 1.0)
+		var u2 := u * u
+		var u3 := u2 * u
+		var h00 := 2.0 * u3 - 3.0 * u2 + 1.0
+		var h10 := (u3 - 2.0 * u2 + u) * h
+		var h01 := -2.0 * u3 + 3.0 * u2
+		var h11 := (u3 - u2) * h
+		for k in valores:
+			var v: Array = valores[k]
+			var m: Array = tangentes[k]
+			res[k] = v[i] * h00 + m[i] * h10 + v[i + 1] * h01 + m[i + 1] * h11
+	var pulo := _pulo(clip, t)
+	if pulo > 0.0:
+		res["voo"] = float(res.get("voo", 0.0)) + pulo
+	return res
 
 
 func _process(delta: float) -> void:
 	if modelo == null:
 		return
-	_tempo = fposmod(_tempo + delta, 1000.0)
 	var dur: float = _clip.get("dur", 1.0)
 	var t_antes := _t
 	_t += delta
@@ -282,19 +438,21 @@ func _process(delta: float) -> void:
 				tocar.call_deferred(str(_clip["depois"]), 0.35)
 	_ocioso_passo(delta)
 	_eventos(t_antes, _t, loop and _t < t_antes)
-	var pose := _amostra(_t)
-	if _mistura < 1.0:
-		_mistura = min(1.0, _mistura + delta / _dur_mistura)
-		var e := _mistura * _mistura * (3.0 - 2.0 * _mistura)
-		var mix := {}
-		for k in pose:
-			var zero = 0.0 if pose[k] is float else Vector3.ZERO
-			mix[k] = lerp(_de.get(k, zero), pose[k], e)
-		for k in _de:
-			if not pose.has(k):
-				var zero = 0.0 if _de[k] is float else Vector3.ZERO
-				mix[k] = lerp(_de[k], zero, e)
-		pose = mix
+	var pose := _amostra_clip(_clip, _t)
+	if not _inercia.is_empty():
+		_inercia_t += delta
+		if _inercia_t >= _inercia_dur:
+			_inercia.clear()
+		else:
+			for k in _inercia:
+				var c: Array = _inercia[k]
+				if k in ESCALARES:
+					pose[k] = float(pose.get(k, 0.0)) + _inercia_valor(c[0], _inercia_t)
+				else:
+					pose[k] = pose.get(k, Vector3.ZERO) + Vector3(_inercia_valor(c[0], _inercia_t),
+						_inercia_valor(c[1], _inercia_t), _inercia_valor(c[2], _inercia_t))
+	_pose_ant = _ultima_pose
+	_dt_ant = delta
 	_ultima_pose = pose
 	_aplicar(pose, delta)
 	_rosto(delta)
@@ -327,10 +485,11 @@ func _eventos(de: float, ate: float, deu_volta: bool) -> void:
 func _aplicar(pose: Dictionary, delta: float) -> void:
 	var corpo_rot: Vector3 = pose.get("corpo", Vector3.ZERO)
 	# respiração (bem de leve)
-	var resp := sin(_tempo * 2.4) * 0.004
+	_fase_resp = fposmod(_fase_resp + delta * 2.4, TAU)
+	var resp := sin(_fase_resp) * 0.004
 	var altura: float = pose.get("altura", 0.0) + resp
 	var quadril: Vector3 = pose.get("quadril", Vector3.ZERO)
-	var voo: float = maxf(pose.get("voo", 0.0), 0.0) + _pulo(_t)
+	var voo: float = maxf(pose.get("voo", 0.0), 0.0)
 	var frente: float = pose.get("frente", 0.0)
 	var giro: float = pose.get("giro", 0.0)
 	for j in juntas:
@@ -347,28 +506,43 @@ func _aplicar(pose: Dictionary, delta: float) -> void:
 	var frente_mundo := base.basis.z.normalized() * frente
 	position = base.origin + frente_mundo + Vector3(0, voo, 0)
 	rotation.y = base.basis.get_euler().y + deg_to_rad(giro)
-	_mola_pulo(voo, delta)
 	if juntas.has("pe_e") and juntas.has("pe_d"):
 		_ik_pernas(delta, voo)
 	_sombras(voo)
-	# olhar
+	_olhar_passo(delta)
+	# rabinho abanando (mais rápido quando está feliz; a fase anda sozinha,
+	# então mudar a velocidade não dá tranco)
+	if _rabo:
+		_alegria_suave = lerpf(_alegria_suave, _alegria, 1.0 - exp(-delta * 3.0))
+		_fase_rabo = fposmod(_fase_rabo + delta * (7.0 + _alegria_suave * 9.0), TAU * 2.0)
+		_rabo.rotation = Vector3(sin(_fase_rabo * 0.5) * 0.12, sin(_fase_rabo) * (0.35 + _alegria_suave * 0.35), 0)
+
+
+## Olha para a bola com uma mola amortecida (sem trancos). Só olha para o
+## que está na frente: atrás, o pescoço ficava virando de um lado para o outro.
+func _olhar_passo(delta: float) -> void:
 	var alvo := Vector2.ZERO
 	if olhar_alvo != null:
 		var local := (juntas["corpo"] as Node3D).global_transform.affine_inverse() * (olhar_alvo as Vector3)
-		var yaw := rad_to_deg(atan2(local.x, local.z))
-		var pitch := -rad_to_deg(atan2(local.y - 0.55, Vector2(local.x, local.z).length()))
-		alvo = Vector2(clamp(yaw, -55.0, 55.0), clamp(pitch, -25.0, 30.0))
-	_olhar = _olhar.lerp(alvo, min(1.0, delta * 6.0))
-	# rabinho abanando (mais rápido quando está feliz)
-	if _rabo:
-		var vel := 7.0 + _alegria * 9.0
-		_rabo.rotation = Vector3(sin(_tempo * vel * 0.5) * 0.12, sin(_tempo * vel) * (0.35 + _alegria * 0.35), 0)
+		var horiz := Vector2(local.x, local.z).length()
+		var frente := clampf((local.z - 0.05) / 0.3, 0.0, 1.0) * clampf(horiz / 0.35, 0.0, 1.0)
+		if frente > 0.0:
+			var yaw := rad_to_deg(atan2(local.x, local.z))
+			var pitch := -rad_to_deg(atan2(local.y - 0.55, horiz))
+			alvo = Vector2(clampf(yaw, -55.0, 55.0), clampf(pitch, -25.0, 30.0)) * frente
+	var w := 9.0
+	var resto := delta
+	while resto > 0.0:
+		var h := minf(resto, 1.0 / 60.0)
+		_olhar_v += ((alvo - _olhar) * w * w - _olhar_v * 2.0 * w) * h
+		_olhar += _olhar_v * h
+		resto -= h
 
 
 ## Altura extra dos pulos do clipe: arco de gravidade h = 4H·u·(1-u).
-func _pulo(t: float) -> float:
+static func _pulo(clip: Dictionary, t: float) -> float:
 	var h := 0.0
-	for p in _clip.get("pulos", []):
+	for p in clip.get("pulos", []):
 		var t0: float = p[0]
 		var t1: float = p[1]
 		if t > t0 and t < t1:
@@ -377,31 +551,11 @@ func _pulo(t: float) -> float:
 	return h
 
 
-## Mola de agachar/esticar: estica subindo, amassa ao bater no chão.
-func _mola_pulo(voo: float, delta: float) -> void:
-	if delta <= 0.0:
-		return
-	var v := (voo - _voo_antes) / delta
-	if _voo_antes > 0.02 and voo <= 0.02 and _vel_voo < -1.0:
-		_mola_v -= clampf(-_vel_voo * 0.11, 0.0, 0.5)    # aterrissou: amassa
-	if _voo_antes <= 0.02 and voo > 0.02:
-		_mola_v += 0.35                                      # decolou: estica
-	_vel_voo = v
-	_voo_antes = voo
-	var k := 260.0
-	var amort := 16.0
-	_mola_v += (-k * _mola - amort * _mola_v) * delta
-	_mola += _mola_v * delta
-	_mola = clampf(_mola, -0.12, 0.1)
-	var sy := 1.0 + _mola
-	var sxz := 1.0 / sqrt(maxf(sy, 0.5))
-	modelo.scale = Vector3(sxz, sy, sxz)
-
-
-## IK das pernas com pé travado no chão.
+## IK das pernas com pé travado no chão. Cada pé tem um "peso" de apoio
+## que vai de 0 (segue a animação) a 1 (preso no chão) aos poucos: prender,
+## soltar (pulo, perna que levanta) e os passinhos nunca dão tranco.
 func _ik_pernas(delta: float, voo: float) -> void:
 	var alvos := {}
-	var ancora := {}
 	var passando := false
 	for lado in ["e", "d"]:
 		var st: Dictionary = _pes[lado]
@@ -415,7 +569,6 @@ func _ik_pernas(delta: float, voo: float) -> void:
 		var fk := pe.global_position
 		var altura_pe := fk.y - ty
 		var livre := Vector3(fk.x, maxf(fk.y, ty), fk.z)
-		var alvo := livre
 		if _modo_ik != "trava" or voo > 0.01:
 			st["preso"] = false
 			st["passo"] = -1.0
@@ -424,12 +577,13 @@ func _ik_pernas(delta: float, voo: float) -> void:
 			st["passo"] = minf(1.0, float(st["passo"]) + delta / PASSO_DUR)
 			var u: float = st["passo"]
 			var para := Vector3(fk.x, ty, fk.z)
-			var e := u * u * (3.0 - 2.0 * u)
-			alvo = (st["de"] as Vector3).lerp(para, e) + Vector3(0, PASSO_ALTURA * 4.0 * u * (1.0 - u), 0)
+			var e := u * u * u * (u * (u * 6.0 - 15.0) + 10.0)
+			st["ancora"] = (st["de"] as Vector3).lerp(para, e) + Vector3(0, PASSO_ALTURA * sin(PI * u), 0)
 			if u >= 1.0:
 				st["passo"] = -1.0
 				st["preso"] = true
 				st["pos"] = para
+				st["ancora"] = para
 		elif st["preso"]:
 			var pos: Vector3 = st["pos"]
 			var longe := Vector2(fk.x - pos.x, fk.z - pos.z).length()
@@ -440,20 +594,21 @@ func _ik_pernas(delta: float, voo: float) -> void:
 				st["passo"] = 0.0
 				st["de"] = pos
 				passando = true
-				alvo = pos
-			else:
-				alvo = pos
+			st["ancora"] = pos
 		elif altura_pe < 0.02:
 			st["preso"] = true
 			st["pos"] = Vector3(fk.x, ty, fk.z)
-			alvo = st["pos"]
-		alvos[lado] = alvo
-		ancora[lado] = st["preso"] or st["passo"] >= 0.0
-	# o quadril desce se um pé apoiado não alcançaria o chão
+			st["ancora"] = st["pos"]
+		# peso do apoio: sobe/desce em TROCA_PE segundos (com curva suave)
+		var quer := 1.0 if (st["preso"] or st["passo"] >= 0.0) else 0.0
+		var lin: float = st.get("peso_lin", 0.0)
+		lin = move_toward(lin, quer, delta / TROCA_PE)
+		st["peso_lin"] = lin
+		var w := lin * lin * (3.0 - 2.0 * lin)
+		alvos[lado] = livre.lerp(st.get("ancora", livre), w) if w > 0.0 else livre
+	# o quadril desce (suave) se um pé apoiado não alcançaria o chão
 	var descer := 0.0
 	for lado in ["e", "d"]:
-		if not ancora[lado]:
-			continue
 		var coxa := juntas["coxa_" + lado] as Node3D
 		var q := coxa.global_position
 		var alvo: Vector3 = alvos[lado]
@@ -461,21 +616,22 @@ func _ik_pernas(delta: float, voo: float) -> void:
 		var dv := q.y - alvo.y
 		var dh := Vector2(q.x - alvo.x, q.z - alvo.z).length()
 		if dh < lmax:
-			var precisa := dv - sqrt(lmax * lmax - dh * dh)
-			descer = maxf(descer, precisa)
-	if descer > 0.0:
-		corpo.position.y -= minf(descer, 0.12) / maxf(modelo.scale.y, 0.5)
+			descer = maxf(descer, dv - sqrt(lmax * lmax - dh * dh))
+	descer = clampf(descer, 0.0, 0.12)
+	var rapidez := 40.0 if descer > _descer else 12.0
+	_descer = lerpf(_descer, descer, 1.0 - exp(-delta * rapidez))
+	if _descer > 0.0005:
+		corpo.position.y -= _descer
 	for lado in ["e", "d"]:
-		_resolver_perna(lado, alvos[lado], ancora[lado])
+		_resolver_perna(lado, alvos[lado], float(_pes[lado].get("peso_lin", 0.0)) > 0.5)
 
 
 func _resolver_perna(lado: String, alvo: Vector3, apoiado: bool) -> void:
 	var coxa := juntas["coxa_" + lado] as Node3D
 	var canela := juntas["canela_" + lado] as Node3D
 	var pe := juntas["pe_" + lado] as Node3D
-	var esc := modelo.scale.y
-	var l1: float = _l1[lado] * esc
-	var l2: float = _l2[lado] * esc
+	var l1: float = _l1[lado]
+	var l2: float = _l2[lado]
 	var q := coxa.global_position
 	var j_fk := canela.global_position
 	var v := alvo - q
@@ -608,6 +764,8 @@ func posicionar(pos: Vector3, direcao_y: float) -> void:
 	for lado in _pes:
 		_pes[lado]["preso"] = false
 		_pes[lado]["passo"] = -1.0
+		_pes[lado]["peso_lin"] = 0.0
+	_descer = 0.0
 
 
 ## Brilho de destaque (personagem da vez fica "aceso").
