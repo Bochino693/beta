@@ -121,22 +121,41 @@ pelo editor do Godot (F5) e sempre mais pesado (modo de depuracao e o
 proprio editor aberto) - para saber se o PC roda liso, use o .exe.
 
 
-COMO GERAR O APK (igual ao Pro Ultra)
--------------------------------------
-Precisa: Godot 4.6.1 (zip extraido em Downloads), JDK 17, Android SDK em
-C:\AndroidSdk. Os Export Templates 4.6.1 sao baixados sozinhos.
+COMO GERAR O APK
+----------------
+1) Extraia o ZIP inteiro (nao rode de dentro do ZIP).
+2) Duplo clique em GERAR_APK.bat, dentro da pasta strike-kids.
+3) Espere ate aparecer "APK GERADO COM SUCESSO". O APK fica em:
+   APK-Pronto\StrikeKids.apk
 
-  GERAR_APK.bat            -> APK-Pronto\StrikeKids.apk
+O GERAR_APK faz tudo sozinho e mostra cada passo na janela:
+  - trabalha numa COPIA do projeto em C:\StrikeKidsBuild (pasta curta e
+    sem acentos; o projeto original nao e alterado);
+  - acha no PC ou BAIXA o que faltar: Godot 4.6.1, Java (JDK 17), Android
+    SDK (aceita as licencas e instala platform-tools, build-tools 35.0.1,
+    plataforma 35 e o NDK) e os templates Android do Godot (baixa so a
+    parte Android, ~300 MB, nao o pacote inteiro de 1,2 GB);
+  - gera o APK COM a camera USB (plugin StrikeCamera, build Gradle). Se o
+    Gradle falhar, gera sozinho um APK SEM a camera e avisa no final;
+  - nenhum passo fica parado para sempre (cada programa tem tempo-limite).
+Primeira vez: de 15 a 40 minutos (downloads, ~8 GB livres no disco C:).
+Depois: 2 a 5 minutos. Precisa de internet so na primeira vez.
+Nao clique dentro da janela (o Windows pausa o texto quando se seleciona;
+se acontecer, aperte ESC).
+
+  GERAR_APK.bat            -> APK-Pronto\StrikeKids.apk (com camera)
   GERAR_APK.bat -Giro -1   -> se a imagem ficar de cabeca para baixo
   GERAR_APK.bat -Giro 0    -> monitor ja em pe / TV deitada (sem giro)
   GERAR_APK.bat -Instalar  -> instala na TV Box pelo adb
   GERAR_APK.bat -ComLeds   -> com o plugin USB dos LEDs (Arduino)
-  GERAR_APK.bat -SemCamera -> sem a camera (so se o build com camera falhar)
+  GERAR_APK.bat -SemCamera -> sem a camera (mais rapido, sem Gradle)
+  GERAR_APK.bat -CaminhoGodot "D:\Godot\Godot_v4.6.1-stable_win64.exe"
+  GERAR_APK.bat -PastaTrabalho D:\SKB  -> outra pasta de trabalho
 
-A CAMERA USB entra no APK pelo plugin StrikeCamera (addons/StrikeCamera),
-e plugin Android exige o build Gradle: na PRIMEIRA vez o GERAR_APK baixa
-as dependencias (precisa de internet, demora uns minutos). Se o Gradle
-falhar, o script gera sozinho um APK sem camera e avisa no final.
+Se der erro, envie o arquivo build\android\GERACAO-COMPLETA.log (os logs
+de cada programa ficam na mesma pasta). A chave de assinatura e a mesma
+de sempre (%APPDATA%\Godot\keystores\debug.keystore): o APK novo instala
+por cima do anterior na TV Box sem perder os recordes.
 
 Pacote: com.lazersport.strikekids (nao briga com o Dragon Bowling).
 O giro tambem pode ser trocado na propria maquina, no menu do operador.
