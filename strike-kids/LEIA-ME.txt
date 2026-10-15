@@ -44,11 +44,9 @@ COMO SE JOGA (tudo pela placa Zero Delay)
   No alto das telas de preparacao aparece em que passo esta
   (1 JOGADORES > 2 AMIGO > 3 FOTO > 4 JOGAR).
 
-MARCA LAZER & SPORT (sempre sem fundo, de jeito sutil): inicializacao do
-aparelho e abertura (o dardo acerta o alvo e entra "apresenta"), rodape da
-tela de atracao, selo pequeno no canto durante a partida, tela final, menu
-do operador, impressa na madeira no meio da pista e num balao que flutua
-ao lado da pista (planetinha no espaco, bolha no mar).
+MARCA LAZER & SPORT: so na inicializacao do aparelho e na abertura (o
+dardo acerta o alvo e entra "apresenta") e num balao, sem fundo, que
+flutua ao lado da pista no cenario do Parque de Diversoes.
 O GERAR_APK.bat escolhe a imagem de inicializacao ja girada conforme o
 -Giro (1, -1 ou 0).
 

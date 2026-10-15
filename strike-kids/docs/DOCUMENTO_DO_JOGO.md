@@ -67,7 +67,7 @@ acenar, andar, vitória (pulinhos), escolhido.
    brilho passa pela placa e entra "apresenta". Depois a câmera desce do
    céu até os mascotes (3 s).
 2. **Atração**: logo, botão "APERTE START" com volume, placa do recorde
-   (com a foto) e a logo Lazer & Sport no rodapé; Bob e Mia dançam; câmera
+   (com a foto); Bob e Mia dançam; câmera
    orbitando; de 9 em 9 s uma **jogada de demonstração** completa, e a cada
    demonstração o cenário muda (a atração mostra os 4).
 3. **START** → "QUANTOS VÃO JOGAR?" (igual ao Dragon Bowling): cartões
@@ -93,7 +93,7 @@ acenar, andar, vitória (pulinhos), escolhido.
    mascote → **máquina de pinos** (câmera baixinha na frente dos pinos).
 6. **Fim de jogo**: cartões com pontos, 1 a 3 estrelas, STRIKES/SPARES,
    VENCEU!/EMPATE!, NOVO RECORDE!, confete e fogos; botão "APERTE START
-   PARA JOGAR DE NOVO" e a logo Lazer & Sport.
+   PARA JOGAR DE NOVO".
 
 **Telas com cara de 3D** (`scripts/painel3d.gd` + `shaders/painel3d.gdshader`):
 placar, cartões, botões, faixas e avisos são placas com volume — frente em
@@ -101,12 +101,9 @@ degradê com verniz, filete de luz, lateral mais escura (espessura),
 contorno azul-marinho e sombra no chão, como os objetos do cenário.
 Desenhadas pixel a pixel no shader: nítidas de 720p a 4K.
 
-**Marca Lazer & Sport**, sempre sem fundo e de jeito sutil: imagem de
-inicialização e abertura, rodapé da atração, selo pequeno no canto durante
-a partida, tela final, menu do operador, **impressa na madeira** no meio da
-pista (como os logos das pistas de verdade) e num **balão** que flutua ao
-lado da pista (no espaço vira um planetinha com anel, no mar uma bolha),
-além das peças de divulgação. A logo foi
+**Marca Lazer & Sport**: só na imagem de inicialização e na **abertura**,
+e num **balão** (logo sem fundo) que flutua ao lado da pista no cenário do
+**Parque de Diversões**. Nenhuma outra tela ou objeto leva a marca. A logo foi
 redesenhada no dobro da resolução com bordas nítidas
 (`tools/arte/gerar_marca.py`).
 
@@ -181,8 +178,8 @@ Depois de cada bola, como num boliche de verdade:
 
 - **Caçapa**: paredes laterais acolchoadas com friso amarelo, cortina de
   veludo pregueada com estrelas, almofada de borracha embaixo.
-- **Gabinete da máquina** fechado por fora (laterais, teto e fundo com a
-  marca atrás) e duas **colunas** com faixas de lâmpadas dos lados do
+- **Gabinete da máquina** fechado por fora (laterais, teto e fundo) e duas
+  **colunas** com faixas de lâmpadas dos lados do
   letreiro STRIKE KIDS: de qualquer ângulo é uma máquina inteira.
 - **Salão atrás dos jogadores**: tapete, parede com o letreiro STRIKE KIDS
   aceso, sofás e retorno de bolas — quando a câmera vira para o mascote, o

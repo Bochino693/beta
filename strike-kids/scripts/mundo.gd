@@ -9,8 +9,8 @@ extends Node3D
 ## Medidas: linha de falta em z = 0; os pinos em z = -10,5 (pista infantil,
 ## mais curta que a de adulto: a bola chega rápido); a pista vai para -Z.
 ##
-## Marca Lazer & Sport: duas placas iluminadas dos lados do letreiro dos
-## pinos. Pódios (escolha do personagem e foto) nas cores de Bob e Mia.
+## Marca Lazer & Sport (no 3D): só num balão do cenário do Parque.
+## Pódios (escolha do personagem e foto) nas cores de Bob e Mia.
 
 const MEIA_LARGURA := 0.675
 const CANALETA := 0.25
@@ -45,7 +45,6 @@ var tema := ""
 var _bumpers: Array[Node3D] = []
 var balao: Node3D
 var mat_balao: ShaderMaterial
-var _balao_partes := {}
 var _podios: Array[Node3D] = []
 var _mats_podio: Array[ShaderMaterial] = []
 var _podio_destaque := -1
@@ -233,10 +232,6 @@ func _pista() -> void:
 	mat_pista.shader = load("res://shaders/pista.gdshader")
 	mat_pista.set_shader_parameter("madeira", Materiais.textura("madeira"))
 	mat_pista.set_shader_parameter("z_pino1", Z_PINO1)
-	# marca Lazer & Sport impressa na madeira, no meio da pista (sutil)
-	mat_pista.set_shader_parameter("logo_marca", load("res://ui/marca/lazer_sport.png"))
-	mat_pista.set_shader_parameter("usa_marca", true)
-	mat_pista.set_shader_parameter("marca_ret", Vector4(0.0, -Z_PINO1 * 0.52, 1.02, 1.02 * 1698.0 / 2560.0 * 2.1))
 	mat_pista.set_shader_parameter("meia_largura", MEIA_LARGURA)
 	var comp := 0.1 - Z_FIM_DECK
 	var deck := _caixa(Vector3(MEIA_LARGURA * 2, 0.2, comp), Vector3(0, -0.1, 0.1 - comp / 2), mat_pista, false, false)
@@ -418,7 +413,7 @@ func _fundo_dos_pinos() -> void:
 	# teto escuro do fosso (esconde a parte de cima)
 	_caixa(Vector3(2.3, 0.1, -Z_FUNDO + Z_PINO1 + 0.7), Vector3(0, 2.12, (Z_PINO1 + 0.7 + Z_FUNDO) / 2),
 		Materiais.cor_toon(Color("#0B1B3A"), 0.0, {"borda": 0.0}), false, false)
-	# gabinete por fora: laterais, teto e fundo (com a marca atrás)
+	# gabinete por fora: laterais, teto e fundo
 	var z_tras := Z_FUNDO - 0.95
 	var z_masc := Z_PINO1 + 0.68
 	for s in [-1, 1]:
@@ -426,23 +421,6 @@ func _fundo_dos_pinos() -> void:
 	_peca(Perfis.retangulo(2.8, 0.32, 0.1, Vector2(0, 2.36)), z_tras + 0.3, z_masc, gabinete, "gabinete_teto")
 	_peca(Perfis.retangulo(2.9, 2.85, 0.22, Vector2(0, 1.1)), z_tras, Z_FUNDO - 0.02, gabinete, "gabinete_fundo")
 	_peca(Perfis.retangulo(2.96, 0.09, 0.04, Vector2(0, 2.5)), z_tras - 0.03, z_masc, friso, "", false)
-	# a marca atrás do gabinete, sem placa (vista nos passeios de câmera)
-	var marca: Texture2D = load("res://ui/marca/lazer_sport.png")
-	var mm := StandardMaterial3D.new()
-	mm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	mm.albedo_texture = marca
-	mm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	mm.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC
-	var q := MeshInstance3D.new()
-	var qm := QuadMesh.new()
-	qm.size = Vector2(1.5, 1.5 * float(marca.get_height()) / float(marca.get_width()))
-	q.mesh = qm
-	q.material_override = mm
-	q.rotation_degrees.y = 180
-	q.position = Vector3(0, 1.4, z_tras - 0.01)
-	q.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	add_child(q)
-
 	# letreiro (masking) acima dos pinos, com o logo e lâmpadas
 	mat_placa = Materiais.cor_toon(Color("#0E2A5C"), 0.004, {"borda": 0.4})
 	var placa := _peca(Perfis.retangulo(2.7, 0.95, 0.07, Vector2(0, 1.85)), Z_PINO1 + 0.68, Z_PINO1 + 0.82, mat_placa, "placa")
@@ -493,8 +471,7 @@ func _colunas() -> void:
 
 
 ## BALÃO DA MARCA: a logo Lazer & Sport (sem fundo) impressa num balão que
-## flutua ao lado da pista. Em cada cenário ele vira uma coisa do lugar:
-## balão (parque, dinos), planetinha com anel (espaço), bolha (mar).
+## flutua ao lado da pista — só no cenário do Parque de Diversões.
 func _balao_marca() -> void:
 	balao = Node3D.new()
 	balao.name = "balao_marca"
@@ -536,31 +513,13 @@ func _balao_marca() -> void:
 	cordao.position.y = -1.24 - 1.15
 	cordao.material_override = Materiais.cor_toon(Color("#FFFFFF"), 0.0, {"borda": 0.0, "luz_minima": 0.6})
 	balao.add_child(cordao)
-	# anel (planetinha)
-	var anel := MeshInstance3D.new()
-	var tm := TorusMesh.new()
-	tm.inner_radius = 1.32
-	tm.outer_radius = 1.62
-	tm.rings = 96
-	tm.ring_segments = 12
-	anel.mesh = tm
-	anel.scale = Vector3(1.0, 0.16, 1.0)
-	anel.rotation_degrees = Vector3(26, 0, -8)   # a frente do anel passa embaixo da logo
-	anel.material_override = Materiais.cor_toon(Color("#FFC21A"), 0.003, {"borda": 0.35, "especular": 0.6})
-	anel.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	balao.add_child(anel)
-	_balao_partes = {"no": no, "cordao": cordao, "anel": anel}
 
 
 func _tema_balao(b: Dictionary) -> void:
-	var tipo: String = b.get("tipo", "balao")
-	var cor: Color = b.get("cor", Color("#E8384F"))
-	mat_balao.set_shader_parameter("tinta", cor)
-	mat_balao.set_shader_parameter("borda", 1.1 if tipo == "bolha" else 0.4)
-	mat_balao.set_shader_parameter("cor_borda", Color(1, 1, 1) if tipo == "bolha" else Color(1.0, 0.95, 0.9))
-	(_balao_partes["no"] as Node3D).visible = tipo == "balao"
-	(_balao_partes["cordao"] as Node3D).visible = tipo == "balao"
-	(_balao_partes["anel"] as Node3D).visible = tipo == "planeta"
+	# só o Parque tem balão (CONFIG["parque"]["balao"]); os outros não
+	balao.visible = not b.is_empty()
+	if balao.visible:
+		mat_balao.set_shader_parameter("tinta", b.get("cor", Color("#E8384F")))
 
 
 # ================================================================ área dos jogadores

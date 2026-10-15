@@ -10,8 +10,8 @@ extends Control
 ## deitada). Unidade "u" = lado menor / 1080.
 ##
 ## Visual: placas com volume (Painel3D: degradê, verniz, lateral e sombra,
-## como os objetos 3D), contorno azul-marinho e a marca Lazer & Sport na
-## abertura, na atração, no canto durante o jogo e no fim.
+## como os objetos 3D) e contorno azul-marinho. A marca Lazer & Sport só
+## aparece na abertura (e, no 3D, num balão do cenário do Parque).
 
 const COR_BOB := Color("#169BD5")
 const COR_MIA := Color("#FF7A21")
@@ -60,7 +60,6 @@ var _aperte_botao: Painel3D
 var _recorde: Label
 var _recorde_placa: Painel3D
 var _creditos: Label
-var _atr_marca: TextureRect
 # quantos vão jogar
 var _jog: Control
 var _jog_painel: Painel3D
@@ -102,7 +101,6 @@ var _marca_fundo: TextureRect
 var _marca_alvo: TextureRect
 var _marca_placa: TextureRect
 var _marca_texto: Label
-var _marca_canto: TextureRect
 
 
 func montar(textura_3d: Texture2D) -> void:
@@ -186,16 +184,6 @@ func painel(cor: Color, raio := 28.0, borda := 0.0, cor_borda := Color.WHITE) ->
 	return p
 
 
-## Logo Lazer & Sport (inteira), nítida de longe e de perto (mipmaps).
-func logo_marca() -> TextureRect:
-	var t := TextureRect.new()
-	t.texture = load(MARCA + "lazer_sport.png")
-	t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	t.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	return t
-
-
 func _tamanho_rotulo(l: Label, tam: float) -> void:
 	l.label_settings.font_size = int(tam)
 	l.label_settings.shadow_size = int(max(1.0, tam * 0.06))
@@ -245,9 +233,6 @@ func _montar_placar() -> void:
 	_bolas_box.alignment = BoxContainer.ALIGNMENT_CENTER
 	_bolas_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_bolas_box)
-	_marca_canto = logo_marca()
-	_marca_canto.modulate.a = 0.8
-	add_child(_marca_canto)
 	mostrar_placar(false)
 
 
@@ -256,7 +241,6 @@ func mostrar_placar(sim: bool) -> void:
 		c["painel"].visible = sim and c.get("usado", false)
 	_info.visible = sim
 	_bolas_box.visible = sim
-	_marca_canto.visible = sim
 	if _mapa:
 		_mapa.visible = sim
 
@@ -702,8 +686,6 @@ func _montar_atracao() -> void:
 	_recorde_placa.add_child(_rec_foto)
 	_creditos = rotulo("", 30, Color.WHITE, 8)
 	_atracao.add_child(_creditos)
-	_atr_marca = logo_marca()
-	_atracao.add_child(_atr_marca)
 	_atracao.visible = false
 
 
@@ -1146,17 +1128,12 @@ func tela_fim(ligado: bool, dados := {}) -> void:
 		_atrasado(3.0, func(): letreiro("empate", "", 2.5, 0.55))
 	if dados.get("recorde", false):
 		_atrasado(3.4, func(): letreiro("novo_recorde", "%d PONTOS" % dados.get("recorde_valor", 0), 3.0, 0.42 if retrato else 0.3))
-	# botão "jogar de novo" e a marca embaixo
-	var lw: float = minf(T.x * 0.3, 300 * u)
-	var marca := logo_marca()
-	marca.size = Vector2(lw, lw * PROPORCAO_LOGO)
-	marca.position = Vector2((T.x - lw) / 2, T.y - lw * PROPORCAO_LOGO - 22 * u)
-	_fim.add_child(marca)
+	# botão "jogar de novo"
 	var bw: float = minf(T.x * 0.92, 940 * u)
 	var bh := 116 * u
 	var botao := Painel3D.new(DESTAQUE, 58, 14, 7)
 	botao.size = Vector2(bw, bh)
-	botao.position = Vector2((T.x - bw) / 2, marca.position.y - bh - 30 * u)
+	botao.position = Vector2((T.x - bw) / 2, T.y - bh - (110 if retrato else 40) * u)
 	botao.name = "botao"
 	_fim.add_child(botao)
 	var ap := rotulo("APERTE START PARA JOGAR DE NOVO", 44 * u, MARINHO, 0, MARINHO, fonte_titulo)
@@ -1536,10 +1513,6 @@ func layout() -> void:
 	_sequencia.size = Vector2(T.x if retrato else larg, 56 * u)
 	_sequencia.position = Vector2(0 if retrato else margem, base_y + 100 * u)
 	_sequencia.pivot_offset = _sequencia.size / 2
-	# marca no canto de baixo durante o jogo
-	var cw := 140 * u
-	_marca_canto.size = Vector2(cw, cw * PROPORCAO_LOGO)
-	_marca_canto.position = Vector2(margem, T.y - cw * PROPORCAO_LOGO - margem)
 	# atração
 	var lw: float = min(T.x * 0.9, 980 * u) if retrato else T.x * 0.36
 	var lt := _logo.texture
@@ -1566,14 +1539,10 @@ func layout() -> void:
 	_caber(_aperte, 84 * u, bw - 90 * u)
 	_tamanho_rotulo(_recorde, 40 * u)
 	_recorde.label_settings.outline_size = int(8 * u)
-	var mw_l: float = minf(T.x * 0.3, 320 * u)
-	_atr_marca.size = Vector2(mw_l, mw_l * PROPORCAO_LOGO)
-	_atr_marca.position = Vector2((T.x - mw_l) / 2, T.y - mw_l * PROPORCAO_LOGO - 22 * u) if retrato \
-		else Vector2(T.x - mw_l - 30 * u, T.y - mw_l * PROPORCAO_LOGO - 22 * u)
 	_tamanho_rotulo(_creditos, 30 * u)
 	_creditos.label_settings.outline_size = int(8 * u)
 	_creditos.size = Vector2(T.x, 46 * u)
-	_creditos.position = Vector2(0, _atr_marca.position.y - 52 * u) if retrato else Vector2(0, T.y - 64 * u)
+	_creditos.position = Vector2(0, T.y - (90 if retrato else 64) * u)
 	# quantos vão jogar
 	_layout_jogadores(T)
 	_layout_etapas(T)

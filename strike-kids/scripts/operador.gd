@@ -65,14 +65,6 @@ func _ready() -> void:
 	add_child(fundo)
 	var titulo := _rotulo("STRIKE KIDS · OPERADOR", Vector2(0, 40 * u), 58 * u, Color("#FFD43B"))
 	titulo.size.x = T.x
-	# logo Lazer & Sport no canto
-	var marca := TextureRect.new()
-	marca.texture = load("res://ui/marca/lazer_sport.png")
-	marca.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	marca.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	marca.size = Vector2(150, 100) * u
-	marca.position = Vector2(T.x - 170 * u, 18 * u)
-	add_child(marca)
 	var esp: float = min(68.0 * u, (T.y - 420 * u) / ITENS.size())
 	var y := 150 * u
 	for i in ITENS.size():
