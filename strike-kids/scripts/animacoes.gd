@@ -119,8 +119,8 @@ static func _montar() -> void:
 			[1.6, _p(p6, {"frente": 0.0})]],
 	}
 	# ---------------------------------------------------- STRIKE: pulão com pirueta e festa!
-	# agacha (impulso) -> decola esticado -> pirueta no ar (arco de gravidade)
-	# -> aterrissa amassando -> socos no ar -> pulinho final
+	# agacha (impulso) -> decola com os braços para cima -> pirueta no ar
+	# (arco de gravidade) -> aterrissa dobrando os joelhos -> socos no ar -> pulinho final
 	var agacha := _p(PARADO, {"altura": -0.1, "corpo": Vector3(16, 0, 0), "cabeca": Vector3(-6, 0, 0),
 		"braco_e": Vector3(28, 0, 22), "braco_d": Vector3(28, 0, -22), "antebraco_e": Vector3(-20, 0, 0), "antebraco_d": Vector3(-20, 0, 0)})
 	var voando := {"braco_e": Vector3(-168, 0, 18), "braco_d": Vector3(-168, 0, -18),
@@ -135,19 +135,23 @@ static func _montar() -> void:
 		"corpo": Vector3(-4, 0, -6), "altura": -0.03, "quadril": Vector3(0.015, 0, 0)})
 	var vibra2 := _p(vibra1, {"braco_d": Vector3(-175, 0, -20), "antebraco_d": Vector3(-20, 0, 0), "altura": -0.005,
 		"quadril": Vector3(-0.01, 0, 0)})
+	# impulso: os braços vêm de trás para cima passando pela frente (sem chicotada)
+	var impulso := _p(agacha, {"altura": -0.05, "corpo": Vector3(8, 0, 0), "braco_e": Vector3(-70, 0, 20), "braco_d": Vector3(-70, 0, -20),
+		"antebraco_e": Vector3(-25, 0, 0), "antebraco_d": Vector3(-25, 0, 0)})
 	_cache["comemora_strike"] = {
 		"dur": 3.1, "loop": false,
 		"pulos": [[0.3, 0.98, 0.52], [2.42, 2.74, 0.12]],
 		"chaves": [
-			[0.0, PARADO], [0.24, agacha],
-			[0.32, _p(esticado, {"giro": 15.0})],
-			[0.5, _p(voando, {"giro": 150.0})],
-			[0.72, _p(voando, {"giro": 290.0})],
+			[0.0, PARADO], [0.2, agacha], [0.3, impulso],
+			[0.42, _p(esticado, {"giro": 25.0})],
+			[0.56, _p(voando, {"giro": 125.0})],
+			[0.72, _p(voando, {"giro": 245.0})],
 			[0.92, _p(esticado, {"giro": 360.0})],
 			[1.06, _p(aterrissa, {"giro": 360.0})],
 			[1.3, _p(vibra1, {"giro": 360.0})], [1.5, _p(vibra2, {"giro": 360.0})], [1.7, _p(vibra1, {"giro": 360.0})],
 			[1.9, _p(vibra2, {"giro": 360.0})], [2.1, _p(vibra1, {"giro": 360.0})],
-			[2.36, _p(agacha, {"giro": 360.0, "altura": -0.06})],
+			[2.36, _p(agacha, {"giro": 360.0, "altura": -0.06, "braco_e": Vector3(-110, 0, 30), "braco_d": Vector3(-110, 0, -30),
+				"antebraco_e": Vector3(-20, 0, 0), "antebraco_d": Vector3(-20, 0, 0)})],
 			[2.5, _p(esticado, {"giro": 360.0})],
 			[2.78, _p(aterrissa, {"giro": 360.0, "altura": -0.05})],
 			[3.1, _p(PARADO, {"giro": 360.0})],
@@ -158,7 +162,7 @@ static func _montar() -> void:
 	# ---------------------------------------------------- feliz (spare, boa jogada): pulinho + palmas
 	var palma_junta := _p(PARADO, {"braco_e": Vector3(-72, 0, -12), "antebraco_e": Vector3(-48, -20, -25),
 		"braco_d": Vector3(-72, 0, 12), "antebraco_d": Vector3(-48, 20, 25), "corpo": Vector3(4, 0, 0)})
-	var palma_abre := _p(palma_junta, {"braco_e": Vector3(-70, 0, 14), "braco_d": Vector3(-70, 0, -14), "altura": 0.02})
+	var palma_abre := _p(palma_junta, {"braco_e": Vector3(-70, 0, 14), "braco_d": Vector3(-70, 0, -14)})
 	_cache["feliz"] = {
 		"depois": "parado", "dur": 1.9, "loop": false,
 		"pulos": [[0.22, 0.56, 0.2]],
