@@ -350,7 +350,9 @@ func _abertura() -> void:
 	cam.corte(Vector3(0.16, 0.3, 1.45), Vector3(0.0, 0.14, -10.0), 26, 30)
 	if not await _esperar(0.5, s, false):
 		return
-	Jogada.forcar = [10]
+	# o strike da abertura entra na FRENTE da lista (que os testes e o vídeo
+	# de divulgação usam para pedir os resultados deles) sem apagá-la
+	Jogada.forcar.push_front(10)
 	var j := Jogada.planejar("C", pinos.em_pe(), true, "facil", true)
 	var origem := Vector3(j.origem_x, Bola.RAIO + 0.04, 0.35)
 	var dir := Vector3(j.alvo_x, Bola.RAIO, Mundo.Z_PINO1) - origem
