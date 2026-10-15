@@ -3,7 +3,7 @@ render_mode blend_mix, depth_draw_opaque, cull_back;
 
 // PISTA: madeira envernizada + marcações (setas, pontos, linha de falta,
 // marcas dos pinos) + luzes que correm pela borda acompanhando a bola.
-// As coordenadas são do MUNDO: linha de falta em z = 0, pinos em z = -14.
+// As coordenadas são do MUNDO: linha de falta em z = 0, pinos em z_pino1.
 
 uniform sampler2D madeira : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
 uniform float meia_largura = 0.675;
@@ -39,14 +39,14 @@ void fragment() {
 	// pontos-guia (2 m)
 	for (int i = -2; i <= 2; i++) {
 		float x = float(i) * 0.17;
-		float dd = length(vec2(pm.x - x, d - 2.1));
+		float dd = length(vec2(pm.x - x, d + z_pino1 * 0.15));
 		c = mix(c, cor_seta, 1.0 - smoothstep(0.018, 0.024, dd));
 	}
-	// setas (4.6 m) em forma de V
+	// setas (a 1/3 da pista) em forma de V
 	float s = 0.0;
 	for (int i = -3; i <= 3; i++) {
 		float x = float(i) * 0.17;
-		float zc = 4.6 + abs(float(i)) * 0.32;
+		float zc = -z_pino1 * 0.33 + abs(float(i)) * 0.32;
 		s += tri(vec2(pm.x, -d), vec2(x, -zc), 0.035, 0.22);
 	}
 	c = mix(c, cor_seta, clamp(s, 0.0, 1.0));
@@ -61,7 +61,7 @@ void fragment() {
 	}
 	c = mix(c, c * 1.18 + vec3(0.04), clamp(marca, 0.0, 1.0));
 	// área dos pinos um pouco mais clara
-	c *= mix(1.0, 1.08, smoothstep(13.3, 13.6, d));
+	c *= mix(1.0, 1.08, smoothstep(-z_pino1 - 0.7, -z_pino1 - 0.4, d));
 	ALBEDO = c;
 	ROUGHNESS = 0.18;
 	SPECULAR = brilho_verniz;

@@ -20,6 +20,7 @@ const CONFIG := {
 		"fundo": [Color(0.02, 0.06, 0.16), Color(0.05, 0.16, 0.38)],
 		"placa": Color("#0E2A5C"), "divisoria": Color("#FFB627"), "faixa": Color("#E8384F"), "canaleta": Color("#8FC4EE"),
 		"chao": [Color("#6BCB5D"), Color("#5BB54E"), Color("#FFFFFF"), Color("#FFE873")], "chao_modo": 0,
+		"balao": {"cor": Color("#E8384F")},   # balão com a marca Lazer & Sport
 	},
 	"espaco": {
 		"ceu": [Color("#040A26"), Color("#0E2560"), Color("#2C6AB8"), Color("#14244E")],
@@ -56,8 +57,8 @@ const CONFIG := {
 const CORES_BICHOS := [Color("#FF9F2E"), Color("#FFD43B"), Color("#4FD8FF"), Color("#FF4B5C"), Color("#8DFF6A"), Color("#2E7BFF")]
 
 ## Lugares de destaque perto da pista (vistos de perto nas jogadas): x, z, giro, escala
-const DESTAQUES := [[-2.55, -1.5, 0.3], [2.7, -3.5, -0.4], [-3.9, 3.4, 0.4], [3.9, 2.6, 0.0],
-	[2.3, -8.0, 2.0], [-2.3, -9.0, 1.0], [-2.4, -5.5, 0.0], [2.4, -11.5, 0.5]]
+const DESTAQUES := [[-2.55, -1.2, 0.3], [2.7, -2.7, -0.4], [-3.9, 3.4, 0.4], [3.9, 2.6, 0.0],
+	[2.3, -6.0, 2.0], [-2.3, -6.8, 1.0], [-2.4, -4.2, 0.0], [2.45, -8.7, 0.5]]
 
 var mundo: Mundo
 var atual := ""

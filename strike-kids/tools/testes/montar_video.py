@@ -8,8 +8,8 @@ Depois de gravar os quadros com o diretor (tools/testes/video.gd):
     python3 tools/testes/montar_video.py <pasta_dos_quadros> <saida.mp4> [fps] [primeiro_quadro]
 
 Mistura a trilha (músicas + efeitos nos quadros exatos em que tocaram no
-jogo), acrescenta um cartão final com o logo do jogo e a marca Lazer & Sport
-e gera o MP4 (H.264 + AAC).
+jogo), acrescenta um cartão final com o logo do jogo e gera o MP4
+(H.264 + AAC). A marca Lazer & Sport vem da própria abertura do jogo.
 """
 import json
 import os
@@ -58,9 +58,6 @@ def mudar_tom(a, tom):
 
 def cartao_final(pasta, inicio, n, largura, altura):
     logo = Image.open(os.path.join(RAIZ, "ui", "logo.png")).convert("RGBA")
-    marca = Image.open(os.path.join(RAIZ, "ui", "marca", "lazer_sport.png")).convert("RGBA")
-    mw = int(min(largura, altura) * 0.3)
-    marca = marca.resize((mw, int(mw * marca.height / marca.width)), Image.LANCZOS)
     fonte = ImageFont.truetype(os.path.join(RAIZ, "fontes", "fredoka_700.ttf"), int(min(largura, altura) * 0.05))
     fonte2 = ImageFont.truetype(os.path.join(RAIZ, "fontes", "fredoka_600.ttf"), int(min(largura, altura) * 0.037))
     retratos = []
@@ -91,7 +88,6 @@ def cartao_final(pasta, inicio, n, largura, altura):
                             ("5 sensores  ·  4 cenários  ·  foto da criança  ·  replay", fonte2, 0.82)):
             w = d.textlength(txt, font=f)
             d.text(((largura - w) / 2, altura * y), txt, font=f, fill=(255, 255, 255), stroke_width=6, stroke_fill=(11, 31, 69))
-        img.alpha_composite(marca, ((largura - marca.width) // 2, int(altura * 0.87)))
         img.convert("RGB").save(os.path.join(pasta, "q%05d.jpg" % (inicio + i)), quality=93)
 
 

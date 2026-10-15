@@ -4,7 +4,13 @@ extends Node
 ##
 ## Sem mapeamento gravado, vale o Input Map do projeto: as teclas da Zero
 ## Delay no modo teclado (1/Espaço = STR, A = quadrado, S = X, D = bolinha,
-## F = triângulo, G = R1, 5 = SELECT, 9 = L3) e os índices de joystick.
+## F = triângulo, G = R1, 5 = SELECT, 9 = configuração) e os botões de
+## joystick como o Godot 4 os numera no ANDROID (TV Box), conferidos com o
+## Dragon Bowling na mesma máquina:
+##   X = 0, bolinha = 1, quadrado = 2, triângulo = 3, SELECT = 4, START = 6,
+##   L3 = 7, R1 = 10, R2 = 16.
+## (O Dragon Bowling, em Godot 3, numera diferente: R1 5, R2 7, SELECT 10,
+## START 11 — por isso aqui os números mudam, mas os BOTÕES são os mesmos.)
 ## As ações "ui_*" do Godot (ENTER, setas, botão 0) são desligadas.
 ##
 ## MAPEAMENTO GRAVADO NA TV BOX. O Android numera os botões da placa de
@@ -26,7 +32,7 @@ const SEQUENCIA: Array = [
 	["input_v", "TRIÂNGULO  ·  MEIO DIREITO"],
 	["input_b", "R1  ·  JOGADA DIREITA"],
 	["input_credit", "SELECT  ·  CRÉDITO"],
-	["input_teste", "L3  ·  CONFIGURAÇÃO"],
+	["input_teste", "R2  ·  CONFIGURAÇÃO"],
 ]
 ## Os primeiros são obrigatórios; SELECT e L3 podem ser pulados (a
 ## máquina pode não ter esses botões ligados).
@@ -46,6 +52,10 @@ const JOGADAS := {
 const SEGURAR_PARA_CONFIGURAR_MS := 10000
 const CENA_CONFIGURACAO := "res://cenas/configuracao_botoes.tscn"
 const CENA_MENU := "res://cenas/principal.tscn"
+## R2 da Zero Delay (Godot 4 no Android). Abre o menu do operador em
+## qualquer tela, mesmo com um mapeamento antigo gravado (de quando a
+## configuração era o L3), a não ser que o R2 tenha virado outra ação.
+const BOTAO_R2 := 16
 
 var mapeamento_gravado := false
 var _segurado_desde := {}
@@ -86,6 +96,7 @@ func _carregar() -> void:
 	if not botoes.is_empty():
 		_aplicar(botoes)
 		mapeamento_gravado = true
+	_garantir_r2(botoes)
 
 
 func gravar(botoes: Dictionary) -> void:
@@ -95,6 +106,21 @@ func gravar(botoes: Dictionary) -> void:
 	cfg.save(ARQUIVO)
 	_aplicar(botoes)
 	mapeamento_gravado = true
+	_garantir_r2(botoes)
+
+
+func _garantir_r2(botoes: Dictionary) -> void:
+	var codigo_r2 := "botao:%d" % BOTAO_R2
+	for acao: String in botoes:
+		if acao != "input_teste" and str(botoes[acao]) == codigo_r2:
+			return
+	for ev in InputMap.action_get_events("input_teste"):
+		if ev is InputEventJoypadButton and ev.button_index == BOTAO_R2:
+			return
+	var r2 := InputEventJoypadButton.new()
+	r2.device = -1
+	r2.button_index = BOTAO_R2 as JoyButton
+	InputMap.action_add_event("input_teste", r2)
 
 
 func _aplicar(botoes: Dictionary) -> void:

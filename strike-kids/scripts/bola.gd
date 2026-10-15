@@ -199,7 +199,7 @@ func fogo(ligar: bool) -> void:
 func _physics_process(_delta: float) -> void:
 	if not rolando:
 		return
-	if curva != 0.0 and global_position.z > -12.6 and global_position.y > -0.02:
+	if curva != 0.0 and global_position.z > Mundo.Z_PINO1 + 1.4 and global_position.y > -0.02:
 		apply_central_force(Vector3(curva * mass, 0, 0))
 
 
@@ -214,7 +214,7 @@ func _process(_delta: float) -> void:
 		_pontos.push_front(Vector3(global_position.x, max(global_position.y - RAIO, -0.08) + 0.012, global_position.z))
 		if _pontos.size() > 28:
 			_pontos.pop_back()
-		if global_position.z < -13.6:
+		if global_position.z < Mundo.Z_PINO1 + 0.4:
 			_brilhos.emitting = false
 			_chamas.emitting = false
 	_desenhar_rastro()

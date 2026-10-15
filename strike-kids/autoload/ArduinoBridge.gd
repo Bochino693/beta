@@ -32,7 +32,7 @@ func _ready() -> void:
 		_set_status("USB disponível no APK Android; teclado para testes no editor")
 		return
 	if not Engine.has_singleton("DragonUsbSerial"):
-		_set_status("Plugin USB ausente: gere o APK com Gradle e DragonUsbSerial")
+		_set_status("Plugin USB ausente: gere o APK com GERAR_APK.bat -ComLeds")
 		return
 	_plugin = Engine.get_singleton("DragonUsbSerial")
 	_scan()

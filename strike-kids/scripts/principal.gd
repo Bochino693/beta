@@ -18,6 +18,8 @@ const X_MAO := 0.28            # a mão direita fica 0,28 m à direita do corpo
 const MESMA_BOLA_MS := 1200
 const VALIDADE_PENDENTE_MS := 10000
 const CENA_OPERADOR := "res://cenas/operador.tscn"
+## tempo da tela "QUANTOS VÃO JOGAR?" (START de novo dentro dele = 2 jogadores)
+const TEMPO_JOGADORES := 4.0
 ## pódios da escolha do personagem e da foto (Bob à esquerda, Mia à direita)
 const PODIOS := [Vector3(-0.62, 0, 2.5), Vector3(0.62, 0, 2.5)]
 
@@ -199,9 +201,12 @@ func _start() -> void:
 			else:
 				hud.texto_grande("INSIRA FICHA", Color("#FFF6A8"), 1.0, 0.55)
 		E.JOGADORES:
-			_escolha_n = 2
-			_escolha_t = min(_escolha_t, 0.35)
-			Sons.tocar("selecao")
+			# como no Dragon Bowling: o 2º START = 2 jogadores (mostra e já começa)
+			if _escolha_n == 1:
+				_escolha_n = 2
+				_escolha_t = minf(_escolha_t, 1.1)
+				Sons.tocar("selecao")
+				ArduinoBridge.send_led("RED")
 		E.PERSONAGEM:
 			_confirmar_personagem()
 		E.FIM:
@@ -246,14 +251,14 @@ func _abertura() -> void:
 	hud.marca(true)
 	_atrasado_som(0.3, "pop")
 	_atrasado_som(0.75, "brilho")
-	cam.trilho([[Vector3(0, 10, -24), Vector3(0, 0.5, -15), 0.0]], 52, 40)
+	cam.trilho([[Vector3(0, 10, Mundo.Z_PINO1 - 10.0), Vector3(0, 0.5, Mundo.Z_PINO1 - 1.0), 0.0]], 52, 40)
 	if not await _esperar(2.5, s):
 		return
 	hud.marca(false)
 	Sons.musica("musica_menu")
 	cam.trilho([
-		[Vector3(0, 10, -24), Vector3(0, 0.5, -15), 0.0],
-		[Vector3(0, 4, -9), Vector3(0, 0.4, -14), 1.6],
+		[Vector3(0, 10, Mundo.Z_PINO1 - 10.0), Vector3(0, 0.5, Mundo.Z_PINO1 - 1.0), 0.0],
+		[Vector3(0, 4, Mundo.Z_PINO1 + 5.0), Vector3(0, 0.4, Mundo.Z_PINO1), 1.6],
 		[Vector3(1.2, 2.2, 1.5), Vector3(0, 0.6, -4), 1.4],
 		[Vector3(0, 1.4, 5.6), Vector3(0, 0.75, 1.6), 1.2],
 	], 52, 40)
@@ -275,6 +280,7 @@ func _atracao() -> void:
 	hud.tela_fim(false)
 	hud.jogadores(false)
 	hud.selecao(false)
+	hud.etapa(0)
 	hud.inatividade(false)
 	_modal_inativo = 0.0
 	bola.guardar()
@@ -328,8 +334,9 @@ func _escolher_jogadores() -> void:
 	hud.marca(false, true)
 	hud.atracao(false)
 	hud.tela_fim(false)
+	hud.etapa(1)
 	_escolha_n = 1
-	_escolha_t = 3.0
+	_escolha_t = TEMPO_JOGADORES
 	ArduinoBridge.send_led("MENU")
 	bola.guardar()
 	Engine.time_scale = 1.0
@@ -346,6 +353,7 @@ func _confirmar_jogadores() -> void:
 func _escolher_personagem() -> void:
 	estado = E.PERSONAGEM
 	_novo_seq()
+	hud.etapa(2)
 	_escolha_t = 8.0
 	var t: Personagem = personagens["bob"]
 	var r: Personagem = personagens["mia"]
@@ -433,6 +441,7 @@ func _comecar(lista: Array) -> void:
 func _sessao_de_fotos(lista: Array) -> bool:
 	estado = E.FOTO
 	var s := _novo_seq()
+	hud.etapa(3)
 	Fotos.ligar()
 	var t: Personagem = personagens["bob"]
 	var r: Personagem = personagens["mia"]
@@ -487,6 +496,7 @@ func _vez(nova_rodada: bool) -> void:
 	_ativo = placar.atual()["personagem"]
 	_plateia = "mia" if _ativo == "bob" else "bob"
 	mundo.podios(false)
+	hud.etapa(0)
 	var a: Personagem = personagens[_ativo]
 	var p: Personagem = personagens[_plateia]
 	a.jatos(false)
@@ -524,7 +534,7 @@ func _vez(nova_rodada: bool) -> void:
 		], 50, 40)
 		if not await _esperar(2.9, s, false):
 			return
-	else:
+	elif nova_rodada:
 		_plano_pronto(false)
 	if nova_rodada:
 		var artigo := "DO" if _ativo == "bob" else "DA"
@@ -548,11 +558,24 @@ func _plano_pronto(corte := false) -> void:
 		cam.ir(pos, alvo, 50, 40, 2.6)
 
 
+## Esperando a jogada: a PISTA DE FRENTE, como a criança vê da máquina —
+## pinos lá no fim, nada na frente. O mascote fica fora do quadro e só
+## aparece depois que o sensor dispara (corte para ele arremessando).
+func _plano_pista(corte := false) -> void:
+	var pos := Vector3(0.0, 1.05, 2.2)
+	var alvo := Vector3(0.0, 0.18, Mundo.Z_PINO1 + 0.6)
+	if corte:
+		cam.corte(pos, alvo, 34, 40)
+	else:
+		cam.ir(pos, alvo, 34, 40, 2.6)
+
+
 func _pronto() -> void:
 	estado = E.PRONTO
 	_novo_seq()
 	_pular = false
 	_inativo = 0.0
+	_plano_pista()
 	hud.convite(true)
 	ArduinoBridge.send_led("IDLE")
 	var a: Personagem = personagens[_ativo]
@@ -586,6 +609,8 @@ func _arremessar(zona: String) -> void:
 	var tw := create_tween()
 	tw.tween_property(a, "base:origin:x", x_corpo, 0.45).set_trans(Tween.TRANS_SINE)
 	a.tocar("arremesso", 0.12, true)
+	# corte seco da pista para o mascote arremessando
+	cam.corte(a.global_position + Vector3(1.15, 2.05, 3.3), a.global_position + Vector3(-0.35, 0.05, -7.0), 50, 40)
 	cam.seguir(a, Vector3(1.15, 2.05, 3.3), Vector3(-0.35, 0.05, -7.0), 50, 40, 3.0)
 	Sons.tocar("whoosh", 0.5)
 
@@ -632,12 +657,12 @@ func _process(delta: float) -> void:
 			_contar_inatividade(delta)
 		E.JOGADORES:
 			_escolha_t -= delta
-			hud.jogadores(true, _escolha_n, _escolha_t / 3.0)
+			hud.jogadores(true, _escolha_n, _escolha_t / TEMPO_JOGADORES, int(ceil(_escolha_t)))
 			if _escolha_t <= 0.0:
 				_confirmar_jogadores()
 		E.PERSONAGEM:
 			_escolha_t -= delta
-			hud.selecao(true, _destaque, "◀  role a bola para escolher  ▶\nou aperte START   (%d)" % int(ceil(_escolha_t)), _pes_na_tela())
+			hud.selecao(true, _destaque, "ROLE A BOLA PARA ESCOLHER SEU AMIGO\nbola no MEIO ou START confirma   (%d)" % int(ceil(_escolha_t)), _pes_na_tela())
 			if _escolha_t <= 0.0:
 				_confirmar_personagem()
 		E.ATRACAO:
@@ -725,7 +750,7 @@ func _finalizar_jogada() -> void:
 	mundo.lampadas(0)
 	var derrubados := pinos.caidos_desde(_em_pe_antes)
 	var n := derrubados.size()
-	pinos.marcar_tontos()
+	var festa_pinos := pinos.reagir()
 	hud.mostrar_mapa(pinos.em_pe())
 	var a: Personagem = personagens[_ativo]
 	var p: Personagem = personagens[_plateia]
@@ -798,7 +823,8 @@ func _finalizar_jogada() -> void:
 		if s != _seq:
 			return
 	else:
-		if not await _esperar(1.1, s):
+		# se sobrou pino comemorando, a câmera fica um pouco mais nos pinos
+		if not await _esperar(1.6 if festa_pinos > 0 else 1.1, s):
 			return
 	# reação do personagem (câmera bem de frente)
 	var pa := a.global_position
@@ -891,7 +917,7 @@ func _replay() -> void:
 		if s != _seq:
 			return
 	bola.acender(0.0)
-	pinos.marcar_tontos()
+	pinos.reagir()
 	hud.modo_replay(false)
 	hud.mostrar_placar(true)
 	hud.mostrar_sensores(true)

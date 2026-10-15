@@ -1,7 +1,8 @@
 shader_type spatial;
 render_mode unshaded, cull_back, shadows_disabled, fog_disabled;
 
-// FUNDO ATRÁS DOS PINOS: veludo roxo-escuro com estrelinhas piscando.
+// FUNDO ATRÁS DOS PINOS: cortina de veludo azul-escuro com estrelinhas
+// piscando. As pregas (geometria) ganham luz e sombra pela normal.
 // O fundo escuro faz os pinos brancos saltarem na tela.
 
 uniform vec3 cor_a : source_color = vec3(0.02, 0.06, 0.16);
@@ -25,5 +26,7 @@ void fragment() {
 			+ max(0.0, 1.0 - abs(f.y) * 30.0) * max(0.0, 1.0 - abs(f.x) * 4.0);
 		c += vec3(0.9, 0.95, 1.0) * (est * 1.5 + cruz * 0.8) * pis;
 	}
-	ALBEDO = c;
+	// pregas: lado virado para a luz mais claro, o outro mais escuro
+	float dobra = 0.68 + 0.5 * clamp(dot(NORMAL, normalize(vec3(0.75, 0.25, 0.6))), 0.0, 1.0);
+	ALBEDO = c * dobra;
 }

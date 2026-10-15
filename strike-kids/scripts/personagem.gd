@@ -91,6 +91,8 @@ func montar(nome: String) -> void:
 			if meta.has("centro"):
 				parametros["rosto_centro"] = Vector2(meta["centro"][0], meta["centro"][1])
 				parametros["rosto_tamanho"] = Vector2(meta["tamanho"][0], meta["tamanho"][1])
+		if j == "corpo":
+			parametros.merge(_parametros_estampa(modelo.get_meta("estampa", {})), true)
 		var m := Materiais.toon(true, 0.0032, parametros)
 		mi.material_override = m
 		# detalhe alto até de longe (orelhas e focinho não podem sumir)
@@ -543,6 +545,26 @@ func _rosto(delta: float) -> void:
 ## nas animações e chamadas por compatibilidade.
 func jatos(ligar: bool) -> void:
 	_festa.emitting = ligar
+
+
+## Estampa da roupa (estrela do Bob, bolinhas da Mia), desenhada no shader
+## com os dados que o modelador gravou (tools/modelos/personagens.py).
+func _parametros_estampa(e: Dictionary) -> Dictionary:
+	if e.is_empty():
+		return {}
+	var p := {"estampa_base": Color(str(e["base"])), "estampa_cor": Color(str(e["cor"])), "estampa_raio": float(e["raio"])}
+	if e["tipo"] == "estrela":
+		p["estampa"] = 1
+		p["estampa_centro"] = Vector2(e["centro"][0], e["centro"][1])
+		p["estampa_dentro"] = float(e["dentro"])
+	else:
+		p["estampa"] = 2
+		p["bolinhas_y0"] = float(e["y0"])
+		p["bolinhas_dy"] = float(e["dy"])
+		p["bolinhas_fileiras"] = int(e["fileiras"])
+		p["bolinhas_n0"] = int(e["n0"])
+		p["bolinhas_y_max"] = float(e["y_max"])
+	return p
 
 
 func segurar_bola(sim: bool) -> void:

@@ -3,7 +3,10 @@ extends RigidBody3D
 
 ## UM PINO com carinha. Corpo físico (Jolt) com o centro de massa no lugar
 ## de um pino de verdade (ele tomba fácil), sons de batida e expressões:
-## normal / piscando / medo (bola chegando) / tonto (caído) / feliz (ficou).
+## normal / piscando / medo (bola chegando) / tonto ou bravinho (caiu) /
+## feliz (ficou de pé — às vezes até dá pulinhos de comemoração).
+## Os pulinhos são animação (o pino fica preso, sem física) e terminam
+## exatamente onde ele estava: na hora da jogada está tudo no lugar.
 
 signal bateu(pino: Pino, forca: float)
 
@@ -21,6 +24,10 @@ var _piscando := 0.0
 var _estrelas: Node3D
 var _sombra: MeshInstance3D
 var _ultimo_som := 0
+var _pulo: Tween
+var _base_pulo := Transform3D()
+var _pulando := false
+var _raiva: Tween
 
 
 func montar(n: int, pos: Vector3, malha_pino: Mesh, forma: Shape3D, rosto: Texture2D, meta: Dictionary) -> void:
@@ -48,7 +55,7 @@ func montar(n: int, pos: Vector3, malha_pino: Mesh, forma: Shape3D, rosto: Textu
 		"usa_rosto": true, "rosto": rosto, "rosto_grade": Vector2(4, 2),
 		"rosto_centro": Vector2(meta.get("centro", [0, 0.215])[0], meta.get("centro", [0, 0.215])[1]),
 		"rosto_tamanho": Vector2(meta.get("tamanho", [0.15, 0.13])[0], meta.get("tamanho", [0.15, 0.13])[1]),
-		"borda": 0.4, "cor_borda": Color(1.0, 0.9, 1.0),
+		"borda": 0.4, "cor_borda": Color(0.92, 0.96, 1.0),
 	})
 	malha.material_override = mat
 	malha.lod_bias = 3.0
@@ -86,6 +93,7 @@ func montar(n: int, pos: Vector3, malha_pino: Mesh, forma: Shape3D, rosto: Textu
 
 
 func recolocar() -> void:
+	parar_pulo()
 	freeze_mode = RigidBody3D.FREEZE_MODE_KINEMATIC
 	freeze = true
 	removido = false
@@ -104,6 +112,7 @@ func recolocar() -> void:
 func soltar() -> void:
 	if removido:
 		return
+	parar_pulo()
 	freeze = false
 	sleeping = false
 
@@ -176,6 +185,69 @@ func ficar_tonto() -> void:
 	if not removido:
 		expressao("tonto")
 		_estrelas.visible = true
+
+
+## Caiu e ficou bravinho: cara brava e uma tremidinha de raiva.
+func ficar_bravo() -> void:
+	if removido:
+		return
+	expressao("bravo")
+	_estrelas.visible = false
+	if _raiva != null and _raiva.is_valid():
+		_raiva.kill()
+	_raiva = create_tween()
+	_raiva.tween_interval(randf_range(0.1, 0.5))
+	for i in 3:
+		_raiva.tween_property(malha, "rotation:x", 0.09, 0.05)
+		_raiva.tween_property(malha, "rotation:x", -0.09, 0.07)
+	_raiva.tween_property(malha, "rotation:x", 0.0, 0.06)
+
+
+## Ficou de pé: feliz. pulos > 0: pulinhos de comemoração (agacha, pula,
+## amortece), começando depois de `atraso`; no fim volta exatamente ao
+## lugar de onde saiu.
+func comemorar(atraso: float, pulos: int) -> void:
+	if removido:
+		return
+	expressao("feliz")
+	if pulos <= 0:
+		return
+	parar_pulo()
+	prender()
+	_base_pulo = global_transform
+	_pulando = true
+	_pulo = create_tween()
+	_pulo.tween_interval(atraso)
+	for i in pulos:
+		var h := 0.16 if i == 0 else 0.1
+		_pulo.tween_property(malha, "scale", Vector3(1.08, 0.86, 1.08), 0.08)
+		_pulo.tween_property(malha, "scale", Vector3(0.94, 1.1, 0.94), 0.07)
+		_pulo.parallel().tween_method(_altura_pulo, 0.0, h, 0.17).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+		_pulo.tween_method(_altura_pulo, h, 0.0, 0.17).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+		_pulo.parallel().tween_property(malha, "scale", Vector3.ONE, 0.17)
+		_pulo.tween_property(malha, "scale", Vector3(1.07, 0.9, 1.07), 0.06)
+		_pulo.tween_property(malha, "scale", Vector3.ONE, 0.1)
+	_pulo.tween_callback(parar_pulo)
+
+
+func _altura_pulo(h: float) -> void:
+	global_transform = Transform3D(_base_pulo.basis, _base_pulo.origin + Vector3(0, h, 0))
+
+
+## Interrompe a comemoração e põe o pino de volta onde estava.
+func parar_pulo() -> void:
+	if _pulo != null and _pulo.is_valid():
+		_pulo.kill()
+	_pulo = null
+	if _raiva != null and _raiva.is_valid():
+		_raiva.kill()
+	_raiva = null
+	if malha:
+		malha.rotation = Vector3.ZERO
+		malha.scale = Vector3.ONE
+	if _pulando:
+		global_transform = _base_pulo
+		_pulando = false
 
 
 func _ao_bater(corpo: Node) -> void:

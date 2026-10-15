@@ -32,10 +32,21 @@ meio-direita, direita) vira a jogada na tela, em 3D:
 
 Na tela NAO tem setas nem alvo: a mira e sempre o STRIKE.
 
-MARCA LAZER & SPORT: aparece na inicializacao do aparelho e na abertura
-(o dardo acerta o alvo e entra "apresenta"), na tela de atracao, num selo
-no canto durante a partida, na tela final, no menu do operador e em duas
-placas iluminadas ao lado do letreiro STRIKE KIDS, em cima dos pinos.
+COMO SE JOGA (tudo pela placa Zero Delay)
+  1. START: aparece "QUANTOS VAO JOGAR?". START 1 vez = 1 jogador;
+     START de novo (em 4 segundos) = 2 jogadores (Bob x Mia).
+  2. 1 jogador: ESCOLHA SEU AMIGO. Rolar a bola pela ESQUERDA = Bob,
+     pela DIREITA = Mia; bola no MEIO ou START confirma (ou espera 8 s).
+  3. SORRIA! (se tiver camera): foto de cada jogador.
+  4. Na vez de jogar, a tela mostra a PISTA DE FRENTE esperando a bola.
+     Quando a bola passa no sensor, o mascote arremessa e a bola vai
+     pela linha daquele sensor ate os pinos.
+  No alto das telas de preparacao aparece em que passo esta
+  (1 JOGADORES > 2 AMIGO > 3 FOTO > 4 JOGAR).
+
+MARCA LAZER & SPORT: so na inicializacao do aparelho e na abertura (o
+dardo acerta o alvo e entra "apresenta") e num balao, sem fundo, que
+flutua ao lado da pista no cenario do Parque de Diversoes.
 O GERAR_APK.bat escolhe a imagem de inicializacao ja girada conforme o
 -Giro (1, -1 ou 0).
 
@@ -73,6 +84,7 @@ C:\AndroidSdk. Os Export Templates 4.6.1 sao baixados sozinhos.
   GERAR_APK.bat -Giro -1   -> se a imagem ficar de cabeca para baixo
   GERAR_APK.bat -Giro 0    -> monitor ja em pe / TV deitada (sem giro)
   GERAR_APK.bat -Instalar  -> instala na TV Box pelo adb
+  GERAR_APK.bat -ComLeds   -> com o plugin USB dos LEDs (Arduino)
 
 Pacote: com.lazersport.strikekids (nao briga com o Dragon Bowling).
 O giro tambem pode ser trocado na propria maquina, no menu do operador.
@@ -80,10 +92,17 @@ O giro tambem pode ser trocado na propria maquina, no menu do operador.
 
 BOTOES DA ZERO DELAY (mesmo mapa do Dragon Bowling)
 ---------------------------------------------------
+A placa vai no MODO TECLADO, como no Dragon Bowling: cada botao/sensor
+manda uma tecla. Os sensores da pista sao ligados nos botoes da placa.
+
   STR = START (1 / Espaco)        SELECT = credito (5)
   Quadrado = sensor ESQUERDA (A)  X = MEIO-ESQUERDA (S)
   Bolinha  = CENTRO (D)           Triangulo = MEIO-DIREITA (F)
-  R1 = DIREITA (G)                L3 = CONFIGURACAO / OPERADOR (9)
+  R1 = DIREITA (G)                R2 = CONFIGURACAO / OPERADOR (9)
+
+Tambem funciona se a placa estiver no modo joystick (os botoes ja vem
+com os numeros do Android: X 0, Bolinha 1, Quadrado 2, Triangulo 3,
+SELECT 4, START 6, R1 10, R2 16).
 
 Se algum botao cair na funcao errada: no menu do operador escolha
 "CONFIGURAR BOTOES DA PLACA" (ou, na tela inicial, SEGURE qualquer botao
@@ -186,10 +205,16 @@ LEDS (ARDUINO) - igual ao Dragon Bowling
 ----------------------------------------
 Mesmo protocolo (READY/PONG:DRAGON_BOWLING:1) e mesmos comandos: MENU,
 BLUE (vez do Bob), RED (vez da Mia), IDLE, NORMAL, STRIKE, SPARE, MISS.
-O sketch esta em arduino/leds_boliche. Como no Pro Ultra, o APK padrao
-usa o modelo pronto do Godot (sem Gradle) e por isso NAO leva o plugin
-USB: para LEDs no Android, ative o plugin DragonUsbSerial (addons/) e o
-"Use Gradle Build" no preset Android (veja docs/DOCUMENTO_DO_JOGO.md).
+O sketch esta em arduino/leds_boliche. Para os LEDs no Android, gere o
+APK com:
+
+  GERAR_APK.bat -ComLeds
+
+Ele liga sozinho o plugin USB do Arduino, instala o modelo de build
+Android e usa Gradle (na primeira vez baixa as dependencias: precisa de
+internet). Sem -ComLeds o APK sai sem o plugin (o jogo funciona igual,
+so sem os LEDs). No primeiro encaixe do Arduino o Android pergunta se o
+Strike Kids pode usar o aparelho: marque "Usar por padrao" e confirme.
 
 
 SONS E VOZES
