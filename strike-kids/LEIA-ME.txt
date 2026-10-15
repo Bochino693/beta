@@ -73,9 +73,8 @@ estrelas no fim, recorde gravado na TV Box.
 
 COMO TESTAR NO PC
 -----------------
-0. Se recebeu o jogo em 2 ZIPs (parte 1 = jogo, parte 2 = modelos 3D),
-   extraia OS DOIS na mesma pasta: a parte 2 completa a pasta
-   strike-kids/modelos.
+0. O jogo vem num ZIP so (os modelos 3D ficaram leves). Extraia tudo
+   numa pasta (se tiver uma versao antiga em 2 partes, apague-a antes).
 1. Instale o Godot 4.6.1 (o mesmo do Dragon Bowling Pro Ultra).
 2. Abra o project.godot desta pasta e aperte F5.
    - Sensores: A S D F G  (esquerda ... direita)
