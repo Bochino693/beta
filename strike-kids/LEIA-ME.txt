@@ -99,6 +99,24 @@ COMO TESTAR NO PC
    O jogo se adapta a qualquer tela: em pe ou deitada.
 
 
+VERSAO WINDOWS PRONTA (StrikeKids.exe) - para testar no PC
+----------------------------------------------------------
+Vem em 2 pedacos (StrikeKids_v5.0_Windows.zip.001 e .002, ate 30 MB
+cada). Junte e extraia assim:
+  * com o 7-Zip ou o WinRAR: clique com o direito no .001 > Extrair;
+  * sem programa: deixe os 2 pedacos e o JUNTAR_StrikeKids_Windows.bat
+    na mesma pasta, de 2 cliques nele (ele cria o
+    StrikeKids_v5.0_Windows.zip) e extraia o zip normal.
+Depois e so abrir o StrikeKids.exe (tela cheia; Alt+F4 fecha).
+  - F3 liga/desliga o painel de desempenho (QPS).
+  - Numa janela em pe:  StrikeKids.exe -- --janela=540x960
+  - Ja com o painel:    StrikeKids.exe -- --medidor
+  - Camera USB no PC: coloque o ffmpeg.exe na mesma pasta do jogo.
+IMPORTANTE para medir: o .exe e a versao "de verdade" (release). Rodar
+pelo editor do Godot (F5) e sempre mais pesado (modo de depuracao e o
+proprio editor aberto) - para saber se o PC roda liso, use o .exe.
+
+
 COMO GERAR O APK (igual ao Pro Ultra)
 -------------------------------------
 Precisa: Godot 4.6.1 (zip extraido em Downloads), JDK 17, Android SDK em
@@ -177,6 +195,8 @@ RODANDO LISO (PC e TV Box):
     sempre no lugar certo do instante de cada quadro (interpolacao da
     fisica), entao nao "tremem" mesmo quando os quadros por segundo
     oscilam. O REPLAY usa a mesma gravacao (cada passo da fisica).
+    Na CAMERA LENTA a fisica continua com o mesmo passo (so da menos
+    passos por segundo): a jogada sai igual em qualquer maquina.
   * Na abertura (com a marca na tela) o jogo prepara todos os desenhos
     (materiais de todos os cenarios, particulas, telas): nada de engasgo
     na primeira troca de cenario, primeiro strike ou bola de fogo.

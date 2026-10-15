@@ -51,7 +51,16 @@ func _process(_d: float) -> void:
 		print("REPLAY-TESTE estado=", principal.E.keys()[principal.estado], " quadro=", Engine.get_process_frames())
 	if principal.estado == principal.E.ROLANDO:
 		var bb: Node3D = principal.bola
-		_rolando.append([bb.get_global_transform_interpolated().origin, bb.global_position])
+		_rolando.append([Mundo.na_tela(bb).origin, bb.global_position])
+		# começo da jogada: câmera e bola quadro a quadro (e fotos, com pasta)
+		if _rolando.size() <= 40:
+			var cm: Camera3D = principal.cam
+			print("JOGADA q%02d cam=%s bola_tela=%s bola_fisica=%s visivel=%s" % [_rolando.size(), str(cm.global_position.snapped(Vector3.ONE * 0.01)),
+				str(_rolando[-1][0].snapped(Vector3.ONE * 0.01)), str(bb.global_position.snapped(Vector3.ONE * 0.01)), bb.visible])
+			if pasta != "":
+				var nome := "%s/j%02d.jpg" % [pasta, _rolando.size()]
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_jpg(nome, 0.85)
 	elif not _rolando.is_empty() and not _rolando_ok:
 		_rolando_ok = true
 		_relatorio_rolando()

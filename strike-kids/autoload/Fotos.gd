@@ -529,6 +529,12 @@ func _exit_tree() -> void:
 		_ff_busca.wait_to_finish()
 	if _plugin != null:
 		_plugin.call("fechar")
+	# a câmera de teste (feita em GDScript) sai do CameraServer antes do
+	# motor desligar (senão ele a apaga depois dos scripts e o jogo cai ao sair)
+	if _falsa != null:
+		_falsa.feed_is_active = false
+		CameraServer.remove_feed(_falsa)
+		_falsa = null
 
 
 # ================================================================ foto

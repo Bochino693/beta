@@ -71,6 +71,19 @@ var _bola_volta: MeshInstance3D
 var mat_boca_luz: ShaderMaterial
 
 
+## Onde um objeto movido pela física APARECE neste quadro (interpolado
+## entre dois passos). No quadro de um teletransporte (bola saindo da mão,
+## pino recolocado) o Godot ainda devolve o lugar antigo: aí vale o atual.
+static func na_tela(n: Node3D) -> Transform3D:
+	if not n.is_physics_interpolated_and_enabled():
+		return n.global_transform
+	var t := n.get_global_transform_interpolated()
+	var g := n.global_transform
+	if t.origin.distance_squared_to(g.origin) > 1.0:
+		return g
+	return t
+
+
 func construir() -> void:
 	_ambiente()
 	_sol()

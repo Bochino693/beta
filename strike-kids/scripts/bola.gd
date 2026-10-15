@@ -238,7 +238,7 @@ func _process(_delta: float) -> void:
 	if not visible:
 		return
 	# onde a bola APARECE neste quadro (entre dois passos da física)
-	var g := get_global_transform_interpolated().origin
+	var g := Mundo.na_tela(self).origin
 	_sombra.global_position = Vector3(g.x, max(g.y - RAIO, -0.3) + 0.008, g.z)
 	_sombra.global_rotation = Vector3.ZERO
 	var alt: float = clamp(1.0 - (g.y - RAIO) * 1.5, 0.3, 1.0)

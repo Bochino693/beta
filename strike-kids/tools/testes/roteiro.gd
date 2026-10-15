@@ -59,6 +59,13 @@ func esperar_estado(nome: String, limite := 30.0) -> bool:
 	return true
 
 
+func esperar_sair_de(nome: String, limite := 10.0) -> void:
+	var t := 0.0
+	while principal.E.keys()[principal.estado] == nome and t < limite:
+		await get_tree().process_frame
+		t += get_process_delta_time()
+
+
 func esperar_pronto_ou_fim(limite := 60.0) -> bool:
 	var t := 0.0
 	while not (principal.E.keys()[principal.estado] in ["PRONTO", "FIM"]):
@@ -138,7 +145,9 @@ func _rodar() -> void:
 			await foto("pinos_%d" % i)
 			await esperar(1.0)
 			await foto("resultado_%d" % i)
-			if await esperar_estado("REPLAY", 2.5):
+			# máquina lenta (teste): espera a bola terminar antes do replay
+			await esperar_sair_de("ROLANDO", 12.0)
+			if await esperar_estado("REPLAY", 4.0):
 				await esperar(0.9)
 				await foto("replay_a_%d" % i)
 				await esperar(1.3)

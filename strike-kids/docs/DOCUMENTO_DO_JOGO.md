@@ -269,6 +269,10 @@ para o próximo.
     cada quadro, lisos em 60, 75 ou 144 Hz e com QPS oscilando; câmera,
     sombras e rastro seguem a posição interpolada; o resto do jogo (que
     anda a cada quadro) fica sem interpolação;
+  - **câmera lenta sem mexer na física**: o passo da física é sempre de
+    1/120 s (o mesmo da calibração das jogadas); na câmera lenta a física
+    só dá menos passos por segundo (0,4 = 48/s) e a interpolação deixa a
+    imagem lisa — o resultado da jogada não depende do QPS da máquina;
   - **medidor** (`scripts/medidor.gd`): painel de QPS/ms/CPU/placa de vídeo/
     desenhos/memória (F3 ou menu do operador) e TESTE DE DESEMPENHO de 20 s
     com qualidade recomendada (grava `user://desempenho.txt`); bancada

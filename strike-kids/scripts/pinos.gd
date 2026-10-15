@@ -62,7 +62,7 @@ func _process(_d: float) -> void:
 	for i in pinos.size():
 		var p := pinos[i]
 		# onde o pino APARECE neste quadro (interpolado entre passos da física)
-		var tp := p.get_global_transform_interpolated()
+		var tp := Mundo.na_tela(p)
 		var g := tp.origin
 		# pino levantado pela máquina ou longe do chão: a sombra some
 		var f := 0.0 if p.removido or not p.visible or g.y < -0.1 else clampf(1.0 - g.y * 2.2, 0.0, 1.0)

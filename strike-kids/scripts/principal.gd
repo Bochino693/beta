@@ -64,6 +64,9 @@ var _replay_fim := 0.0
 var _replay_alvo: Node3D
 var _replay_rastro := 0.0
 var _lenta: Tween
+## passos da física por segundo (project.godot); a câmera lenta só diminui
+## quantos passos acontecem por segundo, nunca o tamanho do passo
+const PASSOS_FISICA := 120
 var _escolha_n := 1
 var _escolha_t := 0.0
 var _destaque := 0
@@ -347,8 +350,9 @@ func _abertura() -> void:
 		if bola.global_position.z < Mundo.Z_PINO1 + 3.3:
 			pinos.susto(bola.global_position)
 	Sons.rolando(false)
-	# 2) ...STRIKE em câmera lenta, vista de lado
-	cam.corte(Vector3(1.25, 0.42, Mundo.Z_PINO1 + 0.95), Vector3(-0.15, 0.3, Mundo.Z_PINO1 - 0.45), 38, 42)
+	# 2) ...STRIKE em câmera lenta, vista de lado (de cima da canaleta, por
+	# dentro das paredes da caçapa)
+	cam.corte(Vector3(0.6, 0.36, Mundo.Z_PINO1 + 1.2), Vector3(-0.12, 0.27, Mundo.Z_PINO1 - 0.45), 40, 44)
 	cam.tremer(0.05, 0.4)
 	Sons.tocar("pinos_queda", 0.9)
 	_camera_lenta(0.3, 1.3)
@@ -378,7 +382,7 @@ func _abertura() -> void:
 	Sons.musica("musica_menu")
 	cam.trilho([
 		[Vector3(0, 4, Mundo.Z_PINO1 + 5.0), Vector3(0, 0.4, Mundo.Z_PINO1), 0.0],
-		[Vector3(1.2, 2.2, 1.5), Vector3(0, 0.6, -4), 1.3],
+		[Vector3(0.0, 3.3, 0.6), Vector3(0, 0.6, -4), 1.3],
 		[Vector3(0, 1.4, 5.6), Vector3(0, 0.75, 1.6), 1.2],
 	], 52, 40)
 	if not await _esperar(2.4, s):
@@ -876,16 +880,26 @@ func _impacto(b: Vector3) -> void:
 func _camera_lenta(escala: float, dur_real: float) -> void:
 	_parar_lenta()
 	_lenta = create_tween().set_ignore_time_scale(true)
-	_lenta.tween_property(Engine, "time_scale", escala, 0.08).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	_lenta.tween_method(_ritmo, 1.0, escala, 0.08).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
 	_lenta.tween_interval(maxf(dur_real - 0.08, 0.0))
-	_lenta.tween_property(Engine, "time_scale", 1.0, 0.3).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
+	_lenta.tween_method(_ritmo, escala, 1.0, 0.3).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
+
+
+## Ritmo do tempo SEM mudar a física: o passo da física continua sempre de
+## 1/120 s (o mesmo da calibração das jogadas — o resultado não muda);
+## na câmera lenta ela só dá MENOS passos por segundo (0,4 = 48 por
+## segundo) e a interpolação deixa a imagem lisa.
+func _ritmo(v: float) -> void:
+	var passos := clampi(int(round(float(PASSOS_FISICA) * v)), 12, PASSOS_FISICA)
+	Engine.physics_ticks_per_second = passos
+	Engine.time_scale = float(passos) / float(PASSOS_FISICA)
 
 
 func _parar_lenta() -> void:
 	if _lenta != null and _lenta.is_valid():
 		_lenta.kill()
 	_lenta = null
-	Engine.time_scale = 1.0
+	_ritmo(1.0)
 
 
 ## O relógio da jogada anda junto com a FÍSICA (120 passos por segundo, já
@@ -1045,7 +1059,7 @@ func _plano_maquina() -> void:
 ## mais devagar — um pouco mais lenta em volta da batida, sempre suave.
 const REPLAY_VEL := 0.45
 const REPLAY_VEL_BATIDA := 0.27
-const REPLAY_ANTES := 0.95
+const REPLAY_ANTES := 0.8
 const REPLAY_DEPOIS := 1.6
 ## o rastro de arco-íris ganha um ponto a cada 1/60 s da jogada (igual ao jogo)
 const REPLAY_RASTRO := 1.0 / 60.0

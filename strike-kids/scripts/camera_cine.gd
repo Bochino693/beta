@@ -153,7 +153,7 @@ func _aplicar(delta: float) -> void:
 	elif _seguir != null and is_instance_valid(_seguir):
 		# a bola aparece interpolada entre os passos da física: a câmera
 		# segue onde ela APARECE (senão a bola tremeria na tela)
-		var g := _seguir.get_global_transform_interpolated().origin
+		var g := Mundo.na_tela(_seguir).origin
 		_pos_dest = g + _desl_pos
 		_alvo_dest = g + _desl_alvo
 	if delta > 0.0 and _trilho.is_empty():
