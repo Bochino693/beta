@@ -34,6 +34,9 @@ const PADRAO := {
 	},
 	"video": {
 		"qualidade": "auto",
+		"medidor": false,          # painel de desempenho na tela (F3 no PC)
+		"qualidade_auto": "",      # o que o TESTE DE DESEMPENHO recomendou
+		"testar": false,           # pedido do menu: rodar o teste ao voltar
 	},
 }
 

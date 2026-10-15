@@ -17,8 +17,15 @@ meio-direita, direita) vira a jogada na tela, em 3D:
     mostra a queda com FISICA DE VERDADE: a bola bate, os pinos voam, um
     derruba o outro, batem nas paredes e voltam. Nada e empurrado de
     mentira.
-  * STRIKE tem camera lenta, REPLAY com camera colada nos pinos, e o
-    mascote comemora com um pulo girando e uma chuva de estrelas.
+  * STRIKE tem camera lenta e REPLAY: a MESMA jogada (cada passo da
+    fisica fica gravado), em camera lenta lisinha - camera colada na
+    bola, corte de lado na batida e a explosao de pinos -, com o rastro
+    de arco-iris e o barulho da bola mais grave. Depois o mascote
+    comemora com um pulo girando e uma chuva de estrelas.
+  * CACAPA DAS BOLAS: depois dos pinos a bola cai no fosso, a esteira leva
+    ate a boca da cacapa (cortina de tiras de borracha que balancam quando
+    ela passa) e, logo depois, ela volta rolando no RETORNO DE BOLAS, ao
+    lado de quem joga.
   * A MAQUINA DE PINOS trabalha como num boliche de verdade: a barra desce
     e varre os pinos caidos para o fosso, a mesa levanta os que ficaram em
     pe e devolve cada um no lugar; na rodada nova a mesa desce com os 10
@@ -50,9 +57,13 @@ COMO SE JOGA (tudo pela placa Zero Delay)
   No alto das telas de preparacao aparece em que passo esta
   (1 JOGADORES > 2 AMIGO > 3 FOTO > 4 JOGAR).
 
-MARCA LAZER & SPORT: so na inicializacao do aparelho e na abertura (o
-dardo acerta o alvo e entra "apresenta") e num BALAOZINHO (uns 60 cm),
-sem fundo, que flutua ao lado da pista no cenario do Parque de Diversoes.
+ABERTURA LAZER & SPORT GAMES (ao ligar): faixas de cinema, a bola com o
+alvo da Lazer & Sport rola pela pista com a camera colada nela, faz
+STRIKE em camera lenta e, sobre a explosao dos pinos, a marca LAZER &
+SPORT GAMES "estoura" na tela com estrelinhas ("apresenta"); depois a
+camera voa pelo cenario ate a tela inicial com o Bob e a Mia.
+Fora a abertura, a marca aparece so num BALAOZINHO (uns 60 cm), sem
+fundo, que flutua ao lado da pista no cenario do Parque de Diversoes.
 
 FUNDO DA PISTA: um PORTAL de parque nas cores de cada cenario - arco de
 raios coloridos com lampadas, letreiro STRIKE KIDS, colunas iluminadas e
@@ -139,6 +150,7 @@ C ou START escolhe, CONFIGURACAO volta ao jogo.
   Modo livre ou fichas por partida         Tempo sem jogar ate o aviso
   Volume da musica e dos efeitos           Som na demonstracao
   Qualidade grafica (automatica/alta/media/baixa)
+  Mostrar desempenho na tela (QPS) - TESTE DE DESEMPENHO (20 s)
   Giro da tela (1, -1, 0)
   Teste dos sensores (conta cada sensor acionado)
   Foto das criancas (camera) - Teste da camera
@@ -147,90 +159,88 @@ C ou START escolhe, CONFIGURACAO volta ao jogo.
 
 RODANDO LISO (PC e TV Box):
   * IMAGEM 3D EM TAMANHO FIXO, ESTICADA SOZINHA ate a tela inteira: na
-    TV Box o 3D e desenhado em 720 x 1280 (alta: ate 1440) e esticado
-    para 1080p/4K; os textos e placas continuam nitidos por cima.
+    TV Box o 3D e desenhado com 640 px no lado menor (640 x 1138 numa
+    tela em pe) e esticado para 1080p/4K; os textos e placas continuam
+    nitidos por cima. No PC (qualidade alta), ate 1440 px.
   * A cada 2,5 s o jogo mede os quadros por segundo: se cair abaixo de
     ~52, a imagem 3D diminui um pouco (ate 60%); se ainda nao der e a
     qualidade for AUTOMATICA, desce de nivel (alta > media > baixa).
-  * Bonecos, pinos e cenario com malhas leves (Bob 26 mil triangulos,
-    pino 2,4 mil; antes 120 mil e 14 mil), pecas paradas juntadas em
-    poucas malhas, sombras pintadas (pinos, bola e bichinhos) no lugar da
-    sombra do sol (que no Godot "Compatibilidade" desenha tudo 2 vezes).
+  * O que mais pesa numa placa de video fraca e PINTAR PIXELS. Por isso a
+    pista, o piso e o arco do portal sao desenhados "sem luz" (a luz ja
+    vem pintada nas cores), com conta fixa por pixel; nao tem sombra do
+    sol (no Godot "Compatibilidade" ela desenha tudo 2 vezes): as sombras
+    sao manchas pintadas; MSAA e brilho (glow) so no PC.
+  * Bonecos, pinos e cenario com malhas leves; pecas paradas juntadas em
+    poucas malhas (por material e regiao): ~140 desenhos por quadro.
+  * MOVIMENTO LISO EM QUALQUER TELA: a fisica anda 120 passos por segundo
+    e a tela 60, 75, 144... A bola, os pinos e a maquina de pinos aparecem
+    sempre no lugar certo do instante de cada quadro (interpolacao da
+    fisica), entao nao "tremem" mesmo quando os quadros por segundo
+    oscilam. O REPLAY usa a mesma gravacao (cada passo da fisica).
   * Na abertura (com a marca na tela) o jogo prepara todos os desenhos
     (materiais de todos os cenarios, particulas, telas): nada de engasgo
     na primeira troca de cenario, primeiro strike ou bola de fogo.
 
-  ALTA  (PC): MSAA 4x, brilho (glow), 3D ate 1440 px no lado menor.
-  MEDIA (TV Box): MSAA 2x, 3D em 720 px no lado menor.
-  BAIXA (TV Box fraca): sem MSAA, sem neblina, 3D em 600 px.
+  ALTA  (PC): MSAA 4x, brilho (glow), filtro anisotropico, 3D ate 1440 px.
+  MEDIA (TV Box): sem MSAA, 3D com 640 px no lado menor.
+  BAIXA (TV Box fraca): sem MSAA, sem neblina e sem contornos, 3D 540 px.
 Todas as imagens tem mipmaps (nada cintila nem serrilha quando aparece
 pequeno); rostos, bola, madeira e letreiros usam compressao de alta
 qualidade da placa de video (pouca memoria, sem perder nitidez).
 
 
-COMO A JOGADA E DECIDIDA (fisica de verdade, justa e ajustavel)
----------------------------------------------------------------
-O sensor diz POR ONDE a bola passou. O jogo sorteia "quao boa" foi a
-jogada pela tabela da dificuldade (scripts/jogada.gd, TABELA) e escolhe a
-LINHA da bola (direcao, velocidade e efeito) numa tabela de 3.834 jogadas
-simuladas com a mesma fisica do jogo (dados/tabela_jogadas.json). Quem
-derruba os pinos e so a fisica: a mira e sempre o bolso do strike; quanto
-mais longe do centro, mais torta a bola chega.
+COMO MEDIR SE ESTA LISO (na propria TV Box ou no PC)
+----------------------------------------------------
+Nao precisa de programa nenhum: o medidor esta dentro do jogo.
 
-Medido em 400 jogadas simuladas por dificuldade (1a bola, com
-para-choques), strikes:
-  Facil:   centro 58% | meio 33 a 41% | lados 12 a 17%
-  Normal:  centro 32% | meio 18 a 22% | lados  8 a 12%
-  Dificil: centro 26% | meio 11 a 13% | lados  2 a  3%
-Na 2a e 3a bola a mira e o grupo de pinos que sobrou (o pino da frente,
-pelo lado que joga ele em cima dos outros).
+1) PAINEL NA TELA - no PC aperte F3; na TV Box: menu do operador >
+   "Mostrar desempenho na tela (QPS)". Aparece no canto de cima:
 
-Se mexer na fisica (pista, pinos, bola), refaca a tabela:
-  godot --headless --path . --fixed-fps 120 res://tools/testes/calibrar.tscn
-e confira:  ... calibrar.tscn -- --validar=normal
+     58 QPS   (17.2 ms, pior 24 ms)          <- verde, amarelo ou vermelho
+     CPU 4.1 ms - placa: 3D 9.8 ms, tela 1.2 ms
+     142 desenhos - 168 mil triangulos
+     3D 640x1138 - MEDIA - memoria 180 MB - video 120 MB
 
+   QPS = quadros por segundo. 60 = perfeito; 50 ou mais = liso (verde);
+         30 a 50 = joga, mas da para ver travadinhas (amarelo);
+         menos de 30 = travado (vermelho).
+   ms  = quanto tempo leva cada quadro (60 QPS = 16,7 ms por quadro).
+         "pior" = o quadro mais demorado do ultimo meio segundo (engasgo).
+   CPU = o processador (regras do jogo, fisica, preparar os desenhos).
+   placa: 3D / tela = quanto a PLACA DE VIDEO leva para desenhar o 3D e a
+         interface. Se "placa 3D" passar de ~14 ms, quem pesa e a placa
+         de video: baixe a qualidade (ou deixe na AUTOMATICA). Se a CPU
+         passar de ~14 ms, o processador e que nao da conta.
+   desenhos / triangulos = quantas coisas a placa desenha por quadro.
 
-CAMERA (FOTO DAS CRIANCAS) - camera USB Sigma na TV Box
------------------------------------------------------------
-O Godot 4.6 sozinho NAO enxerga webcam USB no Android (ele ignora camera
-"externa") e nao tem camera no Windows. Por isso:
-  * TV Box: plugin StrikeCamera (Java, vai no APK) - abre a webcam USB
-    pela Camera2 (camera externa) ou, nas TV Box com driver antigo, pela
-    Camera1. Fonte em tools/android/StrikeCamera (construir.sh refaz o
-    addons/StrikeCamera/bin/StrikeCamera.aar).
-  * PC com Windows: pelo ffmpeg. Baixe o ffmpeg (ffmpeg.exe, versao
-    "essentials") e coloque o ffmpeg.exe na pasta do jogo (ou no PATH).
-    O jogo acha a webcam sozinho (prefere nomes com USB/Sigma/UVC).
-  * Linux: direto (CameraServer do Godot).
-O jogo procura a camera ao abrir, de novo a cada 8 s enquanto nao achar e
-na hora de escolher os jogadores (pode ligar o cabo com o jogo aberto).
+2) TESTE DE DESEMPENHO - menu do operador > "TESTE DE DESEMPENHO".
+   Por 20 segundos o jogo passa pelas 4 vistas mais pesadas (pista de
+   frente, pinos e portal, bichinhos, cenario de cima) e no fim mostra a
+   media de QPS, o pior momento, cada vista e a QUALIDADE RECOMENDADA.
+   Com a qualidade em AUTOMATICA ele ja passa a usar a recomendada.
+   O resultado fica gravado na TV Box (user://desempenho.txt).
 
-1. Ligue a camera USB na TV Box e deixe-a virada para quem joga (em cima
-   ou embaixo da tela).
-2. Na primeira vez o Android pergunta se o Strike Kids pode usar a camera:
-   responda PERMITIR (fica gravado).
-3. Menu do operador > TESTE DA CAMERA: aparece a imagem ao vivo. Se ela
-   estiver de lado ou de ponta-cabeca, aperte Z ou B para girar (fica
-   gravado em "Giro da camera"; "Espelhar a camera" liga/desliga o efeito
-   espelho). A linha de baixo do menu mostra "Camera: OK (nome)".
-4. Para desligar as fotos: menu do operador > "Foto das criancas" = NAO.
-Sem camera (ou se ela nao mandar imagem) o jogo segue normal, com os
-mascotes no lugar das fotos.
+3) NO PC, PARA QUEM MEXE NO JOGO: a bancada de testes mede quanto CADA
+   parte custa (liga e desliga uma de cada vez, em 4 vistas):
+     godot --path . -- --janela=720x1280 --benchmark
+   e o teste do replay/movimento (anda por igual em todo quadro?):
+     godot --path . --fixed-fps 50 -- --janela=540x960 --replay-teste
 
-Onde ficam as fotos: SO na TV Box. As da partida ficam na memoria e somem
-quando comeca outra partida; ficam gravadas so as da CLASSIFICACAO DE
-HOJE (os 10 melhores do dia, user://fotos/rank_*.png - apagadas na virada
-do dia) e a de quem fez o RECORDE (user://fotos/recorde_j1.png e
-recorde_j2.png). "ZERAR RECORDES" apaga tudo. Nada vai para a internet. Como sao fotos de criancas,
-deixe um aviso na maquina ("este jogo tira uma foto para o placar").
-
-Se o teste mostrar "nenhuma camera encontrada" com a camera ligada:
-confira se o APK foi gerado COM a camera (fim do GERAR_APK) e se a TV Box
-mostra a webcam no app de camera do Android. Algumas placas nao entregam
-a webcam USB para os apps (nem pela Camera1) - ai e preciso outro caminho
-(driver UVC direto pelo USB); me mande o modelo da TV Box.
-
-No PC (sem webcam), para testar: godot --path . -- --camera-falsa
+DICAS PARA OS PROXIMOS JOGOS 3D NA TV BOX (Mali-G31, 2 GB):
+  * Meta: 16 ms por quadro. Na TV Box quem estoura quase sempre e a placa
+    de video pintando pixels, nao o processador.
+  * Desenhe o 3D em ~640-720 px e estique ate a tela (SubViewport); os
+    textos por cima na resolucao da tela.
+  * Nada de sombra em tempo real, brilho (glow), SSAO, reflexos, neblina
+    volumetrica nem MSAA na TV Box.
+  * Superficies grandes (chao, pista, ceu, paredes) com shader simples e
+    "unshaded", com a luz pintada nas cores.
+  * Ate ~150 desenhos e ~200 mil triangulos por quadro; junte as pecas
+    paradas numa malha so (por material).
+  * Texturas com mipmaps e compressao; com 2 GB de memoria, cuidado com
+    texturas gigantes (uma 4096 x 4096 sem compressao ocupa 64 MB).
+  * Coisas movidas pela fisica: ligue a interpolacao da fisica so nelas.
+  * Teste SEMPRE com o painel ligado, na vista mais pesada do jogo.
 
 
 TV BOX PROELETRONIC SMARTPRO 4K (2 GB)

@@ -107,6 +107,8 @@ buffering/agile_event_flushing=true
 
 common/physics_ticks_per_second=120
 common/max_physics_steps_per_frame=10
+common/physics_jitter_fix=0.0
+common/physics_interpolation=true
 3d/physics_engine="Jolt Physics"
 jolt_physics_3d/simulation/velocity_steps=16
 jolt_physics_3d/simulation/position_steps=4

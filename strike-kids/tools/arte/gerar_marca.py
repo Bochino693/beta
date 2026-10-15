@@ -11,6 +11,8 @@ retas e lisas, como num desenho vetorial) e reduz 2x com filtro Lanczos
   ui/marca/alvo.png          só o alvo com o dardo (abertura animada)
   ui/marca/placa.png         só a placa "Lazer & Sport" (abertura animada)
   ui/marca/fundo.png         fundo azul da abertura (igual ao da inicialização)
+  ui/marca/games.png         selo "GAMES" (LAZER & SPORT GAMES na abertura)
+  texturas/bola_alvo.png     a bola da abertura com os anéis do alvo
   ui/splash.png              tela de inicialização (fundo azul + logo), em pé
   ui/splash_giro_1.png       a mesma, deitada (TV Box com monitor em pé, giro 1)
   ui/splash_giro_m1.png      idem, girada para o outro lado (giro -1)
@@ -115,6 +117,52 @@ def splash(logo):
     deitada.convert("RGB").save(os.path.join(RAIZ, "ui", "splash_giro_0.png"), optimize=True)
 
 
+def games():
+    """Selo "GAMES" (fita vermelha com contorno escuro, letras brancas) que
+    entra embaixo da placa na abertura: LAZER & SPORT GAMES."""
+    from PIL import ImageFont
+    fonte = ImageFont.truetype(os.path.join(RAIZ, "fontes", "titan_one.ttf"), 250)
+    texto = "GAMES"
+    caixa = fonte.getbbox(texto, stroke_width=22)
+    tw, th = caixa[2] - caixa[0], caixa[3] - caixa[1]
+    W, H = tw + 300, th + 150
+    img = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+    r = H // 2 - 6
+    d.rounded_rectangle((6, 6, W - 7, H - 7), radius=r, fill=(42, 42, 42, 255))
+    d.rounded_rectangle((26, 26, W - 27, H - 27), radius=r - 20, fill=(238, 66, 94, 255))
+    # brilho em cima (verniz, como a placa do jogo)
+    brilho = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    db = ImageDraw.Draw(brilho)
+    db.rounded_rectangle((46, 40, W - 47, H // 2 - 4), radius=r - 40, fill=(255, 255, 255, 60))
+    img.alpha_composite(brilho)
+    x = (W - tw) // 2 - caixa[0]
+    y = (H - th) // 2 - caixa[1] - 6
+    d = ImageDraw.Draw(img)
+    d.text((x, y + 10), texto, font=fonte, fill=(120, 20, 40, 255), stroke_width=22, stroke_fill=(42, 42, 42, 255))
+    d.text((x, y), texto, font=fonte, fill=(255, 255, 255, 255), stroke_width=22, stroke_fill=(42, 42, 42, 255))
+    img = img.resize((W // 2, H // 2), Image.LANCZOS)
+    img.save(os.path.join(PASTA, "games.png"), optimize=True)
+    print("games", img.size)
+
+
+def bola_alvo():
+    """Textura da bola da abertura: o alvo da marca (anéis vermelho e branco
+    em volta do polo) — a bola de boliche com a cara da Lazer & Sport."""
+    W, H = 512, 256
+    y = np.arange(H)[:, None] / (H - 1)          # 0 = polo de cima
+    ang = y * np.pi
+    anel = np.floor(ang / (np.pi / 9.0)).astype(int) % 2
+    verm = np.array([238, 66, 94], np.float32)
+    bran = np.array([252, 252, 252], np.float32)
+    escuro = np.array([180, 52, 68], np.float32)
+    c = np.where(anel[..., None] == 0, verm, bran)
+    c = np.where((y > 0.5)[..., None], escuro + (verm - escuro) * 0.4, c)
+    c = np.broadcast_to(c, (H, W, 3)).copy()
+    Image.fromarray(c.astype(np.uint8), "RGB").save(os.path.join(RAIZ, "texturas", "bola_alvo.png"), optimize=True)
+    print("bola_alvo", (W, H))
+
+
 def main():
     os.makedirs(PASTA, exist_ok=True)
     original = Image.open(ORIGINAL).convert("RGBA")
@@ -141,6 +189,8 @@ def main():
     print("placa", placa.crop(cp).size, "centro %.4f %.4f" % (cx_p, cy_p))
     splash(logo)
     print("splash ok")
+    games()
+    bola_alvo()
 
 
 if __name__ == "__main__":

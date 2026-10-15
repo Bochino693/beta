@@ -19,7 +19,7 @@ uniform float flash : hint_range(0.0, 1.0) = 0.0;
 uniform float brilho_luz : hint_range(0.0, 4.0) = 1.4;
 
 uniform bool usa_rosto = false;
-uniform sampler2D rosto : source_color, filter_linear_mipmap_anisotropic, repeat_disable;
+uniform sampler2D rosto : source_color, filter_linear_mipmap, repeat_disable;
 uniform vec2 rosto_centro = vec2(0.0, 0.235);
 uniform vec2 rosto_tamanho = vec2(0.46, 0.40);
 uniform vec2 rosto_grade = vec2(4.0, 2.0);
@@ -32,13 +32,22 @@ vec3 srgb_para_linear(vec3 c) {
 	return mix(c / 12.92, pow((c + 0.055) / 1.055, vec3(2.4)), step(vec3(0.04045), c));
 }
 
+// conversões de cor feitas por VÉRTICE (não por pixel): mesma cor, bem
+// mais leve na placa de vídeo
+varying vec3 cor_base;
+varying vec3 cor_brilho;
+varying vec3 cor_emissao;
+
 void vertex() {
 	pos_local = VERTEX;
 	normal_local = NORMAL;
+	cor_base = srgb_para_linear(COLOR.rgb) * srgb_para_linear(tinta.rgb);
+	cor_brilho = srgb_para_linear(cor_borda) * borda;
+	cor_emissao = srgb_para_linear(emissao);
 }
 
 void fragment() {
-	vec3 base = srgb_para_linear(COLOR.rgb) * srgb_para_linear(tinta.rgb);
+	vec3 base = cor_base;
 	if (usa_rosto && normal_local.z > 0.05) {
 		vec2 uv = (pos_local.xy - rosto_centro) / rosto_tamanho + 0.5;
 		uv.y = 1.0 - uv.y;
@@ -53,7 +62,7 @@ void fragment() {
 	SPECULAR = 0.0;
 	float rim = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), 3.0);
 	float luz = 1.0 - clamp(abs(COLOR.a - 0.5) * 5.0, 0.0, 1.0);
-	EMISSION = srgb_para_linear(cor_borda) * rim * borda * base + srgb_para_linear(emissao) + vec3(flash) * base
+	EMISSION = cor_brilho * rim * base + cor_emissao + vec3(flash) * base
 		+ base * luz * brilho_luz;
 }
 

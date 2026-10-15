@@ -11,7 +11,7 @@ extends Node
 ## Teclado no PC: A S D F G = sensores, 1/Espaço = START, 5 = crédito,
 ## 9 = configuração. Também dá para clicar/tocar nas 5 luzes da tela.
 
-enum E { ABERTURA, ATRACAO, JOGADORES, PERSONAGEM, PRONTO, ARREMESSO, ROLANDO, RESULTADO, REPLAY, FIM, DEMO, FOTO }
+enum E { ABERTURA, ATRACAO, JOGADORES, PERSONAGEM, PRONTO, ARREMESSO, ROLANDO, RESULTADO, REPLAY, FIM, DEMO, FOTO, TESTE }
 
 const Z_INICIO := 3.15
 const X_MAO := 0.28            # a mão direita fica 0,28 m à direita do corpo
@@ -35,6 +35,8 @@ var maquina: Maquina
 var bola: Bola
 var efeitos: Efeitos
 var hud: Hud
+var medidor: Medidor
+var _resultado_teste: Label
 var personagens := {}
 var placar := Placar.new()
 var jogada: Jogada
@@ -60,6 +62,8 @@ var _replay_ativo := false
 var _replay_inicio := 0.0
 var _replay_fim := 0.0
 var _replay_alvo: Node3D
+var _replay_rastro := 0.0
+var _lenta: Tween
 var _escolha_n := 1
 var _escolha_t := 0.0
 var _destaque := 0
@@ -81,7 +85,7 @@ var _mouse_parado := 0.0
 ## nesse tamanho fixo e ESTICADO SOZINHO até a tela inteira (TV Box 4K ou
 ## 1080p, PC, monitor em pé) — a interface continua nítida por cima.
 ## Se a placa de vídeo não segurar 60 quadros, o fator abaixa sozinho.
-const LADO_3D := {"alta": 1440, "media": 720, "baixa": 600}
+const LADO_3D := {"alta": 1440, "media": 640, "baixa": 540}
 
 
 func _ready() -> void:
@@ -91,16 +95,25 @@ func _ready() -> void:
 	if OS.has_environment("STRIKE_QUALIDADE"):
 		_qualidade = OS.get_environment("STRIKE_QUALIDADE")
 	if _qualidade == "auto":
-		_qualidade = "alta" if OS.get_name() != "Android" else "media"
+		# o TESTE DE DESEMPENHO do menu do operador já mediu esta máquina?
+		var medida := str(Ajustes.valor("video", "qualidade_auto"))
+		if medida in ["alta", "media", "baixa"]:
+			_qualidade = medida
+		else:
+			_qualidade = "alta" if OS.get_name() != "Android" else "media"
 	Materiais.contornos_ligados = _qualidade != "baixa"
 	for a in OS.get_cmdline_user_args():
 		# testes e vídeos: resolução fixa (a máquina de teste é lenta)
-		if a.begins_with("--roteiro") or a.begins_with("--video") or a.begins_with("--instantes"):
+		if a.begins_with("--roteiro") or a.begins_with("--video") or a.begins_with("--instantes") or a.begins_with("--replay-teste"):
 			_adaptar = false
 	_montar_3d()
 	hud = Hud.new()
 	add_child(hud)
 	hud.montar(vp.get_texture())
+	medidor = Medidor.new(self)
+	hud.add_child(medidor)
+	if OS.get_cmdline_user_args().has("--medidor"):
+		medidor.mostrar(true)
 	# prepara os shaders de tudo enquanto a marca cobre a tela
 	var aq := Aquecer.new()
 	add_child(aq)
@@ -117,6 +130,12 @@ func _ready() -> void:
 func _ligar_roteiro_de_teste() -> void:
 	if OS.get_cmdline_user_args().has("--desempenho") and ResourceLoader.exists("res://tools/testes/desempenho.gd"):
 		add_child(load("res://tools/testes/desempenho.gd").new())
+	if OS.get_cmdline_user_args().has("--benchmark") and ResourceLoader.exists("res://tools/testes/benchmark.gd"):
+		add_child(load("res://tools/testes/benchmark.gd").new())
+		return
+	for a in OS.get_cmdline_user_args():
+		if a.begins_with("--replay-teste") and ResourceLoader.exists("res://tools/testes/replay_teste.gd"):
+			add_child(load("res://tools/testes/replay_teste.gd").new())
 	for a in OS.get_cmdline_user_args():
 		if a.begins_with("--roteiro") and ResourceLoader.exists("res://tools/testes/roteiro.gd"):
 			add_child(load("res://tools/testes/roteiro.gd").new())
@@ -132,6 +151,9 @@ func _ligar_roteiro_de_teste() -> void:
 # ================================================================ montagem
 func _montar_3d() -> void:
 	vp = SubViewport.new()
+	# (o Godot liga a interpolação da física em toda SubViewport; aqui ela
+	# fica desligada e só bola, pinos e máquina ligam — Tela.gd explica)
+	vp.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
 	vp.own_world_3d = true
 	vp.render_target_update_mode = SubViewport.UPDATE_ALWAYS
 	_qualidade_viewport()
@@ -153,6 +175,8 @@ func _montar_3d() -> void:
 	vp.add_child(bola)
 	bola.guardar()
 	bola.bateu.connect(_bola_bateu)
+	bola.recolhida.connect(_bola_recolhida)
+	mundo.bola = bola
 	efeitos = Efeitos.new()
 	vp.add_child(efeitos)
 	for nome in ["bob", "mia"]:
@@ -170,13 +194,15 @@ func _montar_3d() -> void:
 
 
 ## Antisserrilhado e nível de detalhe conforme a qualidade:
-##   alta  (PC / 4K): MSAA 4x, malhas no detalhe máximo;
-##   media (TV Box boa): MSAA 2x, simplifica as malhas de longe mais cedo;
+##   alta  (PC): MSAA 4x, malhas no detalhe máximo;
+##   media (TV Box): sem MSAA, simplifica as malhas de longe mais cedo;
 ##   baixa (TV Box fraca): sem MSAA, malhas bem simplificadas.
 func _qualidade_viewport() -> void:
-	vp.msaa_3d = {"alta": Viewport.MSAA_4X, "media": Viewport.MSAA_2X}.get(_qualidade, Viewport.MSAA_DISABLED)
+	# MSAA só no PC: na TV Box ele pesa ~30% do quadro (a imagem esticada já
+	# suaviza os serrilhados)
+	vp.msaa_3d = Viewport.MSAA_4X if _qualidade == "alta" else Viewport.MSAA_DISABLED
 	vp.mesh_lod_threshold = {"alta": 1.0, "media": 2.0, "baixa": 4.0}.get(_qualidade, 2.0)
-	vp.anisotropic_filtering_level = Viewport.ANISOTROPY_4X if _qualidade == "alta" else Viewport.ANISOTROPY_2X
+	vp.anisotropic_filtering_level = Viewport.ANISOTROPY_4X if _qualidade == "alta" else Viewport.ANISOTROPY_DISABLED
 
 
 ## Tamanho da imagem 3D: o lado menor da tela, limitado pelo LADO_3D da
@@ -193,13 +219,16 @@ func _tela_mudou(_t: Vector2) -> void:
 
 # ================================================================ entrada
 func _input(event: InputEvent) -> void:
+	if event is InputEventKey and event.is_pressed() and not event.is_echo() and (event as InputEventKey).keycode == KEY_F3:
+		medidor.alternar()
+		return
 	if event is InputEventMouseMotion:
 		_mouse_parado = 0.0
 		if Input.mouse_mode != Input.MOUSE_MODE_VISIBLE:
 			Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	if ArcadeControls.eh_config(event):
 		get_viewport().set_input_as_handled()
-		Engine.time_scale = 1.0
+		_parar_lenta()
 		get_tree().change_scene_to_file.call_deferred(CENA_OPERADOR)
 		return
 	if ArcadeControls.eh_credito(event):
@@ -226,6 +255,11 @@ func _start() -> void:
 		_fechar_inatividade()
 		return
 	match estado:
+		E.TESTE:
+			if _resultado_teste != null:
+				(_resultado_teste.get_meta("fundo") as Node).queue_free()
+				_resultado_teste = null
+				_atracao()
 		E.ABERTURA, E.ATRACAO, E.DEMO:
 			if Ajustes.pode_comecar():
 				_escolher_jogadores()
@@ -275,29 +309,98 @@ func _jogada_recebida(zona: String) -> void:
 func _abertura() -> void:
 	estado = E.ABERTURA
 	var s := _novo_seq()
-	_posicionar_atracao()
 	hud.atracao(false)
 	hud.mostrar_sensores(false)
-	# marca Lazer & Sport (continua a imagem de inicialização)
-	hud.marca(true)
-	_atrasado_som(0.3, "pop")
-	_atrasado_som(0.75, "brilho")
-	cam.trilho([[Vector3(0, 10, Mundo.Z_PINO1 - 10.0), Vector3(0, 0.5, Mundo.Z_PINO1 - 1.0), 0.0]], 52, 40)
-	if not await _esperar(2.5, s):
+	hud.mostrar_placar(false)
+	mundo.aplicar_tema("parque")
+	maquina.instantaneo()
+	# os bichinhos entram depois (na atração)
+	for nome in personagens:
+		(personagens[nome] as Personagem).visible = false
+	# 1) ABERTURA DE BOLICHE: a bola com o alvo da Lazer & Sport rola pela
+	# pista (câmera colada nela, faixas de cinema)...
+	bola.vestir("alvo")
+	bola.fogo(false)
+	hud.tarjas(true)
+	cam.corte(Vector3(0.16, 0.3, 1.45), Vector3(0.0, 0.14, -10.0), 26, 30)
+	if not await _esperar(0.5, s, false):
+		return
+	Jogada.forcar = [10]
+	var j := Jogada.planejar("C", pinos.em_pe(), true, "facil", true)
+	var origem := Vector3(j.origem_x, Bola.RAIO + 0.04, 0.35)
+	var dir := Vector3(j.alvo_x, Bola.RAIO, Mundo.Z_PINO1) - origem
+	dir.y = 0.0
+	bola.lancar(origem, dir.normalized() * j.velocidade, j.efeito)
+	pinos.soltar_todos()
+	Sons.tocar("whoosh", 0.6)
+	cam.seguir(bola, Vector3(0.14, 0.3, 1.3), Vector3(0.0, 0.06, -3.0), 28, 32, 7.0)
+	var t := 0.0
+	while bola.global_position.z > Mundo.Z_PINO1 + 0.32 and t < 3.0:
+		await get_tree().process_frame
+		if s != _seq:
+			Sons.rolando(false)
+			return
+		t += get_process_delta_time()
+		Sons.rolando(true, bola.velocidade())
+		mundo.bola_z = -bola.global_position.z
+		# os pinos fazem cara de medo quando a bola chega
+		if bola.global_position.z < Mundo.Z_PINO1 + 3.3:
+			pinos.susto(bola.global_position)
+	Sons.rolando(false)
+	# 2) ...STRIKE em câmera lenta, vista de lado
+	cam.corte(Vector3(1.25, 0.42, Mundo.Z_PINO1 + 0.95), Vector3(-0.15, 0.3, Mundo.Z_PINO1 - 0.45), 38, 42)
+	cam.tremer(0.05, 0.4)
+	Sons.tocar("pinos_queda", 0.9)
+	_camera_lenta(0.3, 1.3)
+	if not await _esperar(1.0, s, false):
+		return
+	# 3) LAZER & SPORT GAMES apresenta (por cima do strike)
+	Sons.tocar("strike", 0.75)
+	hud.flash(Color.WHITE, 0.45, 0.3)
+	hud.marca(true, false, true)
+	_atrasado_som(0.1, "brilho")
+	_atrasado_som(0.6, "pop")
+	efeitos.estrelas(Vector3(0, 0.6, Mundo.Z_PINO1 - 0.3), 30)
+	cam.ir(Vector3(0.0, 1.25, Mundo.Z_PINO1 + 4.6), Vector3(0.0, 1.0, Mundo.Z_PINO1 - 1.0), 46, 44, 0.8)
+	if not await _esperar(2.7, s, false):
 		return
 	hud.marca(false)
+	hud.tarjas(false)
+	# 4) voo até a atração: pinos de pé, os bichinhos chegam, STRIKE KIDS
+	hud.flash(Color.WHITE, 0.6, 0.35)
+	bola.guardar()
+	bola.vestir("bob")
+	mundo.bola_z = 100.0
+	maquina.instantaneo()
+	for nome in personagens:
+		(personagens[nome] as Personagem).visible = true
+	_posicionar_atracao()
 	Sons.musica("musica_menu")
 	cam.trilho([
-		[Vector3(0, 10, Mundo.Z_PINO1 - 10.0), Vector3(0, 0.5, Mundo.Z_PINO1 - 1.0), 0.0],
-		[Vector3(0, 4, Mundo.Z_PINO1 + 5.0), Vector3(0, 0.4, Mundo.Z_PINO1), 1.6],
-		[Vector3(1.2, 2.2, 1.5), Vector3(0, 0.6, -4), 1.4],
+		[Vector3(0, 4, Mundo.Z_PINO1 + 5.0), Vector3(0, 0.4, Mundo.Z_PINO1), 0.0],
+		[Vector3(1.2, 2.2, 1.5), Vector3(0, 0.6, -4), 1.3],
 		[Vector3(0, 1.4, 5.6), Vector3(0, 0.75, 1.6), 1.2],
 	], 52, 40)
-	if not await _esperar(3.0, s):
+	if not await _esperar(2.4, s):
 		return
 	hud.flash(Color.WHITE, 0.6)
 	Sons.tocar("brilho")
 	_atracao()
+	if bool(Ajustes.valor("video", "testar")):
+		Ajustes.definir("video", "testar", false)
+		_teste_desempenho()
+
+
+## TESTE DE DESEMPENHO (pedido no menu do operador): 20 s pelas vistas mais
+## pesadas; mostra a média de quadros por segundo e a qualidade recomendada.
+func _teste_desempenho() -> void:
+	estado = E.TESTE
+	_novo_seq()
+	hud.atracao(false)
+	_posicionar_atracao()
+	var r: Dictionary = await medidor.testar()
+	_resultado_teste = r["cartaz"]
+	mundo.aplicar_tema(Temas.ORDEM[0])
 
 
 func _atracao() -> void:
@@ -335,8 +438,9 @@ func _posicionar_atracao() -> void:
 	r.jatos(false)
 	t.olhar_alvo = null
 	r.olhar_alvo = null
-	t.tocar("danca", 0.3, true)
-	r.tocar("danca", 0.3, true)
+	# à vontade: respiram, acenam, olham em volta, dançam um pouquinho
+	t.ocioso(true)
+	r.ocioso(true)
 	t.expressao("feliz")
 	r.expressao("feliz")
 
@@ -372,7 +476,7 @@ func _escolher_jogadores() -> void:
 	_escolha_t = TEMPO_JOGADORES
 	ArduinoBridge.send_led("MENU")
 	bola.guardar()
-	Engine.time_scale = 1.0
+	_parar_lenta()
 
 
 func _confirmar_jogadores() -> void:
@@ -538,6 +642,7 @@ func _vez(nova_rodada: bool) -> void:
 	p.destaque(0.0)
 	a.posicionar(Vector3(-X_MAO, 0, Z_INICIO), 180)
 	a.segurar_bola(true)
+	mundo.guardar_retorno()
 	a.tocar("pronto", 0.15, true)
 	a.expressao("feliz")
 	a.olhar_alvo = null
@@ -670,6 +775,18 @@ func _soltou_bola(pos: Vector3) -> void:
 	Sons.tocar("start", 0.35, 1.4)
 
 
+## A bola entrou na caçapa do fundo: barulhinho do túnel e, um pouco
+## depois, ela aparece no retorno de bolas, perto de quem joga.
+func _bola_recolhida() -> void:
+	if estado in [E.ABERTURA, E.TESTE]:
+		return
+	Sons.tocar("whoosh", 0.45, 0.55)
+	var nome := _ativo
+	get_tree().create_timer(1.3).timeout.connect(func():
+		mundo.retorno_bola(Bola.material(nome))
+		Sons.tocar("pop", 0.55, 0.5))
+
+
 func _process(delta: float) -> void:
 	_medir_fps(delta)
 	# PC em tela cheia: a setinha do mouse some sozinha quando ninguém mexe
@@ -710,8 +827,7 @@ func _process(delta: float) -> void:
 			p.olhar_alvo = bola.global_position
 
 
-func _rolando(delta: float) -> void:
-	_t_jogada += delta
+func _rolando(_delta: float) -> void:
 	var b := bola.global_position
 	mundo.bola_z = -b.z
 	Sons.rolando(b.z > Mundo.Z_PINO1 - 0.5, bola.velocidade())
@@ -755,22 +871,39 @@ func _impacto(b: Vector3) -> void:
 		_camera_lenta(0.4, 0.5)
 
 
+## Câmera lenta que ENTRA e SAI suave (sem tranco de velocidade): desce
+## até `escala` em 0,08 s, segura e volta ao normal em 0,3 s.
 func _camera_lenta(escala: float, dur_real: float) -> void:
-	Engine.time_scale = escala
-	await get_tree().create_timer(dur_real, true, false, true).timeout
+	_parar_lenta()
+	_lenta = create_tween().set_ignore_time_scale(true)
+	_lenta.tween_property(Engine, "time_scale", escala, 0.08).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	_lenta.tween_interval(maxf(dur_real - 0.08, 0.0))
+	_lenta.tween_property(Engine, "time_scale", 1.0, 0.3).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
+
+
+func _parar_lenta() -> void:
+	if _lenta != null and _lenta.is_valid():
+		_lenta.kill()
+	_lenta = null
 	Engine.time_scale = 1.0
 
 
-func _physics_process(_delta: float) -> void:
+## O relógio da jogada anda junto com a FÍSICA (120 passos por segundo, já
+## com a câmera lenta aplicada): cada quadro gravado tem o seu próprio
+## instante. (Se o relógio fosse o da tela, a 60 QPS dois passos de física
+## ficavam com o mesmo horário e o replay saía picotado.)
+func _physics_process(delta: float) -> void:
+	if estado == E.ROLANDO:
+		_t_jogada += delta
 	if _gravando:
-		_gravacao.append({"t": _t_jogada, "b": bola.global_transform, "p": pinos.foto()})
+		_gravacao.append({"t": _t_jogada, "b": bola.global_transform, "p": pinos.foto(), "v": bola.visible})
 
 
 func _finalizar_jogada() -> void:
 	estado = E.RESULTADO
 	var s := _novo_seq()
 	_gravando = false
-	Engine.time_scale = 1.0
+	_parar_lenta()
 	Sons.rolando(false)
 	mundo.acender_pista(false)
 	mundo.lampadas(0)
@@ -908,20 +1041,36 @@ func _plano_maquina() -> void:
 
 
 # ================================================================ replay
+## Câmera lenta do replay: a MESMA jogada (cada passo da física gravado),
+## mais devagar — um pouco mais lenta em volta da batida, sempre suave.
+const REPLAY_VEL := 0.45
+const REPLAY_VEL_BATIDA := 0.27
+const REPLAY_ANTES := 0.95
+const REPLAY_DEPOIS := 1.6
+## o rastro de arco-íris ganha um ponto a cada 1/60 s da jogada (igual ao jogo)
+const REPLAY_RASTRO := 1.0 / 60.0
+
+
 func _replay() -> void:
 	estado = E.REPLAY
 	var s := _seq
 	hud.modo_replay(true)
 	Sons.tocar("whoosh")
 	pinos.prender_todos()
+	pinos.interpolar(false)
 	pinos.reviver()
 	bola.freeze = true
-	_replay_inicio = max(0.0, _t_impacto - 1.1)
-	_replay_fim = min(_t_impacto + 1.9, float(_gravacao[-1]["t"]))
+	_replay_inicio = maxf(float(_gravacao[0]["t"]), _t_impacto - REPLAY_ANTES)
+	_replay_fim = minf(_t_impacto + REPLAY_DEPOIS, float(_gravacao[-1]["t"]))
 	_replay_t = _replay_inicio
+	# o rastro já começa comprido (como estava na jogada nesse instante)
+	_replay_rastro = maxf(float(_gravacao[0]["t"]), _replay_inicio - 27.0 * REPLAY_RASTRO)
 	_replay_ativo = true
+	bola.replay(true)
+	_mostrar_quadro(_replay_t)
 	bola.acender(0.8)
-	# 1) câmera rasante colada na bola
+	# 1) câmera rasante colada na bola (corte seco, como na TV)
+	cam.corte(_replay_alvo.global_position + Vector3(0.42, 0.16, 0.75), _replay_alvo.global_position + Vector3(-0.1, 0.08, -1.2), 40, 46)
 	cam.seguir(_replay_alvo, Vector3(0.42, 0.16, 0.75), Vector3(-0.1, 0.08, -1.2), 40, 46, 12.0)
 	while _replay_ativo and _replay_t < _t_impacto - 0.12:
 		await get_tree().process_frame
@@ -930,6 +1079,11 @@ func _replay() -> void:
 	# 2) no impacto: lateral, baixinho, câmera bem lenta
 	cam.corte(Vector3(0.5, 0.32, Mundo.Z_PINO1 + 1.1), Vector3(-0.05, 0.24, Mundo.Z_PINO1 - 0.35), 40, 48)
 	cam.orbitar(Vector3(0, 0.24, Mundo.Z_PINO1 - 0.4), 1.55, 0.1, -0.3, 40, 48)
+	while _replay_ativo and _replay_t < _t_impacto:
+		await get_tree().process_frame
+		if s != _seq:
+			return
+	# a batida: som (mais grave, em câmera lenta) junto com a imagem
 	cam.tremer(0.02, 0.5)
 	Sons.tocar("pinos_queda", 0.8, 0.85)
 	while _replay_ativo and _replay_t < _t_impacto + 0.65:
@@ -943,6 +1097,9 @@ func _replay() -> void:
 		if s != _seq:
 			return
 	bola.acender(0.0)
+	bola.replay(false)
+	pinos.interpolar(true)
+	Sons.rolando(false)
 	pinos.reagir()
 	hud.modo_replay(false)
 	hud.mostrar_placar(true)
@@ -951,39 +1108,75 @@ func _replay() -> void:
 		estado = E.RESULTADO
 
 
+func _vel_replay(t: float) -> float:
+	return lerpf(REPLAY_VEL_BATIDA, REPLAY_VEL, smoothstep(0.08, 0.75, absf(t - _t_impacto)))
+
+
 func _rodar_replay(delta: float) -> void:
-	# velocidade: normal antes, bem lenta perto do impacto
-	var perto: float = abs(_replay_t - _t_impacto)
-	var vel: float = lerp(0.18, 0.8, clamp((perto - 0.1) / 0.8, 0.0, 1.0))
-	if _pular:
-		vel = 3.0
-	_replay_t += delta * vel
-	if _replay_t >= _replay_fim:
-		_replay_t = _replay_fim
-		_replay_ativo = false
-	# acha os quadros vizinhos e interpola
-	var i := 0
-	var n := _gravacao.size()
-	while i < n - 2 and float(_gravacao[i + 1]["t"]) < _replay_t:
-		i += 1
-	var f0: Dictionary = _gravacao[i]
-	var f1: Dictionary = _gravacao[min(i + 1, n - 1)]
-	var u: float = clamp((_replay_t - float(f0["t"])) / max(float(f1["t"]) - float(f0["t"]), 0.0001), 0.0, 1.0)
-	var tb: Transform3D = (f0["b"] as Transform3D).interpolate_with(f1["b"], u)
-	bola.global_transform = tb
-	_replay_alvo.global_position = tb.origin
-	var p0: Array = f0["p"]
-	var p1: Array = f1["p"]
-	var foto := []
-	for k in p0.size():
-		foto.append((p0[k] as Transform3D).interpolate_with(p1[k], u))
-	pinos.aplicar_foto(foto)
+	var vel := 3.0 if _pular else _vel_replay(_replay_t)
+	_replay_t = minf(_replay_t + delta * vel, _replay_fim)
+	bola.replay_ritmo(vel)
+	# o rastro: pontos nos mesmos instantes da jogada de verdade
+	while _replay_rastro + REPLAY_RASTRO <= _replay_t:
+		_replay_rastro += REPLAY_RASTRO
+		var q := _quadro(_replay_rastro, false)
+		if q["v"]:
+			bola.marcar_rastro((q["b"] as Transform3D).origin)
+	var antes := bola.global_position
+	var dt_jogada := delta * vel
+	_mostrar_quadro(_replay_t)
+	# o barulho da bola rolando, mais grave (câmera lenta)
+	if dt_jogada > 0.0:
+		var v := bola.global_position.distance_to(antes) / dt_jogada
+		Sons.rolando(bola.visible and bola.global_position.z > Mundo.Z_PINO1 - 0.5, v * vel)
 	if _replay_t < _t_impacto + 0.1:
-		pinos.susto(tb.origin)
-	if not _replay_ativo:
+		pinos.susto(bola.global_position)
+	if _replay_t >= _replay_fim:
+		_replay_ativo = false
 		# termina exatamente como ficou de verdade
 		bola.global_transform = _gravacao[-1]["b"]
+		bola.visible = bool(_gravacao[-1]["v"])
 		pinos.aplicar_foto(_gravacao[-1]["p"])
+
+
+## Põe a bola e os pinos como estavam no instante t da jogada.
+func _mostrar_quadro(t: float) -> void:
+	var q := _quadro(t, true)
+	var tb: Transform3D = q["b"]
+	bola.global_transform = tb
+	bola.visible = bool(q["v"])
+	_replay_alvo.global_position = tb.origin
+	pinos.aplicar_foto(q["p"])
+
+
+## O instante t da gravação, interpolado entre os dois passos de física
+## vizinhos (posição e giro). com_pinos = false: só a bola (rastro).
+func _quadro(t: float, com_pinos: bool) -> Dictionary:
+	var n := _gravacao.size()
+	# busca binária: último quadro com tempo <= t
+	var lo := 0
+	var hi := n - 1
+	while lo < hi:
+		var m := (lo + hi + 1) >> 1
+		if float(_gravacao[m]["t"]) <= t:
+			lo = m
+		else:
+			hi = m - 1
+	var f0: Dictionary = _gravacao[lo]
+	var f1: Dictionary = _gravacao[mini(lo + 1, n - 1)]
+	var t0 := float(f0["t"])
+	var t1 := float(f1["t"])
+	var u := clampf((t - t0) / (t1 - t0), 0.0, 1.0) if t1 > t0 else 0.0
+	var r := {"b": (f0["b"] as Transform3D).interpolate_with(f1["b"], u), "v": f0["v"]}
+	if com_pinos:
+		var p0: Array = f0["p"]
+		var p1: Array = f1["p"]
+		var foto := []
+		foto.resize(p0.size())
+		for k in p0.size():
+			foto[k] = (p0[k] as Transform3D).interpolate_with(p1[k], u)
+		r["p"] = foto
+	return r
 
 
 # ================================================================ fim de jogo
@@ -1053,7 +1246,7 @@ func _fim_de_jogo() -> void:
 		outro.tocar("feliz", 0.3, true)
 	else:
 		for pp in [t, r]:
-			pp.tocar("danca", 0.3, true)
+			pp.ocioso(true)
 		var protagonista: Personagem = t if jogou_bob and not jogou_mia else (r if jogou_mia and not jogou_bob else null)
 		if protagonista and placar.estrelas(0) >= 2:
 			protagonista.tocar("vitoria", 0.3, true)
@@ -1076,6 +1269,8 @@ func _jogada_demo() -> void:
 	maquina.instantaneo()
 	var a: Personagem = personagens[_ativo]
 	var p: Personagem = personagens[_plateia]
+	a.ocioso(false)
+	p.ocioso(false)
 	a.posicionar(Vector3(-X_MAO, 0, Z_INICIO), 180)
 	a.segurar_bola(true)
 	a.tocar("pronto", 0.1, true)
@@ -1172,8 +1367,10 @@ func _limpar() -> void:
 	_replay_ativo = false
 	if maquina:
 		maquina.instantaneo()
+	if pinos:
+		pinos.interpolar(true)
 	_gravando = false
-	Engine.time_scale = 1.0
+	_parar_lenta()
 	Sons.rolando(false)
 	mundo.acender_pista(false)
 	mundo.lampadas(0)
@@ -1186,8 +1383,11 @@ func _limpar() -> void:
 	Fotos.desligar()
 	mundo.podios(false)
 	_modal_inativo = 0.0
+	hud.marca(false, true)
 	for nome in personagens:
 		var p: Personagem = personagens[nome]
+		p.visible = true
+		p.ocioso(false)
 		p.jatos(false)
 		p.destaque(0.0)
 		p.olhar_alvo = null

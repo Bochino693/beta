@@ -21,6 +21,7 @@ var _quadros := 0
 
 
 func preparar(vp: SubViewport, interface: Node) -> void:
+	physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
 	size = Vector2i(96, 96)
 	world_3d = vp.find_world_3d()
 	msaa_3d = vp.msaa_3d
