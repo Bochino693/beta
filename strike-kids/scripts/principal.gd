@@ -72,6 +72,7 @@ var _escolha_t := 0.0
 var _destaque := 0
 var _fim_t := 0.0
 var _demo_t := 0.0
+var _camera_t := 0.0
 var _demo_vez := 0
 var _ultimo_som_pino := 0
 var _tema_base := -1          # cada partida começa num cenário diferente
@@ -453,6 +454,9 @@ func _atracao() -> void:
 	cam.orbitar(Vector3(0, 0.75, 1.6), 4.4, 0.9, 0.35, 40, 46, 0.75)
 	ArduinoBridge.send_led("MENU")
 	_demo_t = 0.0
+	_camera_t = 0.0
+	Fotos.desligar(0.5)
+	Fotos.na_espera()
 
 
 func _posicionar_atracao() -> void:
@@ -498,8 +502,9 @@ func _escolher_jogadores() -> void:
 	hud.atracao(false)
 	hud.tela_fim(false)
 	hud.etapa(1)
-	# a câmera pode ter sido ligada depois: procura de novo antes da foto
-	Fotos.procurar_agora()
+	# a câmera pode ter sido ligada depois: procura de novo e já liga, para
+	# a imagem estar pronta quando chegar o "SORRIA!"
+	Fotos.preparar()
 	_escolha_n = 1
 	_escolha_t = TEMPO_JOGADORES
 	ArduinoBridge.send_led("MENU")
@@ -592,7 +597,8 @@ func _comecar(lista: Array) -> void:
 	maquina.instantaneo()
 	_tema_base = (_tema_base + 1) % Temas.ORDEM.size()
 	Fotos.limpar_partida()
-	if Fotos.pronta() and bool(Ajustes.valor("jogo", "foto")):
+	# uma foto por jogador (1 jogador = 1 foto, 2 jogadores = 2 fotos)
+	if Fotos.pode_fotografar():
 		if not await _sessao_de_fotos(lista):
 			return
 	hud.configurar_placar(lista)
@@ -838,6 +844,11 @@ func _process(delta: float) -> void:
 				_confirmar_personagem()
 		E.ATRACAO:
 			_demo_t += delta
+			# a câmera (permissão, webcam ligada depois) é conferida aqui, na espera
+			_camera_t += delta
+			if _camera_t > 6.0:
+				_camera_t = 0.0
+				Fotos.na_espera()
 			if bool(Ajustes.valor("jogo", "demo")) and _demo_t > 9.0:
 				_demo_t = 0.0
 				_jogada_demo()

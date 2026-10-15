@@ -1,5 +1,6 @@
 #!/bin/sh
-# Monta addons/StrikeCamera/bin/StrikeCamera.aar (plugin Android da câmera).
+# Monta addons/StrikeCamera/bin/StrikeCamera.aar (plugin Android da câmera:
+# câmera do sistema, Camera2 e UVC direta - o mesmo método do jogo de soco).
 # Precisa de: JDK (javac) e internet (Maven Central) na primeira vez.
 #   sh tools/android/StrikeCamera/construir.sh
 set -e
@@ -21,9 +22,11 @@ javac --release 8 -nowarn -encoding UTF-8 -cp "$CACHE/android-all.jar:$CACHE/god
   -d "$T/classes" "$AQUI"/src/com/lazersport/strikecamera/*.java
 (cd "$T/classes" && jar cf "$T/aar/classes.jar" .)
 cp "$AQUI/AndroidManifest.xml" "$T/aar/AndroidManifest.xml"
-: > "$T/aar/R.txt"
+# o filtro da webcam USB (atividade de encaixe: "Usar por padrão")
+cp -r "$AQUI/res" "$T/aar/res"
+printf 'int xml strike_usb_webcam 0x7f140001\n' > "$T/aar/R.txt"
 mkdir -p "$RAIZ/addons/StrikeCamera/bin"
 rm -f "$RAIZ/addons/StrikeCamera/bin/StrikeCamera.aar"
-(cd "$T/aar" && jar cfM "$RAIZ/addons/StrikeCamera/bin/StrikeCamera.aar" AndroidManifest.xml classes.jar R.txt)
+(cd "$T/aar" && jar cfM "$RAIZ/addons/StrikeCamera/bin/StrikeCamera.aar" AndroidManifest.xml classes.jar R.txt res)
 rm -rf "$T"
 echo "ok: addons/StrikeCamera/bin/StrikeCamera.aar"

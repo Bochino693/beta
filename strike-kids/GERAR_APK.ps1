@@ -1074,6 +1074,15 @@ function Principal {
             Info "Exportando COM a camera (Godot + Gradle). Na 1a vez o Gradle ainda baixa"
             Info "bibliotecas e trabalha uns minutos sem escrever nada: e normal."
             $apk = Exportar (-not $SemCamera)
+            if (-not $apk -and -not $SemCamera) {
+                # a libuvc (webcam direto pelo USB) vem do JitPack: se ele
+                # falhar, a camera continua pela camera do sistema e Camera2
+                Mostrar-Motivo $script:UltimoLogExportacao
+                Aviso "o build com a UVC direta falhou; tentando a camera sem ela..."
+                $env:STRIKE_SEM_UVC = "1"
+                $apk = Exportar $true
+                if ($apk) { $script:SemUvc = $true }
+            }
             if ($apk) {
                 $comCamera = -not $SemCamera
                 [IO.File]::WriteAllText((Join-Path $env:GRADLE_USER_HOME "strikekids-ok.txt"), (Get-Date).ToString("s"))
@@ -1110,7 +1119,10 @@ function Principal {
     Write-Host ("  Tamanho: {0:N1} MB   (levou {1} min)" -f ($tamanho / 1MB), $minutos)
     Write-Host "  SHA256:  $hash"
     if ($comCamera) {
-        Write-Host "  Camera USB: INCLUIDA (ligue a webcam na TV Box; teste no menu do operador > TESTAR CAMERA)." -ForegroundColor Green
+        Write-Host "  Camera USB: INCLUIDA (ligue a webcam na TV Box; teste no menu do operador > TESTE DA CAMERA)." -ForegroundColor Green
+        if ($script:SemUvc) { Write-Host "  (sem a UVC direta: a webcam abre pela camera do sistema/Camera2)" -ForegroundColor Yellow }
+        else { Write-Host "  Caminhos da camera: sistema, Camera2 e UVC direta pelo USB (igual ao jogo de soco)." -ForegroundColor Green }
+        Write-Host "  Na 1a vez a TV Box pergunta: permita a CAMERA e, se aparecer, a webcam USB (marque 'Usar por padrao')."
     } else {
         Write-Host "  Camera USB: NAO incluida neste APK (o jogo usa os mascotes no lugar das fotos)." -ForegroundColor Yellow
         if ($motivo) { Write-Host "  Motivo: $motivo" -ForegroundColor Yellow }

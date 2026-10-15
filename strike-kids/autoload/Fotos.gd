@@ -6,9 +6,20 @@ extends Node
 ## "VEZ DE", no strike, na CLASSIFICAÇÃO do fim e na atração.
 ##
 ## De onde vem a imagem (escolhido sozinho):
-##   * TV Box (Android): plugin StrikeCamera (addons/StrikeCamera) — abre a
-##     webcam USB (câmera "externa", que o Godot sozinho NÃO enxerga) pela
-##     Camera2, ou pela Camera1 nas TV Box com driver antigo;
+##   * TV Box (Android): plugin StrikeCamera (addons/StrikeCamera), o mesmo
+##     método do jogo de soco: câmera do sistema (API clássica, por onde as
+##     TV Box publicam a webcam USB), depois Camera2 e, se a TV Box não
+##     publicar a webcam, a UVC DIRETA (libuvc, pelo USB). Se um caminho
+##     abre mas não manda imagem, o plugin passa para o próximo sozinho.
+##     Como no jogo de soco, a câmera ACORDA 15 s depois da abertura e
+##     FICA LIGADA (sem ninguém vendo, só conta os quadros — não pesa): a
+##     foto sai na hora, sem esperar a webcam "esquentar", e o driver USB
+##     não fica abrindo e fechando. Sem imagem, reabre do zero só na tela
+##     de espera, no máximo a cada 30 s e 3 vezes.
+##     PERMISSÕES: a da câmera é pedida logo que o jogo abre (e de novo na
+##     tela de espera, se foi negada); a da webcam USB só serve para a UVC
+##     direta e só aparece na tela de espera, depois de 20 s sem câmera do
+##     sistema — marque "Usar por padrão" uma vez e ela fica guardada;
 ##   * PC com Windows: ffmpeg (o Godot 4.6 não tem câmera no Windows).
 ##     Coloque o ffmpeg.exe na pasta do jogo (ou instale no PATH);
 ##   * Linux / Mac / teste: CameraServer do Godot.
@@ -30,7 +41,7 @@ const PERMISSAO := "android.permission.CAMERA"
 const W_FF := 640
 const H_FF := 480
 
-var status := "procurando"         # procurando | desligada | sem_permissao | sem_camera | pronta
+var status := "procurando"         # procurando | desligada | sem_permissao | sem_permissao_usb | sem_camera | pronta
 var fonte := ""                    # android | ffmpeg | servidor
 var nome_camera := ""
 var feed: CameraFeed
@@ -39,7 +50,8 @@ var _vp: SubViewport
 var _mat: ShaderMaterial
 var _tex_a: Texture2D
 var _tex_b: Texture2D
-var _ligada := false
+var _ligada := false               # a câmera está aberta
+var _vendo := false                # alguém vendo (prévia/foto): os quadros viram imagem
 var _desligar_em := -1.0
 var _recordes := {}
 # câmera de teste (PC)
@@ -50,6 +62,22 @@ var _falsa_t := 0.0
 # Android (plugin)
 var _plugin: Object
 var _quadro_visto := -1
+var _quadro_ms := 0
+var despertar_s := 15.0            # a câmera acorda 15 s depois da abertura
+var espera_usb_ms := 20000         # janela USB só depois de 20 s sem câmera do sistema
+var reabrir_ms := 30000            # sem imagem: reabre no máximo a cada 30 s...
+var reaberturas_max := 3           # ...e no máximo 3 vezes (o driver USB não gosta)
+var _sempre := false               # acordou: fica ligada direto
+var _busca_desde_ms := -1          # quando a procura no Android começou
+var _sistema_visto := false        # a webcam já apareceu como câmera do sistema
+var _aberta_ms := 0
+var _vivo_ms := 0                  # quando chegou quadro pela última vez
+var _ultimo_n := -1
+var _vigia_t := 0.0
+var _reaberturas := 0
+var _reaberta_ms := -1000000
+var _pedidos_permissao := 0
+var _permissao_pedida_ms := -1000000
 var _img_y: Image
 var _img_uv: Image
 # Windows (ffmpeg)
@@ -92,8 +120,10 @@ func _ready() -> void:
 	CameraServer.camera_feed_removed.connect(func(_id): _procurar_servidor.call_deferred())
 	if "--camera-falsa" in OS.get_cmdline_user_args() or OS.has_environment("STRIKE_CAMERA_FALSA"):
 		_criar_falsa()
-	# a câmera é procurada logo depois da abertura começar
+	# a câmera é procurada (e a permissão pedida) logo depois da abertura
+	# começar; no Android ela acorda e fica ligada 15 s depois
 	get_tree().create_timer(1.0).timeout.connect(iniciar)
+	get_tree().create_timer(despertar_s).timeout.connect(_acordar)
 
 
 func pronta() -> bool:
@@ -103,11 +133,15 @@ func pronta() -> bool:
 func texto_status() -> String:
 	match status:
 		"pronta":
+			if fonte == "android" and _plugin != null and _ligada:
+				return "OK (%s) - %s" % [nome_camera, str(_plugin.call("estado"))]
 			return "OK (%s)" % nome_camera
 		"desligada":
 			return "desligada no menu"
 		"sem_permissao":
-			return "sem permissão do Android"
+			return "sem permissão do Android (aceite a janela da câmera)"
+		"sem_permissao_usb":
+			return "webcam no USB: aceite a janela do Android (marque Usar por padrão)"
 		"sem_camera":
 			if OS.get_name() == "Windows" and _ffmpeg == "":
 				return "no PC: coloque o ffmpeg.exe na pasta do jogo"
@@ -130,14 +164,13 @@ func iniciar() -> void:
 	if OS.get_name() == "Android":
 		if not OS.get_granted_permissions().has(PERMISSAO):
 			_mudar("sem_permissao")
-			if not get_tree().on_request_permissions_result.is_connected(_permissao):
-				get_tree().on_request_permissions_result.connect(_permissao)
-			OS.request_permission(PERMISSAO)
+			_pedir_permissao()
 			return
 		if Engine.has_singleton("StrikeCamera"):
 			_plugin = Engine.get_singleton("StrikeCamera")
 			fonte = "android"
 			_procurar_android()
+			_manter_ligada()
 			return
 	elif OS.get_name() == "Windows":
 		fonte = "ffmpeg"
@@ -157,6 +190,15 @@ func procurar_agora() -> void:
 		iniciar()
 
 
+## A janela do Android "Permitir que o Strike Kids tire fotos?".
+func _pedir_permissao() -> void:
+	if not get_tree().on_request_permissions_result.is_connected(_permissao):
+		get_tree().on_request_permissions_result.connect(_permissao)
+	_pedidos_permissao += 1
+	_permissao_pedida_ms = Time.get_ticks_msec()
+	OS.request_permission(PERMISSAO)
+
+
 func _permissao(nome: String, ok: bool) -> void:
 	if nome == PERMISSAO and ok:
 		iniciar()
@@ -170,22 +212,165 @@ func _mudar(s: String) -> void:
 
 # ================================================================ procurar
 func _procurar_android() -> void:
+	if _busca_desde_ms < 0:
+		_busca_desde_ms = Time.get_ticks_msec()
 	var lista := str(_plugin.call("listar"))
 	var melhor := ""
+	var usb_sem_permissao := false
 	for linha in lista.split("\n", false):
 		if linha.begins_with("#"):
 			continue
 		var p := linha.split("|")
 		if p.size() < 3:
 			continue
+		if p[2] == "uvc":
+			# webcam vista direto no USB (UVC): só serve com a permissão USB
+			if p.size() > 3 and p[3] == "0":
+				usb_sem_permissao = true
+				continue
+			if melhor == "":
+				melhor = "webcam USB"
+			continue
 		var nome := "câmera USB" if p[1] == "externa" else "câmera %s" % p[1]
+		_sistema_visto = true
 		if melhor == "" or p[1] == "externa":
 			melhor = nome
 	if melhor == "":
-		_mudar("sem_camera")
+		_mudar("sem_permissao_usb" if usb_sem_permissao else "sem_camera")
 		return
 	nome_camera = melhor
 	_mudar("pronta")
+
+
+## Tela de espera (atração), a cada poucos segundos: confere a câmera. As
+## janelas do Android aparecem SÓ aqui, nunca no meio do jogo (como no
+## jogo de soco): a da câmera, se foi negada (no máximo a cada 60 s e 3
+## vezes), e a da webcam USB. A câmera ligada e sem imagem reabre aqui.
+func na_espera() -> void:
+	if status == "desligada":
+		return
+	var agora := Time.get_ticks_msec()
+	if OS.get_name() == "Android" and not OS.get_granted_permissions().has(PERMISSAO):
+		if _pedidos_permissao < 3 and agora - _permissao_pedida_ms >= 60000:
+			_mudar("sem_permissao")
+			_pedir_permissao()
+		return
+	if fonte != "android" or _plugin == null:
+		if status in ["sem_camera", "procurando", "sem_permissao"]:
+			procurar_agora()
+		return
+	if status != "pronta":
+		_procurar_android()
+	if status == "sem_permissao_usb":
+		_pedir_usb(agora)
+	elif status == "pronta":
+		if _ligada:
+			_reabrir_se_muda(agora)
+		else:
+			_manter_ligada()
+
+
+## A janela USB da webcam (só para a UVC direta). Como no jogo de soco:
+## nunca logo depois do boot (o serviço de câmera do Android ainda conta
+## zero câmeras) e nunca se a webcam já apareceu como câmera do sistema —
+## aí ela não precisa de permissão USB nenhuma, só abrir.
+func _pedir_usb(agora: int) -> void:
+	if agora - _busca_desde_ms < espera_usb_ms:
+		return
+	if _sistema_visto or (_sistema_lembrado() and agora - _busca_desde_ms < 45000):
+		return
+	_plugin.call("pedir_usb")
+
+
+## Ligada e sem imagem há 30 s: reabre do zero. Raro e só na tela de
+## espera — no jogo de soco, abrir e fechar a webcam a cada poucos segundos
+## mexia no driver USB e derrubava a TV Box.
+func _reabrir_se_muda(agora: int) -> void:
+	if agora - maxi(_vivo_ms, _aberta_ms) < reabrir_ms:
+		return
+	if _reaberturas >= reaberturas_max or agora - _reaberta_ms < reabrir_ms:
+		return
+	_reaberturas += 1
+	_reaberta_ms = agora
+	_plugin.call("fechar")
+	_abrir_android()
+
+
+## A webcam já mandou imagem como câmera do sistema numa abertura anterior
+## do jogo? (guardado em user://fotos/camera.cfg)
+var _lembranca := -1
+
+
+func _sistema_lembrado() -> bool:
+	if _lembranca < 0:
+		var c := ConfigFile.new()
+		_lembranca = 1 if c.load(PASTA + "camera.cfg") == OK and bool(c.get_value("camera", "sistema", false)) else 0
+	return _lembranca == 1
+
+
+func _lembrar_sistema() -> void:
+	_lembranca = 1
+	var c := ConfigFile.new()
+	c.set_value("camera", "sistema", true)
+	c.save(PASTA + "camera.cfg")
+
+
+## Alguém apertou START. No Android a câmera já fica ligada (só garante);
+## no PC ela liga agora, para a imagem estar pronta no "SORRIA!".
+func preparar() -> void:
+	procurar_agora()
+	if not pronta() or not bool(Ajustes.valor("jogo", "foto")):
+		return
+	if fonte == "android":
+		_sempre = true
+		_manter_ligada()
+	else:
+		ligar()
+
+
+## Vale fazer a sessão de fotos? Câmera achada e, no Android, mandando
+## imagem (ou ainda subindo). Câmera muda: o jogo segue com os mascotes.
+func pode_fotografar() -> bool:
+	if not pronta() or not bool(Ajustes.valor("jogo", "foto")):
+		return false
+	if fonte == "android" and _ligada and not _vendo:
+		var agora := Time.get_ticks_msec()
+		return (_vivo_ms > 0 and agora - _vivo_ms < 5000) or agora - _aberta_ms < 25000
+	return true
+
+
+## Android: 15 s depois da abertura (longe do pico de memória do
+## carregamento) a câmera acorda e fica ligada.
+func _acordar() -> void:
+	if fonte != "android":
+		return
+	_sempre = true
+	_manter_ligada()
+
+
+## Abre a câmera (se ainda não está), sem ninguém vendo: só conta quadros.
+func _manter_ligada() -> void:
+	if not _sempre or fonte != "android" or _plugin == null or _ligada:
+		return
+	if not pronta() or not bool(Ajustes.valor("jogo", "foto")):
+		return
+	_abrir_android()
+
+
+func _abrir_android() -> void:
+	_plugin.call("ver", _vendo)
+	_plugin.call("abrir", "auto", W_FF, H_FF)
+	_ligada = true
+	_quadro_visto = -1
+	_ultimo_n = -1
+	_aberta_ms = Time.get_ticks_msec()
+
+
+## O que o Android enxerga (para o teste da câmera no menu do operador).
+func relatorio() -> String:
+	if fonte == "android" and _plugin != null:
+		return str(_plugin.call("relatorio"))
+	return texto_status()
 
 
 ## No PC a busca roda numa linha de execução separada (o ffmpeg demora um
@@ -324,11 +509,16 @@ func ligar() -> bool:
 	if not pronta():
 		return false
 	_desligar_em = -1.0
+	if not _vendo:
+		_vendo = true
+		# a foto só com quadro NOVO (nunca o da partida anterior)
+		_quadro_visto = -1
+		if fonte == "android" and _ligada:
+			_plugin.call("ver", true)
 	if not _ligada:
 		match fonte:
 			"android":
-				_quadro_visto = -1
-				_plugin.call("abrir", "auto", W_FF, H_FF)
+				_abrir_android()
 			"ffmpeg":
 				_iniciar_ffmpeg()
 			_:
@@ -345,7 +535,19 @@ func desligar(atraso := 6.0) -> void:
 	_desligar_em = atraso
 
 
+## Ninguém mais vendo. No Android a câmera continua ligada (só contando os
+## quadros); no PC ela desliga.
+func _soltar() -> void:
+	_vendo = false
+	_vp.render_target_update_mode = SubViewport.UPDATE_DISABLED
+	if fonte == "android" and _sempre and _ligada and bool(Ajustes.valor("jogo", "foto")):
+		_plugin.call("ver", false)
+		return
+	_parar()
+
+
 func _parar() -> void:
+	_vendo = false
 	if not _ligada:
 		return
 	match fonte:
@@ -382,14 +584,16 @@ func _process(delta: float) -> void:
 	if _desligar_em >= 0.0:
 		_desligar_em -= delta
 		if _desligar_em < 0.0:
-			_parar()
+			_soltar()
 	# (procurar câmera trava o quadro por dezenas de ms: só na abertura e
 	# quando alguém aperta START — procurar_agora — nunca no meio do jogo)
 	if not _ligada:
 		return
 	match fonte:
 		"android":
-			_quadro_android()
+			_vigiar_android(delta)
+			if _vendo:
+				_quadro_android()
 		"ffmpeg":
 			_quadro_ffmpeg()
 		_:
@@ -414,20 +618,35 @@ func _ajustar_shader(tipo: int, tam: Vector2) -> void:
 	_mat.set_shader_parameter("espelhar", bool(Ajustes.valor("jogo", "camera_espelho")))
 
 
-## Android: Y e UV (4:2:0) do plugin viram duas texturas; a cor sai no shader.
-var _conferir_t := 0.0
-
-
-func _quadro_android() -> void:
-	# a TV Box pausou o app (o plugin solta a câmera): liga de novo
-	_conferir_t += get_process_delta_time()
-	if _conferir_t > 1.0:
-		_conferir_t = 0.0
-		if str(_plugin.call("estado")) == "parada":
-			_plugin.call("abrir", "auto", W_FF, H_FF)
-	var n := int(_plugin.call("quadros"))
-	if n == _quadro_visto:
+## Android, uma vez por segundo: a câmera está viva? (só o contador de
+## quadros: não custa nada)
+func _vigiar_android(delta: float) -> void:
+	_vigia_t += delta
+	if _vigia_t < 1.0:
 		return
+	_vigia_t = 0.0
+	# a TV Box pausou o app (o plugin solta a câmera): liga de novo
+	if str(_plugin.call("estado")) == "parada":
+		_abrir_android()
+		return
+	var n := int(_plugin.call("quadros"))
+	if n > 0 and n != _ultimo_n:
+		_ultimo_n = n
+		_vivo_ms = Time.get_ticks_msec()
+		_reaberturas = 0
+		if _lembranca != 1 and str(_plugin.call("fonte")) in ["sistema", "camera2"]:
+			_lembrar_sistema()
+
+
+## Android: Y e UV (4:2:0) do plugin viram duas texturas; a cor sai no shader.
+func _quadro_android() -> void:
+	var n := int(_plugin.call("quadros"))
+	if n <= 0 or n == _quadro_visto:
+		return
+	var agora := Time.get_ticks_msec()
+	if _quadro_visto >= 0 and agora - _quadro_ms < 60:
+		return
+	_quadro_ms = agora
 	_quadro_visto = n
 	var w := int(_plugin.call("largura"))
 	var h := int(_plugin.call("altura"))
@@ -540,12 +759,23 @@ func _exit_tree() -> void:
 # ================================================================ foto
 ## Tira a foto (a câmera precisa estar ligada há alguns quadros). Volta a
 ## textura, ou null se a câmera não mandou imagem.
+## Tira a foto, igual ao jogo de soco: espera um quadro BOM (até 4 s) —
+## com imagem, nem escuro nem chapado (tampa na lente). A foto não se perde
+## porque a câmera demorou um pouco ou mandou um quadro ruim.
 func tirar(chave: String) -> ImageTexture:
-	if not _ligada or not tem_imagem():
+	if not _ligada:
 		return null
-	await RenderingServer.frame_post_draw
-	var img := _vp.get_texture().get_image()
-	if img == null or img.is_empty() or _escura(img):
+	var limite := Time.get_ticks_msec() + 4000
+	var img: Image = null
+	while Time.get_ticks_msec() < limite:
+		if tem_imagem():
+			await RenderingServer.frame_post_draw
+			var i := _vp.get_texture().get_image()
+			if i != null and not i.is_empty() and not _escura(i) and _contraste(i) >= 0.04:
+				img = i
+				break
+		await get_tree().process_frame
+	if img == null:
 		return null
 	img.convert(Image.FORMAT_RGB8)
 	img.generate_mipmaps()
@@ -555,6 +785,20 @@ func tirar(chave: String) -> ImageTexture:
 		# câmera de teste: o próximo jogador é outra criança
 		_falsa_base = _falsas[(_falsas.find(_falsa_base) + 1) % _falsas.size()]
 	return t
+
+
+## Diferença entre o ponto mais claro e o mais escuro (grade 8x6): imagem
+## "chapada" (lente tampada, câmera sem imagem) fica perto de zero.
+func _contraste(img: Image) -> float:
+	var claro := 0.0
+	var escuro := 1.0
+	for gx in 8:
+		for gy in 6:
+			var c := img.get_pixel(int((gx + 0.5) / 8.0 * img.get_width()), int((gy + 0.5) / 6.0 * img.get_height()))
+			var v := 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b
+			claro = maxf(claro, v)
+			escuro = minf(escuro, v)
+	return claro - escuro
 
 
 func _escura(img: Image) -> bool:

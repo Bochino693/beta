@@ -173,15 +173,49 @@ Pontos: 10 por pino, +50 strike, +20 spare.
 - Câmera USB (ex.: Sigma). O Godot 4.6 sozinho **ignora câmera externa no
   Android** e **não tem câmera no Windows**, então a imagem vem de:
   **plugin StrikeCamera** na TV Box (`addons/StrikeCamera`, Java em
-  `tools/android/StrikeCamera`: Camera2 com câmera externa, Camera1 de
-  reserva; entrega os planos Y e UV), **ffmpeg** no PC Windows (quadros
-  RGB crus por um cano, lidos numa linha de execução separada) e o
-  **CameraServer** no Linux. Permissão CAMERA pedida uma vez; resolução
-  perto de 640×480. Procura na abertura e ao apertar START (nunca no meio do jogo: trava o quadro).
+  `tools/android/StrikeCamera`), **ffmpeg** no PC Windows (quadros RGB crus
+  por um cano, lidos numa linha de execução separada) e o **CameraServer**
+  no Linux. Resolução perto de 640×480.
+- **TV Box: o mesmo método do jogo de soco.** O plugin tenta, nesta ordem,
+  e passa sozinho para o próximo se um caminho abre e fica mudo (4,5 s;
+  8 s na UVC): (1) **câmera do sistema** pela API clássica (é por ela que
+  as TV Box publicam a webcam USB, como câmera LEGACY — da última para a
+  primeira); (2) **Camera2**, preferindo a câmera EXTERNA; (3) **UVC
+  direta** pela libuvc (AndroidUSBCamera 3.2.7, a do jogo de soco, chamada
+  por reflexão; só no APK do Gradle, que a baixa do JitPack).
+  - Permissão da câmera pedida logo que o jogo abre; se negada, de novo na
+    tela de espera (no máximo a cada 60 s e 3 vezes, nunca na partida).
+  - Permissão USB (só para a UVC): pedida só na tela de espera, depois de
+    20 s sem câmera do sistema, e nunca se a webcam já apareceu como câmera
+    do sistema (nesta abertura ou numa anterior: `user://fotos/camera.cfg`)
+    — o Android conta zero câmeras por instantes logo após o boot. Uma
+    atividade com filtro USB (classe 14 / 239-2) faz o Android oferecer
+    "Usar por padrão" (a permissão fica guardada).
+  - A câmera **acorda 15 s depois da abertura e fica ligada** (longe do
+    pico de memória do carregamento). Sem ninguém vendo, o plugin só conta
+    os quadros (`ver(false)`: nada copiado, nada sobe para a placa de
+    vídeo); na prévia e na foto (`ver(true)`) os planos Y e UV viram duas
+    texturas. Assim a foto sai na hora (câmera quente) e a webcam não
+    abre/fecha a cada partida — no soco, isso mexia no driver USB e
+    derrubava a TV Box. Vigia de 1 s (só o contador de quadros): app
+    pausado (janela do Android) → reabre; sem imagem há 30 s → reabre do
+    zero só na tela de espera, no máximo a cada 30 s e 3 vezes.
+  - No PC a câmera liga no START e desliga uns segundos depois da foto.
+- A foto: 1 jogador = 1 foto, 2 jogadores = 2 fotos ("SORRIA!" 3-2-1 para
+  cada um). Espera até 4 s por um quadro **novo** e bom (nem escuro, nem
+  chapado: contraste ≥ 0,04 numa grade 8×6) — nunca sai com a imagem da
+  partida anterior. Câmera muda há muito tempo: o jogo pula o "SORRIA!" e
+  usa os mascotes (`Fotos.pode_fotografar()`).
 - A imagem (RGB ou YCbCr, conforme a câmera) é convertida num shader,
   recortada no quadrado do meio e espelhada; a foto (384×384) sai de uma
-  SubViewport. A câmera só fica ligada na hora da foto (e desliga uns
-  segundos depois — webcam não gosta de liga-desliga seguido).
+  SubViewport.
+- Teste: `tools/testes/foto_teste.tscn` simula o plugin Android (webcam só
+  no USB, câmera do sistema, câmera lenta e escura no começo, pausa do
+  app, câmera muda) e confere permissões, câmera sempre ligada, 1 e 2
+  fotos, sem foto velha e o limite de reaberturas. No menu do operador,
+  "TESTE DA CÂMERA" mostra a imagem ao vivo ou, sem imagem em 6 s, o
+  relatório do plugin (Android, câmeras, USB, permissões, libuvc e o
+  diário); `CAMERA_TVBOX.bat` grava o mesmo pelo adb.
 - Onde aparece: cartão do placar (foto redonda + mascote de selo), faixa
   "VEZ DE", estouro da foto no STRIKE, cartões da tela final e a
   **CLASSIFICAÇÃO DE HOJE** (`scripts/classificacao.gd`): os 10 melhores do

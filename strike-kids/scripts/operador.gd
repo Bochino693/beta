@@ -54,6 +54,8 @@ var _teste_contagem := [0, 0, 0, 0, 0]
 var _teste_rotulo: Label
 var _camera := false
 var _camera_tela: TextureRect
+var _camera_ms := 0
+var _camera_t := 0.0
 var u := 1.0
 
 
@@ -174,6 +176,7 @@ func _input(event: InputEvent) -> void:
 			_teste_rotulo.visible = false
 			_teste_rotulo.position.y = Tela.tamanho().y * 0.35
 			_teste_rotulo.size.y = 500 * u
+			_teste_rotulo.label_settings.font_size = int(54 * u)
 			_camera_tela.visible = false
 			Fotos.desligar(2.0)
 			for l in _linhas:
@@ -239,14 +242,13 @@ func _acao() -> void:
 			for l in _linhas:
 				l.visible = false
 			_teste_rotulo.visible = true
+			# como na tela de espera: confere a câmera e pede o que faltar
+			Fotos.na_espera()
+			_camera_ms = Time.get_ticks_msec()
 			if Fotos.ligar():
-				_camera_tela.texture = Fotos.ao_vivo()
-				_camera_tela.visible = true
-				_teste_rotulo.position.y = 40 * u
-				_teste_rotulo.size.y = Tela.tamanho().y * 0.25
-				_teste_rotulo.text = "TESTE DA CÂMERA\n%s\nZ / B giram a imagem · START sai" % Fotos.nome_camera
+				_camera_ao_vivo()
 			else:
-				_teste_rotulo.text = "TESTE DA CÂMERA\n\nCâmera: %s\n\nConfira o cabo USB da câmera e se a\nTV Box mostra a câmera no Android.\n\nSTART ou CONFIGURAÇÃO para sair" % Fotos.texto_status()
+				_camera_relatorio("")
 		"botoes":
 			get_tree().change_scene_to_file.call_deferred(BOTOES)
 		"desempenho":
@@ -261,6 +263,42 @@ func _acao() -> void:
 			Sons.tocar("pop")
 		"voltar":
 			get_tree().change_scene_to_file.call_deferred(JOGO)
+
+
+## Teste da câmera: a imagem ao vivo (Z / B giram).
+func _camera_ao_vivo() -> void:
+	_camera_tela.texture = Fotos.ao_vivo()
+	_camera_tela.visible = true
+	_teste_rotulo.label_settings.font_size = int(54 * u)
+	_teste_rotulo.position.y = 40 * u
+	_teste_rotulo.size.y = Tela.tamanho().y * 0.25
+	_teste_rotulo.text = "TESTE DA CÂMERA\n%s\nZ / B giram a imagem · START sai" % Fotos.nome_camera
+
+
+## Teste da câmera sem imagem: o que o Android enxerga e o que o jogo tentou.
+func _camera_relatorio(aviso: String) -> void:
+	_camera_tela.visible = false
+	var linhas := Fotos.relatorio().split("\n")
+	var rel := "\n".join(linhas.slice(0, mini(linhas.size(), 18)))
+	_teste_rotulo.label_settings.font_size = int(30 * u)
+	_teste_rotulo.position.y = 30 * u
+	_teste_rotulo.size.y = Tela.tamanho().y - 60 * u
+	_teste_rotulo.text = "TESTE DA CÂMERA%s\n\nCâmera: %s\n\n%s\n\nSTART ou CONFIGURAÇÃO para sair" % [aviso, Fotos.texto_status(), rel]
+
+
+func _process(delta: float) -> void:
+	if not _camera:
+		return
+	_camera_t += delta
+	if _camera_t < 1.0:
+		return
+	_camera_t = 0.0
+	if Fotos.tem_imagem():
+		if not _camera_tela.visible:
+			_camera_ao_vivo()
+	elif Time.get_ticks_msec() - _camera_ms > 6000 and Fotos.pronta():
+		# 6 s ligada e nenhuma imagem: mostra o porquê (atualiza a cada 1 s)
+		_camera_relatorio(" - SEM IMAGEM AINDA")
 
 
 func _mostrar_teste(ultimo: String) -> void:

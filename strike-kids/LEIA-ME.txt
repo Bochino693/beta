@@ -121,6 +121,21 @@ pelo editor do Godot (F5) e sempre mais pesado (modo de depuracao e o
 proprio editor aberto) - para saber se o PC roda liso, use o .exe.
 
 
+APK PRONTO PARA A TV BOX (sem precisar gerar)
+---------------------------------------------
+Vem em 3 pedacos (StrikeKids_v5.0_TVBox_APK.zip.001, .002 e .003, ate
+30 MB cada). Junte com o 7-Zip/WinRAR (direito no .001 > Extrair) ou
+deixe os 3 pedacos e o JUNTAR_StrikeKids_APK_TVBox.bat na mesma pasta e
+de 2 cliques nele: sai o StrikeKids_v5.0_TVBox.apk. Copie para um
+pendrive e instale na TV Box pelo gerenciador de arquivos (ou
+adb install -r StrikeKids_v5.0_TVBox.apk).
+  - JA VEM COM A CAMERA (plugin StrikeCamera): camera do sistema e
+    Camera2, o jeito que a maioria das TV Box mostra a webcam USB. A UVC
+    direta (libuvc, para TV Box que nao mostra a webcam como camera) so
+    vem no APK feito pelo GERAR_APK.bat.
+  - Assinado com a chave do projeto: instala por cima do anterior.
+
+
 COMO GERAR O APK
 ----------------
 1) Extraia o ZIP inteiro (nao rode de dentro do ZIP).
@@ -135,8 +150,10 @@ O GERAR_APK faz tudo sozinho e mostra cada passo na janela:
     SDK (aceita as licencas e instala platform-tools, build-tools 35.0.1,
     plataforma 35 e o NDK) e os templates Android do Godot (baixa so a
     parte Android, ~300 MB, nao o pacote inteiro de 1,2 GB);
-  - gera o APK COM a camera USB (plugin StrikeCamera, build Gradle). Se o
-    Gradle falhar, gera sozinho um APK SEM a camera e avisa no final;
+  - gera o APK COM a camera USB (plugin StrikeCamera, build Gradle, com
+    os 3 caminhos do jogo de soco - veja "FOTO DAS CRIANCAS NA TV BOX").
+    Se a biblioteca da UVC direta nao baixar, gera com a camera do
+    sistema; se o Gradle falhar, gera um APK SEM a camera e avisa no final;
   - nenhum passo fica parado para sempre (cada programa tem tempo-limite).
 Primeira vez: de 15 a 40 minutos (downloads, ~8 GB livres no disco C:).
 Depois: 2 a 5 minutos. Precisa de internet so na primeira vez.
@@ -161,6 +178,45 @@ assinado com outra chave, desinstale-o uma vez antes.)
 
 Pacote: com.lazersport.strikekids (nao briga com o Dragon Bowling).
 O giro tambem pode ser trocado na propria maquina, no menu do operador.
+
+
+FOTO DAS CRIANCAS NA TV BOX (camera USB, ex.: Sigma)
+----------------------------------------------------
+Funciona do mesmo jeito do jogo de soco:
+  1. PERMISSAO: ao abrir o jogo pela primeira vez o Android pergunta
+     "Permitir que o Strike Kids tire fotos e grave videos?" -> PERMITIR.
+     Se alguem negar, o jogo pergunta de novo na tela de espera (no
+     maximo 3 vezes; nunca no meio da partida). Ou libere em Configuracoes
+     do Android > Apps > Strike Kids > Permissoes > Camera, ou rode o
+     CAMERA_TVBOX.bat no PC (libera pelo adb, sem janela).
+  2. A CAMERA ACORDA 15 s depois da abertura e FICA LIGADA (sem ninguem
+     vendo ela so conta as imagens, nao pesa no jogo). Assim a foto sai na
+     hora, sem esperar a webcam "esquentar", e o driver USB da TV Box nao
+     fica abrindo e fechando a cada partida.
+  3. ONDE ELA PROCURA a imagem, nesta ordem (se um caminho abre e nao
+     manda imagem em poucos segundos, passa para o proximo sozinho):
+       a) camera do sistema (a TV Box publica a webcam USB como camera -
+          o caso da maioria das TV Box; nao precisa de permissao USB);
+       b) Camera2 (TV Box com o sistema de camera novo);
+       c) UVC DIRETA: a webcam aberta direto pelo USB (biblioteca libuvc,
+          a mesma do jogo de soco). So no APK feito pelo GERAR_APK.bat
+          (ele baixa a libuvc). Ai o Android mostra "Permitir que o
+          Strike Kids acesse o dispositivo USB?": marque "USAR POR PADRAO"
+          e OK - fica guardado. Essa janela so aparece na tela de espera
+          e so se a TV Box nao mostrar a webcam como camera do sistema.
+     Sem imagem por 30 s, a camera reabre do zero na tela de espera (no
+     maximo 3 vezes; abrir e fechar seguido derrubava a TV Box no soco).
+  4. SORRIA!: 1 jogador = 1 foto; 2 jogadores = 2 fotos (uma de cada vez:
+     "quem joga com o BOB", depois "quem joga com a MIA"). A foto espera
+     uma imagem boa (nem escura, nem lisa) por ate 4 s.
+     Sem camera (ou com ela muda): o jogo pula o SORRIA! e usa os mascotes.
+  5. TESTE: menu do operador > "Teste da camera" mostra a imagem ao vivo
+     (Z / B giram). Se nao vier imagem, a tela mostra o RELATORIO: versao
+     do Android, cameras que o sistema enxerga, aparelhos USB, permissoes,
+     se a libuvc esta no APK e o que o jogo tentou.
+     CAMERA_TVBOX.bat (no PC, com o adb): libera a camera, abre o jogo e
+     grava CAMERA_RELATORIO.txt (USB, cameras do Android e o diario da
+     camera do jogo). Com a TV Box na rede: CAMERA_TVBOX.bat 192.168.0.50
 
 
 BOTOES DA ZERO DELAY (mesmo mapa do Dragon Bowling)
