@@ -108,7 +108,7 @@ func _process(_d: float) -> void:
 		Performance.get_monitor(Performance.TIME_PROCESS) * 1000.0, gpu3d, gputela,
 		Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME),
 		Performance.get_monitor(Performance.RENDER_TOTAL_PRIMITIVES_IN_FRAME) / 1000,
-		vp.size.x if vp else 0, vp.size.y if vp else 0, str(principal.get("_qualidade")).to_upper(),
+		vp.size.x if vp else 0, vp.size.y if vp else 0, _nome(str(principal.get("_qualidade"))),
 		int(OS.get_static_memory_usage() / 1048576), int(Performance.get_monitor(Performance.RENDER_VIDEO_MEM_USED) / 1048576)]
 	_t0 = agora
 	_quadros = 0
@@ -180,12 +180,15 @@ func testar() -> Dictionary:
 	else:
 		veredito = "FRACO: travado nesta qualidade"
 		recomendada = "baixa"
+	var d := Time.get_datetime_dict_from_system()
+	var data := "%02d/%02d/%04d %02d:%02d" % [d["day"], d["month"], d["year"], d["hour"], d["minute"]]
+	var vs: Vector2i = principal.vp.size
 	var r := {"media_qps": media_qps, "pior_quadro_ms": p99, "pior_plano": pior_plano, "pior_plano_qps": pior_qps,
 		"qualidade": qual, "recomendada": recomendada, "veredito": veredito, "por_plano": por_plano,
-		"resolucao_3d": str(principal.vp.size), "tela": str(get_window().size), "data": Time.get_datetime_string_from_system()}
-	var linhas := "TESTE DE DESEMPENHO - %s\n%s\n\nMédia: %d quadros por segundo (QPS)\nPior momento: %.0f ms (%s: %d QPS)\nQualidade usada: %s (3D %s)\nRECOMENDADA: %s\n" % [
-		r["data"], veredito, int(round(media_qps)), p99, pior_plano, int(round(pior_qps)), qual.to_upper(), r["resolucao_3d"],
-		recomendada.to_upper()]
+		"resolucao_3d": "%dx%d" % [vs.x, vs.y], "tela": "%dx%d" % [get_window().size.x, get_window().size.y], "data": data}
+	var linhas := "TESTE DE DESEMPENHO\n%s\n\n%s\n\nMédia: %d quadros por segundo (QPS)\nPior momento: %.0f ms (%s: %d QPS)\nQualidade usada: %s (imagem 3D %s)\nRECOMENDADA: %s\n\n" % [
+		data, veredito, int(round(media_qps)), p99, pior_plano, int(round(pior_qps)), _nome(qual), r["resolucao_3d"],
+		_nome(recomendada)]
 	for k in por_plano:
 		linhas += "  %s: %d QPS\n" % [k, int(round(por_plano[k]))]
 	var f := FileAccess.open("user://desempenho.txt", FileAccess.WRITE)
@@ -200,6 +203,10 @@ func testar() -> Dictionary:
 	r["cartaz"] = aviso
 	teste_terminou.emit(r)
 	return r
+
+
+func _nome(q: String) -> String:
+	return {"alta": "ALTA", "media": "MÉDIA", "baixa": "BAIXA"}.get(q, q.to_upper())
 
 
 func _media(v: Array[float]) -> float:
