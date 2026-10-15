@@ -70,19 +70,24 @@ acenar, andar, vitória (pulinhos), escolhido.
    (com a foto) e a logo Lazer & Sport no rodapé; Bob e Mia dançam; câmera
    orbitando; de 9 em 9 s uma **jogada de demonstração** completa, e a cada
    demonstração o cenário muda (a atração mostra os 4).
-3. **START** → "QUANTOS VÃO JOGAR?": dois cartões (1 JOGADOR / 2
-   JOGADORES), o escolhido brilha; barra de tempo (3 s; START de novo = 2).
+3. **START** → "QUANTOS VÃO JOGAR?" (igual ao Dragon Bowling): cartões
+   "1 JOGADOR — START 1 VEZ" e "2 JOGADORES — START 2 VEZES" com o botão
+   START desenhado; o escolhido brilha; contagem escrita e barra de 4 s
+   ("Vão jogar em 2? Aperte START de novo agora!"). Faixa de etapas no alto:
+   1 JOGADORES › 2 AMIGO › 3 FOTO › 4 JOGAR.
 4. 1 jogador: **escolha do amigo** — Bob e Mia em cima de **pódios 3D**
    nas cores deles (o do escolhido acende o anel de luz), com placas de
-   nome que acompanham a câmera; rolando a bola para a esquerda (Bob) ou
-   direita (Mia), ou START.
+   nome que acompanham a câmera. A placa de instrução mostra os 5 sensores
+   da máquina coloridos: esquerda = BOB, meio = OK, direita = MIA (START
+   também confirma).
 4b. **SORRIA!** (se tiver câmera): a imagem ao vivo aparece num círculo com
    o mascote do lado, contagem 3-2-1, flash e "QUE FOTO LINDA!". Com 2
    jogadores, uma foto para cada um.
 5. **Partida**: em cada rodada nova, **cenário novo** (clarão, letreiro
    "FUNDO DO MAR!" e um passeio de câmera pelo lugar) → faixa "VEZ DA MIA!
-   RODADA 2" → mascote pronto com a bola ("ROLE A BOLA! mire no STRIKE!") →
-   sensor → arremesso → bola rolando (rastro de arco-íris, luzes da pista
+   RODADA 2" → a **pista de frente** esperando a jogada, como a criança vê
+   da máquina ("ROLE A BOLA! mire no STRIKE!"; o mascote fica fora do
+   quadro) → sensor → **corte para o mascote arremessando** → bola rolando (rastro de arco-íris, luzes da pista
    correndo) → impacto com física → resultado (STRIKE!/SPARE!/UAU!/BOA!/
    QUASE!/OPS!, pontos voando para o placar) → replay (strike) → reação do
    mascote → **máquina de pinos** (câmera baixinha na frente dos pinos).
@@ -96,10 +101,12 @@ degradê com verniz, filete de luz, lateral mais escura (espessura),
 contorno azul-marinho e sombra no chão, como os objetos do cenário.
 Desenhadas pixel a pixel no shader: nítidas de 720p a 4K.
 
-**Marca Lazer & Sport** em todo o jogo: imagem de inicialização e
-abertura, atração, selo no canto durante a partida, tela final, menu do
-operador, duas placas iluminadas ao lado do letreiro STRIKE KIDS (em cima
-dos pinos, nos 4 cenários) e todas as peças de divulgação. A logo foi
+**Marca Lazer & Sport**, sempre sem fundo e de jeito sutil: imagem de
+inicialização e abertura, rodapé da atração, selo pequeno no canto durante
+a partida, tela final, menu do operador, **impressa na madeira** no meio da
+pista (como os logos das pistas de verdade) e num **balão** que flutua ao
+lado da pista (no espaço vira um planetinha com anel, no mar uma bolha),
+além das peças de divulgação. A logo foi
 redesenhada no dobro da resolução com bordas nítidas
 (`tools/arte/gerar_marca.py`).
 
@@ -131,6 +138,10 @@ contador "N STRIKES SEGUIDOS!"; a próxima bola sai como **bola de fogo**
   da dificuldade e de quão perto o sensor passa do grupo.
 - Pista sem emendas: a bola rola numa peça lisa (óleo) e os pinos pisam numa
   peça própria com atrito de madeira seca.
+- Pista infantil de **10,5 m** (linha de falta até o pino 1): a bola chega
+  rápido; setas a 1/3 da pista. Canaletas em meia-cana de verdade (perfil
+  liso, mais escuras no fundo), divisórias arredondadas que terminam na
+  linha de falta.
 
 Strikes na 1ª bola (400 jogadas simuladas por dificuldade, com
 para-choques): fácil — centro 58%, meio 33–41%, lados 12–17%; normal —
@@ -165,6 +176,25 @@ Depois de cada bola, como num boliche de verdade:
    empurra os pinos de verdade.
 4. A mesa desce e devolve os pinos; na rodada nova ela desce com os
    **10 pinos novinhos**. Barra sobe e a pista está pronta.
+
+## 6b. Caçapa, gabinete e salão (`scripts/mundo.gd`, `scripts/perfis.gd`)
+
+- **Caçapa**: paredes laterais acolchoadas com friso amarelo, cortina de
+  veludo pregueada com estrelas, almofada de borracha embaixo.
+- **Gabinete da máquina** fechado por fora (laterais, teto e fundo com a
+  marca atrás) e duas **colunas** com faixas de lâmpadas dos lados do
+  letreiro STRIKE KIDS: de qualquer ângulo é uma máquina inteira.
+- **Salão atrás dos jogadores**: tapete, parede com o letreiro STRIKE KIDS
+  aceso, sofás e retorno de bolas — quando a câmera vira para o mascote, o
+  fundo é o salão (nada de chão infinito).
+- **Pinos com reação**: medo quando a bola chega; depois da jogada os
+  derrubados ficam **tontos** (estrelinhas) ou **bravinhos** (tremidinha de
+  raiva) e os que ficaram de pé ficam felizes — vários dão **pulinhos** de
+  comemoração (mais festa quando sobram muitos). Os pulos são animação
+  (pino preso, sem física) e terminam exatamente no lugar; a máquina ainda
+  recentraliza os pinos em pé antes da próxima bola.
+- Peças feitas por **perfil extrudado** (cantos arredondados, normais
+  lisas): nítidas de perto em 4K.
 
 ## 7. Cenários (`scripts/temas.gd`)
 
@@ -223,6 +253,7 @@ para o próximo.
 | `godot --path . -- --instantes=pasta --em=2,5` | fotos do jogo rodando em instantes fixos (conferir nitidez, até 4K) |
 | `godot --path . res://tools/testes/retratos.tscn` | retratos dos mascotes (placar/divulgação) |
 | `godot --path . res://tools/testes/paineis.tscn -- saida.png` | amostra das placas com volume das telas |
+| `godot --path . res://tools/testes/planos.tscn -- --saida=pasta [--plano=nome:pos:alvo:fov_v:fov_h]` | fotos de planos de câmera fixos (canaletas, caçapa, salão, espera da jogada) |
 | `python3 tools/sons/gerar_sons.py` | efeitos e músicas originais |
 | `godot --headless --path . --fixed-fps 120 res://tools/testes/calibrar.tscn` | calibra a tabela de jogadas (`-- --validar=normal` confere) |
 | `godot --path . -- --roteiro=pasta` | teste automático: joga sozinho e tira fotos |
@@ -230,9 +261,9 @@ para o próximo.
 
 ## 10. LEDs no Android (plugin USB)
 
-O APK padrão (como no Pro Ultra) usa o modelo pronto do Godot, sem Gradle,
-e por isso não leva o plugin USB do Arduino. Para LEDs: no editor, Projeto >
-Configurações > Plugins, ative **DragonUsbSerial**; no preset Android ligue
-**Use Gradle Build** e instale o modelo de build Android (Projeto >
-Instalar Modelo de Build Android). O `ArduinoBridge` já está pronto
+`GERAR_APK.bat -ComLeds` faz tudo sozinho: tira o `addons/.gdignore`, liga
+o plugin **DragonUsbSerial** no `project.godot`, ativa o Gradle no preset,
+instala o modelo de build Android (`--install-android-build-template`) e
+exporta. Sem `-ComLeds`, o APK usa o modelo pronto do Godot (sem Gradle,
+como no Pro Ultra) e sai sem o plugin. O `ArduinoBridge` já está pronto
 (mesmo protocolo do Dragon Bowling).

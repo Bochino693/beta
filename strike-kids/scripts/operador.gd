@@ -1,7 +1,7 @@
 extends Control
 
-## MENU DO OPERADOR (botão de configuração da máquina: L3/R2 da Zero
-## Delay, ou tecla 9 no PC).
+## MENU DO OPERADOR (botão de configuração da máquina: R2 da Zero Delay,
+## que no modo teclado manda a tecla 9 — igual ao Dragon Bowling).
 ##
 ## Navegação com os próprios sensores/botões da máquina:
 ##   X (meio-esquerda) = sobe        V (meio-direita) = desce

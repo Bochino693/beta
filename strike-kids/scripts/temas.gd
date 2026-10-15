@@ -20,6 +20,7 @@ const CONFIG := {
 		"fundo": [Color(0.02, 0.06, 0.16), Color(0.05, 0.16, 0.38)],
 		"placa": Color("#0E2A5C"), "divisoria": Color("#FFB627"), "faixa": Color("#E8384F"), "canaleta": Color("#8FC4EE"),
 		"chao": [Color("#6BCB5D"), Color("#5BB54E"), Color("#FFFFFF"), Color("#FFE873")], "chao_modo": 0,
+		"balao": {"tipo": "balao", "cor": Color("#E8384F")},
 	},
 	"espaco": {
 		"ceu": [Color("#040A26"), Color("#0E2560"), Color("#2C6AB8"), Color("#14244E")],
@@ -30,6 +31,7 @@ const CONFIG := {
 		"fundo": [Color(0.01, 0.02, 0.08), Color(0.03, 0.08, 0.26)],
 		"placa": Color("#0C1C4A"), "divisoria": Color("#4FD8FF"), "faixa": Color("#FF9F2E"), "canaleta": Color("#7FB2FF"),
 		"chao": [Color("#9AA8C4"), Color("#8494B3"), Color("#C3CEE2"), Color("#E2F5FF")], "chao_modo": 1,
+		"balao": {"tipo": "planeta", "cor": Color("#2EC4B6")},
 	},
 	"mar": {
 		"ceu": [Color("#0A4F86"), Color("#1A94C0"), Color("#86E6DE"), Color("#E8D29A")],
@@ -40,6 +42,7 @@ const CONFIG := {
 		"fundo": [Color(0.01, 0.10, 0.20), Color(0.03, 0.30, 0.44)],
 		"placa": Color("#0B4C6E"), "divisoria": Color("#FF8A5C"), "faixa": Color("#2EC4B6"), "canaleta": Color("#7FD8E8"),
 		"chao": [Color("#F9DCA2"), Color("#EDC98A"), Color("#FFB09E"), Color("#9EDDE6")], "chao_modo": 2,
+		"balao": {"tipo": "bolha", "cor": Color("#BFF3FF")},
 	},
 	"dinos": {
 		"ceu": [Color("#3FA7E8"), Color("#9BD8F0"), Color("#FFE4AE"), Color("#6BBF59")],
@@ -50,14 +53,15 @@ const CONFIG := {
 		"fundo": [Color(0.04, 0.14, 0.06), Color(0.10, 0.32, 0.12)],
 		"placa": Color("#23502A"), "divisoria": Color("#FF9F2E"), "faixa": Color("#8BD33F"), "canaleta": Color("#9BD58A"),
 		"chao": [Color("#46A44E"), Color("#57B948"), Color("#FF9F33"), Color("#FFE65A")], "chao_modo": 3,
+		"balao": {"tipo": "balao", "cor": Color("#FF9F2E")},
 	},
 }
 
 const CORES_BICHOS := [Color("#FF9F2E"), Color("#FFD43B"), Color("#4FD8FF"), Color("#FF4B5C"), Color("#8DFF6A"), Color("#2E7BFF")]
 
 ## Lugares de destaque perto da pista (vistos de perto nas jogadas): x, z, giro, escala
-const DESTAQUES := [[-2.55, -1.5, 0.3], [2.7, -3.5, -0.4], [-3.9, 3.4, 0.4], [3.9, 2.6, 0.0],
-	[2.3, -8.0, 2.0], [-2.3, -9.0, 1.0], [-2.4, -5.5, 0.0], [2.4, -11.5, 0.5]]
+const DESTAQUES := [[-2.55, -1.2, 0.3], [2.7, -2.7, -0.4], [-3.9, 3.4, 0.4], [3.9, 2.6, 0.0],
+	[2.3, -6.0, 2.0], [-2.3, -6.8, 1.0], [-2.4, -4.2, 0.0], [2.45, -8.7, 0.5]]
 
 var mundo: Mundo
 var atual := ""

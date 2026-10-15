@@ -78,6 +78,7 @@ var _sel_nomes: Array[Label] = []
 var _sel_dica: Painel3D
 var _sel_texto: Label
 var _sel_destaque := 0
+var _sel_sensores: Control
 var _fim: Control
 var _inativo: Painel3D
 var _inativo_texto: Label
@@ -134,6 +135,7 @@ func montar(textura_3d: Texture2D) -> void:
 	add_child(_fim)
 	_montar_inatividade()
 	_montar_fotos()
+	_montar_etapas()
 	_montar_marca()
 	_flash = ColorRect.new()
 	_flash.color = Color(1, 1, 1, 0)
@@ -244,7 +246,7 @@ func _montar_placar() -> void:
 	_bolas_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_bolas_box)
 	_marca_canto = logo_marca()
-	_marca_canto.modulate.a = 0.95
+	_marca_canto.modulate.a = 0.8
 	add_child(_marca_canto)
 	mostrar_placar(false)
 
@@ -731,7 +733,112 @@ func atracao(ligado: bool, recorde := "", creditos := "", foto_recorde: Texture2
 		mostrar_sensores(false)
 
 
+# ================================================================ etapas
+## Faixa "1 JOGADORES › 2 AMIGO › 3 FOTO › 4 JOGAR" no alto das telas de
+## preparação: a criança (e o pai) sabem em que passo estão.
+const ETAPAS := ["JOGADORES", "AMIGO", "FOTO", "JOGAR"]
+var _etapas: Control
+var _etapas_pilulas: Array[Painel3D] = []
+
+
+func _montar_etapas() -> void:
+	_etapas = Control.new()
+	_etapas.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_etapas.visible = false
+	add_child(_etapas)
+	for i in ETAPAS.size():
+		var p := Painel3D.new(AZUL, 30, 7, 4)
+		_etapas.add_child(p)
+		var l := rotulo("%d  %s" % [i + 1, ETAPAS[i]], 30, Color.WHITE, 7, MARINHO)
+		l.name = "texto"
+		p.add_child(l)
+		_etapas_pilulas.append(p)
+
+
+## n = passo atual (1..4); 0 esconde. pulos: passos que não acontecem nesta
+## partida (ex.: AMIGO com 2 jogadores) aparecem como feitos.
+func etapa(n: int) -> void:
+	_etapas.visible = n > 0
+	for i in _etapas_pilulas.size():
+		var p := _etapas_pilulas[i]
+		var passo := i + 1
+		if passo == n:
+			p.pintar(DESTAQUE)
+			p.modulate = Color.WHITE
+			(p.get_node("texto") as Label).label_settings.font_color = MARINHO
+			(p.get_node("texto") as Label).label_settings.outline_size = 0
+		elif passo < n:
+			p.pintar(Color("#2DBE4E"))
+			p.modulate = Color(1, 1, 1, 0.9)
+			(p.get_node("texto") as Label).label_settings.font_color = Color.WHITE
+			(p.get_node("texto") as Label).label_settings.outline_size = int(7 * u)
+		else:
+			p.pintar(AZUL)
+			p.modulate = Color(1, 1, 1, 0.75)
+			(p.get_node("texto") as Label).label_settings.font_color = Color.WHITE
+			(p.get_node("texto") as Label).label_settings.outline_size = int(7 * u)
+
+
+func _layout_etapas(T: Vector2) -> void:
+	var gap := 12 * u
+	var w: float = minf((T.x - 40 * u - gap * 3) / 4.0, 250 * u)
+	var h := 66 * u
+	var x0 := (T.x - (w * 4 + gap * 3)) / 2
+	for i in _etapas_pilulas.size():
+		var p := _etapas_pilulas[i]
+		p.size = Vector2(w, h)
+		p.position = Vector2(x0 + i * (w + gap), 24 * u)
+		var l := p.get_node("texto") as Label
+		l.size = Vector2(w, h - 8 * u)
+		l.position = Vector2.ZERO
+		_caber(l, 30 * u, w - 20 * u)
+
+
+## Os 5 sensores da máquina em miniatura (da esquerda para a direita),
+## cada um com a cor do que ele faz nesta tela.
+func _sensores(cores: Array, legendas: Array) -> Control:
+	var c := Control.new()
+	c.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	for i in 5:
+		var b := Panel.new()
+		b.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		b.add_theme_stylebox_override("panel", caixa(cores[i], 99, 4, Color.WHITE, 4))
+		b.name = "s%d" % i
+		c.add_child(b)
+	for i in legendas.size():
+		var l := rotulo(str(legendas[i][0]), 28, Color.WHITE, 7, MARINHO)
+		l.name = "l%d" % i
+		l.set_meta("de", legendas[i][1])
+		l.set_meta("ate", legendas[i][2])
+		c.add_child(l)
+	return c
+
+
+func _layout_sensores(c: Control, largura: float) -> void:
+	var d := 40 * u
+	var passo := minf(largura / 5.0, 76 * u)
+	var x0 := (largura - passo * 4 - d) / 2
+	for i in 5:
+		var b := c.get_node("s%d" % i) as Panel
+		b.size = Vector2(d, d)
+		b.position = Vector2(x0 + i * passo, 0)
+	for l in c.get_children():
+		if l is Label:
+			var de: int = l.get_meta("de")
+			var ate: int = l.get_meta("ate")
+			var xa := x0 + de * passo
+			var xb := x0 + ate * passo + d
+			_tamanho_rotulo(l, 26 * u)
+			l.label_settings.outline_size = int(7 * u)
+			l.size = Vector2(maxf(xb - xa, 120 * u), 36 * u)
+			l.position = Vector2((xa + xb) / 2 - l.size.x / 2, d + 4 * u)
+	c.size = Vector2(largura, d + 44 * u)
+
+
 # ================================================================ quantos vão jogar
+## Igual ao Dragon Bowling (mesma máquina): START 1 vez = 1 jogador;
+## START de novo (dentro do tempo) = 2 jogadores. A tela mostra isso com o
+## botão START desenhado em cada cartão e a contagem para começar.
 func _montar_jogadores() -> void:
 	_jog = Control.new()
 	_jog.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -744,7 +851,7 @@ func _montar_jogadores() -> void:
 	for i in 2:
 		var c := Painel3D.new(Color("#F2F7FF"), 40, 16, 6)
 		_jog_painel.add_child(c)
-		var num := rotulo(str(i + 1), 190, COR_BOB if i == 0 else COR_MIA, 22, MARINHO, fonte_titulo)
+		var num := rotulo(str(i + 1), 170, COR_BOB if i == 0 else COR_MIA, 22, MARINHO, fonte_titulo)
 		num.name = "num"
 		c.add_child(num)
 		var leg := rotulo("JOGADOR" if i == 0 else "JOGADORES", 46, MARINHO, 0, MARINHO, fonte_titulo)
@@ -763,8 +870,20 @@ func _montar_jogadores() -> void:
 		mei.label_settings.shadow_size = 0
 		mei.name = "meio"
 		c.add_child(mei)
+		# como escolher: o botão START desenhado + quantas vezes
+		var bt := Painel3D.new(Color("#E8384F"), 26, 7, 4)
+		bt.name = "botao"
+		c.add_child(bt)
+		var bl := rotulo("START", 34, Color.WHITE, 8, MARINHO, fonte_titulo)
+		bl.name = "texto"
+		bt.add_child(bl)
+		var vezes := rotulo("1 VEZ" if i == 0 else "2 VEZES", 40, MARINHO, 0, MARINHO, fonte_titulo)
+		vezes.label_settings.shadow_size = 0
+		vezes.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+		vezes.name = "vezes"
+		c.add_child(vezes)
 		_jog_cartoes.append(c)
-	_jog_dica = rotulo("", 38, Color.WHITE, 9)
+	_jog_dica = rotulo("", 36, Color.WHITE, 9)
 	_jog_painel.add_child(_jog_dica)
 	_jog_trilho = Painel3D.new(MARINHO.lightened(0.08), 17, 3, 3)
 	_jog_trilho.sombra(0.0)
@@ -775,7 +894,8 @@ func _montar_jogadores() -> void:
 
 
 ## Tela "QUANTOS VÃO JOGAR?": dois cartões (1 ou 2), o escolhido brilha.
-func jogadores(ligado: bool, n := 1, fracao := 0.0) -> void:
+## fracao: tempo que falta (1 → 0); segundos: para a contagem escrita.
+func jogadores(ligado: bool, n := 1, fracao := 0.0, segundos := 0) -> void:
 	if ligado and not _jog.visible:
 		_jog_painel.pivot_offset = _jog_painel.size / 2
 		_jog_painel.scale = Vector2.ONE * 0.75
@@ -786,7 +906,10 @@ func jogadores(ligado: bool, n := 1, fracao := 0.0) -> void:
 	if n != _jog_n:
 		_pular(_jog_cartoes[n - 1])
 	_jog_n = n
-	_jog_dica.text = "Aperte START de novo para 2 JOGADORES" if n == 1 else "Bob x Mia: vamos lá!"
+	if n == 1:
+		_jog_dica.text = "Vão jogar em 2? Aperte START de novo agora!\nSe não, começa com 1 jogador em %d..." % maxi(segundos, 1)
+	else:
+		_jog_dica.text = "2 JOGADORES: BOB x MIA!\nPreparem-se..."
 	_jog_barra.size.x = maxf(_jog_trilho.size.x * clampf(fracao, 0.0, 1.0), _jog_trilho.size.y)
 	_jog_barra.visible = fracao > 0.0
 	for i in 2:
@@ -798,48 +921,70 @@ func jogadores(ligado: bool, n := 1, fracao := 0.0) -> void:
 
 func _layout_jogadores(T: Vector2) -> void:
 	var mw: float = minf(T.x * 0.92, 980 * u)
-	var mh := 780 * u
+	var mh := 830 * u
 	_jog_painel.size = Vector2(mw, mh)
-	_jog_painel.position = (T - _jog_painel.size) / 2 + Vector2(0, (40 if retrato else 0) * u)
+	_jog_painel.position = (T - _jog_painel.size) / 2 + Vector2(0, (50 if retrato else 30) * u)
 	_jog_painel.pivot_offset = _jog_painel.size / 2
 	_tamanho_rotulo(_jog_titulo, 70 * u)
 	_jog_titulo.label_settings.outline_size = int(16 * u)
 	_jog_titulo.size = Vector2(mw, 120 * u)
-	_jog_titulo.position = Vector2(0, 26 * u)
-	var gap := 40 * u
+	_jog_titulo.position = Vector2(0, 22 * u)
+	_caber(_jog_titulo, 70 * u, mw - 60 * u)
+	var gap := 36 * u
 	var cw := (mw - gap * 3) / 2
-	var ch := 430 * u
+	var ch := 470 * u
 	for i in 2:
 		var c := _jog_cartoes[i]
 		c.size = Vector2(cw, ch)
-		c.position = Vector2(gap + i * (cw + gap), 160 * u)
+		c.position = Vector2(gap + i * (cw + gap), 150 * u)
 		c.pivot_offset = c.size / 2
 		var num := c.get_node("num") as Label
-		_tamanho_rotulo(num, 190 * u)
+		_tamanho_rotulo(num, 170 * u)
 		num.label_settings.outline_size = int(22 * u)
-		num.size = Vector2(cw, 210 * u)
+		num.size = Vector2(cw, 180 * u)
 		num.position = Vector2(0, 0)
 		var leg := c.get_node("leg") as Label
 		_tamanho_rotulo(leg, 44 * u)
 		leg.label_settings.shadow_size = 0
-		leg.size = Vector2(cw, 60 * u)
-		leg.position = Vector2(0, 196 * u)
-		var rs := 132 * u
+		leg.size = Vector2(cw, 56 * u)
+		leg.position = Vector2(0, 172 * u)
+		_caber(leg, 44 * u, cw - 30 * u)
+		var rs := 112 * u
 		for k in 2:
 			var r := c.get_node("retrato_%d" % k) as TextureRect
 			r.size = Vector2(rs, rs)
-			r.position = Vector2(cw / 2 + (-rs - 22 * u if k == 0 else 22 * u), 262 * u)
+			r.position = Vector2(cw / 2 + (-rs - 20 * u if k == 0 else 20 * u), 232 * u)
 		var mei := c.get_node("meio") as Label
-		_tamanho_rotulo(mei, 40 * u)
+		_tamanho_rotulo(mei, 38 * u)
 		mei.label_settings.shadow_size = 0
 		mei.size = Vector2(cw, rs)
-		mei.position = Vector2(0, 262 * u)
-	_tamanho_rotulo(_jog_dica, 38 * u)
+		mei.position = Vector2(0, 232 * u)
+		# botão START + "1 VEZ"/"2 VEZES", centralizados
+		var bt := c.get_node("botao") as Painel3D
+		var vezes := c.get_node("vezes") as Label
+		var bw := 150 * u
+		var bh := 60 * u
+		_tamanho_rotulo(vezes, 38 * u)
+		vezes.label_settings.shadow_size = 0
+		var vw := vezes.label_settings.font.get_string_size(vezes.text, HORIZONTAL_ALIGNMENT_LEFT, -1, vezes.label_settings.font_size).x
+		var total := bw + 14 * u + vw
+		var x0 := (cw - total) / 2
+		bt.size = Vector2(bw, bh)
+		bt.position = Vector2(x0, 372 * u)
+		var bl := bt.get_node("texto") as Label
+		_tamanho_rotulo(bl, 32 * u)
+		bl.label_settings.outline_size = int(7 * u)
+		bl.size = Vector2(bw, bh - 7 * u)
+		bl.position = Vector2.ZERO
+		vezes.size = Vector2(vw + 10 * u, bh)
+		vezes.position = Vector2(x0 + bw + 14 * u, 372 * u - 4 * u)
+	_tamanho_rotulo(_jog_dica, 34 * u)
 	_jog_dica.label_settings.outline_size = int(9 * u)
-	_jog_dica.size = Vector2(mw, 60 * u)
-	_jog_dica.position = Vector2(0, 618 * u)
+	_jog_dica.size = Vector2(mw - 40 * u, 100 * u)
+	_jog_dica.position = Vector2(20 * u, 636 * u)
+	_jog_dica.autowrap_mode = TextServer.AUTOWRAP_OFF
 	_jog_trilho.size = Vector2(mw - 140 * u, 34 * u)
-	_jog_trilho.position = Vector2(70 * u, 694 * u)
+	_jog_trilho.position = Vector2(70 * u, 752 * u)
 	_jog_barra.size = Vector2(_jog_barra.size.x, 34 * u)
 	_jog_barra.position = Vector2.ZERO
 
@@ -863,10 +1008,14 @@ func _montar_selecao() -> void:
 		_sel_placas.append(placa)
 		_sel_nomes.append(l)
 	_sel_dica = Painel3D.new(MARINHO.lightened(0.12), 30, 8, 5)
-	_sel_dica.modulate.a = 0.92
+	_sel_dica.modulate.a = 0.94
 	_selecao.add_child(_sel_dica)
-	_sel_texto = rotulo("", 38, Color.WHITE, 9)
+	_sel_texto = rotulo("", 36, Color.WHITE, 9)
 	_sel_dica.add_child(_sel_texto)
+	# os 5 sensores: esquerda = Bob, meio = confirma, direita = Mia
+	_sel_sensores = _sensores([COR_BOB, COR_BOB, DESTAQUE, COR_MIA, COR_MIA],
+		[["BOB", 0, 1], ["OK", 2, 2], ["MIA", 3, 4]])
+	_sel_dica.add_child(_sel_sensores)
 
 
 ## pes: onde ficam os pés de Bob e Mia na tela (a placa fica logo abaixo).
@@ -1388,7 +1537,7 @@ func layout() -> void:
 	_sequencia.position = Vector2(0 if retrato else margem, base_y + 100 * u)
 	_sequencia.pivot_offset = _sequencia.size / 2
 	# marca no canto de baixo durante o jogo
-	var cw := 170 * u
+	var cw := 140 * u
 	_marca_canto.size = Vector2(cw, cw * PROPORCAO_LOGO)
 	_marca_canto.position = Vector2(margem, T.y - cw * PROPORCAO_LOGO - margem)
 	# atração
@@ -1427,10 +1576,11 @@ func layout() -> void:
 	_creditos.position = Vector2(0, _atr_marca.position.y - 52 * u) if retrato else Vector2(0, T.y - 64 * u)
 	# quantos vão jogar
 	_layout_jogadores(T)
+	_layout_etapas(T)
 	# seleção
 	var sw: float = minf(T.x * 0.9, 900 * u)
 	_sel_titulo.size = Vector2(sw, 130 * u)
-	_sel_titulo.position = Vector2((T.x - sw) / 2, T.y * 0.05)
+	_sel_titulo.position = Vector2((T.x - sw) / 2, 112 * u)
 	_sel_titulo.pivot_offset = _sel_titulo.size / 2
 	var t := _sel_titulo.get_node("titulo") as Label
 	_tamanho_rotulo(t, 74 * u)
@@ -1447,13 +1597,16 @@ func layout() -> void:
 		l.label_settings.outline_size = int(16 * u)
 		l.size = Vector2(p.size.x, p.size.y - 14 * u)
 		l.position = Vector2.ZERO
-	var dw: float = minf(T.x * 0.84, 800 * u)
-	_sel_dica.size = Vector2(dw, 130 * u)
-	_sel_dica.position = Vector2((T.x - dw) / 2, T.y * (0.8 if retrato else 0.84))
-	_tamanho_rotulo(_sel_texto, 38 * u)
+	var dw: float = minf(T.x * 0.9, 860 * u)
+	var dh := 230 * u
+	_sel_dica.size = Vector2(dw, dh)
+	_sel_dica.position = Vector2((T.x - dw) / 2, T.y - dh - (60 if retrato else 24) * u)
+	_tamanho_rotulo(_sel_texto, 34 * u)
 	_sel_texto.label_settings.outline_size = int(9 * u)
-	_sel_texto.size = Vector2(dw, 120 * u)
-	_sel_texto.position = Vector2.ZERO
+	_sel_texto.size = Vector2(dw, 100 * u)
+	_sel_texto.position = Vector2(0, 8 * u)
+	_layout_sensores(_sel_sensores, minf(dw - 80 * u, 420 * u))
+	_sel_sensores.position = Vector2((dw - _sel_sensores.size.x) / 2, 112 * u)
 	var mw: float = min(T.x * 0.86, 860 * u)
 	# inatividade
 	_inativo.size = Vector2(mw, 600 * u)

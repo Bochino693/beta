@@ -9,11 +9,15 @@ curtos e gordinhos, pés de sola chata (pisam firme no chão), cores em
 blocos limpos — nada de manchas tortas.
 
   * BOB — cachorrinho caramelo, focinho e patas creme, orelhas caídas
-    marrons, camiseta turquesa com estrela amarela, lenço vermelho e
+    marrons, camiseta azul com estrela amarela, lenço vermelho e
     rabinho enroladinho.
   * MIA — gatinha cinza-clarinha com três listrinhas na testa, focinho e
-    peito brancos, orelhas pontudas rosadas por dentro, laço amarelo,
-    vestido lilás de bolinhas brancas e golinha, rabo comprido.
+    peito brancos, orelhas pontudas rosadas por dentro, laço azul,
+    roupinha laranja de bolinhas brancas e golinha, rabo comprido.
+
+ESTAMPAS (estrela do Bob, bolinhas da Mia): NÃO são pintadas nos vértices
+— são desenhadas no shader (shaders/toon_personagem.gdshader) a partir dos
+dados em meta["estampa"]: bordas perfeitas em qualquer resolução (4K).
 
 Rig (juntas): corpo (quadril) > cabeça, rabo, braço > antebraço,
 coxa > canela > pé. O pé separado é o que deixa o jogo travar a sola no
@@ -22,13 +26,12 @@ chão (IK de pernas em scripts/personagem.gd).
 Cor do vértice: RGB = cor (sRGB); ALFA = 1 onde o desenho do rosto pode
 aparecer (pelo da cara e focinho), 0 = normal.
 """
-import math
 import os
 
 import numpy as np
 
 from sdf import (Capsula, ConeRedondo, Elipsoide, Esfera, Intersecao, Pacote, Pintura, SemiEspaco, Toro,
-                 estrela_2d, gerar_malha, hex_cor, rot_x, rot_y, rot_z, unir)
+                 gerar_malha, hex_cor, rot_x, rot_y, rot_z, unir)
 
 # ------------------------------------------------------------- juntas (metros, ele olha para +Z)
 QUADRIL_Y = 0.36
@@ -154,20 +157,21 @@ def bob():
     ombros = Capsula((-0.118, 0.565, 0), (0.118, 0.565, 0), 0.058, pal.camisa)
     quadril = Elipsoide((0, 0.355, 0.0), (0.15, 0.075, 0.125), pal.pelo_corpo)
     pescoco = Capsula((0, 0.58, 0), (0, 0.69, 0), 0.062, pal.pelo_corpo)
-    lenco = Toro((0, 0.615, 0.0), 0.078, 0.026, pal.lenco)
-    ponta = ConeRedondo((0, 0.6, 0.085), (0, 0.53, 0.128), 0.044, 0.012, pal.lenco)
+    lenco = unir(Toro((0, 0.615, 0.0), 0.078, 0.026, pal.lenco),
+                 ConeRedondo((0, 0.6, 0.085), (0, 0.53, 0.128), 0.044, 0.012, pal.lenco), k=0.012)
     tronco = peito.solda(barriga, 0.06).solda(ombros, 0.05).solda(quadril, 0.04).solda(pescoco, 0.02)
-    tronco = tronco | lenco | ponta
-
-    def estrela(P):
-        return (P[:, 2] > 0.06) & estrela_2d(P[:, 0], P[:, 1], 0.0, 0.47, 0.066, 0.03)
-    pint_tronco = [Pintura(estrela, pal.estampa)]
+    # lenço "costurado" na camiseta (emenda lisa, sem vinco nem risco)
+    tronco = tronco.solda(lenco, 0.008)
+    pint_tronco = []
+    # estrela amarela no peito (desenhada no shader)
+    estampa = {"tipo": "estrela", "base": "#1FB2C8", "cor": "#FFD43B", "centro": [0.0, 0.452 - QUADRIL_Y],
+               "raio": 0.064, "dentro": 0.5}
     # rabinho enroladinho para cima
     r0 = RABO
     rabo = unir(Capsula(r0, r0 + np.array([0, 0.07, -0.06]), 0.036, pal.pelo_corpo, rb=0.032),
                 Capsula(r0 + np.array([0, 0.07, -0.06]), r0 + np.array([0, 0.13, -0.05]), 0.032, pal.pelo_corpo, rb=0.03),
                 Esfera(r0 + np.array([0, 0.145, -0.035]), 0.036, pal.focinho), k=0.025)
-    return pal, (cabeca, pint_cab), (tronco, pint_tronco), cores, rabo
+    return pal, (cabeca, pint_cab), (tronco, pint_tronco), cores, rabo, estampa
 
 
 # ------------------------------------------------------------- MIA (gatinha)
@@ -230,28 +234,20 @@ def mia():
     cores = dict(pelo=pal.pelo_corpo, manga=pal.vestido, pata=pal.pata, coxa=pal.pelo_corpo, dedo=pal.dedo)
     blusa = Elipsoide((0, 0.515, 0), (0.152, 0.135, 0.125), pal.vestido)
     ombros = Capsula((-0.115, 0.565, 0), (0.115, 0.565, 0), 0.056, pal.vestido)
-    saia = ConeRedondo((0, 0.46, 0), (0, 0.3, 0), 0.15, 0.215, pal.vestido)
+    # saia rodada com BARRA de verdade: cortada reta em y = 0,27 e com a
+    # quina arredondada (antes a caixa da malha cortava a saia e a barra
+    # ficava aberta e serrilhada)
+    saia = Intersecao(ConeRedondo((0, 0.46, 0), (0, 0.3, 0), 0.15, 0.215, pal.vestido),
+                      SemiEspaco((0, 0.27, 0), (0, -1, 0)), 0.03)
     gola = unir(Elipsoide((0.04, 0.603, 0.06), (0.05, 0.022, 0.04), pal.gola, rot=rot_z(-0.25)),
                 Elipsoide((-0.04, 0.603, 0.06), (0.05, 0.022, 0.04), pal.gola, rot=rot_z(0.25)),
                 Toro((0, 0.612, 0.0), 0.072, 0.02, pal.gola), k=0.01)
     pescoco = Capsula((0, 0.58, 0), (0, 0.69, 0), 0.058, pal.pelo_corpo)
-    tronco = blusa.solda(ombros, 0.05).solda(saia, 0.05).solda(pescoco, 0.02) | gola
-
-    # bolinhas brancas redondinhas espalhadas na saia (pontos fixos na superfície)
-    centros = []
-    for k in range(3):
-        y = 0.335 + k * 0.05
-        rr = 0.213 - (y - 0.3) * (0.065 / 0.16)
-        n = 11 - k
-        for i in range(n):
-            a = 2 * math.pi * (i + 0.5 * (k % 2)) / n
-            centros.append((math.sin(a) * rr, y, math.cos(a) * rr))
-    centros = np.array(centros)
-
-    def bolinhas(P):
-        d = np.min(np.linalg.norm(P[:, None, :] - centros[None, :, :], axis=2), axis=1)
-        return (d < 0.017) & (P[:, 1] < 0.45)
-    pint_tronco = [Pintura(bolinhas, pal.bolinha)]
+    tronco = blusa.solda(ombros, 0.05).solda(saia, 0.05).solda(pescoco, 0.02).solda(gola, 0.006)
+    pint_tronco = []
+    # bolinhas brancas na saia, em fileiras desencontradas (desenhadas no shader)
+    estampa = {"tipo": "bolinhas", "base": "#FF8A2B", "cor": "#FFFFFF", "raio": 0.019,
+               "y0": 0.31 - QUADRIL_Y, "dy": 0.05, "fileiras": 3, "n0": 12, "y_max": 0.44 - QUADRIL_Y}
     # rabo comprido e curvado, pontinha mais escura
     p0 = RABO
     p1 = RABO + np.array([0.0, 0.02, -0.13])
@@ -259,13 +255,13 @@ def mia():
     p3 = RABO + np.array([0.055, 0.27, -0.15])
     rabo = unir(Capsula(p0, p1, 0.031, pal.pelo_corpo), Capsula(p1, p2, 0.03, pal.pelo_corpo),
                 Capsula(p2, p3, 0.03, pal.rabo_ponta, rb=0.034), k=0.03)
-    return pal, (cabeca, pint_cab), (tronco, pint_tronco), cores, rabo
+    return pal, (cabeca, pint_cab), (tronco, pint_tronco), cores, rabo, estampa
 
 
 # ------------------------------------------------------------- montagem
 
 def gerar_personagem(nome, fabrica, pasta):
-    pal, (cabeca, pint_cab), (tronco, pint_tronco), cores, rabo = fabrica()
+    pal, (cabeca, pint_cab), (tronco, pint_tronco), cores, rabo, estampa = fabrica()
     alfa = alfa_por_cor(pal)
     pac = Pacote()
 
@@ -276,7 +272,7 @@ def gerar_personagem(nome, fabrica, pasta):
         return gerar_malha(forma, bmin, bmax, PASSO, pal.cores, pint, mascara_rosto=lambda P, c: np.zeros(len(P)))
 
     q = np.array([0, QUADRIL_Y, 0])
-    pac.adicionar("corpo", sem_rosto(tronco, pint_tronco, (-0.3, 0.24, -0.26), (0.3, 0.74, 0.26)), "", q, q)
+    pac.adicionar("corpo", sem_rosto(tronco, pint_tronco, (-0.3, 0.22, -0.26), (0.3, 0.79, 0.26)), "", q, q)
     pc = np.array([0, PESCOCO_Y, 0])
     pac.adicionar("cabeca", malha(cabeca, pint_cab, (-0.42, 0.55, -0.4), (0.42, 1.26, 0.36)), "corpo", pc - q, pc)
     pac.adicionar("rabo", sem_rosto(rabo, [], (-0.14, 0.32, -0.42), (0.14, 0.74, -0.06)), "corpo", RABO - q, RABO)
@@ -298,4 +294,5 @@ def gerar_personagem(nome, fabrica, pasta):
         "rosto": {"centro": list(ROSTO_CENTRO), "tamanho": list(ROSTO_TAMANHO)},
         "mao_d": [float(v) for v in (espelho(MAO, -1) - espelho(COTOVELO, -1))],
         "tornozelo_y": float(TORNOZELO[1]),
+        "estampa": estampa,
     })

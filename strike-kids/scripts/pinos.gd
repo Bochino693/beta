@@ -98,18 +98,36 @@ func todos_parados() -> bool:
 	return true
 
 
-func marcar_tontos() -> void:
+## Depois da jogada: os caídos ficam tontos (estrelinhas) ou bravinhos; os
+## que ficaram de pé comemoram — quanto mais sobraram, mais festa, e alguns
+## dão pulinhos. Devolve quantos vão pular (para a câmera esperar a festa).
+func reagir() -> int:
+	var de_pe: Array[Pino] = []
 	for p in pinos:
 		if p.removido:
 			continue
 		if p.esta_caido():
-			p.ficar_tonto()
-		elif p._expr == "medo":
-			p.expressao("feliz")
+			if randf() < 0.55:
+				p.ficar_tonto()
+			else:
+				p.ficar_bravo()
+		else:
+			de_pe.append(p)
+	var chance := clampf(0.3 + de_pe.size() * 0.06, 0.35, 0.85)
+	de_pe.shuffle()
+	var pulando := 0
+	for i in de_pe.size():
+		var pulos := 0
+		if randf() < chance:
+			pulos = 1 + int(randf() < 0.45)
+			pulando += 1
+		de_pe[i].comemorar(0.1 + i * 0.07, pulos)
+	return pulando
 
 
 func prender_todos() -> void:
 	for p in pinos:
+		p.parar_pulo()
 		p.prender()
 
 

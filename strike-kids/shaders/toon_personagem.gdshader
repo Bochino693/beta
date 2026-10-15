@@ -26,11 +26,67 @@ uniform vec2 rosto_tamanho = vec2(0.46, 0.40);
 uniform vec2 rosto_grade = vec2(4.0, 2.0);
 uniform vec2 rosto_celula = vec2(0.0, 0.0);
 
+// ESTAMPA DA ROUPA desenhada aqui (não na malha): bordas perfeitas em 4K.
+//   1 = estrela de frente no peito; 2 = bolinhas em fileiras na saia.
+// Só aparece onde a cor do vértice é a da roupa (estampa_base).
+uniform int estampa = 0;
+uniform vec3 estampa_base : source_color = vec3(1.0);
+uniform vec3 estampa_cor : source_color = vec3(1.0, 0.85, 0.2);
+uniform vec2 estampa_centro = vec2(0.0, 0.1);
+uniform float estampa_raio = 0.06;
+uniform float estampa_dentro = 0.5;      // estrela: raio do vale / raio da ponta
+uniform float bolinhas_y0 = -0.05;
+uniform float bolinhas_dy = 0.05;
+uniform int bolinhas_fileiras = 3;
+uniform int bolinhas_n0 = 12;
+uniform float bolinhas_y_max = 0.08;
+
 varying vec3 pos_local;
 varying vec3 normal_local;
 
 vec3 srgb_para_linear(vec3 c) {
 	return mix(c / 12.92, pow((c + 0.055) / 1.055, vec3(2.4)), step(vec3(0.04045), c));
+}
+
+// distância até uma estrela de 5 pontas (ponta para cima): raio r da
+// ponta, "vale" = raio do vale / raio da ponta (fórmula de Inigo Quilez)
+float sd_estrela(vec2 p, float r, float vale) {
+	const vec2 k1 = vec2(0.809016994375, -0.587785252292);
+	const vec2 k2 = vec2(-0.809016994375, -0.587785252292);
+	p.x = abs(p.x);
+	p -= 2.0 * max(dot(k1, p), 0.0) * k1;
+	p -= 2.0 * max(dot(k2, p), 0.0) * k2;
+	p.x = abs(p.x);
+	p.y -= r;
+	vec2 ba = vale * vec2(-k1.y, k1.x) - vec2(0.0, 1.0);
+	float h = clamp(dot(p, ba) / dot(ba, ba), 0.0, r);
+	return length(p - ba * h) * sign(p.y * ba.x - p.x * ba.y);
+}
+
+float cobre(float d) {
+	float w = max(fwidth(d), 1e-6);
+	return clamp(0.5 - d / w, 0.0, 1.0);
+}
+
+// distância até a bolinha mais perto (fileiras desencontradas em volta do eixo Y)
+float sd_bolinhas(vec3 p) {
+	float melhor = 1e3;
+	float raio_h = max(length(p.xz), 1e-4);
+	float ang = atan(p.x, p.z);
+	for (int k = 0; k < 8; k++) {
+		if (k >= bolinhas_fileiras) {
+			break;
+		}
+		float y = bolinhas_y0 + float(k) * bolinhas_dy;
+		float n = float(bolinhas_n0 - k);
+		float desloc = 0.5 * float(k % 2);
+		float passo = 6.28318531 / n;
+		float i = floor(ang / passo - desloc + 0.5);
+		float d_ang = ang - (i + desloc) * passo;
+		vec2 q = vec2(d_ang * raio_h, p.y - y);
+		melhor = min(melhor, length(q) - estampa_raio);
+	}
+	return melhor;
 }
 
 void vertex() {
@@ -48,6 +104,25 @@ void fragment() {
 			float m = f.a * smoothstep(0.75, 0.95, COLOR.a) * smoothstep(0.05, 0.3, normal_local.z);
 			base = mix(base, f.rgb, m);
 		}
+	}
+	if (estampa > 0) {
+		// só sobre o tecido (a cor do vértice é a da roupa)
+		float tecido = 1.0 - smoothstep(0.05, 0.12, distance(COLOR.rgb, estampa_base));
+		float d = 1e3;
+		float lado = 1.0;
+		if (estampa == 1) {
+			d = sd_estrela(pos_local.xy - estampa_centro, estampa_raio, estampa_dentro) - estampa_raio * 0.06;
+			lado = smoothstep(0.15, 0.4, normal_local.z) * step(0.0, pos_local.z);
+		} else {
+			d = sd_bolinhas(pos_local);
+			lado = 1.0 - smoothstep(bolinhas_y_max - 0.01, bolinhas_y_max, pos_local.y);
+		}
+		float m = cobre(d) * tecido * lado;
+		// filete um pouco mais escuro em volta (desenho de adesivo)
+		float filete = cobre(abs(d + estampa_raio * 0.06) - estampa_raio * 0.06) * tecido * lado * float(estampa == 1);
+		vec3 cor = srgb_para_linear(estampa_cor) * srgb_para_linear(tinta.rgb);
+		base = mix(base, cor, m);
+		base = mix(base, cor * 0.72, filete * 0.6);
 	}
 	ALBEDO = base;
 	ROUGHNESS = 1.0;

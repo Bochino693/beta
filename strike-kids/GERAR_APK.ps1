@@ -2,7 +2,10 @@
     # 1 = topo do jogo na esquerda do HDMI, -1 = na direita, 0 = sem giro
     [ValidateSet(1, -1, 0)][int]$Giro = 1,
     # Instala na TV Box pelo adb depois de gerar (TV Box ligada no adb)
-    [switch]$Instalar
+    [switch]$Instalar,
+    # Leva o plugin USB do Arduino (LEDs) dentro do APK. Usa Gradle: na
+    # primeira vez baixa as dependencias (precisa de internet).
+    [switch]$ComLeds
 )
 $ErrorActionPreference = "Stop"
 $Projeto = $PSScriptRoot
@@ -25,7 +28,8 @@ $PresetAndroid = Join-Path $Projeto "export_presets.cfg"
 if (-not (Test-Path $PresetAndroid)) { throw "export_presets.cfg nao encontrado nesta pasta." }
 $PresetTexto = [IO.File]::ReadAllText($PresetAndroid)
 # Estas opcoes exigem Gradle e impedem o Godot de exportar com o template APK pronto.
-$PresetTexto = [Regex]::Replace($PresetTexto, '(?m)^gradle_build/use_gradle_build=.*$', 'gradle_build/use_gradle_build=false')
+$UsaGradle = if ($ComLeds) { "true" } else { "false" }
+$PresetTexto = [Regex]::Replace($PresetTexto, '(?m)^gradle_build/use_gradle_build=.*$', "gradle_build/use_gradle_build=$UsaGradle")
 $PresetTexto = [Regex]::Replace($PresetTexto, '(?m)^gradle_build/min_sdk=.*$', 'gradle_build/min_sdk=""')
 $PresetTexto = [Regex]::Replace($PresetTexto, '(?m)^gradle_build/target_sdk=.*$', 'gradle_build/target_sdk=""')
 $PresetTexto = [Regex]::Replace($PresetTexto, '(?m)^package/show_in_android_tv=.*$', 'package/show_in_android_tv=false')
@@ -35,6 +39,18 @@ $Config = [Regex]::Replace($Config, '(?m)^tela/giro=.*$', "tela/giro=$Giro")
 # imagem de inicializacao (logo Lazer & Sport) ja girada como a tela do jogo
 if ($Giro -eq 1) { $Splash = "1" } elseif ($Giro -eq -1) { $Splash = "m1" } else { $Splash = "0" }
 $Config = [Regex]::Replace($Config, '(?m)^boot_splash/image\.android=.*$', "boot_splash/image.android=""res://ui/splash_giro_$Splash.png""")
+# Plugin USB do Arduino (LEDs): ligado so com -ComLeds (exige Gradle).
+$GdIgnoreAddons = Join-Path $Projeto "addons\.gdignore"
+$LinhaPlugin = 'enabled=PackedStringArray("res://addons/DragonUsbSerial/plugin.cfg")'
+$Config = [Regex]::Replace($Config, '(?ms)^\[editor_plugins\]\s*enabled=PackedStringArray\([^)]*\)\s*', '')
+if ($ComLeds) {
+    if (Test-Path $GdIgnoreAddons) { Remove-Item -LiteralPath $GdIgnoreAddons -Force }
+    $Config = $Config.TrimEnd() + "`r`n`r`n[editor_plugins]`r`n`r`n$LinhaPlugin`r`n"
+    Write-Host "LEDs: plugin USB do Arduino DENTRO do APK (Gradle)."
+} else {
+    if (-not (Test-Path $GdIgnoreAddons)) { New-Item -ItemType File -Path $GdIgnoreAddons -Force | Out-Null }
+    Write-Host "LEDs: sem plugin USB (use -ComLeds para levar o plugin do Arduino)."
+}
 [IO.File]::WriteAllText($ProjectGodot, $Config, [Text.UTF8Encoding]::new($false))
 Write-Host "Giro da tela: $Giro"
 
@@ -62,7 +78,8 @@ if (-not $Sdk -or -not (Test-Path (Join-Path $Sdk "platform-tools\adb.exe"))) {
 }
 $env:ANDROID_HOME = $Sdk
 $env:ANDROID_SDK_ROOT = $Sdk
-# Esta exportacao usa o template APK pronto do Godot. Nao chama Gradle.
+# Sem -ComLeds: usa o template APK pronto do Godot (nao chama Gradle).
+# Com -ComLeds: build Gradle (plugin USB do Arduino dentro do APK).
 
 # O editor Godot le Java e Android SDK de editor_settings-4.6.tres.
 # JAVA_HOME sozinho nao corrige uma configuracao antiga/corrompida.
@@ -146,6 +163,14 @@ if (-not (Test-Path (Join-Path $PastaTemplates "android_release.apk"))) {
     Copy-Item -Path (Join-Path $Origem "*") -Destination $PastaTemplates -Recurse -Force
 } else {
     Write-Host "[1/3] Export Templates 4.6.1 confirmados."
+}
+
+if ($ComLeds -and -not (Test-Path (Join-Path $Projeto "android\build\build.gradle"))) {
+    Write-Host "Instalando o modelo de build Android (Gradle) no projeto..."
+    $Inst = Start-Process -FilePath $Godot.FullName -ArgumentList "--headless --path `"$Projeto`" --install-android-build-template" -NoNewWindow -Wait -PassThru
+    if (-not (Test-Path (Join-Path $Projeto "android\build\build.gradle"))) {
+        throw "Nao foi possivel instalar o modelo de build Android (codigo $($Inst.ExitCode))."
+    }
 }
 
 # APK RELEASE assinado com a chave debug local (sem depuracao, roda

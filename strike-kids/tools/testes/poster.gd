@@ -50,8 +50,8 @@ func _ready() -> void:
 	add_child(mia)
 	mia.montar("mia")
 	var v := formato == "vertical"
-	bob.posicionar(Vector3(-0.6 if v else -1.15, 0, -9.3), 16)
-	mia.posicionar(Vector3(0.62 if v else 1.15, 0, -9.0), -14)
+	bob.posicionar(Vector3(-0.6 if v else -1.15, 0, Mundo.Z_PINO1 + 4.7), 16)
+	mia.posicionar(Vector3(0.62 if v else 1.15, 0, Mundo.Z_PINO1 + 5.0), -14)
 	mundo.ambiente.tonemap_exposure = 0.9
 	bob.tocar("vitoria", 0.01, true)
 	bob.jatos(true)
@@ -67,13 +67,13 @@ func _ready() -> void:
 		bob.tocar("danca", 0.01, true)
 		mia.tocar("danca", 0.01, true)
 		cam.fov = 52
-		cam.look_at_from_position(Vector3(0.0, 2.3, 5.2), Vector3(0, 1.6, -12.0))
+		cam.look_at_from_position(Vector3(0.0, 2.3, 5.2), Vector3(0, 1.6, Mundo.Z_PINO1 + 2.0))
 	elif v:
 		cam.fov = 50
-		cam.look_at_from_position(Vector3(0.0, 1.5, -4.7), Vector3(0, 0.95, -12.4))
+		cam.look_at_from_position(Vector3(0.0, 1.5, Mundo.Z_PINO1 + 9.3), Vector3(0, 0.95, Mundo.Z_PINO1 + 1.6))
 	else:
 		cam.fov = 34
-		cam.look_at_from_position(Vector3(0.0, 1.0, -5.6), Vector3(0, 0.85, -12.4))
+		cam.look_at_from_position(Vector3(0.0, 1.0, Mundo.Z_PINO1 + 8.4), Vector3(0, 0.85, Mundo.Z_PINO1 + 1.6))
 
 
 func _process(_d: float) -> void:
@@ -85,10 +85,10 @@ func _process(_d: float) -> void:
 		for p in pinos.pinos:
 			p.sleeping = false
 			p.apply_impulse(Vector3(randf_range(-0.6, 0.6), randf_range(0.5, 1.6), randf_range(-0.6, 0.2)), Vector3(0, 0.35, 0))
-		bola.lancar(Vector3(0.04, Bola.RAIO, -13.2), Vector3(0, 0, -3.0))
+		bola.lancar(Vector3(0.04, Bola.RAIO, Mundo.Z_PINO1 + 0.8), Vector3(0, 0, -3.0))
 		bola.acender(0.6)
-		efeitos.estrelas(Vector3(0, 0.7, -14.2), 40, 1.2)
-		efeitos.confete(Vector3(0, 1.8, -10.5), 2.2, 120)
+		efeitos.estrelas(Vector3(0, 0.7, Mundo.Z_PINO1 - 0.2), 40, 1.2)
+		efeitos.confete(Vector3(0, 1.8, Mundo.Z_PINO1 + 3.5), 2.2, 120)
 	if quadro == 27:
 		mia.expressao("risada")
 	if quadro == 28:
