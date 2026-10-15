@@ -56,8 +56,10 @@ func _ready() -> void:
 	_texto = Label.new()
 	var ls := LabelSettings.new()
 	ls.font = load("res://fontes/fredoka_600.ttf")
-	ls.font_size = 22
+	ls.font_size = 28
 	ls.font_color = Color.WHITE
+	ls.outline_size = 4
+	ls.outline_color = Color(0.0, 0.03, 0.1)
 	_texto.label_settings = ls
 	_painel.add_child(_texto)
 	mostrar(bool(Ajustes.valor("video", "medidor")))

@@ -64,9 +64,9 @@ var _replay_fim := 0.0
 var _replay_alvo: Node3D
 var _replay_rastro := 0.0
 var _lenta: Tween
-## passos da física por segundo (project.godot); a câmera lenta só diminui
-## quantos passos acontecem por segundo, nunca o tamanho do passo
-const PASSOS_FISICA := 120
+## passos da física por segundo (o do project.godot, lido ao abrir); a câmera
+## lenta só diminui quantos passos acontecem por segundo, nunca o tamanho
+var _passos_fisica := 120
 var _escolha_n := 1
 var _escolha_t := 0.0
 var _destaque := 0
@@ -93,6 +93,7 @@ const LADO_3D := {"alta": 1440, "media": 640, "baixa": 540}
 
 func _ready() -> void:
 	randomize()
+	_passos_fisica = int(ProjectSettings.get_setting("physics/common/physics_ticks_per_second", 120))
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	_qualidade = str(Ajustes.valor("video", "qualidade"))
 	if OS.has_environment("STRIKE_QUALIDADE"):
@@ -117,6 +118,9 @@ func _ready() -> void:
 	hud.add_child(medidor)
 	if OS.get_cmdline_user_args().has("--medidor"):
 		medidor.mostrar(true)
+	# (testes) roda o TESTE DE DESEMPENHO do menu do operador logo depois da abertura
+	if OS.get_cmdline_user_args().has("--teste-desempenho"):
+		Ajustes.definir("video", "testar", true)
 	# prepara os shaders de tudo enquanto a marca cobre a tela
 	var aq := Aquecer.new()
 	add_child(aq)
@@ -890,9 +894,9 @@ func _camera_lenta(escala: float, dur_real: float) -> void:
 ## na câmera lenta ela só dá MENOS passos por segundo (0,4 = 48 por
 ## segundo) e a interpolação deixa a imagem lisa.
 func _ritmo(v: float) -> void:
-	var passos := clampi(int(round(float(PASSOS_FISICA) * v)), 12, PASSOS_FISICA)
+	var passos := clampi(int(round(float(_passos_fisica) * v)), 12, _passos_fisica)
 	Engine.physics_ticks_per_second = passos
-	Engine.time_scale = float(passos) / float(PASSOS_FISICA)
+	Engine.time_scale = float(passos) / float(_passos_fisica)
 
 
 func _parar_lenta() -> void:
