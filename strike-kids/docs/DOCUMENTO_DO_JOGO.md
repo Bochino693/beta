@@ -7,7 +7,7 @@ as cores da marca **Lazer & Sport**, que aparece por todo o jogo), 4
 cenários, física de verdade e a **foto da criança** tirada pela câmera da
 máquina. **Godot 4.6.1**, renderizador **Compatibility**
 (OpenGL ES 3, TV Box Android — Proeletronic SmartPro 4K 2 GB ou a Pro Ultra
-do Dragon Bowling), física **Jolt**, câmera USB (Sigma) pelo CameraServer.
+do Dragon Bowling), física **Jolt**, câmera USB (Sigma) pelo plugin StrikeCamera.
 
 ## 1. A proposta
 
@@ -91,9 +91,10 @@ acenar, andar, vitória (pulinhos), escolhido.
    correndo) → impacto com física → resultado (STRIKE!/SPARE!/UAU!/BOA!/
    QUASE!/OPS!, pontos voando para o placar) → replay (strike) → reação do
    mascote → **máquina de pinos** (câmera baixinha na frente dos pinos).
-6. **Fim de jogo**: cartões com pontos, 1 a 3 estrelas, STRIKES/SPARES,
-   VENCEU!/EMPATE!, NOVO RECORDE!, confete e fogos; botão "APERTE START
-   PARA JOGAR DE NOVO".
+6. **Fim de jogo**: cartão de cada jogador com a **foto grande**, pontos,
+   1 a 3 estrelas e o **lugar no dia**; quadro **CLASSIFICAÇÃO DE HOJE**
+   (5 primeiros com foto); VENCEU!/EMPATE!, NOVO RECORDE!, confete e
+   fogos; botão "APERTE START PARA JOGAR DE NOVO".
 
 **Telas com cara de 3D** (`scripts/painel3d.gd` + `shaders/painel3d.gdshader`):
 placar, cartões, botões, faixas e avisos são placas com volume — frente em
@@ -102,7 +103,7 @@ contorno azul-marinho e sombra no chão, como os objetos do cenário.
 Desenhadas pixel a pixel no shader: nítidas de 720p a 4K.
 
 **Marca Lazer & Sport**: só na imagem de inicialização e na **abertura**,
-e num **balão** (logo sem fundo) que flutua ao lado da pista no cenário do
+e num **balãozinho** (uns 60 cm, logo sem fundo) que flutua ao lado da pista no cenário do
 **Parque de Diversões**. Nenhuma outra tela ou objeto leva a marca. A logo foi
 redesenhada no dobro da resolução com bordas nítidas
 (`tools/arte/gerar_marca.py`).
@@ -149,18 +150,27 @@ Pontos: 10 por pino, +50 strike, +20 spare.
 
 ## 5. Foto da criança (`autoload/Fotos.gd`)
 
-- Câmera USB (ex.: Sigma) na TV Box, lida pelo **CameraServer** do Godot
-  4.6 (Android: permissão CAMERA, pedida uma vez). Escolhe a câmera externa
-  (USB) e a resolução mais perto de 640×480 (leve para a placa).
+- Câmera USB (ex.: Sigma). O Godot 4.6 sozinho **ignora câmera externa no
+  Android** e **não tem câmera no Windows**, então a imagem vem de:
+  **plugin StrikeCamera** na TV Box (`addons/StrikeCamera`, Java em
+  `tools/android/StrikeCamera`: Camera2 com câmera externa, Camera1 de
+  reserva; entrega os planos Y e UV), **ffmpeg** no PC Windows (quadros
+  RGB crus por um cano, lidos numa linha de execução separada) e o
+  **CameraServer** no Linux. Permissão CAMERA pedida uma vez; resolução
+  perto de 640×480. Procura de novo a cada 8 s e ao escolher jogadores.
 - A imagem (RGB ou YCbCr, conforme a câmera) é convertida num shader,
   recortada no quadrado do meio e espelhada; a foto (384×384) sai de uma
   SubViewport. A câmera só fica ligada na hora da foto (e desliga uns
   segundos depois — webcam não gosta de liga-desliga seguido).
 - Onde aparece: cartão do placar (foto redonda + mascote de selo), faixa
-  "VEZ DE", estouro da foto no STRIKE, cartões da tela final e quadro de
-  recorde na atração.
-- Privacidade: fotos só na TV Box; as da partida ficam na memória; só a do
-  recorde é gravada e some ao zerar recordes. Opção no menu do operador
+  "VEZ DE", estouro da foto no STRIKE, cartões da tela final e a
+  **CLASSIFICAÇÃO DE HOJE** (`scripts/classificacao.gd`): os 10 melhores do
+  dia, cada um com a sua foto; no fim da partida, "2º LUGAR HOJE!" no
+  cartão e o quadro dos 5 primeiros (quem acabou de jogar brilha, com
+  "VOCÊ!"); na atração, os 3 melhores de hoje com as fotos.
+- Privacidade: fotos só na TV Box; as da partida ficam na memória; ficam
+  gravadas só as da classificação do dia (apagadas na virada do dia) e a
+  do recorde; tudo some ao zerar recordes. Opção no menu do operador
   para desligar, e "TESTE DA CÂMERA" para a instalação.
 
 ## 6. Máquina de pinos (`scripts/maquina.gd`)
@@ -177,13 +187,17 @@ Depois de cada bola, como num boliche de verdade:
 ## 6b. Caçapa, gabinete e salão (`scripts/mundo.gd`, `scripts/perfis.gd`)
 
 - **Caçapa**: paredes laterais acolchoadas com friso amarelo, cortina de
-  veludo pregueada com estrelas, almofada de borracha embaixo.
-- **Gabinete da máquina** fechado por fora (laterais, teto e fundo) e duas
-  **colunas** com faixas de lâmpadas dos lados do
-  letreiro STRIKE KIDS: de qualquer ângulo é uma máquina inteira.
-- **Salão atrás dos jogadores**: tapete, parede com o letreiro STRIKE KIDS
-  aceso, sofás e retorno de bolas — quando a câmera vira para o mascote, o
-  fundo é o salão (nada de chão infinito).
+  veludo pregueada nas cores do cenário com **halo de luz atrás dos pinos**
+  e estrelinhas, almofada de borracha embaixo.
+- **Portal no fim da pista**: gabinete alto (esconde a máquina de pinos),
+  letreiro STRIKE KIDS com moldura, **arco de raios coloridos** girando
+  devagar (`shaders/raios.gdshader`) com lâmpadas e duas **colunas**
+  iluminadas — tudo nas cores de cada cenário (`Temas.CONFIG`: portal,
+  gabinete, coluna, parede, fundo, halo).
+- **Atrás dos jogadores**: tapete, **mureta** na cor do cenário, o letreiro
+  STRIKE KIDS em dois postes, sofás e retorno de bolas; por cima da mureta
+  aparece o próprio cenário (objetos do tema atrás da área), nada de chão
+  infinito.
 - **Pinos com reação**: medo quando a bola chega; depois da jogada os
   derrubados ficam **tontos** (estrelinhas) ou **bravinhos** (tremidinha de
   raiva) e os que ficaram de pé ficam felizes — vários dão **pulinhos** de
@@ -217,11 +231,26 @@ para o próximo.
   um antisserrilhado — sem os "degraus" de cor. Listras dos para-choques e
   desenho do chão (grama listrada, crateras, ondas de areia, flores) são
   calculados no shader, pixel a pixel.
-- **Nitidez 4K**: MSAA 4x, filtro anisotrópico, mipmaps em todas as
-  imagens, compressão de alta qualidade (BPTC/ASTC) nos rostos, bola,
-  madeira e letreiros; letreiros e logo em 1,6x; sombra em duas divisões.
-  Na qualidade média/baixa (TV Box), o MSAA cai e as malhas simplificam
-  mais cedo (nível de detalhe), para manter os quadros por segundo.
+- **Nitidez**: MSAA, filtro anisotrópico, mipmaps em todas as imagens,
+  compressão de alta qualidade (BPTC/ASTC) nos rostos, bola, madeira e
+  letreiros; letreiros e logo em 1,6x.
+- **Desempenho** (liso no PC e na TV Box):
+  - malhas simplificadas pelo `tools/modelos/simplificar.py` (meshoptimizer,
+    leva posição, normal e COR em conta: bordas de cor continuam nítidas) —
+    Bob 120 mil → 26 mil triângulos, pino 14,6 mil → 2,4 mil, cenário
+    1,1 milhão → 98 mil; lâmpadas de 64 triângulos;
+  - peças paradas com o mesmo material juntadas numa malha só
+    (`scripts/lote.gd`): ~90 desenhos por quadro na TV Box (eram ~450);
+  - sem sombra do sol (no "Compatibilidade" ela desenha tudo 2 vezes):
+    sombras pintadas nos pinos (uma MultiMesh que deita junto com o pino),
+    bola e bichinhos;
+  - imagem 3D em **tamanho fixo esticada sozinha** (TV Box 720 px no lado
+    menor, PC até 1440) e **resolução automática**: se cair de ~52 quadros
+    por segundo, o 3D diminui até 60% e, no automático, desce a qualidade;
+  - **aquecimento** (`scripts/aquecer.gd`): na abertura, uma telinha
+    escondida desenha uma amostra de cada material (todos os cenários,
+    partículas, lâmpadas, painéis 2D) — sem engasgo na primeira vez;
+  - PC em **tela cheia** (exclusiva), mouse some sozinho.
 - **Shader toon** próprio: duas faixas de luz, sombra colorida, brilho de
   borda, rosto projetado (atlas). Contorno por casca invertida.
 - **Pista**: madeira com verniz, setas e pontos de pista (decoração de

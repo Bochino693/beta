@@ -128,6 +128,7 @@ func zerar_recordes() -> void:
 	if _cfg.has_section("recorde"):
 		_cfg.erase_section("recorde")
 	_cfg.save(ARQUIVO)
+	Classificacao.zerar()
 	Fotos.apagar_recordes()
 
 

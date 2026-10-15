@@ -1,7 +1,7 @@
 extends Control
 
 ## Amostra dos painéis com volume (tools/testes): salva uma imagem.
-##   godot --path . --resolution 1080x1920 res://tools/testes/paineis.tscn -- saida.png
+##   godot --path . res://tools/testes/paineis.tscn -- --janela=1080x1920 saida.png
 
 func _ready() -> void:
 	var fundo := ColorRect.new()
@@ -28,6 +28,6 @@ func _ready() -> void:
 	await get_tree().process_frame
 	await RenderingServer.frame_post_draw
 	var img := get_viewport().get_texture().get_image()
-	var a := OS.get_cmdline_user_args()
+	var a := Array(OS.get_cmdline_user_args()).filter(func(x): return not str(x).begins_with("--janela="))
 	img.save_png(a[0] if a.size() > 0 else "user://paineis.png")
 	get_tree().quit()

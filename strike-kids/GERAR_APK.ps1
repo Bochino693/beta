@@ -3,10 +3,15 @@
     [ValidateSet(1, -1, 0)][int]$Giro = 1,
     # Instala na TV Box pelo adb depois de gerar (TV Box ligada no adb)
     [switch]$Instalar,
-    # Leva o plugin USB do Arduino (LEDs) dentro do APK. Usa Gradle: na
-    # primeira vez baixa as dependencias (precisa de internet).
-    [switch]$ComLeds
+    # Leva o plugin USB do Arduino (LEDs) dentro do APK.
+    [switch]$ComLeds,
+    # Sem a camera (sem Gradle): so se o build com camera nao funcionar.
+    [switch]$SemCamera
 )
+# A CAMERA USB (Sigma) precisa do plugin StrikeCamera dentro do APK, e
+# plugin exige o build Gradle (na primeira vez ele baixa as dependencias:
+# precisa de internet e demora alguns minutos). Se o Gradle falhar, o
+# script gera sozinho um APK sem camera (o jogo funciona igual, sem fotos).
 $ErrorActionPreference = "Stop"
 $Projeto = $PSScriptRoot
 $Saida = Join-Path $Projeto "build\android"
@@ -26,32 +31,43 @@ $ProjectGodot = Join-Path $Projeto "project.godot"
 if (-not (Test-Path $ProjectGodot)) { throw "project.godot nao encontrado nesta pasta." }
 $PresetAndroid = Join-Path $Projeto "export_presets.cfg"
 if (-not (Test-Path $PresetAndroid)) { throw "export_presets.cfg nao encontrado nesta pasta." }
-$PresetTexto = [IO.File]::ReadAllText($PresetAndroid)
-# Estas opcoes exigem Gradle e impedem o Godot de exportar com o template APK pronto.
-$UsaGradle = if ($ComLeds) { "true" } else { "false" }
-$PresetTexto = [Regex]::Replace($PresetTexto, '(?m)^gradle_build/use_gradle_build=.*$', "gradle_build/use_gradle_build=$UsaGradle")
-$PresetTexto = [Regex]::Replace($PresetTexto, '(?m)^gradle_build/min_sdk=.*$', 'gradle_build/min_sdk=""')
-$PresetTexto = [Regex]::Replace($PresetTexto, '(?m)^gradle_build/target_sdk=.*$', 'gradle_build/target_sdk=""')
-$PresetTexto = [Regex]::Replace($PresetTexto, '(?m)^package/show_in_android_tv=.*$', 'package/show_in_android_tv=false')
-[IO.File]::WriteAllText($PresetAndroid, $PresetTexto, [Text.UTF8Encoding]::new($false))
-$Config = [IO.File]::ReadAllText($ProjectGodot)
-$Config = [Regex]::Replace($Config, '(?m)^tela/giro=.*$', "tela/giro=$Giro")
-# imagem de inicializacao (logo Lazer & Sport) ja girada como a tela do jogo
-if ($Giro -eq 1) { $Splash = "1" } elseif ($Giro -eq -1) { $Splash = "m1" } else { $Splash = "0" }
-$Config = [Regex]::Replace($Config, '(?m)^boot_splash/image\.android=.*$', "boot_splash/image.android=""res://ui/splash_giro_$Splash.png""")
-# Plugin USB do Arduino (LEDs): ligado so com -ComLeds (exige Gradle).
-$GdIgnoreAddons = Join-Path $Projeto "addons\.gdignore"
-$LinhaPlugin = 'enabled=PackedStringArray("res://addons/DragonUsbSerial/plugin.cfg")'
-$Config = [Regex]::Replace($Config, '(?ms)^\[editor_plugins\]\s*enabled=PackedStringArray\([^)]*\)\s*', '')
-if ($ComLeds) {
-    if (Test-Path $GdIgnoreAddons) { Remove-Item -LiteralPath $GdIgnoreAddons -Force }
-    $Config = $Config.TrimEnd() + "`r`n`r`n[editor_plugins]`r`n`r`n$LinhaPlugin`r`n"
-    Write-Host "LEDs: plugin USB do Arduino DENTRO do APK (Gradle)."
-} else {
-    if (-not (Test-Path $GdIgnoreAddons)) { New-Item -ItemType File -Path $GdIgnoreAddons -Force | Out-Null }
-    Write-Host "LEDs: sem plugin USB (use -ComLeds para levar o plugin do Arduino)."
+function Preparar([bool]$Camera, [bool]$Leds) {
+    $Gradle = $Camera -or $Leds
+    $Texto = [IO.File]::ReadAllText($PresetAndroid)
+    $Texto = [Regex]::Replace($Texto, '(?m)^gradle_build/use_gradle_build=.*$', "gradle_build/use_gradle_build=$($Gradle.ToString().ToLower())")
+    $Texto = [Regex]::Replace($Texto, '(?m)^gradle_build/min_sdk=.*$', 'gradle_build/min_sdk=""')
+    $Texto = [Regex]::Replace($Texto, '(?m)^gradle_build/target_sdk=.*$', 'gradle_build/target_sdk=""')
+    $Texto = [Regex]::Replace($Texto, '(?m)^package/show_in_android_tv=.*$', 'package/show_in_android_tv=false')
+    [IO.File]::WriteAllText($PresetAndroid, $Texto, [Text.UTF8Encoding]::new($false))
+    $Config = [IO.File]::ReadAllText($ProjectGodot)
+    $Config = [Regex]::Replace($Config, '(?m)^tela/giro=.*$', "tela/giro=$Giro")
+    # imagem de inicializacao (logo Lazer & Sport) ja girada como a tela do jogo
+    if ($Giro -eq 1) { $Splash = "1" } elseif ($Giro -eq -1) { $Splash = "m1" } else { $Splash = "0" }
+    $Config = [Regex]::Replace($Config, '(?m)^boot_splash/image\.android=.*$', "boot_splash/image.android=""res://ui/splash_giro_$Splash.png""")
+    # plugins Android ligados (cada um so entra no APK se estiver ligado)
+    $Plugins = @()
+    $IgnCamera = Join-Path $Projeto "addons\StrikeCamera\.gdignore"
+    $IgnLeds = Join-Path $Projeto "addons\DragonUsbSerial\.gdignore"
+    $IgnTudo = Join-Path $Projeto "addons\.gdignore"
+    if (Test-Path $IgnTudo) { Remove-Item -LiteralPath $IgnTudo -Force }
+    if ($Camera) {
+        $Plugins += '"res://addons/StrikeCamera/plugin.cfg"'
+        if (Test-Path $IgnCamera) { Remove-Item -LiteralPath $IgnCamera -Force }
+    } elseif (-not (Test-Path $IgnCamera)) { New-Item -ItemType File -Path $IgnCamera -Force | Out-Null }
+    if ($Leds) {
+        $Plugins += '"res://addons/DragonUsbSerial/plugin.cfg"'
+        if (Test-Path $IgnLeds) { Remove-Item -LiteralPath $IgnLeds -Force }
+    } elseif (-not (Test-Path $IgnLeds)) { New-Item -ItemType File -Path $IgnLeds -Force | Out-Null }
+    $Config = [Regex]::Replace($Config, '(?ms)^\[editor_plugins\]\s*enabled=PackedStringArray\([^)]*\)\s*', '')
+    if ($Plugins.Count -gt 0) {
+        $Config = $Config.TrimEnd() + "`r`n`r`n[editor_plugins]`r`n`r`nenabled=PackedStringArray(" + ($Plugins -join ", ") + ")`r`n"
+    }
+    [IO.File]::WriteAllText($ProjectGodot, $Config, [Text.UTF8Encoding]::new($false))
+    Write-Host ("Camera USB: " + $(if ($Camera) { "SIM (plugin StrikeCamera, Gradle)" } else { "nao" }))
+    Write-Host ("LEDs (Arduino USB): " + $(if ($Leds) { "SIM" } else { "nao (use -ComLeds)" }))
 }
-[IO.File]::WriteAllText($ProjectGodot, $Config, [Text.UTF8Encoding]::new($false))
+$ComCamera = -not $SemCamera
+Preparar $ComCamera $ComLeds.IsPresent
 Write-Host "Giro da tela: $Giro"
 
 $NomesGodot = @(
@@ -165,11 +181,14 @@ if (-not (Test-Path (Join-Path $PastaTemplates "android_release.apk"))) {
     Write-Host "[1/3] Export Templates 4.6.1 confirmados."
 }
 
-if ($ComLeds -and -not (Test-Path (Join-Path $Projeto "android\build\build.gradle"))) {
+if (($ComCamera -or $ComLeds) -and -not (Test-Path (Join-Path $Projeto "android\build\build.gradle"))) {
     Write-Host "Instalando o modelo de build Android (Gradle) no projeto..."
     $Inst = Start-Process -FilePath $Godot.FullName -ArgumentList "--headless --path `"$Projeto`" --install-android-build-template" -NoNewWindow -Wait -PassThru
     if (-not (Test-Path (Join-Path $Projeto "android\build\build.gradle"))) {
-        throw "Nao foi possivel instalar o modelo de build Android (codigo $($Inst.ExitCode))."
+        if ($ComLeds) { throw "Nao foi possivel instalar o modelo de build Android (codigo $($Inst.ExitCode))." }
+        Write-Host "AVISO: sem o modelo Gradle; o APK sai SEM a camera." -ForegroundColor Yellow
+        $ComCamera = $false
+        Preparar $false $false
     }
 }
 
@@ -205,21 +224,32 @@ $ErrosLog = Join-Path $Saida "exportacao-godot-erros.log"
 if (Test-Path $Log) { Remove-Item -LiteralPath $Log -Force }
 if (Test-Path $ErrosLog) { Remove-Item -LiteralPath $ErrosLog -Force }
 
-$Argumentos = "--headless --path `"$Projeto`" --export-release `"Android TV Box`" `"$ApkExportado`""
-$Processo = Start-Process -FilePath $Godot.FullName -ArgumentList $Argumentos -NoNewWindow -Wait -PassThru -RedirectStandardOutput $Log -RedirectStandardError $ErrosLog
-
-if (Test-Path $Log) { Get-Content -LiteralPath $Log }
-if (Test-Path $ErrosLog) { Get-Content -LiteralPath $ErrosLog }
-
-$TextoLog = ""
-if (Test-Path $Log) { $TextoLog += [IO.File]::ReadAllText($Log) }
-if (Test-Path $ErrosLog) { $TextoLog += "`n" + [IO.File]::ReadAllText($ErrosLog) }
-if ($TextoLog -match "SCRIPT ERROR: Parse Error|Failed to load script|Failed to create an autoload") {
-    throw "Existe erro de sintaxe em um script Godot. Consulte build\android\exportacao-godot.log."
+function Exportar() {
+    if (Test-Path $Log) { Remove-Item -LiteralPath $Log -Force }
+    if (Test-Path $ErrosLog) { Remove-Item -LiteralPath $ErrosLog -Force }
+    if (Test-Path $ApkExportado) { Remove-Item -LiteralPath $ApkExportado -Force }
+    $Argumentos = "--headless --path `"$Projeto`" --export-release `"Android TV Box`" `"$ApkExportado`""
+    $Processo = Start-Process -FilePath $Godot.FullName -ArgumentList $Argumentos -NoNewWindow -Wait -PassThru -RedirectStandardOutput $Log -RedirectStandardError $ErrosLog
+    if (Test-Path $Log) { Get-Content -LiteralPath $Log | Out-Host }
+    if (Test-Path $ErrosLog) { Get-Content -LiteralPath $ErrosLog | Out-Host }
+    $TextoLog = ""
+    if (Test-Path $Log) { $TextoLog += [IO.File]::ReadAllText($Log) }
+    if (Test-Path $ErrosLog) { $TextoLog += "`n" + [IO.File]::ReadAllText($ErrosLog) }
+    if ($TextoLog -match "SCRIPT ERROR: Parse Error|Failed to load script|Failed to create an autoload") {
+        throw "Existe erro de sintaxe em um script Godot. Consulte build\android\exportacao-godot.log."
+    }
+    return ($Processo.ExitCode -eq 0) -and (Test-Path $ApkExportado)
 }
-if ($Processo.ExitCode -ne 0) { throw "Falha na exportacao Android; consulte $Log e $ErrosLog. Codigo: $($Processo.ExitCode)" }
-if (-not (Test-Path $ApkExportado)) {
-    throw "O APK nao foi criado. Consulte build\android\exportacao-godot.log. Codigo do Godot: $($Processo.ExitCode)"
+$Ok = Exportar
+if (-not $Ok -and $ComCamera -and -not $ComLeds) {
+    Write-Host "`nAVISO: o build com a camera (Gradle) falhou. Gerando o APK SEM camera..." -ForegroundColor Yellow
+    Copy-Item -LiteralPath $Log -Destination (Join-Path $Saida "exportacao-com-camera.log") -Force -ErrorAction SilentlyContinue
+    $ComCamera = $false
+    Preparar $false $false
+    $Ok = Exportar
+}
+if (-not $Ok) {
+    throw "O APK nao foi criado. Consulte build\android\exportacao-godot.log e exportacao-godot-erros.log."
 }
 Copy-Item -LiteralPath $ApkExportado -Destination $Apk -Force
 # Garante: nada alem do APK na pasta de entrega.
@@ -233,6 +263,8 @@ Write-Host "Arquivo: $Apk"
 Write-Host ("Tamanho: {0:N2} MB" -f ($Tamanho / 1MB))
 Write-Host "SHA256: $Hash"
 Write-Host "Instale este APK na TV Box. O jogo gira internamente; mantenha o HDMI em paisagem (deitado)."
+if ($ComCamera) { Write-Host "Camera USB: incluida (ligue a webcam na TV Box e confira no menu do operador > TESTAR CAMERA)." }
+else { Write-Host "Camera USB: NAO incluida neste APK (o jogo usa os mascotes no lugar das fotos)." -ForegroundColor Yellow }
 
 if ($Instalar) {
     $Adb = Join-Path $Sdk "platform-tools\adb.exe"

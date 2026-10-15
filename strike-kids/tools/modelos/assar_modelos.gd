@@ -3,7 +3,8 @@ extends SceneTree
 ## ASSADOR DE MODELOS
 ##
 ## Lê o que o tools/modelos/modelos.py gravou em tools/modelos/saida
-## (.bin + .json) e salva recursos nativos do Godot em res://modelos/:
+## (.bin + .json) — de preferência a versão leve que o simplificar.py
+## grava em saida/leve — e salva recursos nativos do Godot em res://modelos/:
 ##   * bob.scn / mia.scn  — personagem montado (juntas + malhas)
 ##   * pino.res + pino_colisao.res
 ##   * cenario/<objeto>.res, terreno.res
@@ -11,9 +12,12 @@ extends SceneTree
 ## desenha a versão leve, de perto a completa.
 ##
 ## Uso (na pasta do projeto):
+##   python3 tools/modelos/modelos.py        (formas -> malhas finas)
+##   python3 tools/modelos/simplificar.py    (malhas leves, bordas de cor nítidas)
 ##   godot --headless --path . --script res://tools/modelos/assar_modelos.gd
 
 const ENTRADA := "res://tools/modelos/saida/"
+const ENTRADA_LEVE := "res://tools/modelos/saida/leve/"
 const SAIDA := "res://modelos/"
 
 
@@ -41,8 +45,10 @@ func _init() -> void:
 
 
 func _ler(nome: String) -> Array:
-	var info: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(ENTRADA + nome + ".json"))
-	var blob := FileAccess.get_file_as_bytes(ENTRADA + nome + ".bin")
+	var pasta := ENTRADA_LEVE if FileAccess.file_exists(ENTRADA_LEVE + nome + ".json") else ENTRADA
+	print(nome, " <- ", pasta)
+	var info: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(pasta + nome + ".json"))
+	var blob := FileAccess.get_file_as_bytes(pasta + nome + ".bin")
 	return [info, blob]
 
 

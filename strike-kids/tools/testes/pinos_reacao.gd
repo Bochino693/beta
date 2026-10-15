@@ -2,7 +2,7 @@ extends Node
 
 ## BANCO DE TESTE DAS REAÇÕES DOS PINOS: derruba alguns (empurrão), espera
 ## assentar, chama Pinos.reagir() e monta uma folha com 4 instantes.
-##   godot --path . --fixed-fps 30 --resolution 800x800 res://tools/testes/pinos_reacao.tscn -- saida.png
+##   godot --path . --fixed-fps 30 res://tools/testes/pinos_reacao.tscn -- --janela=800x800 saida.png
 
 var saida := "user://pinos_reacao.png"
 var pinos: Pinos
@@ -15,7 +15,7 @@ var _n := 0
 
 
 func _ready() -> void:
-	var a := OS.get_cmdline_user_args()
+	var a := Array(OS.get_cmdline_user_args()).filter(func(x): return not str(x).begins_with("--janela="))
 	if a.size() > 0:
 		saida = a[0]
 	seed(7)

@@ -1,5 +1,5 @@
 shader_type spatial;
-render_mode blend_mix, depth_draw_opaque, cull_back;
+render_mode blend_mix, depth_draw_opaque, cull_back, shadows_disabled;
 
 // LISTRAS DE BALA (para-choques): calculadas no shader pela posição no
 // próprio objeto — listras em espiral perfeitas e nítidas em qualquer

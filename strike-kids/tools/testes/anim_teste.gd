@@ -1,7 +1,7 @@
 extends Node
 
 ## BANCO DE TESTE DAS ANIMAÇÕES (pés no chão, joelhos, pulos).
-##   godot --path . --fixed-fps 30 --resolution 1600x900 res://tools/testes/anim_teste.tscn -- saida.png danca 0.2,0.6,1.0 [lado|frente]
+##   godot --path . --fixed-fps 30 res://tools/testes/anim_teste.tscn -- --janela=1600x900 saida.png danca 0.2,0.6,1.0 [lado|frente]
 ## Bob e Mia tocam o clipe; tira fotos nos instantes pedidos e monta uma
 ## folha (uma coluna por instante).
 
@@ -17,7 +17,7 @@ var fotos: Array[Image] = []
 
 
 func _ready() -> void:
-	var a := OS.get_cmdline_user_args()
+	var a := Array(OS.get_cmdline_user_args()).filter(func(x): return not str(x).begins_with("--janela="))
 	if a.size() > 0:
 		saida = a[0]
 	if a.size() > 1:

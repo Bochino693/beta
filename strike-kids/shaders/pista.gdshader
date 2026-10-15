@@ -14,7 +14,8 @@ uniform float luz = 0.0;            // 0..1 (acende durante a jogada)
 uniform float fase = 0.0;           // fase das luzes que correm (vem da CPU)
 uniform vec3 cor_luz : source_color = vec3(0.35, 0.85, 1.0);
 uniform vec3 cor_seta : source_color = vec3(0.45, 0.27, 0.16);   // marcas discretas, como numa pista de verdade
-uniform float brilho_verniz = 0.55;
+uniform float brilho_verniz = 0.32;
+uniform vec3 tom_madeira : source_color = vec3(1.0, 0.86, 0.66);   // mel: madeira quente, não branca
 
 varying vec3 pm;
 
@@ -31,7 +32,7 @@ float tri(vec2 p, vec2 c, float w, float h) {
 
 void fragment() {
 	vec2 uv = vec2(pm.x / (meia_largura * 2.0) + 0.5, -pm.z / repete);
-	vec3 c = texture(madeira, uv).rgb;
+	vec3 c = texture(madeira, uv).rgb * tom_madeira;
 	float d = -pm.z;       // distância da linha de falta
 	float ax = abs(pm.x);
 	// linha de falta
@@ -63,7 +64,7 @@ void fragment() {
 	// área dos pinos um pouco mais clara
 	c *= mix(1.0, 1.08, smoothstep(-z_pino1 - 0.7, -z_pino1 - 0.4, d));
 	ALBEDO = c;
-	ROUGHNESS = 0.18;
+	ROUGHNESS = 0.26;
 	SPECULAR = brilho_verniz;
 	// luzes nas bordas: correm na direção dos pinos e um brilho segue a bola
 	float borda = smoothstep(meia_largura - 0.07, meia_largura - 0.01, ax);
