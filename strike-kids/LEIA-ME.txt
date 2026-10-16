@@ -290,9 +290,15 @@ NA TV BOX
     (A S D F G = sensores, 1 = START, 9 = configuracao).
 
 TESTES DO FIRMWARE (para quem mexer no .ino, no Linux): tools/testes/
-arduino/rodar.sh compila para Uno, Nano, Mega e Leonardo e roda o
-firmware num ATmega328P simulado (simavr), conferindo sensores, botoes,
-moedeiro, servo, rele, calibracao e o fechamento sozinho.
+arduino/rodar.sh compila IGUAL a IDE do Arduino (arduino-builder) para
+Uno, Nano, Mega e Leonardo e roda o firmware num ATmega328P simulado
+(simavr), conferindo sensores, botoes, moedeiro, servo, rele, calibracao
+e o fechamento sozinho.
+Dica para quem mexer no .ino: declare os tipos (enum, struct) no COMECO
+do arquivo, antes da primeira funcao. A IDE escreve sozinha a declaracao
+de cada funcao logo antes da primeira funcao do arquivo; um tipo
+declarado mais abaixo ainda nao existe ali e da o erro "was not declared
+in this scope".
 
 
 BOTOES DA ZERO DELAY (opcional; mesmo mapa do Dragon Bowling)
