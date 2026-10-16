@@ -1,6 +1,8 @@
 extends Node
 
-## OS COMANDOS DO JOGO VÊM DA PLACA ZERO DELAY.
+## OS COMANDOS DO JOGO VÊM DA PLACA ZERO DELAY E/OU DO ARDUINO.
+## (Os sensores, o botão de configuração e o START/ficha ligados no Arduino
+## chegam como as mesmas ações — ver ArduinoBridge.)
 ##
 ## Sem mapeamento gravado, vale o Input Map do projeto: as teclas da Zero
 ## Delay no modo teclado (1/Espaço = STR, A = quadrado, S = X, D = bolinha,
@@ -182,6 +184,10 @@ func texto_de(acao: String) -> String:
 ## sem soltar. Um repique do contato (apertar de novo em menos de
 ## INTERVALO_MINIMO_MS) também não conta.
 func eh_da_placa(event: InputEvent) -> bool:
+	# sensores e botões que vêm do ARDUINO (ArduinoBridge): ele já filtra o
+	# repique e manda um aperto por bola/botão
+	if event is InputEventAction and event.has_meta("arduino"):
+		return true
 	if event.is_echo():
 		return false
 	if not (event is InputEventJoypadButton or event is InputEventKey):

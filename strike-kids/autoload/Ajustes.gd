@@ -32,6 +32,10 @@ const PADRAO := {
 		"efeitos": 1.0,
 		"som_na_demo": true,
 	},
+	"arduino": {
+		"porta_invertida": false,     # a trava abre quando devia fechar? troca aqui
+		"sensores_invertidos": false, # sensores ligados da direita para a esquerda
+	},
 	"video": {
 		"qualidade": "auto",
 		"nitidez": "auto",         # resolução do 3D: auto (sobe e desce sozinha) ou 100%/90%/80%/70% fixa
