@@ -242,7 +242,12 @@ func _process(_delta: float) -> void:
 	_sombra.global_position = Vector3(g.x, max(g.y - RAIO, -0.3) + 0.008, g.z)
 	_sombra.global_rotation = Vector3.ZERO
 	var alt: float = clamp(1.0 - (g.y - RAIO) * 1.5, 0.3, 1.0)
-	_sombra.scale = Vector3(alt, 1, alt)
+	# a sombra é um adesivo reto: só no chão reto (pista, área de quem joga,
+	# fundo do fosso). Indo para a canaleta ela some — dentro da calha
+	# curva ela atravessaria a parede.
+	if g.z > Mundo.Z_FIM_DECK and g.z < 0.12:
+		alt *= clampf((Mundo.MEIA_LARGURA - absf(g.x)) / 0.2, 0.0, 1.0)
+	_sombra.scale = Vector3(maxf(alt, 0.001), 1, maxf(alt, 0.001))
 	if rolando:
 		marcar_rastro(g)
 	if (rolando or em_replay) and g.z < Mundo.Z_PINO1 + 0.4:
@@ -254,7 +259,13 @@ func _process(_delta: float) -> void:
 ## Mais um ponto do rastro de arco-íris (o replay chama nos mesmos
 ## instantes da jogada de verdade).
 func marcar_rastro(p: Vector3) -> void:
-	_pontos.push_front(Vector3(p.x, max(p.y - RAIO, -0.08) + 0.012, p.z))
+	# o rastro é desenhado NA PISTA: saindo dela (canaleta, fosso) ele só
+	# vai sumindo — nunca atravessa a calha nem as paredes
+	if absf(p.x) > Mundo.MEIA_LARGURA - 0.03 or p.y - RAIO < -0.03 or p.z < Mundo.Z_FIM_DECK:
+		if not _pontos.is_empty():
+			_pontos.pop_back()
+		return
+	_pontos.push_front(Vector3(p.x, maxf(p.y - RAIO, 0.0) + 0.012, p.z))
 	if _pontos.size() > 28:
 		_pontos.pop_back()
 
@@ -299,6 +310,8 @@ func _desenhar_rastro() -> void:
 		var lado := d.normalized().cross(Vector3.UP)
 		var f := 1.0 - float(i) / float(n - 1)
 		var w := RAIO * (1.2 if _fogo else 0.95) * (0.35 + 0.65 * f)
+		# nunca passa da borda da pista
+		w = clampf(minf(w, Mundo.MEIA_LARGURA - absf(p.x)), 0.0, w)
 		var c := g.sample(float(i) / float(n - 1) if _fogo else fposmod(float(i) / 10.0, 1.0))
 		c.a = f * 0.75
 		_im.surface_set_color(c)

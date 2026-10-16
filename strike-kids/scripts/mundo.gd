@@ -19,7 +19,9 @@ const ESPACO_PINOS := 0.38
 const FILEIRA := 0.329
 const Z_FIM_DECK := -11.95
 const Z_FUNDO := -13.7
-const Y_CANALETA := -0.09
+## para-choques: 10 pedaços de 0,96 m a partir da linha de falta — acabam
+## em z = -9,8, antes da barra varredora (z = -10) e do fosso
+const N_BUMPERS := 10
 
 const CAMADA_MUNDO := 1
 const CAMADA_PINOS := 2
@@ -69,6 +71,11 @@ var _tiras: MultiMeshInstance3D
 var _abertura_tiras: PackedFloat32Array = PackedFloat32Array()
 var _bola_volta: MeshInstance3D
 var mat_boca_luz: ShaderMaterial
+## CENÁRIO LEVE (o padrão; menu do operador > "Cenário (fundo)"): o fundo
+## mais barato para a TV Box rodar lisa — chão e decoração com a luz feita
+## por vértice, metade da decoração, céu simples e sem neblina. A pista,
+## os pinos, a máquina e os bichinhos são os mesmos do COMPLETO.
+var leve := false
 
 
 ## Onde um objeto movido pela física APARECE neste quadro (interpolado
@@ -85,6 +92,7 @@ static func na_tela(n: Node3D) -> Transform3D:
 
 
 func construir() -> void:
+	leve = Ajustes.cenario_leve()
 	_ambiente()
 	_sol()
 	_terreno()
@@ -102,7 +110,7 @@ func construir() -> void:
 	fora.append_array(_podios)
 	fora.append_array(_bumpers)
 	Lote.juntar(self, fora, 0.0)
-	aplicar_tema("parque")
+	aplicar_tema(Temas.ORDEM[0])
 	definir_protecao(Ajustes.protecao_canaleta())
 
 
@@ -134,6 +142,21 @@ func aplicar_tema(nome: String) -> void:
 	var amb: Color = (c["ambiente"] as Color).srgb_to_linear() * float(c.get("ambiente_forca", 0.62))
 	var luz_sol: Color = (c["sol"] as Color).srgb_to_linear() * float(c.get("sol_forca", 1.05)) * maxf(para_sol.y, 0.0)
 	var luz_cena := Vector3(amb.r + luz_sol.r, amb.g + luz_sol.g, amb.b + luz_sol.b)
+	if leve:
+		# chão e decoração do cenário leve: a luz vai pronta para o vértice
+		var sol_lin: Color = (c["sol"] as Color).srgb_to_linear() * float(c.get("sol_forca", 1.05))
+		var sol_cor := Vector3(sol_lin.r, sol_lin.g, sol_lin.b)
+		var amb_v := Vector3(amb.r, amb.g, amb.b)
+		var nb: Color = (c["neblina"] as Color).srgb_to_linear()
+		var neblina := Vector3(nb.r, nb.g, nb.b)
+		var densidade := float(c.get("neblina_densidade", 0.0045))
+		for m in [mat_terreno]:
+			m.set_shader_parameter("sol_dir", para_sol)
+			m.set_shader_parameter("sol_cor", sol_cor)
+			m.set_shader_parameter("ambiente", amb_v)
+			m.set_shader_parameter("neblina_cor", neblina)
+			m.set_shader_parameter("neblina_densidade", densidade)
+		temas.luz(para_sol, sol_cor, amb_v, neblina, densidade)
 	for m in [mat_pista, mat_piso]:
 		m.set_shader_parameter("luz_cena", luz_cena)
 		m.set_shader_parameter("cor_ceu", ceu[2])
@@ -161,7 +184,11 @@ func aplicar_tema(nome: String) -> void:
 	var chao: Array = c["chao"]
 	mat_terreno.set_shader_parameter("modo", int(c["chao_modo"]))
 	for i in 4:
-		mat_terreno.set_shader_parameter(["cor_a", "cor_b", "cor_c", "cor_d"][i], chao[i])
+		if leve:
+			var l: Color = (chao[i] as Color).srgb_to_linear()
+			mat_terreno.set_shader_parameter(["lin_a", "lin_b", "lin_c", "lin_d"][i], Vector3(l.r, l.g, l.b))
+		else:
+			mat_terreno.set_shader_parameter(["cor_a", "cor_b", "cor_c", "cor_d"][i], chao[i])
 	_tema_balao(c.get("balao", {}))
 	temas.mostrar(nome)
 
@@ -172,7 +199,7 @@ func _ambiente() -> void:
 	ambiente = Environment.new()
 	var ceu := Sky.new()
 	var mc := ShaderMaterial.new()
-	mc.shader = load("res://shaders/ceu.gdshader")
+	mc.shader = load("res://shaders/ceu_leve.gdshader" if leve else "res://shaders/ceu.gdshader")
 	mat_ceu = mc
 	ceu.sky_material = mc
 	ceu.radiance_size = Sky.RADIANCE_SIZE_32
@@ -219,17 +246,18 @@ func _sol() -> void:
 ##   alta  (PC): brilho (glow), neblina e ajuste de cor;
 ##   media (TV Box): neblina e ajuste de cor;
 ##   baixa (TV Box fraca): o mínimo.
+## No cenário LEVE não tem neblina (é uma conta a mais em cada pixel).
 func aplicar_qualidade(q: String) -> void:
 	sol.shadow_enabled = false
 	ambiente.glow_enabled = q == "alta"
-	ambiente.fog_enabled = q != "baixa"
+	ambiente.fog_enabled = q != "baixa" and not leve
 
 
 # ================================================================ terreno
 func _terreno() -> void:
 	# um relevo só; o desenho do chão de cada cenário sai do shader (nítido)
 	mat_terreno = ShaderMaterial.new()
-	mat_terreno.shader = load("res://shaders/terreno.gdshader")
+	mat_terreno.shader = load("res://shaders/terreno_leve.gdshader" if leve else "res://shaders/terreno.gdshader")
 	var t := MeshInstance3D.new()
 	t.mesh = load("res://modelos/terreno.res")
 	t.material_override = mat_terreno
@@ -259,6 +287,23 @@ func _caixa(tam: Vector3, pos: Vector3, mat: Material, colisao := true, sombra :
 	if colisao:
 		_corpo_caixa(tam, pos, atrito, quique)
 	return mi
+
+
+## Corpo parado com uma forma pronta (a do próprio desenho da peça).
+func _corpo_forma(forma: Shape3D, pos: Vector3, atrito := 0.4, quique := 0.2) -> StaticBody3D:
+	var sb := StaticBody3D.new()
+	var cs := CollisionShape3D.new()
+	cs.shape = forma
+	sb.add_child(cs)
+	sb.position = pos
+	sb.collision_layer = CAMADA_MUNDO
+	sb.collision_mask = 0
+	var pm := PhysicsMaterial.new()
+	pm.friction = atrito
+	pm.bounce = quique
+	sb.physics_material_override = pm
+	add_child(sb)
+	return sb
 
 
 func _corpo_caixa(tam: Vector3, pos: Vector3, atrito := 0.4, quique := 0.2) -> StaticBody3D:
@@ -314,6 +359,9 @@ func _pista() -> void:
 	var perfil_c := Perfis.canaleta(CANALETA / 2.0)
 	# mais escura no fundo da calha, clara nos lábios: lê-se a curva de longe
 	var malha_c := Perfis.extrudar(perfil_c, Z_FIM_DECK, 0.1, true, true, 50.0, Vector4(-0.15, -0.005, 0.5, 1.05))
+	# a colisão é a MESMA meia-cana do desenho: bola e pinos rolam e param
+	# dentro da calha, encostados na parede curva — nada atravessa nada
+	var forma_c := malha_c.create_trimesh_shape()
 	for s in [-1, 1]:
 		var x: float = s * (MEIA_LARGURA + CANALETA / 2)
 		var mcan := Materiais.toon(false, 0.0, {"tinta": Color("#8FC4EE"), "borda": 0.18, "faixa": 0.22,
@@ -326,8 +374,7 @@ func _pista() -> void:
 		can.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		can.name = "canaleta_%d" % s
 		add_child(can)
-		# colisão: fundo da canaleta e parede de fora
-		_corpo_caixa(Vector3(CANALETA, 0.1, comp), Vector3(x, Y_CANALETA - 0.05 - 0.02, 0.1 - comp / 2), 0.2, 0.1)
+		_corpo_forma(forma_c, Vector3(x, 0.0, 0.0), 0.2, 0.1)
 		# divisória (capping) arredondada entre a canaleta e o gramado: vai
 		# dos pinos até a linha de falta (não invade a área do jogador)
 		if mat_divisoria == null:
@@ -340,9 +387,8 @@ func _pista() -> void:
 		cap.position = Vector3(xc, 0.0, 0.0)
 		cap.name = "divisoria_%d" % s
 		add_child(cap)
-		# (colisão igual à usada na calibração das jogadas)
-		_corpo_caixa(Vector3(largura_cap, 0.34, Z_PINO1 * -1 + 0.6), Vector3(s * (MEIA_LARGURA + CANALETA + largura_cap / 2), -0.07,
-			(Z_PINO1 + 0.6) / 2.0), 0.3, 0.3)
+		# colisão = o próprio desenho (quinas arredondadas, mesmo lugar)
+		_corpo_forma(cap.mesh.create_convex_shape(), cap.position, 0.3, 0.3)
 		# faixinha de luz em cima da divisória
 		var luzes := _caixa(Vector3(0.05, 0.012, -Z_PINO1 - 0.3), Vector3(xc, 0.104, (Z_PINO1 + 0.2) / 2.0 + 0.05),
 			Materiais.cor_toon(Color("#FFFFFF"), 0.0, {"emissao": Color(0.35, 0.85, 1.0), "borda": 0.0}), false, false)
@@ -370,7 +416,9 @@ func _pista() -> void:
 		var mm := MultiMesh.new()
 		mm.transform_format = MultiMesh.TRANSFORM_3D
 		mm.mesh = mb
-		var n := 14
+		# terminam ANTES da máquina de pinos (como num boliche de verdade): a
+		# barra varredora desce e varre ali sem encostar neles
+		var n := N_BUMPERS
 		mm.instance_count = n
 		for i in n:
 			mm.set_instance_transform(i, Transform3D(Basis(Vector3.RIGHT, PI / 2), Vector3(s * 0.735, 0.1, -0.6 - i * 0.96)))
@@ -434,9 +482,11 @@ func _fundo_dos_pinos() -> void:
 	# paredes laterais (kickbacks): visual arredondado + a mesma colisão de antes
 	for s in [-1, 1]:
 		var x: float = s * (MEIA_LARGURA + CANALETA + 0.06)
-		_peca(Perfis.retangulo(0.12, 1.0, 0.05, Vector2(x, 0.35)), Z_FUNDO, z_frente, mat_parede, "parede_%d" % s)
-		_peca(Perfis.retangulo(0.17, 0.07, 0.034, Vector2(x, 0.875)), Z_FUNDO, z_frente + 0.02, mat_friso)
-		_corpo_caixa(Vector3(0.12, 1.0, -Z_FUNDO + z_frente), Vector3(x, 0.35, (z_frente + Z_FUNDO) / 2), 0.3, 0.35)
+		var parede := _peca(Perfis.retangulo(0.12, 1.0, 0.05, Vector2(x, 0.35)), Z_FUNDO, z_frente, mat_parede, "parede_%d" % s)
+		var friso := _peca(Perfis.retangulo(0.17, 0.07, 0.034, Vector2(x, 0.875)), Z_FUNDO, z_frente + 0.02, mat_friso)
+		# colisão = o próprio desenho (o friso de cima também segura os pinos)
+		_corpo_forma(parede.mesh.create_convex_shape(), Vector3.ZERO, 0.3, 0.35)
+		_corpo_forma(friso.mesh.create_convex_shape(), Vector3.ZERO, 0.3, 0.35)
 	# fosso
 	_caixa(Vector3(2.0, 0.2, -Z_FUNDO + Z_FIM_DECK), Vector3(0, -0.24, (Z_FIM_DECK + Z_FUNDO) / 2), fosso, true, false, 0.9, 0.05)
 	_cacapa_das_bolas()
@@ -452,8 +502,11 @@ func _fundo_dos_pinos() -> void:
 	add_child(fundo)
 	# parede de trás: em cima vale para tudo; embaixo (a boca) só para os
 	# pinos — a bola passa e cai na caçapa
-	_corpo_caixa(Vector3(2.4, 1.6, 0.2), Vector3(0, Y_BOCA + 0.8, Z_FUNDO - 0.1), 0.9, 0.0)
-	var so_pinos := _corpo_caixa(Vector3(2.4, 0.9, 0.2), Vector3(0, Y_BOCA - 0.45, Z_FUNDO - 0.1), 0.9, 0.0)
+	# (a frente de cada parede fica na frente do que se vê: as pregas da
+	# cortina chegam a 7,5 cm e as tiras da boca a 3,6 cm da parede — o
+	# pino para encostando nelas, sem entrar)
+	_corpo_caixa(Vector3(2.4, 1.6, 0.2), Vector3(0, Y_BOCA + 0.8, Z_FUNDO + 0.075 - 0.1), 0.9, 0.0)
+	var so_pinos := _corpo_caixa(Vector3(2.4, 0.9, 0.2), Vector3(0, Y_BOCA - 0.45, Z_FUNDO + 0.04 - 0.1), 0.9, 0.0)
 	so_pinos.collision_layer = CAMADA_SO_PINOS
 	# teto escuro do fosso (esconde a parte de cima, vista de dentro)
 	_caixa(Vector3(2.3, 0.1, -Z_FUNDO + Z_PINO1 + 0.7), Vector3(0, 2.12, (Z_PINO1 + 0.7 + Z_FUNDO) / 2),
@@ -462,7 +515,9 @@ func _fundo_dos_pinos() -> void:
 	var z_tras := Z_FUNDO - 0.95
 	var z_masc := Z_PINO1 + 0.68
 	for s in [-1, 1]:
-		_peca(Perfis.retangulo(0.34, 3.7, 0.12, Vector2(s * 1.23, 1.55)), z_tras + 0.3, z_masc, mat_gabinete, "gabinete_lado_%d" % s)
+		var lado := _peca(Perfis.retangulo(0.34, 3.7, 0.12, Vector2(s * 1.23, 1.55)), z_tras + 0.3, z_masc, mat_gabinete, "gabinete_lado_%d" % s)
+		# um pino que voa por cima da parede bate no gabinete (não atravessa)
+		_corpo_forma(lado.mesh.create_convex_shape(), Vector3.ZERO, 0.4, 0.3)
 	_peca(Perfis.retangulo(2.8, 0.32, 0.1, Vector2(0, 3.24)), z_tras + 0.3, z_masc, mat_gabinete, "gabinete_teto")
 	_peca(Perfis.retangulo(2.9, 3.75, 0.22, Vector2(0, 1.53)), z_tras, Z_FUNDO - 0.02, mat_gabinete, "gabinete_fundo")
 	_peca(Perfis.retangulo(2.96, 0.09, 0.04, Vector2(0, 3.42)), z_tras - 0.03, z_masc, mat_friso)
@@ -544,11 +599,14 @@ func _cacapa_das_bolas() -> void:
 		var x1 := MEIA_LARGURA + CANALETA + 0.06
 		_caixa(Vector3(x1 - x0, alto + 0.14, 0.12), Vector3(s * (x0 + x1) / 2.0, Y_CHAO_FOSSO + (alto + 0.14) / 2.0 - 0.07, Z_FUNDO - 0.02),
 			borracha, false, false)
-	# moldura amarela em volta da boca + filete de luz em cima
-	_peca(Perfis.retangulo(LARGURA_BOCA + 0.26, 0.12, 0.05, Vector2(0, Y_BOCA + 0.06)), Z_FUNDO - 0.04, Z_FUNDO + 0.1, mat_friso)
+	# moldura amarela em volta da boca + filete de luz em cima (colidem
+	# como são: os pinos param nelas; a bola passa no vão do meio)
+	var moldura := _peca(Perfis.retangulo(LARGURA_BOCA + 0.26, 0.12, 0.05, Vector2(0, Y_BOCA + 0.06)), Z_FUNDO - 0.04, Z_FUNDO + 0.1, mat_friso)
+	_corpo_forma(moldura.mesh.create_convex_shape(), Vector3.ZERO, 0.5, 0.2)
 	for s in [-1, 1]:
-		_peca(Perfis.retangulo(0.13, alto + 0.12, 0.05, Vector2(s * (meia + 0.065), Y_CHAO_FOSSO + (alto + 0.12) / 2.0 - 0.02)),
+		var poste := _peca(Perfis.retangulo(0.13, alto + 0.12, 0.05, Vector2(s * (meia + 0.065), Y_CHAO_FOSSO + (alto + 0.12) / 2.0 - 0.02)),
 			Z_FUNDO - 0.04, Z_FUNDO + 0.1, mat_friso)
+		_corpo_forma(poste.mesh.create_convex_shape(), Vector3.ZERO, 0.5, 0.2)
 	mat_boca_luz = Materiais.cor_toon(Color("#FFFFFF"), 0.0, {"emissao": Color(0.6, 0.9, 1.0), "borda": 0.0})
 	_caixa(Vector3(LARGURA_BOCA, 0.025, 0.02), Vector3(0, Y_BOCA + 0.005, Z_FUNDO + 0.105), mat_boca_luz, false, false)
 	# cortina de tiras de borracha (uma MultiMesh: um desenho só)
@@ -578,10 +636,11 @@ func _mexer_tiras(delta: float) -> void:
 	for i in N_TIRAS:
 		var x := -meia + LARGURA_BOCA * (float(i) + 0.5) / N_TIRAS
 		var alvo := 0.0
-		if absf(pb.z - Z_FUNDO) < 0.45 and absf(pb.x - x) < 0.28 and pb.y < Y_BOCA:
+		# abrem ANTES de a bola chegar (e depressa): ela nunca encosta nelas
+		if absf(pb.z - Z_FUNDO) < 0.8 and absf(pb.x - x) < 0.3 and pb.y < Y_BOCA:
 			alvo = 1.25
 		var a := _abertura_tiras[i]
-		var novo := move_toward(a, alvo, delta * (9.0 if alvo > a else 2.2))
+		var novo := move_toward(a, alvo, delta * (14.0 if alvo > a else 2.2))
 		if novo != a or mexeu:
 			_abertura_tiras[i] = novo
 			# balancinho depois que a bola passa

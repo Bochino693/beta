@@ -75,7 +75,8 @@ var _demo_t := 0.0
 var _camera_t := 0.0
 var _demo_vez := 0
 var _ultimo_som_pino := 0
-var _tema_base := -1          # cada partida começa num cenário diferente
+var _tema_base := 0           # a 1ª rodada é sempre nos dinos; as outras giram de partida em partida
+var _tema_partida := 0
 var _qualidade := "media"
 ## resolução da imagem 3D: fator (70% a 100%) sobre o LADO_3D — automático
 ## (desce se a máquina não segura 60 quadros e VOLTA A SUBIR quando sobra
@@ -88,6 +89,7 @@ var _fps_ruins := 0
 var _fps_bons := 0
 var _teto := 1.0            # fator que já se mostrou pesado demais...
 var _teto_ate := 0          # ...até esta hora (ms): não tenta subir acima dele
+var _fator_salvar := false  # fator novo a gravar (na atração: gravar no meio do jogo trava)
 var _mouse_parado := 0.0
 
 ## Lado menor da IMAGEM 3D, em pixels, em cada qualidade (nunca maior que a
@@ -138,7 +140,7 @@ func _ready() -> void:
 	# prepara os shaders de tudo enquanto a marca cobre a tela
 	var aq := Aquecer.new()
 	add_child(aq)
-	aq.preparar(vp, hud)
+	aq.preparar(vp, hud, efeitos.materiais())
 	hud.toque_sensor.connect(_jogada_recebida)
 	Tela.mudou.connect(_tela_mudou)
 	_tela_mudou(Tela.tamanho())
@@ -339,7 +341,7 @@ func _abertura() -> void:
 	hud.atracao(false)
 	hud.mostrar_sensores(false)
 	hud.mostrar_placar(false)
-	mundo.aplicar_tema("parque")
+	mundo.aplicar_tema(Temas.ORDEM[0])
 	maquina.instantaneo()
 	# os bichinhos entram depois (na atração)
 	for nome in personagens:
@@ -436,6 +438,9 @@ func _teste_desempenho() -> void:
 
 func _atracao() -> void:
 	estado = E.ATRACAO
+	if _fator_salvar:
+		_fator_salvar = false
+		Ajustes.definir("video", "fator", snappedf(_fator, 0.01))
 	# a porta das bolas fica FECHADA na espera; o Arduino pode pedir a
 	# permissão USB aqui (janela do Android só na espera)
 	ArduinoBridge.porta(false)
@@ -605,7 +610,8 @@ func _comecar(lista: Array) -> void:
 	placar.comecar(lista, Ajustes.rodadas(), Ajustes.tentativas())
 	mundo.definir_protecao(Ajustes.protecao_canaleta())
 	maquina.instantaneo()
-	_tema_base = (_tema_base + 1) % Temas.ORDEM.size()
+	_tema_partida = _tema_base
+	_tema_base = (_tema_base + maxi(Ajustes.rodadas() - 1, 1)) % (Temas.ORDEM.size() - 1)
 	Fotos.limpar_partida()
 	# uma foto por jogador (1 jogador = 1 foto, 2 jogadores = 2 fotos)
 	if Fotos.pode_fotografar():
@@ -665,8 +671,13 @@ func _sessao_de_fotos(lista: Array) -> bool:
 	return true
 
 
+## 1ª rodada: Selva dos Dinos, sempre. Da 2ª em diante, os outros cenários
+## em roda — cada partida continua de onde a anterior parou.
 func _tema_da_rodada() -> String:
-	return Temas.ORDEM[(maxi(_tema_base, 0) + placar.rodada_atual) % Temas.ORDEM.size()]
+	if placar.rodada_atual == 0:
+		return Temas.ORDEM[0]
+	var outros := Temas.ORDEM.size() - 1
+	return Temas.ORDEM[1 + (_tema_partida + placar.rodada_atual - 1) % outros]
 
 
 ## Começo da vez de um jogador (ou da próxima bola dele).
@@ -1492,6 +1503,11 @@ func _esperar(t: float, s: int, pulavel := true) -> bool:
 func _medir_fps(_delta: float) -> void:
 	if not _adaptar:
 		return
+	# trocar o tamanho da imagem 3D refaz as imagens da placa de vídeo (um
+	# tranco): nunca no meio da jogada — a medida continua e a troca fica
+	# para a espera da próxima bola
+	if estado in [E.ARREMESSO, E.ROLANDO, E.RESULTADO, E.REPLAY]:
+		return
 	var agora := Time.get_ticks_msec()
 	if _fps_t0 == 0 or estado == E.ABERTURA or estado == E.TESTE:
 		_fps_t0 = agora
@@ -1540,5 +1556,5 @@ func _medir_fps(_delta: float) -> void:
 func _mudar_fator(novo: float, fps: float) -> void:
 	_fator = novo
 	_tela_mudou(Tela.tamanho())
-	Ajustes.definir("video", "fator", snappedf(_fator, 0.01))
+	_fator_salvar = true
 	print("Imagem 3D: %d%% (%d quadros/s)" % [int(round(_fator * 100.0)), int(fps)])

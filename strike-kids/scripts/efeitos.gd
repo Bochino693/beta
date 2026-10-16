@@ -20,6 +20,11 @@ func _ready() -> void:
 	_mat_confete.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
 
 
+## Os materiais das partículas (o Aquecer prepara antes da 1ª jogada).
+func materiais() -> Array:
+	return [_mat_estrela, _mat_faisca, _mat_fumaca, _mat_confete]
+
+
 func _arco_iris() -> Gradient:
 	var g := Gradient.new()
 	g.offsets = PackedFloat32Array([0.0, 0.17, 0.34, 0.5, 0.67, 0.84, 1.0])

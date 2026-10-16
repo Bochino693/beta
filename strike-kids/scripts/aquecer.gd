@@ -16,11 +16,21 @@ extends SubViewport
 
 const ALTURA := 400.0      # lá no alto, longe de tudo que a câmera do jogo vê
 const QUADROS := 8
+## Imagens que só aparecem mais tarde (letreiros do resultado, cartões dos
+## cenários, fim de jogo, a bola de cada bichinho): carregadas já aqui —
+## ler e mandar para a placa de vídeo na primeira vez que aparecessem dava
+## um tranco (na TV Box, bem visível).
+const TEXTURAS := ["strike", "spare", "ops", "boa", "super", "uau", "quase", "pegando_fogo", "empate",
+	"novo_recorde", "parabens", "venceu", "fim_de_jogo", "replay", "cen_dinos", "cen_parque", "cen_espaco",
+	"cen_mar", "estrela", "estrela_placar", "estrela_vazia", "bola_bob", "bola_mia", "retrato_bob",
+	"retrato_mia", "retrato_bob_empolgado", "retrato_mia_empolgado"]
+## Shaders 2D que só aparecem mais tarde (a foto redonda das crianças).
+const SHADERS_2D := ["res://shaders/foto_redonda.gdshader"]
 
 var _quadros := 0
 
 
-func preparar(vp: SubViewport, interface: Node) -> void:
+func preparar(vp: SubViewport, interface: Node, extras: Array = []) -> void:
 	physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
 	size = Vector2i(96, 96)
 	world_3d = vp.find_world_3d()
@@ -33,6 +43,11 @@ func preparar(vp: SubViewport, interface: Node) -> void:
 	add_child(cam)
 	cam.current = true
 	var amostras := _amostras_3d(vp)
+	# materiais que ainda não estão na cena (as partículas dos efeitos:
+	# estrelas, confete, faíscas, fumaça) — desenhadas em MultiMesh
+	for m in extras:
+		if m is Material:
+			amostras.append(_multi(_quad(), m, true, true))
 	var lado := int(ceil(sqrt(float(amostras.size()))))
 	for i in amostras.size():
 		var no: GeometryInstance3D = amostras[i]
@@ -52,7 +67,26 @@ func preparar(vp: SubViewport, interface: Node) -> void:
 			r.position = Vector2(vistos.size() % 12 * 8, vistos.size() / 12 * 8)
 			r.material = m
 			add_child(r)
-	print("Aquecer: %d materiais 3D, %d 2D" % [amostras.size(), vistos.size()])
+	for caminho in SHADERS_2D:
+		var sm := ShaderMaterial.new()
+		sm.shader = load(caminho)
+		var r := ColorRect.new()
+		r.size = Vector2(8, 8)
+		r.position = Vector2(88, 88)
+		r.material = sm
+		add_child(r)
+	var n_tex := 0
+	for nome in TEXTURAS:
+		var t := Materiais.textura(nome)
+		if t != null:
+			n_tex += 1
+			var tr := TextureRect.new()
+			tr.texture = t
+			tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+			tr.size = Vector2(4, 4)
+			tr.position = Vector2(n_tex % 24 * 4, 92)
+			add_child(tr)
+	print("Aquecer: %d materiais 3D, %d 2D, %d imagens" % [amostras.size(), vistos.size(), n_tex])
 
 
 func _process(_d: float) -> void:

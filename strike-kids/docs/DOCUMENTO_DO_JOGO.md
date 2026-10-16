@@ -150,7 +150,8 @@ contador "N STRIKES SEGUIDOS!"; a próxima bola sai como **bola de fogo**
   (`TABELA` em `scripts/jogada.gd`, por dificuldade e posição) e escolhe uma
   linha "garantida" para aquele resultado — garantida porque a linha e as
   vizinhas (2 cm para cada lado) deram o mesmo resultado na simulação. Na
-  prática o resultado bate com o sorteio (±1 pino) em 86 a 98% das vezes.
+  prática o resultado bate com o sorteio (±1 pino) em 83 a 95% das vezes
+  (tabela recalibrada com as colisões novas, abaixo).
 - 2ª e 3ª bola: a mira é o pino da frente do grupo que sobrou, batendo pelo
   lado que joga ele em cima dos outros; a chance de acertar em cheio depende
   da dificuldade e de quão perto o sensor passa do grupo.
@@ -160,6 +161,15 @@ contador "N STRIKES SEGUIDOS!"; a próxima bola sai como **bola de fogo**
   rápido; setas a 1/3 da pista. Canaletas em meia-cana de verdade (perfil
   liso, mais escuras no fundo), divisórias arredondadas que terminam na
   linha de falta.
+- **Nada atravessa nada**: cada peça parada colide com o PRÓPRIO desenho —
+  a canaleta com a malha da meia-cana (a bola de 28 cm corre dentro da
+  calha apoiada nas bordas; os pinos param lá dentro), divisórias, paredes
+  e friso do fosso, moldura da boca da caçapa e laterais do gabinete com a
+  forma convexa da peça; a parede do fundo fica na frente das pregas da
+  cortina e das tiras da boca (o pino encosta nelas, não entra). Os
+  para-choques acabam em z = −9,8 m, antes da barra varredora (z = −10 m),
+  como num boliche de verdade. O rastro de arco-íris e as sombras (adesivos
+  retos) só ficam na pista — nunca cortam a canaleta.
 
 Strikes na 1ª bola (400 jogadas simuladas por dificuldade, com
 para-choques): fácil — centro 58%, meio 33–41%, lados 12–17%; normal —
@@ -276,8 +286,25 @@ Depois de cada bola, como num boliche de verdade:
 
 Cada cenário troca céu (shader com estrelas/raios), luz, neblina, terreno,
 cores da pista (divisórias, faixas, canaletas), fundo dos pinos e letreiro.
-Cada partida começa num cenário diferente (rodízio), e cada rodada passa
-para o próximo.
+A **1ª rodada é sempre na Selva dos Dinos** (e a atração começa nela); da
+2ª em diante os outros três em roda — cada partida continua de onde a
+anterior parou (`Temas.ORDEM`, `_tema_da_rodada`).
+
+**Cenário LEVE x COMPLETO** (`Ajustes.cenario()`, menu do operador
+"Cenário (fundo)"; padrão em `strike/video/cenario` no `project.godot`:
+"leve" nesta versão, "completo" no pacote da versão ALTA). O leve, feito
+para a TV Box (Mali-G31), muda só o fundo:
+- chão: `terreno_leve.gdshader` — o mesmo desenho, mas cada florzinha/
+  concha/poeira cabe na sua casinha (1 sorteio por pixel em vez de 9),
+  crateras só nas 4 casinhas mais perto (exato), sorteio sem seno, luz e
+  neblina por vértice e cores já lineares: o custo extra por pixel caiu
+  3 a 4 vezes;
+- decoração: `toon_leve.gdshader` (toda a conta de luz, borda e neblina
+  por vértice; sem especular e sem contorno), metade das peças espalhadas
+  e dos bichinhos/nuvens/balões, menos partículas;
+- céu: `ceu_leve.gdshader` (uma camada de estrelas, um leque de raios,
+  sol sem potências caras) e sem a neblina do motor (que pesava em todo
+  pixel da tela).
 
 ## 8. Arte e técnica
 
@@ -327,7 +354,15 @@ para o próximo.
     `--benchmark` no PC mede o custo de cada parte;
   - **aquecimento** (`scripts/aquecer.gd`): na abertura, uma telinha
     escondida desenha uma amostra de cada material (todos os cenários,
-    partículas, lâmpadas, painéis 2D) — sem engasgo na primeira vez;
+    partículas — inclusive as dos efeitos, que só nascem no 1º strike —,
+    lâmpadas, painéis 2D, a foto redonda) e já carrega as imagens que só
+    aparecem depois (letreiros STRIKE!/SPARE!, cartões dos cenários, fim
+    de jogo, bolas dos bichinhos) — sem engasgo na primeira vez;
+  - **sem trancos de fundo**: no PC a câmera não achada é procurada no
+    máximo a cada 15 s (a busca travava 80–780 ms) e sem religar a vigia
+    do CameraServer; as fotos são gravadas em PNG numa linha de execução
+    separada (e ficam no cache); a nitidez automática só troca o tamanho
+    da imagem 3D fora da jogada e grava o ajuste na atração;
   - PC em **tela cheia** (exclusiva), mouse some sozinho.
 - **Shader toon** próprio: duas faixas de luz, sombra colorida, brilho de
   borda, rosto projetado (atlas). Contorno por casca invertida.
@@ -356,6 +391,7 @@ para o próximo.
 | `python3 tools/modelos/temas.py` | gera os objetos dos 4 cenários |
 | `godot --headless --path . --script res://tools/modelos/assar_modelos.gd` | converte para recursos do Godot com LOD (`-- temas` só os cenários) |
 | `python3 tools/arte/gerar_arte.py` | rostos, texturas, letreiros, logo, ícones |
+| `python3 tools/arte/diagrama_arduino.py` | desenho da ligação do Arduino com o passo a passo do START (`docs/ligacao_arduino.svg/.png/.pdf`) |
 | `python3 tools/arte/gerar_marca.py` | logo Lazer & Sport em alta (inteira, alvo e placa), fundo da abertura e imagens de inicialização |
 | `python3 tools/ajustar_importacao.py` | mipmaps e compressão de alta qualidade nas imagens (rodar depois de gerar artes) |
 | `godot --path . res://tools/testes/anim_teste.tscn -- saida.png danca 0.2,0.6 lado` | folha de quadros de uma animação (pés, joelhos, pulos) |
@@ -369,10 +405,17 @@ para o próximo.
 | `godot --path . -- --janela=720x1280 --benchmark [--configs=base,sem_portal]` | bancada de desempenho: custo de cada parte do desenho (placa de vídeo e quadro) em 4 vistas |
 | `godot --path . --fixed-fps 50 -- --janela=540x960 --replay-teste[=pasta]` | faz um strike de demonstração e mede, quadro a quadro, a bola rolando (interpolada) e o replay (sem trancos) |
 | `godot --path . -- --medidor` | abre o jogo já com o painel de desempenho (o mesmo do F3) |
+| `godot --path . -- --janela=72x128 --desempenho --engasgos --roteiro=pasta` | cada quadro acima de 30 ms dividido em física / jogo / desenho (caça engasgos) |
+| `STRIKE_CENARIO=leve\|completo` | variável de ambiente: força o cenário em qualquer ferramenta |
 | `godot --path . -- --camera-falsa` | simula a câmera no PC (imagem de teste) |
 
 ## 10. Arduino da máquina: sensores, porta e botão (`autoload/ArduinoBridge.gd`)
 
+- **Ligação**: `docs/ligacao_arduino.pdf` (e `.png`) — o Nano visto de
+  cima com os pinos na ordem real, cada fio (sensores, botões, servo ou
+  relé, fita de LED, USB da TV Box), o mapa no Uno, como dar START, a
+  primeira vez e os cuidados. Gerado por `tools/arte/diagrama_arduino.py`
+  com os pinos do firmware.
 - **Firmware** (`arduino/strike_kids/strike_kids.ino`, Uno/Nano/Pro Mini/
   Mega/Leonardo): lê os 5 sensores (D2 D3 D4 D5 D7, esquerda → direita,
   filtro de 2 ms e rearme de 120 ms para a bola balançando no sensor), o

@@ -73,6 +73,11 @@ func _process(_d: float) -> void:
 		var giro := atan2(eixo.x, eixo.z)
 		b = Basis(Vector3.UP, giro) * b
 		var chao := 0.004 if absf(g.x) < Mundo.MEIA_LARGURA and g.z > Mundo.Z_FIM_DECK else -0.2
+		# perto da borda a sombra encolhe: o adesivo reto não sai da pista
+		# (nem fica boiando por cima da canaleta)
+		if chao > 0.0:
+			f *= clampf((Mundo.MEIA_LARGURA - absf(g.x)) / 0.16, 0.0, 1.0)
+			b = Basis(Vector3.UP, giro) * Basis().scaled(Vector3(maxf(f * (1.0 + deitado * 0.2), 0.001), 1.0, maxf(f * (1.0 + deitado * 1.6), 0.001)))
 		var centro := g + Vector3(eixo.x, 0, eixo.z) * 0.19 * deitado
 		mm.set_instance_transform(i, Transform3D(b, Vector3(centro.x, chao, centro.z)))
 

@@ -9,7 +9,9 @@ extends Node3D
 ##   mar    — Fundo do Mar: concha gigante, corais, algas, peixinhos, bolhas
 ##   dinos  — Selva dos Dinos: vulcão, dino pescoçudo, palmeiras, pterossauros
 
-const ORDEM := ["parque", "espaco", "mar", "dinos"]
+## a Selva dos Dinos é sempre a PRIMEIRA fase (e o começo da atração);
+## depois Parque, Espaço e Mar
+const ORDEM := ["dinos", "parque", "espaco", "mar"]
 
 const CONFIG := {
 	"parque": {
@@ -74,10 +76,15 @@ var grupos := {}
 var _anim := {}          # tema -> [{no, tipo, ...}]
 var _mats := {}
 var _t := 0.0
+## cenário LEVE (Mundo.leve): metade da decoração, sem contorno, luz por
+## vértice (toon_leve) e menos partículas
+var leve := false
+var _mats_leve: Array[ShaderMaterial] = []
 
 
 func construir(m: Mundo) -> void:
 	mundo = m
+	leve = m.leve
 	for nome in ORDEM:
 		var g := Node3D.new()
 		g.name = nome
@@ -121,12 +128,44 @@ static func proximo(nome: String) -> String:
 
 # ================================================================ peças
 func _mat(contorno: float, tinta: Color, extra := {}) -> ShaderMaterial:
+	if leve:
+		contorno = 0.0
 	var chave := "%s|%s|%s" % [contorno, tinta.to_html(), str(extra)]
 	if not _mats.has(chave):
 		var p := {"borda": 0.3, "tinta": tinta}
 		p.merge(extra, true)
-		_mats[chave] = Materiais.toon(false, contorno, p)
+		_mats[chave] = _toon(contorno, p)
 	return _mats[chave]
+
+
+## Toon do cenário: o completo (luz por pixel, contorno) ou o leve (luz por
+## vértice; o brilho especular não existe nele).
+func _toon(contorno: float, p: Dictionary) -> ShaderMaterial:
+	if not leve:
+		return Materiais.toon(false, contorno, p)
+	var m := ShaderMaterial.new()
+	m.shader = Materiais.shader("res://shaders/toon_leve.gdshader")
+	for k in p:
+		if k != "especular" and k != "tamanho_especular":
+			m.set_shader_parameter(k, p[k])
+	_mats_leve.append(m)
+	return m
+
+
+## Quantas peças de um tipo: a metade (pelo menos uma) no cenário leve.
+func _q(n: int) -> int:
+	return maxi(1, int(round(n * 0.45))) if leve else n
+
+
+## A luz da cena para a decoração leve (Mundo.aplicar_tema): para onde está o
+## sol, cor x força do sol e do ambiente e a neblina (cores lineares).
+func luz(sol_dir: Vector3, sol_cor: Vector3, ambiente: Vector3, neblina_cor: Vector3, neblina_densidade: float) -> void:
+	for m in _mats_leve:
+		m.set_shader_parameter("sol_dir", sol_dir)
+		m.set_shader_parameter("sol_cor", sol_cor)
+		m.set_shader_parameter("ambiente", ambiente)
+		m.set_shader_parameter("neblina_cor", neblina_cor)
+		m.set_shader_parameter("neblina_densidade", neblina_densidade)
 
 
 ## Um objeto do cenário (res://modelos/cenario/<nome>.res) no grupo do tema.
@@ -241,7 +280,7 @@ func _parque() -> void:
 	grupos[T].add_child(mundo.lampadas_em(pontos, 100))
 	_torres(T, "torre")
 	_espalhar(T, ["arvore_verde", "arvore_laranja", "arvore_escura", "pirulito", "cogumelo", "bengala",
-		"presente", "donut", "cupcake", "arvore_verde", "arvore_escura", "arvore_laranja"], 40, 2026,
+		"presente", "donut", "cupcake", "arvore_verde", "arvore_escura", "arvore_laranja"], _q(40), 2026,
 		{"arvore_verde": 1.25, "arvore_laranja": 1.25, "arvore_escura": 1.25})
 	_destaques(T, [["pirulito", 0.75, 0.004], ["pirulito", 0.85, 0.004], ["presente", 0.8, 0.004], ["cupcake", 0.75, 0.004],
 		["bengala", 0.9], ["bengala", 0.9], ["cogumelo", 0.9], ["donut", 0.85]])
@@ -273,8 +312,8 @@ func _parque() -> void:
 func _nuvens(tema: String, qtd: int, semente: int) -> void:
 	var rnd := RandomNumberGenerator.new()
 	rnd.seed = semente
-	var mat := Materiais.toon(false, 0.0, {"borda": 0.6, "luz_minima": 0.5, "cor_borda": Color(0.9, 0.96, 1)})
-	for i in qtd:
+	var mat := _toon(0.0, {"borda": 0.6, "luz_minima": 0.5, "cor_borda": Color(0.9, 0.96, 1)})
+	for i in _q(qtd):
 		var n := _obj(tema, "nuvem", Vector3.ZERO)
 		n.material_override = mat
 		n.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
@@ -290,8 +329,8 @@ func _baloes(tema: String) -> void:
 	rnd.seed = 91
 	var mb: Mesh = load("res://modelos/cenario/balao.res")
 	var cores := [Color("#FF4B5C"), Color("#FFD43B"), Color("#4FC3F7"), Color("#5ED16A"), Color("#2E7BFF"), Color("#FF9F2E")]
-	var linha_mat := Materiais.cor_toon(Color("#FFFFFF"), 0.0, {"borda": 0.0})
-	for i in 16:
+	var linha_mat := _toon(0.0, {"tinta": Color("#FFFFFF"), "borda": 0.0})
+	for i in (8 if leve else 16):
 		var b := Node3D.new()
 		var mi := MeshInstance3D.new()
 		mi.mesh = mb
@@ -333,20 +372,20 @@ func _espaco() -> void:
 	_animar(T, {"tipo": "orbita", "no": ovni, "centro": Vector3(0, 4.6, -11.0), "raio": Vector2(3.6, 5.0), "vel": 0.32,
 		"fase": 0.0, "girar": 1.6, "sobe": 0.35})
 	# planetinhas coloridos no céu
-	for i in 8:
+	for i in _q(8):
 		var lado := -1.0 if i % 2 == 0 else 1.0
 		var pos := Vector3(lado * rnd.randf_range(6.0, 22.0), rnd.randf_range(5.0, 15.0), rnd.randf_range(-58.0, -14.0))
 		var pl := _obj(T, "planeta", pos, rnd.randf() * TAU, rnd.randf_range(1.6, 4.2), 0.0, CORES_BICHOS[i % CORES_BICHOS.size()])
 		pl.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		_animar(T, {"tipo": "girar", "no": pl, "vel": rnd.randf_range(0.05, 0.2)})
 	# estrelas fofas flutuando ao lado da pista
-	for i in 6:
+	for i in _q(6):
 		var lado := -1.0 if i % 2 == 0 else 1.0
 		var base := Vector3(lado * rnd.randf_range(2.1, 3.4), rnd.randf_range(2.2, 3.8), rnd.randf_range(-17.0, -3.0))
 		var e := _obj(T, "estrela_3d", base, 0.0, rnd.randf_range(0.6, 0.9), 0.003)
 		_animar(T, {"tipo": "boiar", "no": e, "base": base, "fase": rnd.randf() * TAU, "vel": rnd.randf_range(0.7, 1.1),
 			"amp": Vector3(0.0, 0.2, 0.0), "girar": 0.8})
-	_espalhar(T, ["cristal", "pedra_lua", "cristal", "pedra_lua", "pedra_lua", "foguete"], 38, 77,
+	_espalhar(T, ["cristal", "pedra_lua", "cristal", "pedra_lua", "pedra_lua", "foguete"], _q(38), 77,
 		{"cristal": 1.3, "pedra_lua": 1.6, "foguete": 0.8})
 	_destaques(T, [["cristal", 0.9, 0.004], ["cristal", 1.0, 0.004], ["pedra_lua", 1.0, 0.004], ["cristal", 0.8, 0.004],
 		["pedra_lua", 1.1], ["cristal", 1.0], ["pedra_lua", 1.0], ["cristal", 1.1]])
@@ -371,7 +410,7 @@ func _mar() -> void:
 	_obj(T, "concha", Vector3(0, -0.05, Mundo.Z_FUNDO - 0.45), 0.0, 2.9, 0.0)
 	_obj(T, "coral", Vector3(-2.75, -0.02, Mundo.Z_FUNDO + 0.4), deg_to_rad(25.0), 2.1, 0.004)
 	_obj(T, "coral_roxo", Vector3(2.75, -0.02, Mundo.Z_FUNDO + 0.4), deg_to_rad(-25.0), 2.3, 0.004)
-	_espalhar(T, ["coral", "coral_roxo", "alga", "alga", "estrela_mar", "concha", "pedra", "coral"], 44, 31,
+	_espalhar(T, ["coral", "coral_roxo", "alga", "alga", "estrela_mar", "concha", "pedra", "coral"], _q(44), 31,
 		{"coral": 1.5, "coral_roxo": 1.5, "alga": 1.3, "estrela_mar": 1.6, "concha": 0.7, "pedra": 1.2})
 	_destaques(T, [["coral", 0.8, 0.004], ["alga", 0.8, 0.0], ["estrela_mar", 1.0, 0.004], ["bau", 0.9, 0.004],
 		["coral_roxo", 0.9], ["alga", 0.9], ["concha", 0.5], ["estrela_mar", 1.0]])
@@ -380,27 +419,27 @@ func _mar() -> void:
 		if g is MeshInstance3D and (g as MeshInstance3D).mesh != null and (g as MeshInstance3D).mesh.resource_path.ends_with("alga.res"):
 			_animar(T, {"tipo": "alga", "no": g, "fase": rnd.randf() * TAU, "base": (g as Node3D).rotation})
 	# cardumes de peixinhos
-	for c in 5:
+	for c in (3 if leve else 5):
 		var centro := Vector3((-1.0 if c % 2 == 0 else 1.0) * rnd.randf_range(3.0, 7.0), rnd.randf_range(2.6, 5.5), rnd.randf_range(-20.0, -4.0))
 		var cor: Color = CORES_BICHOS[c % CORES_BICHOS.size()]
 		var vel := rnd.randf_range(0.25, 0.45) * (1.0 if c % 2 == 0 else -1.0)
-		for k in 5:
+		for k in (3 if leve else 5):
 			var p := _obj(T, "peixe", centro, 0.0, rnd.randf_range(0.7, 1.0), 0.003, cor)
 			_animar(T, {"tipo": "peixe", "no": p, "centro": centro + Vector3(rnd.randf_range(-0.4, 0.4), rnd.randf_range(-0.3, 0.3), 0),
 				"raio": Vector2(rnd.randf_range(2.2, 3.0), rnd.randf_range(1.4, 2.0)), "vel": vel, "fase": k * 0.22, "nado": rnd.randf() * TAU})
 	# águas-vivas subindo e descendo
-	for i in 7:
+	for i in _q(7):
 		var lado := -1.0 if i % 2 == 0 else 1.0
 		var base := Vector3(lado * rnd.randf_range(2.2, 5.0), rnd.randf_range(2.4, 5.2), rnd.randf_range(-19.0, -2.0))
 		var cor: Color = [Color("#FFB36B"), Color("#9FF0C8"), Color("#8FE9FF")][i % 3]
 		var av := _obj(T, "agua_viva", base, 0.0, rnd.randf_range(0.7, 1.0), 0.003, cor)
 		_animar(T, {"tipo": "agua_viva", "no": av, "base": base, "fase": rnd.randf() * TAU, "vel": rnd.randf_range(0.8, 1.2)})
 	# tartarugas atravessando o mar lá no alto
-	for i in 2:
+	for i in _q(2):
 		var tt := _obj(T, "tartaruga", Vector3(0, 7.5 + i * 2.0, -24.0 - i * 10.0), PI / 2 * (1 if i == 0 else -1), 1.8 + i * 0.4)
 		_animar(T, {"tipo": "atravessar", "no": tt, "vel": 1.1 * (1 if i == 0 else -1), "limite": 28.0})
 	# bolhas subindo
-	for i in 8:
+	for i in (3 if leve else 8):
 		var lado := -1.0 if i % 2 == 0 else 1.0
 		var pos := Vector3(lado * rnd.randf_range(1.8, 6.0), 0.1, rnd.randf_range(-18.0, 1.0))
 		var b := _particulas(T, pos, "bolha", 10, 4.0, 0.16)
@@ -424,7 +463,7 @@ func _dinos() -> void:
 	# vulcão fumegando lá no fundo
 	_obj(T, "vulcao", Vector3(5.5, -0.4, -48.0), 0.3, 1.9)
 	_obj(T, "vulcao", Vector3(-16.0, -0.4, -40.0), -0.5, 1.1)
-	var fum := _particulas(T, Vector3(5.5, 9.3, -48.0), "fumaca", 14, 5.0, 2.4)
+	var fum := _particulas(T, Vector3(5.5, 9.3, -48.0), "fumaca", 8 if leve else 14, 5.0, 2.4)
 	fum.direction = Vector3(0.25, 1, 0)
 	fum.spread = 18.0
 	fum.gravity = Vector3(0.15, 0.15, 0)
@@ -448,11 +487,11 @@ func _dinos() -> void:
 	var dino2 := _obj(T, "dino", Vector3(-8.5, _chao(-8.5, -25.0) - 0.05, -25.0), 0.7, 1.5)
 	_animar(T, {"tipo": "respirar", "no": dino2, "fase": 1.7, "giro": dino2.rotation.y})
 	# pterossauros voando em círculos
-	for i in 3:
+	for i in _q(3):
 		var p := _obj(T, "ptero", Vector3.ZERO, 0.0, rnd.randf_range(0.9, 1.3), 0.003)
 		_animar(T, {"tipo": "voo", "no": p, "centro": Vector3(rnd.randf_range(-3.0, 3.0), rnd.randf_range(6.0, 8.5), rnd.randf_range(-22.0, -9.0)),
 			"raio": rnd.randf_range(4.0, 7.0), "vel": rnd.randf_range(0.25, 0.4) * (1.0 if i % 2 == 0 else -1.0), "fase": rnd.randf() * TAU})
-	_espalhar(T, ["palmeira", "samambaia", "pedra", "flor_gigante", "samambaia", "palmeira", "ovo_dino", "pedra"], 44, 2027,
+	_espalhar(T, ["palmeira", "samambaia", "pedra", "flor_gigante", "samambaia", "palmeira", "ovo_dino", "pedra"], _q(44), 2027,
 		{"palmeira": 1.0, "samambaia": 1.4, "pedra": 1.3, "flor_gigante": 1.3, "ovo_dino": 1.2})
 	_destaques(T, [["samambaia", 1.0, 0.004], ["flor_gigante", 1.0, 0.004], ["ovo_dino", 1.0, 0.004], ["flor_gigante", 0.9, 0.004],
 		["samambaia", 1.2], ["pedra", 1.0], ["ovo_dino", 1.0], ["samambaia", 1.1]])

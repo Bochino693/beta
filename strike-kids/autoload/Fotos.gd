@@ -46,6 +46,11 @@ var fonte := ""                    # android | ffmpeg | servidor
 var nome_camera := ""
 var feed: CameraFeed
 var fotos := {}                    # "j0", "j1" -> ImageTexture (só desta partida)
+var _imagens := {}                 # as mesmas fotos em Image (para gravar sem ler da placa de vídeo)
+## no PC a câmera que não foi achada é procurada de novo no máximo a cada
+## 15 s: procurar travava o quadro por dezenas ou centenas de ms
+const BUSCA_MS := 15000
+var _busca_ms := -BUSCA_MS
 var _vp: SubViewport
 var _mat: ShaderMaterial
 var _tex_a: Texture2D
@@ -185,8 +190,9 @@ func iniciar() -> void:
 ## alguém pode ter ligado a câmera depois).
 func procurar_agora() -> void:
 	if status != "pronta" and status != "desligada":
-		if fonte == "servidor" and _falsa == null:
-			CameraServer.monitoring_feeds = false
+		# (o CameraServer já avisa sozinho quando uma câmera chega: não
+		# precisa desligar e religar a vigia, que travava o jogo)
+		_busca_ms = Time.get_ticks_msec()
 		iniciar()
 
 
@@ -256,9 +262,11 @@ func na_espera() -> void:
 			_pedir_permissao()
 		return
 	if fonte != "android" or _plugin == null:
-		if status in ["sem_camera", "procurando", "sem_permissao"]:
+		if status in ["sem_camera", "procurando", "sem_permissao"] and agora - _busca_ms >= BUSCA_MS:
 			procurar_agora()
 		return
+	# (no Android a lista do plugin é rápida e a permissão USB recém-dada
+	# precisa ser vista logo: procura em toda espera, como no jogo de soco)
 	if status != "pronta":
 		_procurar_android()
 	if status == "sem_permissao_usb":
@@ -781,6 +789,7 @@ func tirar(chave: String) -> ImageTexture:
 	img.generate_mipmaps()
 	var t := ImageTexture.create_from_image(img)
 	fotos[chave] = t
+	_imagens[chave] = img
 	if _falsa != null and _falsas.size() > 1:
 		# câmera de teste: o próximo jogador é outra criança
 		_falsa_base = _falsas[(_falsas.find(_falsa_base) + 1) % _falsas.size()]
@@ -815,15 +824,23 @@ func foto(chave: String) -> Texture2D:
 
 func limpar_partida() -> void:
 	fotos.clear()
+	_imagens.clear()
 
 
-## Grava a foto num arquivo (para a classificação e o recorde).
+## Grava a foto num arquivo (para a classificação e o recorde). O PNG é
+## escrito numa linha de execução separada (levava dezenas de ms no PC e
+## centenas na TV Box, travando o fim da partida); a foto já fica no cache,
+## então ninguém precisa ler o arquivo enquanto ele está sendo escrito.
 func gravar(chave: String, nome_arquivo: String) -> String:
 	var t: ImageTexture = fotos.get(chave)
 	if t == null:
 		return ""
+	var img: Image = _imagens.get(chave)
+	if img == null:
+		img = t.get_image()
 	var caminho := PASTA + nome_arquivo
-	t.get_image().save_png(caminho)
+	_recordes[caminho] = t
+	WorkerThreadPool.add_task(func(): img.save_png(caminho))
 	return caminho
 
 
@@ -845,9 +862,7 @@ func carregar(caminho: String) -> Texture2D:
 
 # ---------------------------------------------------------------- recorde
 func salvar_recorde(chave: String, jogadores: int) -> String:
-	var caminho := gravar(chave, "recorde_j%d.png" % jogadores)
-	_recordes.erase(caminho)
-	return caminho
+	return gravar(chave, "recorde_j%d.png" % jogadores)
 
 
 func foto_recorde(jogadores: int) -> Texture2D:
