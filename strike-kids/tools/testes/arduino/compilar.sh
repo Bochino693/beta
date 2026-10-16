@@ -1,6 +1,8 @@
 #!/bin/bash
-# Compila o firmware do Arduino (arduino/strike_kids) como a IDE do Arduino
-# faz, sem a IDE: núcleo AVR + bibliotecas + sketch. Serve para conferir
+# Compila o firmware do Arduino (arduino/strike_kids) direto com o avr-gcc
+# (núcleo AVR + bibliotecas + sketch), SEM o pré-processamento da IDE (as
+# declarações automáticas das funções): o rodar.sh usa o arduino-builder,
+# que faz igual à IDE, quando ele está instalado. Serve para conferir
 # que compila em cada placa e para o simulador (simavr).
 #   compilar.sh <placa: uno|nano|mega|leonardo> <saida.elf> <USAR_LEDS 0|1> [pasta da Adafruit_NeoPixel]
 # Precisa de: gcc-avr, avr-libc, arduino-core-avr (pacotes do Ubuntu).

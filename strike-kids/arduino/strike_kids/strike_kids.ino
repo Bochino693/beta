@@ -79,6 +79,13 @@ Adafruit_NeoPixel fita(NUM_LEDS, LED_PINO, NEO_GRB + NEO_KHZ800);
 #endif
 #define PASSOS_POR_US (F_CPU / 8000000UL)  // Timer1 com prescaler 8
 
+// ------------------------------------------------------------ tipos
+// TODOS os tipos ficam aqui no comeco, antes da primeira funcao: a IDE do
+// Arduino escreve sozinha a "declaracao" de cada funcao logo antes da
+// primeira funcao do arquivo; um tipo declarado mais abaixo ainda nao
+// existiria ali (era o erro "'Efeito' was not declared in this scope").
+enum Efeito { MENU, IDLE, STRIKE, MISS, SPARE, NORMAL, BLUE, RED, OFF };
+
 // ------------------------------------------------------------ entradas
 struct Entrada {
   uint8_t pino;
@@ -268,7 +275,6 @@ void piscar(unsigned long agora) {
 
 // ============================================================ LEDs
 #if USAR_LEDS
-enum Efeito { MENU, IDLE, STRIKE, MISS, SPARE, NORMAL, BLUE, RED, OFF };
 Efeito efeito = MENU;
 unsigned long ledUltimo = 0;
 uint16_t menuOffset = 0;
