@@ -356,6 +356,7 @@ para o próximo.
 | `python3 tools/modelos/temas.py` | gera os objetos dos 4 cenários |
 | `godot --headless --path . --script res://tools/modelos/assar_modelos.gd` | converte para recursos do Godot com LOD (`-- temas` só os cenários) |
 | `python3 tools/arte/gerar_arte.py` | rostos, texturas, letreiros, logo, ícones |
+| `python3 tools/arte/diagrama_arduino.py` | desenho da ligação do Arduino com o passo a passo do START (`docs/ligacao_arduino.svg/.png/.pdf`) |
 | `python3 tools/arte/gerar_marca.py` | logo Lazer & Sport em alta (inteira, alvo e placa), fundo da abertura e imagens de inicialização |
 | `python3 tools/ajustar_importacao.py` | mipmaps e compressão de alta qualidade nas imagens (rodar depois de gerar artes) |
 | `godot --path . res://tools/testes/anim_teste.tscn -- saida.png danca 0.2,0.6 lado` | folha de quadros de uma animação (pés, joelhos, pulos) |
@@ -373,6 +374,11 @@ para o próximo.
 
 ## 10. Arduino da máquina: sensores, porta e botão (`autoload/ArduinoBridge.gd`)
 
+- **Ligação**: `docs/ligacao_arduino.pdf` (e `.png`) — o Nano visto de
+  cima com os pinos na ordem real, cada fio (sensores, botões, servo ou
+  relé, fita de LED, USB da TV Box), o mapa no Uno, como dar START, a
+  primeira vez e os cuidados. Gerado por `tools/arte/diagrama_arduino.py`
+  com os pinos do firmware.
 - **Firmware** (`arduino/strike_kids/strike_kids.ino`, Uno/Nano/Pro Mini/
   Mega/Leonardo): lê os 5 sensores (D2 D3 D4 D5 D7, esquerda → direita,
   filtro de 2 ms e rearme de 120 ms para a bola balançando no sensor), o

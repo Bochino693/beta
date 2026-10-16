@@ -230,6 +230,8 @@ Os 5 sensores da pista, o botao de configuracao e a trava da porta das
 bolas ficam num Arduino (Uno, Nano - original ou clone CH340 -, Pro Mini
 5 V, Mega ou Leonardo) ligado num USB da TV Box. O firmware esta em
 arduino/strike_kids/strike_kids.ino.
+O DESENHO de onde vai cada fio, com o passo a passo do primeiro START,
+esta em docs/ligacao_arduino.pdf (para imprimir) e docs/ligacao_arduino.png.
 
 LIGACOES (padrao; da para mudar no comeco do .ino)
   Sensores, da ESQUERDA para a DIREITA (olhando da crianca para a tela):
@@ -237,7 +239,9 @@ LIGACOES (padrao; da para mudar no comeco do .ino)
     Sensor optico/infravermelho (saida NPN), chave ou micro-switch: o fio
     de sinal no pino e o GND no GND do Arduino (o pino ja tem pull-up).
     Sensor de 12 V: alimente pela fonte de 12 V, GND comum com o Arduino,
-    e so o fio de SINAL no pino.
+    e so o fio de SINAL no pino. Antes de ligar no pino, meca o fio de
+    sinal (sensor ligado, com e sem bola): nunca pode dar 12 V (sensor
+    PNP, ou com resistor interno para os 12 V, queima o Arduino).
   Botao de CONFIGURACAO: A0 e GND (entra e sai do menu do operador)
   START (opcional, a Zero Delay tambem vale): A1 e GND
   Moedeiro / FICHA (opcional): A2 e GND
