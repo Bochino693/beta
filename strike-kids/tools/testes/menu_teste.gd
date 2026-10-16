@@ -2,7 +2,8 @@ extends Node
 
 ## MENU DO OPERADOR SEM TRAVAR: abre e fecha o menu por cima do jogo e mede
 ## cada quadro (e quanto cada passo levou).
-##   godot --path . res://tools/testes/menu_teste.tscn
+##   godot --path . --resolution 1080x1920 res://tools/testes/menu_teste.tscn -- --janela=1080x1920
+## (na resolução da TV Box: é para ela que as letras já vêm desenhadas)
 ## A máquina de teste não tem placa de vídeo: desenha o 3D por software
 ## (~1 s por quadro, variando ±100 ms) e isso esconde qualquer tranco. Aqui
 ## o 3D não é desenhado (o jogo continua rodando por baixo, só a imagem 3D

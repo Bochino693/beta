@@ -453,7 +453,7 @@ para a TV Box (Mali-G31), muda só o fundo:
 | `godot --path . --resolution 1080x1920 -- --janela=1080x1920 --roteiro=pasta --sem-sair --glifos [--jogadores=2]` | joga o jogo inteiro sozinho (mais menus e avisos) e anota as letras de cada fonte/tamanho em `dados/glifos.json` |
 | `godot --headless --path . -s res://tools/testes/fontes_prontas.gd` | monta `fontes/*_pronta.res` (letras já desenhadas: nada de tranco na 1ª vez que um texto aparece) |
 | o mesmo do `--glifos`, com `--glifos-conferir` | joga com as fontes prontas e lista as letras que ainda foram desenhadas na hora |
-| `godot --path . res://tools/testes/menu_teste.tscn` | abre e fecha o menu do operador por cima do jogo e mede o custo extra de cada troca (com o 3D sem desenhar: na máquina sem placa de vídeo o 3D por software esconde os trancos) |
+| `godot --path . --resolution 1080x1920 res://tools/testes/menu_teste.tscn -- --janela=1080x1920` | abre e fecha o menu do operador por cima do jogo e mede o custo extra de cada troca (na resolução da TV Box e com o 3D sem desenhar: na máquina sem placa de vídeo o 3D por software esconde os trancos) |
 | `godot --path . res://tools/testes/textos.tscn -- --janela=1080x1920 saida.png` | amostra dos textos do jogo (fontes, tamanhos, contorno e sombra) e o custo de desenhar cada um pela 1ª vez |
 | `godot --path . res://tools/testes/bracos.tscn -- saida.png bob acenar,quase 0.3,0.8` | braços de perto (de frente e de 3/4), em vários instantes de cada clipe |
 | `godot --path . res://tools/testes/marcas.tscn -- saida.png` | o símbolo da Lazer & Sport em cada cenário (espera, máquina e de perto) |
