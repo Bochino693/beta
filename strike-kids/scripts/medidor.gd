@@ -55,7 +55,7 @@ func _ready() -> void:
 	add_child(_painel)
 	_texto = Label.new()
 	var ls := LabelSettings.new()
-	ls.font = load("res://fontes/fredoka_600.ttf")
+	ls.font = Materiais.fonte("fredoka_600")
 	ls.font_size = 28
 	ls.font_color = Color.WHITE
 	ls.outline_size = 4
@@ -146,11 +146,15 @@ func testar() -> Dictionary:
 		principal._demo_t = -1000.0
 		for k in 20:
 			await get_tree().process_frame
+		if principal.estado != principal.E.TESTE:
+			return _interrompido(aviso, antes)
 		var ini := Time.get_ticks_usec()
 		var ult := ini
 		var meus: Array[float] = []
 		while Time.get_ticks_usec() - ini < int(SEG_POR_PLANO * 1000000.0):
 			await get_tree().process_frame
+			if principal.estado != principal.E.TESTE:
+				return _interrompido(aviso, antes)
 			principal._demo_t = -1000.0
 			var agora := Time.get_ticks_usec()
 			meus.append(float(agora - ult) / 1000.0)
@@ -209,6 +213,13 @@ func testar() -> Dictionary:
 	return r
 
 
+## O menu do operador abriu no meio do teste: some com o cartaz, sem resultado.
+func _interrompido(aviso: Label, antes: bool) -> Dictionary:
+	(aviso.get_meta("fundo") as Node).queue_free()
+	mostrar(antes)
+	return {}
+
+
 func _nome(q: String) -> String:
 	return {"alta": "ALTA", "media": "MÉDIA", "baixa": "BAIXA"}.get(q, q.to_upper())
 
@@ -229,7 +240,7 @@ func _cartaz(texto: String) -> Label:
 	add_child(fundo)
 	var l := Label.new()
 	var ls := LabelSettings.new()
-	ls.font = load("res://fontes/fredoka_700.ttf")
+	ls.font = Materiais.fonte("fredoka_700")
 	ls.font_size = 34
 	ls.font_color = Color.WHITE
 	ls.outline_size = 6

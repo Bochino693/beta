@@ -8,6 +8,8 @@ extends Control
 ## em placas genéricas no modo teclado, tecla. A linha "SINAL RECEBIDO"
 ## mostra na hora o que chegou — é o diagnóstico da placa.
 ## Se ninguém apertar nada por 20 segundos, volta ao jogo sem mudar nada.
+## Abre por cima do jogo pausado (Principal.abrir_menu), como o menu do
+## operador.
 ## (Mesma lógica do Dragon Bowling Pro Ultra.)
 
 const JOGO := "res://cenas/principal.tscn"
@@ -31,7 +33,7 @@ var _fonte: Font
 func _ready() -> void:
 	Tela.cobrir(self)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_fonte = load("res://fontes/fredoka_700.ttf")
+	_fonte = Materiais.fonte("fredoka_700")
 	var T := Tela.tamanho()
 	var u: float = min(T.x, T.y) / 1080.0
 	var fundo := ColorRect.new()
@@ -103,7 +105,7 @@ func _process(_delta: float) -> void:
 		return
 	if Time.get_ticks_msec() - _ultimo_toque_ms > ESPERA_MAXIMA_MS:
 		_terminado = true
-		get_tree().change_scene_to_file.call_deferred(JOGO)
+		_voltar()
 		return
 	_atualizar()
 
@@ -143,4 +145,13 @@ func _concluir() -> void:
 	_pedido.text = "PRONTO!"
 	_dica.text = "GRAVADO. PARA REFAZER: BOTÃO DE CONFIGURAÇÃO, OU SEGURE UM BOTÃO 10 s NA TELA INICIAL"
 	await get_tree().create_timer(1.6).timeout
-	get_tree().change_scene_to_file(JOGO)
+	_voltar()
+
+
+## Volta ao jogo (aberto por cima dele: o jogo ficou pausado por baixo).
+func _voltar() -> void:
+	var jogo := get_tree().current_scene
+	if jogo != null and jogo != self and jogo.has_method("fechar_menu"):
+		jogo.fechar_menu()
+	else:
+		get_tree().change_scene_to_file.call_deferred(JOGO)

@@ -106,10 +106,11 @@ buffering/agile_event_flushing=true
 [physics]
 
 common/physics_ticks_per_second=120
-common/max_physics_steps_per_frame=10
+common/max_physics_steps_per_frame=6
 common/physics_jitter_fix=0.0
 common/physics_interpolation=true
 3d/physics_engine="Jolt Physics"
+3d/run_on_separate_thread=true
 jolt_physics_3d/simulation/velocity_steps=16
 jolt_physics_3d/simulation/position_steps=4
 
@@ -123,6 +124,10 @@ textures/default_filters/anisotropic_filtering_level=3
 lights_and_shadows/directional_shadow/size=512
 lights_and_shadows/positional_shadow/atlas_size=0
 environment/defaults/default_clear_color=Color(0.16, 0.09, 0.32, 1)
+
+[threading]
+
+worker_pool/max_threads=2
 
 [strike]
 

@@ -9,6 +9,9 @@ extends Control
 ##   Z (esquerda)      = diminui     B (direita)      = aumenta
 ##   C (centro) ou START = escolher  Configuração     = voltar ao jogo
 ## No PC também valem as setas, Enter e Esc.
+##
+## O menu abre POR CIMA do jogo pausado (Principal.abrir_menu): nada do
+## jogo é desmontado, e sair dele é na hora.
 
 const JOGO := "res://cenas/principal.tscn"
 const BOTOES := "res://cenas/configuracao_botoes.tscn"
@@ -71,8 +74,19 @@ var u := 1.0
 
 
 func _ready() -> void:
+	_fonte = Materiais.fonte("fredoka_700")
+	_montar()
+	Fotos.mudou.connect(_atualizar)
+	ArduinoBridge.mudou.connect(_arduino_mudou)
+	# no menu a porta das bolas fica fechada; aqui pode aparecer a janela
+	# de permissão USB do Arduino
+	ArduinoBridge.porta(false)
+	ArduinoBridge.na_espera(true)
+	_atualizar()
+
+
+func _montar() -> void:
 	Tela.cobrir(self)
-	_fonte = load("res://fontes/fredoka_700.ttf")
 	var T := Tela.tamanho()
 	u = min(T.x, T.y) / 1080.0
 	var fundo := ColorRect.new()
@@ -106,13 +120,26 @@ func _ready() -> void:
 	_camera_tela.position = Vector2((T.x - lado) / 2, T.y * 0.3)
 	_camera_tela.visible = false
 	add_child(_camera_tela)
-	Fotos.mudou.connect(_atualizar)
-	ArduinoBridge.mudou.connect(_arduino_mudou)
-	# no menu a porta das bolas fica fechada; aqui pode aparecer a janela
-	# de permissão USB do Arduino
-	ArduinoBridge.porta(false)
-	ArduinoBridge.na_espera(true)
+
+
+## A tela girou (giro da tela mudou): monta o menu de novo no tamanho novo.
+func _remontar() -> void:
+	for c in get_children():
+		remove_child(c)
+		c.queue_free()
+	_linhas.clear()
+	_topo = 0
+	_montar()
 	_atualizar()
+
+
+## Volta ao jogo (que ficou pausado por baixo do menu).
+func _sair() -> void:
+	var jogo := get_tree().current_scene
+	if jogo != null and jogo != self and jogo.has_method("fechar_menu"):
+		jogo.fechar_menu()
+	else:
+		get_tree().change_scene_to_file.call_deferred(JOGO)
 
 
 func _rotulo(texto: String, pos: Vector2, tam: float, cor: Color) -> Label:
@@ -233,7 +260,8 @@ func _input(event: InputEvent) -> void:
 		"ok":
 			_acao()
 		"sair":
-			get_tree().change_scene_to_file.call_deferred(JOGO)
+			_sair()
+			return
 	_atualizar()
 
 
@@ -257,11 +285,14 @@ func _mudar(d: int) -> void:
 	if item[1] == "tela":
 		Ajustes.definir("tela", "giro", v)
 		Tela.definir_giro(int(v))
-		get_tree().reload_current_scene.call_deferred()
+		Sons.tocar("selecao")
+		_remontar()
 		return
 	Ajustes.definir(item[1], item[2], v)
 	if item[2] == "foto":
 		Fotos.iniciar()
+		if bool(v):
+			Fotos.pedir_permissao_agora()
 	if item[2] == "porta_invertida":
 		ArduinoBridge.reenviar_porta()
 	Sons.atualizar_volume()
@@ -275,17 +306,20 @@ func _acao() -> void:
 		return
 	match item[2]:
 		"teste":
+			ArduinoBridge.pedir_permissao_agora()
 			_teste = true
 			_teste_contagem = [0, 0, 0, 0, 0]
 			_entrar_no_teste()
 			ArduinoBridge.modo_teste(true)
 			_mostrar_teste("")
 		"calibrar":
+			ArduinoBridge.pedir_permissao_agora()
 			_calibrando = true
 			_entrar_no_teste()
 			ArduinoBridge.calibrar()
 			_mostrar_calibracao()
 		"porta":
+			ArduinoBridge.pedir_permissao_agora()
 			_porta = true
 			_entrar_no_teste()
 			ArduinoBridge.porta(false)
@@ -293,7 +327,9 @@ func _acao() -> void:
 		"camera":
 			_camera = true
 			_entrar_no_teste()
-			# como na tela de espera: confere a câmera e pede o que faltar
+			# confere a câmera e pede de novo a permissão que faltar (o jogo
+			# sozinho só pede uma vez na vida)
+			Fotos.pedir_permissao_agora()
 			Fotos.na_espera()
 			_camera_ms = Time.get_ticks_msec()
 			if Fotos.ligar():
@@ -301,11 +337,15 @@ func _acao() -> void:
 			else:
 				_camera_relatorio("")
 		"botoes":
-			get_tree().change_scene_to_file.call_deferred(BOTOES)
+			var jogo := get_tree().current_scene
+			if jogo != null and jogo != self and jogo.has_method("abrir_menu"):
+				jogo.abrir_menu(load(BOTOES))
+			else:
+				get_tree().change_scene_to_file.call_deferred(BOTOES)
 		"desempenho":
-			# volta ao jogo e, depois da abertura, roda o teste
+			# volta ao jogo e roda o teste
 			Ajustes.definir("video", "testar", true)
-			get_tree().change_scene_to_file.call_deferred(JOGO)
+			_sair()
 		"recordes":
 			Ajustes.zerar_recordes()
 			Sons.tocar("pop")
@@ -313,7 +353,7 @@ func _acao() -> void:
 			Ajustes.restaurar_padrao()
 			Sons.tocar("pop")
 		"voltar":
-			get_tree().change_scene_to_file.call_deferred(JOGO)
+			_sair()
 
 
 func _entrar_no_teste() -> void:

@@ -82,6 +82,11 @@ var brilho := 1.4
 
 
 func montar(nome: String) -> void:
+	# as curvas de todas as animações são calculadas já aqui (na abertura):
+	# calcular na primeira vez que um clipe toca dava um tranco na TV Box
+	# (a primeira comemoração de strike, a primeira dança...)
+	for clipe in Animacoes.todos():
+		_preparar(Animacoes.pegar(clipe))
 	nome_modelo = nome
 	modelo = load("res://modelos/%s.scn" % nome).instantiate()
 	add_child(modelo)

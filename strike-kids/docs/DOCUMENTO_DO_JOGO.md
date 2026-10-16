@@ -193,11 +193,19 @@ Pontos: 10 por pino, +50 strike, +20 spare.
   primeira); (2) **Camera2**, preferindo a câmera EXTERNA; (3) **UVC
   direta** pela libuvc (AndroidUSBCamera 3.2.7, a do jogo de soco, chamada
   por reflexão; só no APK do Gradle, que a baixa do JitPack).
-  - Permissão da câmera pedida logo que o jogo abre; se negada, de novo na
-    tela de espera (no máximo a cada 60 s e 3 vezes, nunca na partida).
-  - Permissão USB (só para a UVC): pedida só na tela de espera, depois de
-    20 s sem câmera do sistema, e nunca se a webcam já apareceu como câmera
-    do sistema (nesta abertura ou numa anterior: `user://fotos/camera.cfg`)
+  - **Permissões só na primeira vez**: a da câmera é pedida UMA vez, na
+    tela de espera, com o aviso na tela ("toque em PERMITIR"; a janela do
+    Android congela a imagem, então o aviso entra 0,6 s antes); o Android
+    guarda a resposta e o jogo nunca mais pede sozinho — só o operador
+    (TESTE DA CÂMERA, ou ligar a foto). Fica anotado em
+    `user://fotos/camera.cfg`.
+  - Permissão USB (só para a UVC): também uma vez só, na tela de espera,
+    depois de 20 s sem câmera do sistema, e nunca se a webcam já apareceu
+    como câmera do sistema (nesta abertura ou numa anterior). O APK pronto
+    (sem libuvc) nem tem o filtro USB da webcam: o Android não pergunta
+    "abrir o Strike Kids?" quando ela é ligada.
+  - A lista de câmeras do Android (que numa TV Box fraca leva dezenas de
+    ms) é feita numa linha de trabalho separada, sem parar o jogo
     — o Android conta zero câmeras por instantes logo após o boot. Uma
     atividade com filtro USB (classe 14 / 239-2) faz o Android oferecer
     "Usar por padrão" (a permissão fica guardada).
@@ -284,6 +292,13 @@ Depois de cada bola, como num boliche de verdade:
 | Fundo do Mar | azul-turquesa com raios de luz, areia com ondinhas | concha gigante, corais, algas balançando, cardumes de peixinhos, águas-vivas, tartarugas, bolhas subindo, baú |
 | Selva dos Dinos | céu quente de aventura, selva verde | vulcão fumegando, dino pescoçudo espiando atrás dos pinos, pterossauros voando, palmeiras, ovos de dino, flores gigantes |
 
+**Símbolo da Lazer & Sport em todo cenário** (`Mundo._marcas_dos_cenarios`),
+discreto e sempre no mesmo lugar (ao lado da pista, flutuando): balãozinho
+vermelho (Parque), planetinha roxo com anel amarelo (Espaço), bolha com
+bolhinhas subindo (Fundo do Mar) e um pterossauro batendo asas com a
+plaquinha de madeira (Selva dos Dinos). A logo é estampada pelo próprio
+shader dos bonecos (`usa_rosto`), sem fundo.
+
 Cada cenário troca céu (shader com estrelas/raios), luz, neblina, terreno,
 cores da pista (divisórias, faixas, canaletas), fundo dos pinos e letreiro.
 A **1ª rodada é sempre na Selva dos Dinos** (e a atração começa nela); da
@@ -363,6 +378,35 @@ para a TV Box (Mali-G31), muda só o fundo:
     do CameraServer; as fotos são gravadas em PNG numa linha de execução
     separada (e ficam no cache); a nitidez automática só troca o tamanho
     da imagem 3D fora da jogada e grava o ajuste na atração;
+  - **física numa linha própria** (`physics/3d/run_on_separate_thread`) e
+    só 2 linhas de apoio (`threading/worker_pool/max_threads=2`): medido
+    na calibração, o Jolt com 4 linhas gastava mais esperando as outras do
+    que simulando; o custo da física no quadro caiu ~58% na média e ~45%
+    nos piores momentos (a batida nos pinos). O passo continua 1/120 s e o
+    resultado de cada jogada é o mesmo (a tabela continua valendo); no
+    máximo 6 passos de recuperação por quadro;
+  - **letras prontas**: fontes com as letras já desenhadas (com contorno e
+    sombra) em cada tamanho usado (`fontes/*_pronta.res`, `Materiais.fonte`)
+    — desenhar letras na 1ª aparição de um texto dava travadinhas; as
+    letras de cada tamanho são juntadas numa textura do tamanho certo
+    (~19 MB; as páginas de 1024² do motor dariam ~100 MB quase vazias).
+    Conferir: `--glifos-conferir` (abaixo) mostra o que ainda foi
+    desenhado na hora;
+  - **fechar sem cair**: todo trabalho em segundo plano passa por
+    `Tarefas.rodar` e o jogo espera tudo terminar ao sair
+    (`Tarefas.esperar_todas` no `_exit_tree` dos autoloads) — antes um
+    trabalho podia rodar depois do motor apagar os nós e o jogo caía;
+  - **troca de resolução só no clarão**: a nitidez automática decide, mas
+    a troca (e a da qualidade automática) espera um clarão branco (fim da
+    demonstração, troca de cenário, volta do menu);
+  - **nada de disco nem de Android no quadro**: ajustes/contadores e a
+    classificação gravam numa linha de trabalho (em ordem, juntando as do
+    mesmo quadro); listas do USB e das câmeras também; fotos do recorde e
+    da classificação lidas na abertura;
+  - **momentos pesados espalhados**: soltar a bola e o strike dividem o
+    trabalho em dois quadros; efeitos reaproveitam malhas/degradês/curvas;
+    "Melhores de hoje" só remonta quando muda; curvas de todas as animações
+    calculadas na abertura;
   - PC em **tela cheia** (exclusiva), mouse some sozinho.
 - **Shader toon** próprio: duas faixas de luz, sombra colorida, brilho de
   borda, rosto projetado (atlas). Contorno por casca invertida.
@@ -406,6 +450,13 @@ para a TV Box (Mali-G31), muda só o fundo:
 | `godot --path . --fixed-fps 50 -- --janela=540x960 --replay-teste[=pasta]` | faz um strike de demonstração e mede, quadro a quadro, a bola rolando (interpolada) e o replay (sem trancos) |
 | `godot --path . -- --medidor` | abre o jogo já com o painel de desempenho (o mesmo do F3) |
 | `godot --path . -- --janela=72x128 --desempenho --engasgos --roteiro=pasta` | cada quadro acima de 30 ms dividido em física / jogo / desenho (caça engasgos) |
+| `godot --path . --resolution 1080x1920 -- --janela=1080x1920 --roteiro=pasta --sem-sair --glifos [--jogadores=2]` | joga o jogo inteiro sozinho (mais menus e avisos) e anota as letras de cada fonte/tamanho em `dados/glifos.json` |
+| `godot --headless --path . -s res://tools/testes/fontes_prontas.gd` | monta `fontes/*_pronta.res` (letras já desenhadas: nada de tranco na 1ª vez que um texto aparece) |
+| o mesmo do `--glifos`, com `--glifos-conferir` | joga com as fontes prontas e lista as letras que ainda foram desenhadas na hora |
+| `godot --path . res://tools/testes/menu_teste.tscn` | abre e fecha o menu do operador por cima do jogo e mede o custo extra de cada troca (com o 3D sem desenhar: na máquina sem placa de vídeo o 3D por software esconde os trancos) |
+| `godot --path . res://tools/testes/textos.tscn -- --janela=1080x1920 saida.png` | amostra dos textos do jogo (fontes, tamanhos, contorno e sombra) e o custo de desenhar cada um pela 1ª vez |
+| `godot --path . res://tools/testes/bracos.tscn -- saida.png bob acenar,quase 0.3,0.8` | braços de perto (de frente e de 3/4), em vários instantes de cada clipe |
+| `godot --path . res://tools/testes/marcas.tscn -- saida.png` | o símbolo da Lazer & Sport em cada cenário (espera, máquina e de perto) |
 | `STRIKE_CENARIO=leve\|completo` | variável de ambiente: força o cenário em qualquer ferramenta |
 | `godot --path . -- --camera-falsa` | simula a câmera no PC (imagem de teste) |
 
@@ -439,17 +490,27 @@ para a TV Box (Mali-G31), muda só o fundo:
   JitPack: o APK pronto e o do Gradle levam). Lista em segundo plano,
   abre em segundo plano, lê numa linha de execução própria e junta as
   linhas; DTR+RTS ligados (o Uno reinicia e diz OLA). Atividade de encaixe
-  com o filtro dos Arduinos: a janela de permissão oferece "Usar por
-  padrão".
+  com o filtro dos Arduinos: a janela de permissão oferece "Sempre abrir"
+  ("Usar por padrão") — marcado, o Android libera sozinho em todo boot.
+  A lista do USB é feita numa linha de trabalho separada.
 - **Jogo**: `S:n` vira a mesma ação da Zero Delay (Z X C V B), `CFG`
   vira a configuração, `START`/`FICHA` os botões — `InputEventAction` com
   a marca `arduino`, aceita pelo `ArcadeControls`. A porta **abre no
   START** (`_escolher_jogadores`) e **fecha** no fim da partida, na
   atração, na abertura, no teste de desempenho e no menu. Ao (re)conectar
-  o jogo manda a porta como ela deve estar. Permissão USB: uma vez logo
-  no começo (depois da janela da câmera) e depois só na espera ou no menu.
-  Opções: porta invertida, sensores invertidos.
-- **Menu do operador**: teste dos sensores (ao vivo, com contagem),
+  o jogo manda a porta como ela deve estar. **Permissão USB só na
+  primeira vez**: UMA janela por Arduino (vendor:produto anotado em
+  `user://permissoes.cfg`), na tela de espera, com o aviso "MARQUE SEMPRE
+  ABRIR" na tela antes; depois o jogo nunca mais pede sozinho — só o
+  operador, nos testes do Arduino. Uma janela do Android por vez (câmera
+  e Arduino se esperam). Opções: porta invertida, sensores invertidos.
+- **Menu do operador** (`Principal.abrir_menu`): abre **por cima do jogo
+  pausado** (árvore pausada, imagem 3D parada, nada desmontado) — entra e
+  sai na hora; ao sair vale o que mudou (qualidade, nitidez, medidor) e o
+  jogo volta à tela de espera. Só o cenário (fundo), a qualidade BAIXA
+  (contornos) e virar a tela de pé/deitada montam o jogo de novo ("APLICANDO
+  OS AJUSTES..."). A configuração dos botões também abre por cima.
+  Teste dos sensores (ao vivo, com contagem),
   calibrar sensores, teste da porta (com a confirmação do Arduino), teste
   da câmera; sem o Arduino, mostram o relatório (USB, chip, permissão).
 - **Testes**: `tools/testes/arduino/rodar.sh` (firmware num ATmega328P

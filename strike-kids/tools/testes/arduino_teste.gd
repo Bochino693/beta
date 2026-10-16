@@ -5,7 +5,9 @@ extends Node
 ## O "Arduino" falso fala o mesmo protocolo do firmware (arduino/strike_kids,
 ## que tem o seu próprio teste num ATmega simulado: tools/testes/arduino).
 ## Confere:
-##   1. Arduino no USB sem permissão -> o jogo pede a permissão;
+##   1. Arduino no USB sem permissão -> o jogo pede a permissão UMA vez na
+##      vida (na tela de espera, com o aviso "marque Sempre abrir"); depois
+##      só o operador pede de novo, pelo menu;
 ##   2. permitido -> abre, espera o OLA (o Uno reinicia) e conecta; manda a
 ##      porta fechada, o modo de teste e a fita de LED;
 ##   3. sensores S1..S5 viram as jogadas Z X C V B; CFG, START e FICHA viram
@@ -15,8 +17,8 @@ extends Node
 ##   6. Arduino que para de responder -> reconecta e manda a porta de novo;
 ##   7. firmware antigo (só LEDs) conecta, mas avisa;
 ##   8. PARTIDA INTEIRA só com o Arduino: START abre a porta, a bola no
-##      sensor joga, o fim da partida fecha a porta; CFG entra no menu do
-##      operador e CFG de novo volta ao jogo.
+##      sensor joga, o fim da partida fecha a porta; CFG abre o menu do
+##      operador por cima do jogo pausado e CFG de novo volta na hora.
 
 var saida := "user://arduino_teste"
 var falhas := 0
@@ -134,6 +136,7 @@ func _ready() -> void:
 		if a.begins_with("--saida="):
 			saida = a.substr(8)
 	DirAccess.make_dir_recursive_absolute(saida)
+	RenderingServer.frame_pre_draw.connect(_sem_3d)
 	_rodar()
 
 
@@ -159,6 +162,32 @@ func checar(ok: bool, texto: String) -> void:
 		falhas += 1
 
 
+## Começa a medir o tempo de cada quadro; a função devolvida para de medir
+## e devolve os tempos (ms).
+func _medir_quadros() -> Callable:
+	var dados := {"ult": Time.get_ticks_usec(), "tempos": []}
+	var medir := func():
+		var agora := Time.get_ticks_usec()
+		dados["tempos"].append(float(agora - dados["ult"]) / 1000.0)
+		dados["ult"] = agora
+	get_tree().process_frame.connect(medir)
+	return func() -> Array:
+		get_tree().process_frame.disconnect(medir)
+		return dados["tempos"]
+
+
+## A máquina de teste não tem placa de vídeo: desenha o 3D por software
+## (~1 s por quadro), o que esconde qualquer tranco. Enquanto mede o menu, a
+## imagem 3D não é desenhada (o jogo continua rodando): logo antes de cada
+## quadro ser desenhado ela é desligada (fechar o menu a liga de novo).
+var _jogo_sem_3d: Node = null
+
+
+func _sem_3d() -> void:
+	if _jogo_sem_3d != null and _jogo_sem_3d.vp.render_target_update_mode != SubViewport.UPDATE_DISABLED:
+		_jogo_sem_3d.vp.render_target_update_mode = SubViewport.UPDATE_DISABLED
+
+
 func esperar(seg: float) -> void:
 	await get_tree().create_timer(seg, true, false, true).timeout
 
@@ -181,14 +210,34 @@ func _rodar() -> void:
 	ArduinoBridge._plugin = f
 	ArduinoBridge._fase = "procurando"
 	ArduinoBridge._ultima_procura = -100000
-	ArduinoBridge._pediu_na_abertura = false
+	ArduinoBridge._pedidos_salvos = ConfigFile.new()   # como numa TV Box nova: nada pedido ainda
+	ArduinoBridge._janela_ate = 0
 	ArduinoBridge.porta(false)
+	var avisos: Array[String] = []
+	ArduinoBridge.janela_android.connect(func(t: String): avisos.append(t))
 
-	# 1. sem permissão
-	checar(await esperar_que(func(): return f.pedidos == 1, 3.0), "Arduino no USB sem permissao -> o jogo pede (%d pedido)" % f.pedidos)
-	checar("Usar por padr" in ArduinoBridge.status, "status manda aceitar a janela: %s" % ArduinoBridge.status)
+	# 1. sem permissão: a janela do Android UMA vez na vida, na tela de espera
+	ArduinoBridge.na_espera(false)
+	await esperar(2.0)
+	checar(f.pedidos == 0, "fora da tela de espera (no meio do jogo) a janela nao aparece")
+	ArduinoBridge.na_espera(true)
+	checar(await esperar_que(func(): return f.pedidos == 1, 4.0), "Arduino no USB sem permissao -> na espera o jogo pede (%d pedido)" % f.pedidos)
+	checar(avisos.size() >= 1 and "SEMPRE ABRIR" in avisos[0], "antes da janela, o aviso na tela manda marcar SEMPRE ABRIR")
+	checar("Sempre abrir" in ArduinoBridge.status, "status manda aceitar a janela: %s" % ArduinoBridge.status)
 	await esperar(2.0)
 	checar(f.pedidos == 1, "nao fica pedindo de novo com a janela aberta")
+	# a janela fechou sem a permissão: o jogo nunca mais pede sozinho
+	f.pendente_ate = 0
+	ArduinoBridge._notification(NOTIFICATION_APPLICATION_FOCUS_IN)
+	checar(not avisos.is_empty() and avisos[-1] == "", "a janela fechou: o aviso some da tela")
+	await esperar(4.0)
+	checar(f.pedidos == 1, "janela fechada sem permissao: o jogo NAO pede de novo sozinho (%d pedido)" % f.pedidos)
+	ArduinoBridge._pedidos_salvos = null   # o jogo abriu de novo: lê o que guardou
+	await esperar(4.0)
+	checar(f.pedidos == 1, "nem depois de abrir o jogo de novo (lembra no permissoes.cfg)")
+	checar("TESTE DOS SENSORES" in ArduinoBridge.status, "status diz como pedir de novo: %s" % ArduinoBridge.status)
+	ArduinoBridge.pedir_permissao_agora()   # o operador, nos testes do Arduino no menu
+	checar(await esperar_que(func(): return f.pedidos == 2, 4.0), "o operador pede de novo pelo menu (%d pedidos)" % f.pedidos)
 
 	# 2. permitido -> conecta
 	f.permitido = true
@@ -307,16 +356,51 @@ func _partida() -> void:
 	await RenderingServer.frame_post_draw
 	get_viewport().get_texture().get_image().save_png(saida.path_join("fim.png"))
 	checar(await esperar_que(func(): return not f.aberta, 1.0), "no fim da partida a porta FECHA")
-	# botão de configuração: entra e sai do menu do operador
-	f.chegar("CFG")
-	checar(await esperar_que(func(): return get_tree().current_scene != null and get_tree().current_scene.scene_file_path.ends_with("operador.tscn"), 3.0),
-		"CFG do Arduino entra no menu do operador")
+	# botão de configuração: o menu do operador abre POR CIMA do jogo
+	# pausado e fecha na hora (nada é montado de novo: sem quadro lento)
+	# quadros normais antes, sem desenhar o 3D (o que conta é o EXTRA da
+	# troca de tela)
+	_jogo_sem_3d = p
 	await esperar(0.5)
+	var normais := _medir_quadros()
+	await esperar(1.0)
+	var antes: Array = normais.call()
+	antes.sort()
+	var normal: float = antes[antes.size() / 2] if not antes.is_empty() else 0.0
+	var quadros := _medir_quadros()
+	f.chegar("CFG")
+	checar(await esperar_que(func(): return p.menu_aberto() and get_tree().paused, 3.0),
+		"CFG do Arduino abre o menu do operador (por cima do jogo pausado)")
+	await esperar(0.5)
+	var ao_abrir: Array = quadros.call()
+	# a foto da tela (do teste) fica fora da medida
 	await RenderingServer.frame_post_draw
 	get_viewport().get_texture().get_image().save_png(saida.path_join("operador.png"))
+	for k in 3:
+		await get_tree().process_frame
+	quadros = _medir_quadros()
 	f.chegar("CFG")
-	checar(await esperar_que(func(): return get_tree().current_scene != null and get_tree().current_scene.scene_file_path.ends_with("principal.tscn"), 3.0),
+	checar(await esperar_que(func(): return not p.menu_aberto() and not get_tree().paused, 3.0),
 		"CFG de novo volta ao jogo")
+	checar(get_tree().current_scene == p, "o jogo nao foi montado de novo (mesma cena)")
+	checar(await esperar_que(func(): return p.E.keys()[p.estado] == "ATRACAO", 1.0), "volta direto para a tela de espera")
+	await esperar(1.0)
+	var ao_fechar: Array = quadros.call()
+	# o quadro normal da tela de espera (para onde o menu voltou: cada tela
+	# tem o seu custo; o menu abriu na tela de fim de jogo)
+	var depois := _medir_quadros()
+	await esperar(1.0)
+	var espera: Array = depois.call()
+	espera.sort()
+	var normal_espera: float = espera[espera.size() / 2] if not espera.is_empty() else 0.0
+	_jogo_sem_3d = null
+	p.vp.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	var pior_abrir: float = ao_abrir.max() if not ao_abrir.is_empty() else 0.0
+	var pior_fechar: float = ao_fechar.max() if not ao_fechar.is_empty() else 0.0
+	print("quadros sem desenhar o 3D: fim de jogo %.1f ms -> abrindo o menu, pior %.1f ms; tela de espera %.1f ms -> fechando o menu, pior %.1f ms" % [
+		normal, pior_abrir, normal_espera, pior_fechar])
+	checar(pior_abrir - normal < 40.0 and pior_fechar - normal_espera < 40.0,
+		"entrar e sair do menu sem travar (extra %.0f / %.0f ms)" % [pior_abrir - normal, pior_fechar - normal_espera])
 	Ajustes.definir("jogo", "rodadas", rodadas_antes)
 	Ajustes.definir("jogo", "tentativas", bolas_antes)
 	Ajustes.definir("jogo", "demo", demo_antes)

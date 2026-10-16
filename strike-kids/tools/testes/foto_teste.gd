@@ -3,7 +3,8 @@ extends Node
 ## TESTE DA FOTO NO CAMINHO DA TV BOX, com o plugin Android SIMULADO (no PC):
 ##   godot --path . res://tools/testes/foto_teste.tscn -- --saida=pasta
 ## Confere, como na máquina (e como no jogo de soco):
-##   1. webcam só no USB, sem permissão: a janela USB não aparece logo de
+##   1. webcam só no USB, sem permissão: a janela USB (uma vez na vida; de
+##      novo só pelo operador) não aparece logo de
 ##      cara (só depois de 20 s na tela de espera) e aparece uma vez;
 ##   2. com a webcam como câmera do sistema, a janela USB NUNCA aparece
 ##      (mesmo se o Android contar zero câmeras por um instante);
@@ -166,7 +167,7 @@ func _rodar() -> void:
 	Fotos._plugin = p
 	Fotos.fonte = "android"
 	Fotos.status = "procurando"
-	Fotos._lembranca = 0
+	Fotos._lembrancas = ConfigFile.new()   # como numa TV Box nova (nada pedido ainda)
 	Fotos._sistema_visto = false
 	Fotos._busca_desde_ms = -1
 	Ajustes.definir("jogo", "foto", true)
@@ -179,6 +180,16 @@ func _rodar() -> void:
 	Fotos.espera_usb_ms = 0
 	Fotos.na_espera()
 	checar(p.pedidos_usb == 1, "na espera, depois do tempo, o jogo pediu a permissao USB (%d pedido)" % p.pedidos_usb)
+	# só na primeira vez: a janela não volta sozinha, nem com o jogo reaberto
+	Fotos.na_espera()
+	Fotos.na_espera()
+	checar(p.pedidos_usb == 1, "a janela USB nao volta sozinha (%d pedido)" % p.pedidos_usb)
+	Fotos._lembrancas = null   # o jogo abriu de novo: lê o que guardou
+	Fotos.na_espera()
+	checar(p.pedidos_usb == 1, "nem depois de abrir o jogo de novo (lembra no camera.cfg)")
+	Fotos._pedir_agora = true  # o operador pede no TESTE DA CÂMERA
+	Fotos.na_espera()
+	checar(p.pedidos_usb == 2, "o operador pede de novo no menu (%d pedidos)" % p.pedidos_usb)
 	p.permitido = true
 	Fotos.na_espera()
 	checar(Fotos.pronta(), "permissao dada -> camera pronta (%s, %s)" % [Fotos.status, Fotos.nome_camera])
@@ -193,8 +204,11 @@ func _rodar() -> void:
 	p.sistema = false          # o Android conta zero por um instante
 	Fotos.status = "procurando"
 	Fotos._procurar_android()
+	var pedidos_antes := p.pedidos_usb
+	Fotos._pedir_agora = true  # nem se o operador pedir: a câmera do sistema basta
 	Fotos.na_espera()
-	checar(p.pedidos_usb == 1, "camera do sistema ja vista: sem janela USB a toa (%d pedido)" % p.pedidos_usb)
+	checar(p.pedidos_usb == pedidos_antes, "camera do sistema ja vista: sem janela USB a toa (%d pedido a mais)" % (p.pedidos_usb - pedidos_antes))
+	Fotos._pedir_agora = false
 	p.sistema = true
 	Fotos.status = "procurando"
 	Fotos._procurar_android()

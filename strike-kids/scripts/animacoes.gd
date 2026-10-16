@@ -13,6 +13,11 @@ extends RefCounted
 ##   canela.x   positivo = dobra o joelho
 ##   corpo.x    positivo = inclina para a frente
 ##   cabeca.x   positivo = olha para baixo; cabeca.y positivo = vira p/ esquerda
+## BRAÇOS E A CABEÇA GRANDE: os braços são curtinhos (~28 cm) e a cabeça
+## é enorme. Mão levantada vai sempre pelo LADO da cabeça (braco.z bem
+## aberto, uns 25-40 graus a partir do "para cima"), nunca por cima ou
+## por trás dela — senão a mão some atrás da cabeça ou entra nela.
+## (Com o braço acima do ombro, x negativo leva a mão para TRÁS.)
 ## Extras: "altura" (sobe/desce o quadril, metros — os joelhos dobram
 ## sozinhos pela IK), "quadril" (desloca o quadril: x para o lado, z para a
 ## frente — o peso passa de um pé para o outro), "frente" (anda para a
@@ -44,6 +49,12 @@ static func _p(base: Dictionary, mudancas: Dictionary) -> Dictionary:
 
 
 static var _cache := {}
+
+
+static func todos() -> Array:
+	if _cache.is_empty():
+		_montar()
+	return _cache.keys()
 
 
 static func pegar(nome: String) -> Dictionary:
@@ -123,7 +134,7 @@ static func _montar() -> void:
 	# (arco de gravidade) -> aterrissa dobrando os joelhos -> socos no ar -> pulinho final
 	var agacha := _p(PARADO, {"altura": -0.1, "corpo": Vector3(16, 0, 0), "cabeca": Vector3(-6, 0, 0),
 		"braco_e": Vector3(28, 0, 22), "braco_d": Vector3(28, 0, -22), "antebraco_e": Vector3(-20, 0, 0), "antebraco_d": Vector3(-20, 0, 0)})
-	var voando := {"braco_e": Vector3(-168, 0, 18), "braco_d": Vector3(-168, 0, -18),
+	var voando := {"braco_e": Vector3(-162, 0, 26), "braco_d": Vector3(-162, 0, -26),
 		"antebraco_e": Vector3(-10, 0, 0), "antebraco_d": Vector3(-10, 0, 0),
 		"coxa_e": Vector3(-34, 0, 4), "canela_e": Vector3(70, 0, 0), "coxa_d": Vector3(-24, 0, -4), "canela_d": Vector3(78, 0, 0),
 		"pe_e": Vector3(20, 0, 0), "pe_d": Vector3(24, 0, 0),
@@ -131,9 +142,10 @@ static func _montar() -> void:
 	var esticado := _p(voando, {"coxa_e": Vector3(-6, 0, 0), "canela_e": Vector3(8, 0, 0), "coxa_d": Vector3(-6, 0, 0),
 		"canela_d": Vector3(8, 0, 0), "pe_e": Vector3(30, 0, 0), "pe_d": Vector3(30, 0, 0), "corpo": Vector3(-4, 0, 0)})
 	var aterrissa := _p(agacha, {"altura": -0.085, "braco_e": Vector3(-120, 0, 52), "braco_d": Vector3(-120, 0, -52)})
-	var vibra1 := _p(PARADO, {"braco_d": Vector3(-150, 0, -30), "antebraco_d": Vector3(-70, 0, 0), "braco_e": Vector3(-20, 0, 30),
+	# soquinhos no ar: o punho sobe pelo LADO da cabeça (por cima dela sumia)
+	var vibra1 := _p(PARADO, {"braco_d": Vector3(-125, 0, -35), "antebraco_d": Vector3(-15, 0, 0), "braco_e": Vector3(-20, 0, 30),
 		"corpo": Vector3(-4, 0, -6), "altura": -0.03, "quadril": Vector3(0.015, 0, 0)})
-	var vibra2 := _p(vibra1, {"braco_d": Vector3(-175, 0, -20), "antebraco_d": Vector3(-20, 0, 0), "altura": -0.005,
+	var vibra2 := _p(vibra1, {"braco_d": Vector3(-155, 0, -35), "antebraco_d": Vector3(-5, 0, 0), "altura": -0.005,
 		"quadril": Vector3(-0.01, 0, 0)})
 	# impulso: os braços vêm de trás para cima passando pela frente (sem chicotada)
 	var impulso := _p(agacha, {"altura": -0.05, "corpo": Vector3(8, 0, 0), "braco_e": Vector3(-70, 0, 20), "braco_d": Vector3(-70, 0, -20),
@@ -197,15 +209,15 @@ static func _montar() -> void:
 			[2.4, _p(t1, {"quadril": Vector3(0.01, 0, 0)})]],
 	}
 	# festa (fim de jogo): braços para cima balançando, sem pular
-	var f1 := _p(PARADO, {"braco_e": Vector3(-160, 0, 30), "antebraco_e": Vector3(-15, 0, 0), "braco_d": Vector3(-160, 0, -30),
+	var f1 := _p(PARADO, {"braco_e": Vector3(-150, 0, 38), "antebraco_e": Vector3(-15, 0, 0), "braco_d": Vector3(-150, 0, -38),
 		"antebraco_d": Vector3(-15, 0, 0), "corpo": Vector3(-3, 0, -5), "cabeca": Vector3(-6, 0, 6), "quadril": Vector3(0.015, 0, 0)})
 	var f2 := _p(f1, {"corpo": Vector3(-3, 0, 5), "cabeca": Vector3(-6, 0, -6), "quadril": Vector3(-0.015, 0, 0)})
 	_cache["festa"] = {"dur": 2.0, "loop": true, "chaves": [[0.0, f1], [1.0, f2], [2.0, f1]]}
 	# ---------------------------------------------------- dança (atração / fim): o quadril vai de um lado
 	# para o outro no ritmo, joelhos dobram no tempo forte, um pezinho bate.
-	var d1 := _p(PARADO, {"braco_e": Vector3(-95, 0, 22), "antebraco_e": Vector3(-85, 0, 0), "braco_d": Vector3(-8, 0, -30),
+	var d1 := _p(PARADO, {"braco_e": Vector3(-110, 0, 30), "antebraco_e": Vector3(-35, 0, 0), "braco_d": Vector3(-8, 0, -30),
 		"antebraco_d": Vector3(-90, 0, 0), "corpo": Vector3(2, 10, 7), "cabeca": Vector3(0, -10, -8), "quadril": Vector3(0.035, 0, 0)})
-	var d2 := _p(PARADO, {"braco_d": Vector3(-95, 0, -22), "antebraco_d": Vector3(-85, 0, 0), "braco_e": Vector3(-8, 0, 30),
+	var d2 := _p(PARADO, {"braco_d": Vector3(-110, 0, -30), "antebraco_d": Vector3(-35, 0, 0), "braco_e": Vector3(-8, 0, 30),
 		"antebraco_e": Vector3(-90, 0, 0), "corpo": Vector3(2, -10, -7), "cabeca": Vector3(0, 10, 8), "quadril": Vector3(-0.035, 0, 0)})
 	_cache["danca"] = {
 		"dur": 2.8, "loop": true,
@@ -223,9 +235,11 @@ static func _montar() -> void:
 		dc.append([float(c[0]) + 2.8, c[1]])
 	_cache["danca_curta"] = {"dur": 5.6, "loop": false, "depois": "parado", "chaves": dc}
 	# ---------------------------------------------------- acenar (oi!)
-	var a1 := _p(PARADO, {"braco_d": Vector3(-10, 0, -150), "antebraco_d": Vector3(0, 0, -25), "cabeca": Vector3(0, 0, 6),
+	# o braço sobe pelo LADO da cabeça e a mão balança — a cabeça é grande:
+	# com o braço por cima dela (como antes) a mão sumia atrás
+	var a1 := _p(PARADO, {"braco_d": Vector3(-150, 0, -38), "antebraco_d": Vector3(-10, 0, -30), "cabeca": Vector3(0, 0, 6),
 		"quadril": Vector3(0.015, 0, 0), "corpo": Vector3(0, 0, -3)})
-	var a2 := _p(a1, {"antebraco_d": Vector3(0, 0, 25), "cabeca": Vector3(0, 0, -4), "quadril": Vector3(0.008, 0, 0)})
+	var a2 := _p(a1, {"antebraco_d": Vector3(-10, 0, 28), "cabeca": Vector3(0, 0, -4), "quadril": Vector3(0.008, 0, 0)})
 	_cache["acenar"] = {"dur": 1.2, "loop": true, "chaves": [[0.0, a1], [0.3, a2], [0.6, a1], [0.9, a2], [1.2, a1]]}
 	# "oi!" uma vez e volta a ficar parado (atração)
 	_cache["acenar_uma"] = {"dur": 2.6, "loop": false, "depois": "parado",
@@ -258,20 +272,21 @@ static func _montar() -> void:
 		"dur": 1.4, "loop": false,
 		"pulos": [[0.2, 0.62, 0.26]],
 		"chaves": [[0.0, PARADO], [0.17, _p(agacha, {"altura": -0.07})],
-			[0.41, _p(PARADO, {"braco_d": Vector3(-170, 0, -15), "antebraco_d": Vector3(-10, 0, 0), "braco_e": Vector3(10, 0, 30),
+			[0.41, _p(PARADO, {"braco_d": Vector3(-165, 0, -25), "antebraco_d": Vector3(-10, 0, 0), "braco_e": Vector3(10, 0, 30),
 				"coxa_e": Vector3(-30, 0, 0), "canela_e": Vector3(55, 0, 0), "coxa_d": Vector3(-10, 0, 0), "canela_d": Vector3(25, 0, 0)})],
-			[0.75, _p(PARADO, {"altura": -0.03, "braco_d": Vector3(-160, 0, -20)})],
+			[0.75, _p(PARADO, {"altura": -0.03, "braco_d": Vector3(-160, 0, -28)})],
 			[1.4, _p(PARADO, {"braco_d": Vector3(-150, 0, -30), "antebraco_d": Vector3(-40, 0, 0)})]],
 		"eventos": [[0.0, "expressao", "empolgado"], [1.2, "expressao", "piscadinha"]],
 	}
-	# ---------------------------------------------------- quase (ficou 1 pino): mãos na cabeça
+	# ---------------------------------------------------- quase (ficou 1 pino): mãos nas bochechas
+	# (com os braços curtinhos, "mãos na cabeça" enfiava as mãos dentro dela)
 	_cache["quase"] = {
 		"depois": "parado", "dur": 1.7, "loop": false,
 		"chaves": [[0.0, PARADO],
-			[0.3, _p(PARADO, {"braco_e": Vector3(-150, 0, 50), "antebraco_e": Vector3(-110, 0, 0), "braco_d": Vector3(-150, 0, -50), "antebraco_d": Vector3(-110, 0, 0),
+			[0.3, _p(PARADO, {"braco_e": Vector3(-110, 0, 20), "antebraco_e": Vector3(-30, 0, 0), "braco_d": Vector3(-110, 0, -20), "antebraco_d": Vector3(-30, 0, 0),
 				"corpo": Vector3(-6, 0, 0), "cabeca": Vector3(-10, 0, 0)})],
-			[1.2, _p(PARADO, {"braco_e": Vector3(-150, 0, 50), "antebraco_e": Vector3(-115, 0, 0), "braco_d": Vector3(-150, 0, -50), "antebraco_d": Vector3(-115, 0, 0),
-				"corpo": Vector3(-4, 0, 0), "cabeca": Vector3(-6, 0, 8)})],
+			[1.2, _p(PARADO, {"braco_e": Vector3(-115, 0, 18), "antebraco_e": Vector3(-35, 0, 0), "braco_d": Vector3(-115, 0, -18), "antebraco_d": Vector3(-35, 0, 0),
+				"corpo": Vector3(-4, 0, 0), "cabeca": Vector3(-6, 0, 4)})],
 			[1.7, PARADO]],
 		"eventos": [[0.0, "expressao", "surpreso"]],
 	}
