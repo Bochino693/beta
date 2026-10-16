@@ -11,7 +11,8 @@ render_mode unshaded, blend_mix, depth_draw_opaque, cull_back, shadows_disabled;
 //
 // NÍTIDO E LEVE: cada desenho é uma distância (SDF) com borda suave do
 // tamanho de um pixel (fwidth) — liso em qualquer resolução, sem
-// serrilhado — e só é calculado na faixa da pista onde ele existe.
+// serrilhado — e só é calculado na faixa da pista onde ele existe. O
+// mesmo vale para os brilhos (exp/sin): só onde eles aparecem.
 
 uniform sampler2D madeira : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
 uniform float meia_largura = 0.675;
@@ -29,7 +30,7 @@ uniform vec3 tom_madeira : source_color = vec3(1.0, 0.84, 0.6);   // mel: madeir
 // luz da cena (o Mundo calcula: ambiente + sol no chão) e o que o verniz reflete
 uniform vec3 luz_cena = vec3(1.2, 1.2, 1.22);
 uniform vec3 cor_ceu : source_color = vec3(0.85, 0.93, 1.0);
-uniform vec3 dir_sol = vec3(0.35, 0.79, 0.5);     // para onde está o sol (mundo)
+uniform vec3 dir_sol = vec3(0.35, 0.79, 0.5);     // para onde está o sol (mundo, já normalizado)
 uniform float verniz = 0.32;
 
 varying vec3 pm;
@@ -91,10 +92,12 @@ void fragment() {
 	float w = max(fwidth(d), fwidth(pm.x)) * 1.2 + 1e-4;
 	float chamado = 1.0 - luz;   // esperando a bola: a pista "chama" a jogada
 
-	// linha de falta neon (vermelho-rosa)
-	float falta = abs(d - 0.02) - 0.022;
-	c = mix(c, vec3(1.0, 0.18, 0.35), cobre(falta, w));
-	c += vec3(1.0, 0.2, 0.4) * exp(-max(falta, 0.0) * 40.0) * (0.25 + 0.2 * pulso);
+	// linha de falta neon (vermelho-rosa); o brilho dela some antes de 40 cm
+	if (d < 0.4) {
+		float falta = abs(d - 0.02) - 0.022;
+		c = mix(c, vec3(1.0, 0.18, 0.35), cobre(falta, w));
+		c += vec3(1.0, 0.2, 0.4) * exp(-max(falta, 0.0) * 40.0) * (0.25 + 0.2 * pulso);
+	}
 
 	// pontos coloridos de mira (a 1,6 m): o mais perto
 	if (abs(d - 1.6) < 0.14) {
@@ -141,22 +144,35 @@ void fragment() {
 	// portal colorido lá no fundo e um brilho do sol
 	c *= luz_cena;
 	vec3 v = normalize(CAMERA_POSITION_WORLD - pm);
-	float fres = pow(1.0 - clamp(v.y, 0.0, 1.0), 4.0);
+	float f1 = 1.0 - clamp(v.y, 0.0, 1.0);
+	float f2 = f1 * f1;
+	float fres = f2 * f2;
 	c = mix(c, cor_ceu, fres * verniz * 0.8);
-	float fundo = smoothstep(dp - 6.0, dp + 0.5, d);
-	vec3 portal = mix(cor_reflexo_b, cor_reflexo_a, 0.5 + 0.5 * sin(pm.x * 9.0));
-	c += portal * fres * fundo * 0.28;
+	// o portal colorido refletido: só nos últimos 6 m antes dos pinos
+	if (d > dp - 6.0) {
+		float fundo = smoothstep(dp - 6.0, dp + 0.5, d);
+		vec3 portal = mix(cor_reflexo_b, cor_reflexo_a, 0.5 + 0.5 * sin(pm.x * 9.0));
+		c += portal * fres * fundo * 0.28;
+	}
 	vec3 refl = vec3(-v.x, v.y, -v.z);
-	float brilho = pow(max(dot(refl, normalize(dir_sol)), 0.0), 48.0);
+	float brilho = pow(max(dot(refl, dir_sol), 0.0), 48.0);
 	c += vec3(1.0, 0.95, 0.85) * brilho * verniz * 0.6;
 
 	// BORDAS DE NEON: sempre acesas na cor do cenário; esperando a bola,
 	// luzes correm para os pinos (convite); na jogada, correm forte e um
 	// brilho acompanha a bola
 	float borda = smoothstep(meia_largura - 0.085, meia_largura - 0.015, ax);
-	float espalha = exp(-(meia_largura - ax) * 9.0) * 0.3;   // o neon "acende" a madeira perto
+	// o neon "acende" a madeira perto (a mais de 60 cm da borda já é zero)
+	float espalha = 0.0;
+	if (ax > meia_largura - 0.6) {
+		espalha = exp(-(meia_largura - ax) * 9.0) * 0.3;
+	}
 	float corre = smoothstep(0.42, 0.58, fract(d * 1.1 - fase)) * smoothstep(0.98, 0.84, fract(d * 1.1 - fase));
-	float onda_bola = exp(-abs(d - bola_z) * 1.6);
+	// o brilho que acompanha a bola só existe com a pista acesa (na jogada)
+	float onda_bola = 0.0;
+	if (luz > 0.001) {
+		onda_bola = exp(-abs(d - bola_z) * 1.6);
+	}
 	float forca = 0.75 + 0.45 * corre * chamado + luz * (corre * 0.6 + onda_bola * 1.4);
 	vec3 e = cor_luz * (borda + espalha) * forca;
 	e += cor_luz * onda_bola * luz * 0.18 * (1.0 - borda);

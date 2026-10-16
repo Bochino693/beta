@@ -31,6 +31,7 @@ const ITENS := [
 	["Volume dos efeitos", "som", "efeitos", "vol", []],
 	["Som na demonstração", "som", "som_na_demo", "bool", []],
 	["Qualidade gráfica", "video", "qualidade", "lista", ["auto", "alta", "media", "baixa"]],
+	["Cenário (fundo)", "video", "cenario", "lista", ["leve", "completo"]],
 	["Nitidez do 3D (resolução)", "video", "nitidez", "lista", ["auto", "100%", "90%", "80%", "70%"]],
 	["Mostrar desempenho na tela (QPS)", "video", "medidor", "bool", []],
 	["> TESTE DE DESEMPENHO (20 s)", "", "desempenho", "acao", []],
@@ -47,7 +48,7 @@ const ITENS := [
 	["> VOLTAR AO JOGO", "", "voltar", "acao", []],
 ]
 const NOMES := {"facil": "FÁCIL", "normal": "NORMAL", "dificil": "DIFÍCIL", "auto": "AUTOMÁTICA", "alta": "ALTA",
-	"media": "MÉDIA", "baixa": "BAIXA", 1: "1 (topo à esquerda)", -1: "-1 (topo à direita)", 0: "0 (sem giro)",
+	"media": "MÉDIA", "baixa": "BAIXA", "leve": "LEVE (TV Box)", "completo": "COMPLETO", 1: "1 (topo à esquerda)", -1: "-1 (topo à direita)", 0: "0 (sem giro)",
 	90: "90°", 180: "180°", 270: "270°"}
 
 var _sel := 0
@@ -136,6 +137,8 @@ func _valor_texto(item: Array) -> String:
 	if item[3] == "acao":
 		return ""
 	var v = Ajustes.valor(item[1], item[2]) if item[1] != "tela" else Tela.giro
+	if item[2] == "cenario":
+		v = Ajustes.cenario()
 	match item[3]:
 		"bool":
 			return "SIM" if bool(v) else "NÃO"
@@ -237,6 +240,8 @@ func _input(event: InputEvent) -> void:
 func _mudar(d: int) -> void:
 	var item: Array = ITENS[_sel]
 	var v = Ajustes.valor(item[1], item[2]) if item[1] != "tela" else Tela.giro
+	if item[2] == "cenario":
+		v = Ajustes.cenario()
 	match item[3]:
 		"int":
 			v = clampi(int(v) + d, item[4][0], item[4][1])

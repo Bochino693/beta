@@ -38,6 +38,7 @@ const PADRAO := {
 	},
 	"video": {
 		"qualidade": "auto",
+		"cenario": "",             # fundo: "leve" ou "completo" ("" = o padrão desta versão, strike/video/cenario)
 		"nitidez": "auto",         # resolução do 3D: auto (sobe e desce sozinha) ou 100%/90%/80%/70% fixa
 		"fator": 1.0,              # o último fator automático bom (começa dele ao ligar)
 		"medidor": false,          # painel de desempenho na tela (F3 no PC)
@@ -76,6 +77,23 @@ func restaurar_padrao() -> void:
 # ---------------------------------------------------------------- atalhos
 func rodadas() -> int:
 	return clampi(int(valor("jogo", "rodadas")), 1, 10)
+
+
+## CENÁRIO (fundo) LEVE: chão e decoração mais simples e sem neblina, para a
+## TV Box rodar lisa. O padrão vem do project.godot (strike/video/cenario:
+## "leve" nesta versão; o pacote da versão ALTA traz "completo"); o
+## operador troca no menu. STRIKE_CENARIO=leve|completo vale nos testes.
+func cenario_leve() -> bool:
+	if OS.has_environment("STRIKE_CENARIO"):
+		return OS.get_environment("STRIKE_CENARIO") != "completo"
+	return cenario() == "leve"
+
+
+func cenario() -> String:
+	var c := str(valor("video", "cenario"))
+	if c in ["leve", "completo"]:
+		return c
+	return "completo" if str(ProjectSettings.get_setting("strike/video/cenario", "leve")) == "completo" else "leve"
 
 
 func tentativas() -> int:

@@ -24,7 +24,10 @@ void vertex() {
 }
 
 void fragment() {
-	float ang = atan(pos_local.z, pos_local.x) / 6.28318;
+	// o ângulo em volta da cápsula vem do UV dela (na CapsuleMesh o UV.x dá a
+	// volta: x = -sen, z = -cos): é o mesmo atan(z, x) de antes, sem o
+	// atan, que é caro por pixel
+	float ang = -0.25 - UV.x;
 	float s = fract(pos_local.y * listras_por_metro + ang * giro) - 0.5;
 	float w = fwidth(s) * 0.75 + 1e-5;
 	float m = clamp(0.5 - (abs(s) - 0.25) / w, 0.0, 1.0);

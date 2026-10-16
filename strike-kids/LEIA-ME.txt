@@ -30,9 +30,17 @@ meio-direita, direita) vira a jogada na tela, em 3D:
   * A MAQUINA DE PINOS trabalha como num boliche de verdade: a barra desce
     e varre os pinos caidos para o fosso, a mesa levanta os que ficaram em
     pe e devolve cada um no lugar; na rodada nova a mesa desce com os 10
-    pinos novinhos.
-  * 4 CENARIOS, um por rodada (cada partida comeca num diferente):
-    Parque de Diversoes, Viagem ao Espaco, Fundo do Mar e Selva dos Dinos.
+    pinos novinhos. Os para-choques acabam antes da maquina (como num
+    boliche de verdade): a barra desce e varre sem encostar neles.
+  * 4 CENARIOS, um por rodada. A 1a rodada e SEMPRE na SELVA DOS DINOS;
+    as outras passam por Parque de Diversoes, Viagem ao Espaco e Fundo do
+    Mar (cada partida continua de onde a anterior parou). A tela inicial
+    tambem comeca nos dinos.
+  * FISICA SEM SOBREPOSICAO: nada atravessa nada. A canaleta colide com a
+    propria meia-cana do desenho (a bola corre dentro da calha, apoiada
+    nas bordas, e os pinos param la dentro); as divisorias e as paredes do
+    fosso colidem com o proprio desenho; o rastro de arco-iris e as
+    sombras ficam so na pista (nao cortam a canaleta).
   * 2 ou mais strikes seguidos: "PEGANDO FOGO!" e a bola vira bola de fogo.
   * FOTO DA CRIANCA: com a camera da maquina ligada, no comeco da partida
     cada jogador tira uma foto ("SORRIA!" 3, 2, 1). O rostinho aparece no
@@ -336,6 +344,7 @@ C ou START escolhe, CONFIGURACAO volta ao jogo.
   Modo livre ou fichas por partida         Tempo sem jogar ate o aviso
   Volume da musica e dos efeitos           Som na demonstracao
   Qualidade grafica (automatica/alta/media/baixa)
+  Cenario (fundo): LEVE (TV Box, padrao desta versao) ou COMPLETO
   Mostrar desempenho na tela (QPS) - TESTE DE DESEMPENHO (20 s)
   Giro da tela (1, -1, 0)
   Teste dos sensores (ao vivo, com o Arduino) - Calibrar sensores
@@ -344,7 +353,33 @@ C ou START escolhe, CONFIGURACAO volta ao jogo.
   Zerar recordes - Restaurar padrao de fabrica
   Contadores: partidas, strikes, moedas, estado do Arduino e da camera
 
+DUAS VERSOES: LEVE (esta, no GitHub) e ALTA (pacote em zip)
+-----------------------------------------------------------
+O jogo e o mesmo nas duas (mesmas regras, pista, pinos, bichinhos, fisica
+e correcoes de fluidez). Muda so o CENARIO (o fundo):
+  COMPLETO (versao ALTA): chao e ceu desenhados pixel a pixel (gramado com
+    florzinhas, crateras, conchinhas, estrelas, raios de luz), toda a
+    decoracao (arvores, baloes, nuvens, peixinhos, bolhas, fumaca),
+    contornos e neblina de profundidade da placa de video.
+  LEVE (padrao desta versao, para a TV Box SmartPro / Mali-G31): o mesmo
+    desenho do chao feito com contas ate 4x mais baratas, a luz do chao e
+    da decoracao calculada por vertice (nao por pixel), metade da
+    decoracao do fundo e sem contorno nela, ceu simples e uma neblina
+    leve so no fundo (por vertice). Pista, pinos, maquina e bichinhos
+    continuam iguais ao completo.
+Da para trocar no menu do operador ("Cenario (fundo)") sem gerar outro
+APK - vale ao voltar ao jogo. O padrao de cada versao fica no
+project.godot (strike/video/cenario = "leve" ou "completo").
+
 RODANDO LISO (PC e TV Box):
+  * SEM ENGASGOS: as imagens que so aparecem depois (STRIKE!, SPARE!,
+    cartoes dos cenarios, fim de jogo, as bolas de cada bichinho) e as
+    particulas sao preparadas na abertura; no PC a camera que nao foi
+    achada e procurada de novo no maximo a cada 15 s (procurar travava o
+    quadro);
+    as fotos sao gravadas em segundo plano; e a nitidez automatica so
+    troca o tamanho da imagem 3D entre uma bola e outra (nunca no meio da
+    jogada) e grava o ajuste so na tela inicial.
   * 3D NITIDO, NO TAMANHO DA TELA: na TV Box 1080p o 3D e desenhado em
     1080 x 1920 (o mesmo tamanho da tela) com ANTISSERRILHADO 4x - na
     placa Mali da TV Box o antisserrilhado e feito dentro da propria placa
@@ -423,6 +458,9 @@ Nao precisa de programa nenhum: o medidor esta dentro do jogo.
      godot --path . -- --janela=720x1280 --benchmark
    e o teste do replay/movimento (anda por igual em todo quadro?):
      godot --path . --fixed-fps 50 -- --janela=540x960 --replay-teste
+   e o cacador de engasgos (cada quadro acima de 30 ms dividido em
+   fisica / jogo / desenho; janela pequena para o desenho pesar pouco):
+     godot --path . -- --janela=72x128 --desempenho --engasgos --roteiro=pasta
 
 DICAS PARA OS PROXIMOS JOGOS 3D NA TV BOX (Mali-G31, 2 GB):
   * Meta: 16 ms por quadro. Na TV Box quem estoura quase sempre e a placa

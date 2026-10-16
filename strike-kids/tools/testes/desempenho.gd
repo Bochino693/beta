@@ -3,6 +3,10 @@ extends Node
 ## MEDIDOR DE DESEMPENHO (só no PC): a cada segundo imprime FPS, tempo de
 ## CPU, chamadas de desenho, triângulos, objetos e memória de vídeo, com o
 ## estado do jogo. Liga com:  godot --path . -- --desempenho [--roteiro=...]
+## --engasgos: cada quadro acima de 30 ms sai dividido em física / jogo
+## (processo) / desenho — numa janela pequena (--janela=72x128) o desenho
+## fica barato e qualquer tranco aparece (busca de câmera, imagem carregada
+## na hora, shader preparado na hora...).
 
 var t := 0.0
 var principal: Node
@@ -15,6 +19,35 @@ func _ready() -> void:
 		# sem a pausa do modo econômico: o tempo do quadro vira o custo real
 		OS.low_processor_usage_mode = false
 		OS.low_processor_usage_mode_sleep_usec = 0
+	if OS.get_cmdline_user_args().has("--engasgos"):
+		get_tree().physics_frame.connect(func():
+			if _e_fis < 0:
+				_e_fis = Time.get_ticks_usec()
+			_e_passos += 1)
+		get_tree().process_frame.connect(func(): _e_proc = Time.get_ticks_usec())
+		RenderingServer.frame_pre_draw.connect(func(): _e_pre = Time.get_ticks_usec())
+		RenderingServer.frame_post_draw.connect(_fim_do_quadro)
+		_e_ini = Time.get_ticks_usec()
+
+
+# --engasgos: as marcas de tempo de cada parte do quadro
+var _e_ini := 0
+var _e_fis := -1
+var _e_proc := 0
+var _e_pre := 0
+var _e_passos := 0
+
+
+func _fim_do_quadro() -> void:
+	var fim := Time.get_ticks_usec()
+	var total := (fim - _e_ini) / 1000.0
+	if total > 30.0 and Engine.get_process_frames() > 30 and principal and "estado" in principal:
+		print("ENGASGO %6.1f ms  fisica=%5.1f (%d passos) jogo=%6.1f desenho=%6.1f  estado=%s quadro=%d" % [total,
+			(_e_proc - _e_fis) / 1000.0 if _e_fis >= 0 else 0.0, _e_passos, (_e_pre - _e_proc) / 1000.0,
+			(fim - _e_pre) / 1000.0, principal.E.keys()[principal.estado], Engine.get_process_frames()])
+	_e_ini = fim
+	_e_fis = -1
+	_e_passos = 0
 
 
 var _ult_pico := 0

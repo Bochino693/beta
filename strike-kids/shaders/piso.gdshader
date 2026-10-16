@@ -62,6 +62,7 @@ void fragment() {
 	}
 	c *= luz_cena;
 	vec3 v = normalize(CAMERA_POSITION_WORLD - pm);
-	float fres = pow(1.0 - clamp(v.y, 0.0, 1.0), 4.0);
-	ALBEDO = mix(c, cor_ceu, fres * verniz);
+	float f1 = 1.0 - clamp(v.y, 0.0, 1.0);
+	float f2 = f1 * f1;
+	ALBEDO = mix(c, cor_ceu, f2 * f2 * verniz);
 }
