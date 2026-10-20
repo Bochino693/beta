@@ -51,10 +51,12 @@ const RETORNO = Medidas.RETORNO
 const ALTURA_PODIO = Medidas.ALTURA_PODIO
 const BALAO_POS = Medidas.BALAO_POS
 ## Bullet (Godot 3): a margem de colisão de uma forma CONVEXA fica do lado de
-## FORA da malha (0,04 m: tudo ficava 4 cm mais gordo). As formas convexas
-## do cenário usam 1 mm — a colisão fica onde a peça está (como no Godot 4).
-## Caixas, cilindros e a meia-cana (trimesh) não têm esse problema.
-const MARGEM_CONVEXA := 0.001
+## FORA dela (tudo ficaria 4 cm mais gordo), e com margem menor que 4 cm o
+## contato treme (uma bola parada em cima rola e cai). As peças convexas do
+## cenário usam a forma ENCOLHIDA pela margem: com a margem, ela volta a ter
+## o tamanho da peça desenhada (como no Godot 4). Caixas, cilindros e a
+## meia-cana (trimesh) não têm esse problema.
+const MARGEM_CONVEXA := 0.04
 
 var ambiente: Environment
 ## o SOL: sem luz do motor na OpenGL ES 2 (na Mali-400 cada luz desenharia a
@@ -382,9 +384,8 @@ func aplicar_qualidade(_q: String) -> void:
 # ================================================================ terreno
 func _terreno() -> void:
 	# um relevo só; o desenho do chão de cada cenário sai do shader (nítido)
-	# o desenho do chão é o mesmo nas duas versões, feito do jeito barato
-	# (1 sorteio por pixel); no leve a luz é por vértice e mais simples, no
-	# completo é a conta por pixel
+	# o desenho do chão é o mesmo nas duas versões (terreno_leve.shader no
+	# leve, terreno.shader no completo), com os mesmos parâmetros
 	mat_terreno = ShaderMaterial.new()
 	mat_terreno.shader = load("res://shaders/terreno_leve.shader" if leve else "res://shaders/terreno.shader")
 	var t := MeshInstance.new()
@@ -403,7 +404,8 @@ func _terreno() -> void:
 
 
 # ================================================================ pista
-func _caixa(tam: Vector3, pos: Vector3, mat: Material, colisao := true, sombra := false, atrito := 0.4, quique := 0.2) -> MeshInstance:
+func _caixa(tam: Vector3, pos: Vector3, mat: Material, colisao := true, sombra := false, atrito := 0.4, quique := 0.2,
+		quem := "todos") -> MeshInstance:
 	var mi := MeshInstance.new()
 	var bm := CubeMesh.new()
 	bm.size = tam
@@ -414,14 +416,14 @@ func _caixa(tam: Vector3, pos: Vector3, mat: Material, colisao := true, sombra :
 		mi.cast_shadow = GeometryInstance.SHADOW_CASTING_SETTING_OFF
 	add_child(mi)
 	if colisao:
-		_corpo_caixa(tam, pos, atrito, quique)
+		_corpo_caixa(tam, pos, atrito, quique, quem)
 	return mi
 
 
 ## Corpo parado com uma forma pronta (a do próprio desenho da peça).
-func _corpo_forma(forma: Shape, pos: Vector3, atrito := 0.4, quique := 0.2) -> StaticBody:
-	if forma is ConvexPolygonShape:
-		forma.margin = MARGEM_CONVEXA
+## atrito e quique: os do Godot 4; `quem` encosta nela ("bola", "pinos" ou
+## "todos") — Medidas.material converte para a conta da Bullet.
+func _corpo_forma(forma: Shape, pos: Vector3, atrito := 0.4, quique := 0.2, quem := "todos") -> StaticBody:
 	var sb := StaticBody.new()
 	var cs := CollisionShape.new()
 	cs.shape = forma
@@ -429,31 +431,16 @@ func _corpo_forma(forma: Shape, pos: Vector3, atrito := 0.4, quique := 0.2) -> S
 	sb.translation = pos
 	sb.collision_layer = CAMADA_MUNDO
 	sb.collision_mask = 0
-	var pm := PhysicsMaterial.new()
-	pm.friction = atrito
-	pm.bounce = quique
-	sb.physics_material_override = pm
+	sb.physics_material_override = Medidas.material(atrito, quique, quem)
 	add_child(sb)
 	return sb
 
 
-func _corpo_caixa(tam: Vector3, pos: Vector3, atrito := 0.4, quique := 0.2) -> StaticBody:
-	var sb := StaticBody.new()
-	var cs := CollisionShape.new()
+func _corpo_caixa(tam: Vector3, pos: Vector3, atrito := 0.4, quique := 0.2, quem := "todos") -> StaticBody:
 	var bs := BoxShape.new()
 	# Godot 3: a caixa é dada pela METADE do tamanho
 	bs.extents = tam * 0.5
-	cs.shape = bs
-	sb.add_child(cs)
-	sb.translation = pos
-	sb.collision_layer = CAMADA_MUNDO
-	sb.collision_mask = 0
-	var pm := PhysicsMaterial.new()
-	pm.friction = atrito
-	pm.bounce = quique
-	sb.physics_material_override = pm
-	add_child(sb)
-	return sb
+	return _corpo_forma(bs, pos, atrito, quique, quem)
 
 
 func _pista() -> void:
@@ -475,16 +462,16 @@ func _pista() -> void:
 	# a da bola é lisa (óleo); a dos pinos tem atrito de madeira seca, para
 	# eles não escorregarem como no gelo. Cada uma só "existe" para quem pisa.
 	var cb := 1.2 - Z_FIM_DECK
-	var piso_bola := _corpo_caixa(Vector3(MEIA_LARGURA * 2, 0.2, cb), Vector3(0, -0.1, 1.2 - cb / 2), 0.05, 0.05)
+	var piso_bola := _corpo_caixa(Vector3(MEIA_LARGURA * 2, 0.2, cb), Vector3(0, -0.1, 1.2 - cb / 2), 0.05, 0.05, "bola")
 	piso_bola.collision_layer = CAMADA_PISO_BOLA
-	var piso_pinos := _corpo_caixa(Vector3(MEIA_LARGURA * 2, 0.2, cb), Vector3(0, -0.1, 1.2 - cb / 2), 0.42, 0.1)
+	var piso_pinos := _corpo_caixa(Vector3(MEIA_LARGURA * 2, 0.2, cb), Vector3(0, -0.1, 1.2 - cb / 2), 0.42, 0.1, "pinos")
 	piso_pinos.collision_layer = CAMADA_PISO_PINOS
 
 	# --- área de aproximação (onde o personagem corre): madeira leve
 	mat_piso = ShaderMaterial.new()
 	mat_piso.shader = load("res://shaders/piso.shader")
 	mat_piso.set_shader_param("madeira", Materiais.textura("madeira"))
-	var aprox := _caixa(Vector3(6.6, 0.2, 6.2), Vector3(0, -0.101, 3.2), mat_piso, true, false, 0.8, 0.0)
+	var aprox := _caixa(Vector3(6.6, 0.2, 6.2), Vector3(0, -0.101, 3.2), mat_piso, true, false, 0.8, 0.0, "bola")
 	aprox.cast_shadow = GeometryInstance.SHADOW_CASTING_SETTING_OFF
 	# faixa colorida nas bordas da aproximação
 	mat_faixa = Materiais.cor_toon(Color("#FF9F2E"))
@@ -528,7 +515,7 @@ func _pista() -> void:
 		cap.name = "divisoria_%d" % s
 		add_child(cap)
 		# colisão = o próprio desenho (quinas arredondadas, mesmo lugar)
-		_corpo_forma(cap.mesh.create_convex_shape(), cap.translation, 0.3, 0.3)
+		_corpo_forma(_forma_retangulo(largura_cap, 0.34, 0.06, Vector2(0, -0.07), Z_PINO1 + 0.2, 0.1), cap.translation, 0.3, 0.3)
 		# faixinha de luz em cima da divisória
 		var luzes := _caixa(Vector3(0.05, 0.012, -Z_PINO1 - 0.3), Vector3(xc, 0.104, (Z_PINO1 + 0.2) / 2.0 + 0.05),
 			Materiais.cor_toon(Color("#FFFFFF"), 0.0, {"emissao": Color(0.35, 0.85, 1.0), "borda": 0.0}), false, false)
@@ -576,10 +563,8 @@ func _pista() -> void:
 		sb.add_child(cs)
 		sb.collision_layer = CAMADA_MUNDO
 		sb.collision_mask = 0
-		var pm := PhysicsMaterial.new()
-		pm.bounce = 0.55
-		pm.friction = 0.1
-		sb.physics_material_override = pm
+		# (quem bate neles é a bola: Medidas.material converte para a Bullet)
+		sb.physics_material_override = Medidas.material(0.1, 0.55, "bola")
 		sb.name = "fisica"
 		grupo.add_child(sb)
 		_bumpers.append(grupo)
@@ -655,6 +640,26 @@ func _peca(perfil: PoolVector2Array, z0: float, z1: float, mat: Material, nome :
 	return mi
 
 
+## Peça de perfil retangular (Perfis.retangulo) que também é parede: o
+## desenho e um corpo parado com a mesma forma (colisão = o próprio desenho).
+func _peca_solida(largura: float, altura: float, raio: float, centro: Vector2, z0: float, z1: float, mat: Material,
+		atrito: float, quique: float, nome := "", quem := "todos") -> MeshInstance:
+	var mi := _peca(Perfis.retangulo(largura, altura, raio, centro), z0, z1, mat, nome)
+	_corpo_forma(_forma_retangulo(largura, altura, raio, centro, z0, z1), Vector3.ZERO, atrito, quique, quem)
+	return mi
+
+
+## A forma convexa de colisão de uma peça Perfis.retangulo(...) de z0 a z1,
+## do tamanho da peça desenhada: encolhida pela margem, que a devolve ao
+## tamanho certo (ver MARGEM_CONVEXA; peça fina usa a margem que couber).
+static func _forma_retangulo(largura: float, altura: float, raio: float, centro: Vector2, z0: float, z1: float) -> Shape:
+	var m: float = min(MARGEM_CONVEXA, min(raio, min(largura, altura) * 0.45))
+	var malha := Perfis.extrudar(Perfis.retangulo(largura - 2.0 * m, altura - 2.0 * m, raio - m, centro), z0 + m, z1 - m)
+	var forma := malha.create_convex_shape()
+	forma.margin = m
+	return forma
+
+
 ## O POÇO embaixo do alçapão: caixa virada do avesso (de cima só aparecem
 ## o fundo e as paredes de dentro) com o shader do poço (escurece com a
 ## fundura, faixas de luz), mais as paredes e o fundo de colisão — os pinos
@@ -680,11 +685,12 @@ func _poco_do_alcapao() -> void:
 	add_child(poco)
 	var alto := (Y_CHAO_FOSSO - 0.04) - POCO_FUNDO
 	var yc := (Y_CHAO_FOSSO - 0.04 + POCO_FUNDO) / 2.0
+	# (só os pinos caem no poço)
 	for s in [-1, 1]:
-		_corpo_caixa(Vector3(0.1, alto, z0 - z1 + 0.2), Vector3(s * (x + 0.05), yc, (z0 + z1) / 2.0), 0.5, 0.25)
-	_corpo_caixa(Vector3(x * 2.0 + 0.2, alto, 0.1), Vector3(0, yc, z0 + 0.05), 0.5, 0.25)
-	_corpo_caixa(Vector3(x * 2.0 + 0.2, alto, 0.1), Vector3(0, yc, z1 - 0.05), 0.5, 0.25)
-	_corpo_caixa(Vector3(x * 2.0 + 0.2, 0.2, z0 - z1 + 0.2), Vector3(0, POCO_FUNDO - 0.1, (z0 + z1) / 2.0), 0.6, 0.3)
+		_corpo_caixa(Vector3(0.1, alto, z0 - z1 + 0.2), Vector3(s * (x + 0.05), yc, (z0 + z1) / 2.0), 0.5, 0.25, "pinos")
+	_corpo_caixa(Vector3(x * 2.0 + 0.2, alto, 0.1), Vector3(0, yc, z0 + 0.05), 0.5, 0.25, "pinos")
+	_corpo_caixa(Vector3(x * 2.0 + 0.2, alto, 0.1), Vector3(0, yc, z1 - 0.05), 0.5, 0.25, "pinos")
+	_corpo_caixa(Vector3(x * 2.0 + 0.2, 0.2, z0 - z1 + 0.2), Vector3(0, POCO_FUNDO - 0.1, (z0 + z1) / 2.0), 0.6, 0.3, "pinos")
 
 
 ## A CAÇAPA e o PORTAL no fim da pista: paredes laterais acolchoadas (os
@@ -702,11 +708,9 @@ func _fundo_dos_pinos() -> void:
 	# paredes laterais (kickbacks): visual arredondado + a mesma colisão de antes
 	for s in [-1, 1]:
 		var x: float = s * (MEIA_LARGURA + CANALETA + 0.06)
-		var parede := _peca(Perfis.retangulo(0.12, 1.0, 0.05, Vector2(x, 0.35)), Z_FUNDO, z_frente, mat_parede, "parede_%d" % s)
-		var friso := _peca(Perfis.retangulo(0.17, 0.07, 0.034, Vector2(x, 0.875)), Z_FUNDO, z_frente + 0.02, mat_friso)
 		# colisão = o próprio desenho (o friso de cima também segura os pinos)
-		_corpo_forma(parede.mesh.create_convex_shape(), Vector3.ZERO, 0.3, 0.35)
-		_corpo_forma(friso.mesh.create_convex_shape(), Vector3.ZERO, 0.3, 0.35)
+		_peca_solida(0.12, 1.0, 0.05, Vector2(x, 0.35), Z_FUNDO, z_frente, mat_parede, 0.3, 0.35, "parede_%d" % s)
+		_peca_solida(0.17, 0.07, 0.034, Vector2(x, 0.875), Z_FUNDO, z_frente + 0.02, mat_friso, 0.3, 0.35)
 	# fosso: o chão EM VOLTA do alçapão (frente, fundo e beiradas; as
 	# portinhas são da máquina de pinos) e o poço escuro embaixo delas
 	var y_f := Y_CHAO_FOSSO - 0.1
@@ -734,7 +738,7 @@ func _fundo_dos_pinos() -> void:
 	# cortina chegam a 7,5 cm e as tiras da boca a 3,6 cm da parede — o
 	# pino para encostando nelas, sem entrar)
 	_corpo_caixa(Vector3(2.4, 1.6, 0.2), Vector3(0, Y_BOCA + 0.8, Z_FUNDO + 0.075 - 0.1), 0.9, 0.0)
-	var so_pinos := _corpo_caixa(Vector3(2.4, 0.9, 0.2), Vector3(0, Y_BOCA - 0.45, Z_FUNDO + 0.04 - 0.1), 0.9, 0.0)
+	var so_pinos := _corpo_caixa(Vector3(2.4, 0.9, 0.2), Vector3(0, Y_BOCA - 0.45, Z_FUNDO + 0.04 - 0.1), 0.9, 0.0, "pinos")
 	so_pinos.collision_layer = CAMADA_SO_PINOS
 	# teto escuro do fosso (esconde a parte de cima, vista de dentro)
 	_caixa(Vector3(2.3, 0.1, -Z_FUNDO + Z_PINO1 + 0.7), Vector3(0, 2.12, (Z_PINO1 + 0.7 + Z_FUNDO) / 2),
@@ -743,9 +747,8 @@ func _fundo_dos_pinos() -> void:
 	var z_tras := Z_FUNDO - 0.95
 	var z_masc := Z_PINO1 + 0.68
 	for s in [-1, 1]:
-		var lado := _peca(Perfis.retangulo(0.34, 3.7, 0.12, Vector2(s * 1.23, 1.55)), z_tras + 0.3, z_masc, mat_gabinete, "gabinete_lado_%d" % s)
 		# um pino que voa por cima da parede bate no gabinete (não atravessa)
-		_corpo_forma(lado.mesh.create_convex_shape(), Vector3.ZERO, 0.4, 0.3)
+		_peca_solida(0.34, 3.7, 0.12, Vector2(s * 1.23, 1.55), z_tras + 0.3, z_masc, mat_gabinete, 0.4, 0.3, "gabinete_lado_%d" % s, "pinos")
 	_peca(Perfis.retangulo(2.8, 0.32, 0.1, Vector2(0, 3.24)), z_tras + 0.3, z_masc, mat_gabinete, "gabinete_teto")
 	_peca(Perfis.retangulo(2.9, 3.75, 0.22, Vector2(0, 1.53)), z_tras, Z_FUNDO - 0.02, mat_gabinete, "gabinete_fundo")
 	_peca(Perfis.retangulo(2.96, 0.09, 0.04, Vector2(0, 3.42)), z_tras - 0.03, z_masc, mat_friso)
@@ -821,11 +824,14 @@ func _cacapa_das_bolas() -> void:
 	var alto := Y_BOCA - Y_CHAO_FOSSO
 	var fundo := 1.0
 	# túnel: chão (a bola rola para dentro), paredes, teto e fundo — escuros
-	_caixa(Vector3(LARGURA_BOCA + 0.2, 0.2, fundo), Vector3(0, Y_CHAO_FOSSO - 0.1, Z_FUNDO - fundo / 2), escuro, true, false, 0.3, 0.0)
+	# (só a bola entra nele)
+	_caixa(Vector3(LARGURA_BOCA + 0.2, 0.2, fundo), Vector3(0, Y_CHAO_FOSSO - 0.1, Z_FUNDO - fundo / 2), escuro, true, false, 0.3, 0.0, "bola")
 	for s in [-1, 1]:
-		_caixa(Vector3(0.1, alto + 0.1, fundo), Vector3(s * (meia + 0.05), Y_CHAO_FOSSO + alto / 2, Z_FUNDO - fundo / 2), escuro, true, false)
+		_caixa(Vector3(0.1, alto + 0.1, fundo), Vector3(s * (meia + 0.05), Y_CHAO_FOSSO + alto / 2, Z_FUNDO - fundo / 2), escuro, true, false,
+			0.4, 0.2, "bola")
 	_caixa(Vector3(LARGURA_BOCA + 0.2, 0.1, fundo), Vector3(0, Y_BOCA + 0.05, Z_FUNDO - fundo / 2), escuro, false, false)
-	_caixa(Vector3(LARGURA_BOCA + 0.2, alto + 0.2, 0.1), Vector3(0, Y_CHAO_FOSSO + alto / 2, Z_FUNDO - fundo - 0.05), escuro, true, false)
+	_caixa(Vector3(LARGURA_BOCA + 0.2, alto + 0.2, 0.1), Vector3(0, Y_CHAO_FOSSO + alto / 2, Z_FUNDO - fundo - 0.05), escuro, true, false,
+		0.4, 0.2, "bola")
 	# dos lados da boca, a parede de borracha (até as paredes da caçapa)
 	for s in [-1, 1]:
 		var x0 := meia + 0.06
@@ -834,12 +840,10 @@ func _cacapa_das_bolas() -> void:
 			borracha, false, false)
 	# moldura amarela em volta da boca + filete de luz em cima (colidem
 	# como são: os pinos param nelas; a bola passa no vão do meio)
-	var moldura := _peca(Perfis.retangulo(LARGURA_BOCA + 0.26, 0.12, 0.05, Vector2(0, Y_BOCA + 0.06)), Z_FUNDO - 0.04, Z_FUNDO + 0.1, mat_friso)
-	_corpo_forma(moldura.mesh.create_convex_shape(), Vector3.ZERO, 0.5, 0.2)
+	_peca_solida(LARGURA_BOCA + 0.26, 0.12, 0.05, Vector2(0, Y_BOCA + 0.06), Z_FUNDO - 0.04, Z_FUNDO + 0.1, mat_friso, 0.5, 0.2)
 	for s in [-1, 1]:
-		var poste := _peca(Perfis.retangulo(0.13, alto + 0.12, 0.05, Vector2(s * (meia + 0.065), Y_CHAO_FOSSO + (alto + 0.12) / 2.0 - 0.02)),
-			Z_FUNDO - 0.04, Z_FUNDO + 0.1, mat_friso)
-		_corpo_forma(poste.mesh.create_convex_shape(), Vector3.ZERO, 0.5, 0.2)
+		_peca_solida(0.13, alto + 0.12, 0.05, Vector2(s * (meia + 0.065), Y_CHAO_FOSSO + (alto + 0.12) / 2.0 - 0.02),
+			Z_FUNDO - 0.04, Z_FUNDO + 0.1, mat_friso, 0.5, 0.2)
 	mat_boca_luz = Materiais.cor_toon(Color("#FFFFFF"), 0.0, {"emissao": Color(0.6, 0.9, 1.0), "borda": 0.0})
 	_caixa(Vector3(LARGURA_BOCA, 0.025, 0.02), Vector3(0, Y_BOCA + 0.005, Z_FUNDO + 0.105), mat_boca_luz, false, false)
 	# cortina de tiras de borracha (uma MultiMesh: um desenho só)
@@ -854,6 +858,10 @@ func _cacapa_das_bolas() -> void:
 	_tiras.multimesh = mm
 	_tiras.material_override = Materiais.cor_toon(Color("#151A28"), 0.0, {"borda": 0.25, "luz_minima": 0.3})
 	_tiras.cast_shadow = GeometryInstance.SHADOW_CASTING_SETTING_OFF
+	# as tiras mexem a cada quadro (não na física); no Godot 3, numa
+	# MultiMesh com a interpolação da física ligada, mudar a cópia depois de
+	# entrar na cena não vale
+	_tiras.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
 	add_child(_tiras)
 	# (Godot 3: o resize não zera os números novos)
 	_abertura_tiras = PoolRealArray()

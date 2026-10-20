@@ -121,6 +121,11 @@ var _mouse_parado := 0.0
 var _menu: Control = null
 ## o 3D está parado atrás do modal de jogadores (_congelar_3d)
 var _parado_3d := false
+## MSAA conferido na abertura (algumas placas e drivers de PC devolvem a
+## imagem 3D PRETA com o MSAA da OpenGL ES 2.0): quadros 3D já desenhados
+## e se ele precisou ser desligado
+var _quadros_3d := 0
+var _msaa_quebrado := false
 var _camada_menu: CanvasLayer
 var _antes_menu := {}
 var _medidor_antes := false
@@ -301,7 +306,37 @@ func _montar_3d() -> void:
 ## o modo da própria placa, resolvido dentro dela: bordas lisas quase de
 ## graça); na baixa, 2x.
 func _qualidade_viewport() -> void:
+	if _msaa_quebrado:
+		vp.msaa = Viewport.MSAA_DISABLED
+		return
 	vp.msaa = Viewport.MSAA_2X if _qualidade == "baixa" else Viewport.MSAA_4X
+
+
+## Uma vez, na abertura (depois de alguns quadros 3D): a imagem 3D veio
+## inteira PRETA? Então o MSAA não funciona nesta placa — desliga (o jogo
+## segue com a imagem certa, só sem o antisserrilhado).
+func _conferir_msaa() -> void:
+	if _quadros_3d < 0 or _parado_3d or _menu != null or vp.msaa == Viewport.MSAA_DISABLED:
+		return
+	_quadros_3d += 1
+	if _quadros_3d < 12:
+		return
+	_quadros_3d = -1
+	var img := vp.get_texture().get_data()
+	if img == null or img.is_empty():
+		return
+	img.lock()
+	var acesos := 0
+	for i in 8:
+		for j in 8:
+			var c := img.get_pixel(int((i + 0.5) * img.get_width() / 8.0), int((j + 0.5) * img.get_height() / 8.0))
+			if c.r + c.g + c.b > 0.004:
+				acesos += 1
+	img.unlock()
+	if acesos == 0:
+		_msaa_quebrado = true
+		vp.msaa = Viewport.MSAA_DISABLED
+		print("MSAA desligado: com ele a placa de vídeo devolveu a imagem 3D preta")
 
 
 ## Tamanho da imagem 3D: o lado menor da tela, limitado pelo LADO_3D da
@@ -1010,6 +1045,7 @@ func _bola_no_retorno(nome: String) -> void:
 func _process(delta: float) -> void:
 	_medir_fps(delta)
 	_andar_lenta()
+	_conferir_msaa()
 	# as contagens da tela andam em segundos de verdade
 	var real := _delta_real()
 	# PC em tela cheia: a setinha do mouse some sozinha quando ninguém mexe

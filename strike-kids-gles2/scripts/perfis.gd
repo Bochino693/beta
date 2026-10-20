@@ -69,6 +69,10 @@ static func extrudar(perfil: PoolVector2Array, z0: float, z1: float, tampa0 := t
 		var j: int = (i + 1) % n
 		var a: Vector2 = perfil[i]
 		var b: Vector2 = perfil[j]
+		# aresta de tamanho zero (dois cantos que se encontram): sem faces
+		# (não aparecem, e a normal zerada estragava a compressão do Godot 3)
+		if a.distance_squared_to(b) < 1e-12:
+			continue
 		# normal em a: média com a aresta anterior se a curva for suave
 		var ant: Vector2 = na[(i - 1 + n) % n]
 		var prox: Vector2 = na[(j) % n]

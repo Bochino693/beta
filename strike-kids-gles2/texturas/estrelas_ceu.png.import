@@ -2,10 +2,15 @@
 
 importer="texture"
 type="StreamTexture"
+path="res://.import/estrelas_ceu.png-ef6febcb9f50d36573d3180e839910e2.stex"
+metadata={
+"vram_texture": false
+}
 
 [deps]
 
 source_file="res://texturas/estrelas_ceu.png"
+dest_files=[ "res://.import/estrelas_ceu.png-ef6febcb9f50d36573d3180e839910e2.stex" ]
 
 [params]
 
