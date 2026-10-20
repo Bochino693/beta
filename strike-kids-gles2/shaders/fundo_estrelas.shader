@@ -14,6 +14,14 @@ uniform float fase = 0.0;
 
 varying float dobra;
 
+
+// a mesma curva de tela do Godot 4 ("filmic", branco 1,6, + sRGB),
+// aproximada para a meia precisão da Mali-400 (erro < 3%)
+vec3 tela_rapida(vec3 x) {
+	x = max(x, vec3(0.0));
+	return min(sqrt(x) * (1.29 - 0.1 * x) / (1.0 + 0.25 * x), vec3(1.0));
+}
+
 float h(vec2 p) {
 	return fract(sin(p.x * 1.731 + p.y * 9.217) * 43.758);
 }
@@ -40,5 +48,5 @@ void fragment() {
 			+ max(0.0, 1.0 - abs(f.y) * 30.0) * max(0.0, 1.0 - abs(f.x) * 4.0);
 		c += vec3(1.0, 0.97, 0.9) * (est * 1.3 + cruz * 0.7) * pis * (1.0 - halo * 0.7);
 	}
-	ALBEDO = c * dobra;
+	ALBEDO = tela_rapida(c * c * dobra);
 }

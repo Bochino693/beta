@@ -13,6 +13,14 @@ uniform float passo_faixas = 0.3;
 
 varying float fundura;
 
+
+// a mesma curva de tela do Godot 4 ("filmic", branco 1,6, + sRGB),
+// aproximada para a meia precisão da Mali-400 (erro < 3%)
+vec3 tela_rapida(vec3 x) {
+	x = max(x, vec3(0.0));
+	return min(sqrt(x) * (1.29 - 0.1 * x) / (1.0 + 0.25 * x), vec3(1.0));
+}
+
 void vertex() {
 	fundura = y_topo - (WORLD_MATRIX * vec4(VERTEX, 1.0)).y;
 }
@@ -25,5 +33,5 @@ void fragment() {
 	float faixa = 1.0 - smoothstep(0.007, 0.012, d);
 	faixa *= step(passo_faixas * 0.5, fundura);
 	c += cor_faixa.rgb * faixa * (1.0 - t) * (1.0 - t) * 0.9;
-	ALBEDO = c;
+	ALBEDO = tela_rapida(c * c);
 }

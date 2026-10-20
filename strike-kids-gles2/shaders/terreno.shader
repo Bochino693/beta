@@ -27,6 +27,14 @@ varying vec3 luz;
 varying float neblina;
 varying float mancha;
 
+
+// a mesma curva de tela do Godot 4 ("filmic", branco 1,6, + sRGB),
+// aproximada para a meia precisão da Mali-400 (erro < 3%)
+vec3 tela_rapida(vec3 x) {
+	x = max(x, vec3(0.0));
+	return min(sqrt(x) * (1.29 - 0.1 * x) / (1.0 + 0.25 * x), vec3(1.0));
+}
+
 void vertex() {
 	vec3 pw = (WORLD_MATRIX * vec4(VERTEX, 1.0)).xyz;
 	p = pw.xz;
@@ -62,5 +70,8 @@ void fragment() {
 		c = mix(c, lin_d * terra, clamp(0.5 - (1.05 - mancha) * 8.0, 0.0, 1.0));
 	}
 	// as cores chegam LINEARES do Mundo: sai convertida para a tela
-	ALBEDO = sqrt(mix(c * luz, neblina_cor, neblina));
+	// (no Godot 4 o chão chegava à tela com a cor convertida mais uma vez:
+	// o verde fechado da selva, o azul da lua...: a potência 1,65 bate com
+	// a imagem do Godot 4, medida pixel a pixel)
+	ALBEDO = tela_rapida(mix(pow(c, vec3(1.65)) * luz, neblina_cor, neblina));
 }

@@ -2,15 +2,17 @@
 
 importer="texture"
 type="StreamTexture"
-path="res://.import/bola_bob.png-02775c45f69ddc081a261eaed58ec360.stex"
+path.s3tc="res://.import/bola_bob.png-02775c45f69ddc081a261eaed58ec360.s3tc.stex"
+path.etc="res://.import/bola_bob.png-02775c45f69ddc081a261eaed58ec360.etc.stex"
 metadata={
-"vram_texture": false
+"imported_formats": [ "s3tc", "etc" ],
+"vram_texture": true
 }
 
 [deps]
 
 source_file="res://texturas/bola_bob.png"
-dest_files=[ "res://.import/bola_bob.png-02775c45f69ddc081a261eaed58ec360.stex" ]
+dest_files=[ "res://.import/bola_bob.png-02775c45f69ddc081a261eaed58ec360.s3tc.stex", "res://.import/bola_bob.png-02775c45f69ddc081a261eaed58ec360.etc.stex" ]
 
 [params]
 

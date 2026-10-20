@@ -21,22 +21,25 @@ static func _e() -> Dictionary:
 	if e.empty():
 		e["shaders"] = {}
 		e["texturas"] = {}
-		e["contornos"] = false
+		e["contornos"] = true
 		e["registrados"] = []
 		e["luz_dir"] = Vector3(0.35, 0.8, 0.5).normalized()
-		e["luz_cor"] = Color(1.0, 0.97, 0.92)
-		e["ambiente"] = Color(0.45, 0.45, 0.55)
+		# luz LINEAR (cor x força), como o motor do Godot 4 entregava
+		e["luz_cor"] = Vector3(1.05, 0.935, 0.745)
+		e["ambiente"] = Vector3(0.212, 0.278, 0.439)
 	return e
 
 
-## Contornos (casca invertida) desligados na OpenGL ES 2: desenhariam cada
-## peça duas vezes. Mantido para os scripts que perguntam.
+## Contornos (casca invertida, o traço escuro em volta): nos bichinhos,
+## pinos e peças da pista (a decoração do cenário leve não tem). Na
+## qualidade BAIXA ficam desligados (cada peça com contorno é desenhada
+## duas vezes).
 static func contornos_ligados() -> bool:
-	return false
+	return bool(_e()["contornos"])
 
 
-static func definir_contornos(_sim: bool) -> void:
-	pass
+static func definir_contornos(sim: bool) -> void:
+	_e()["contornos"] = sim
 
 
 static func fonte(nome: String) -> Resource:
@@ -70,9 +73,10 @@ static func registrar(m: ShaderMaterial) -> ShaderMaterial:
 	return m
 
 
-## A luz do cenário: `direcao` aponta PARA o sol (no mundo); `cor` já com a
-## força do sol; `ambiente` é a luz do céu que chega em todo lado.
-static func definir_luz(direcao: Vector3, cor: Color, ambiente: Color) -> void:
+## A luz do cenário: `direcao` aponta PARA o sol (no mundo); `cor` é a luz
+## do sol e `ambiente` a do céu que chega em todo lado, as duas LINEARES e
+## já com a força (cor x força, como o motor do Godot 4 entregava).
+static func definir_luz(direcao: Vector3, cor: Vector3, ambiente: Vector3) -> void:
 	var e := _e()
 	e["luz_dir"] = direcao.normalized()
 	e["luz_cor"] = cor
@@ -90,11 +94,16 @@ static func definir_luz(direcao: Vector3, cor: Color, ambiente: Color) -> void:
 
 
 ## Toon com cor do vértice. `personagem`: sem estampa/escurecer (rosto limpo).
-static func toon(personagem := false, _contorno := 0.0035, parametros := {}) -> ShaderMaterial:
+static func toon(personagem := false, contorno := 0.0035, parametros := {}) -> ShaderMaterial:
 	var m := ShaderMaterial.new()
 	m.shader = shader(TOON_PERSONAGEM if personagem else TOON)
 	for k in parametros:
 		m.set_shader_param(k, parametros[k])
+	if contorno > 0.0 and contornos_ligados():
+		var c := ShaderMaterial.new()
+		c.shader = shader(CONTORNO)
+		c.set_shader_param("espessura", contorno)
+		m.next_pass = c
 	return registrar(m)
 
 

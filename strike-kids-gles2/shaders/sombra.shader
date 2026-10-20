@@ -10,5 +10,8 @@ uniform float forca = 0.55;
 void fragment() {
 	vec4 t = texture(textura, UV);
 	ALBEDO = t.rgb;
-	ALPHA = t.a * forca * COLOR.a;
+	// no Godot 4 a mistura era em luz linear: a mesma escuridão, misturando
+	// na cor da tela, pede menos opacidade
+	float a = clamp(t.a * forca * COLOR.a, 0.0, 1.0);
+	ALPHA = 1.0 - pow(1.0 - a, 0.4545);
 }

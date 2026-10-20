@@ -11,6 +11,23 @@ uniform float intensidade = 1.6;
 
 varying vec3 cor;
 
+
+// cor como no Godot 4: s2l = sRGB -> linear; tela = "filmic" (branco 1,6)
+// + sRGB (por vértice, exata)
+vec3 s2l(vec3 c) {
+	return mix(c / 12.92, pow((c + 0.055) / 1.055, vec3(2.4)), step(vec3(0.04045), c));
+}
+
+float s2l1(float c) {
+	return c < 0.04045 ? c / 12.92 : pow((c + 0.055) / 1.055, 2.4);
+}
+
+vec3 tela(vec3 x) {
+	x = max(x, vec3(0.0));
+	vec3 f = clamp(((x * (0.88 * x + 0.06) + 0.002) / (x * (0.88 * x + 0.6) + 0.06) - 0.033333) / 0.68495, 0.0, 1.0);
+	return mix(f * 12.92, 1.055 * pow(f, vec3(0.416667)) - 0.055, step(vec3(0.0031308), f));
+}
+
 void vertex() {
 	float n = INSTANCE_CUSTOM.r;
 	float on;
@@ -24,7 +41,7 @@ void vertex() {
 	vec3 pv = (MODELVIEW_MATRIX * vec4(VERTEX, 1.0)).xyz;
 	vec3 nv = normalize((MODELVIEW_MATRIX * vec4(NORMAL, 0.0)).xyz);
 	float rim = clamp(dot(nv, normalize(-pv)), 0.0, 1.0);
-	cor = COLOR.rgb * (0.35 + rim * 0.65) * on * intensidade + vec3(0.12) * rim;
+	cor = tela(s2l(s2l(COLOR.rgb)) * (0.35 + rim * 0.65) * on * intensidade + vec3(0.12) * rim);
 }
 
 void fragment() {

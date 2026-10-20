@@ -1,0 +1,148 @@
+STRIKE KIDS - BOLICHE INFANTIL 3D (Bob & Mia)
+=============================================
+EDICAO OPENGL ES 2.0 - Godot 3.6.3 - fisica Bullet
+Para TV Box com placa de video Mali-400 / Mali-450 (so OpenGL ES 2.0),
+como a TX9 "comum" (Youit TX9: Amlogic S905X/S905W, Rockchip RK3229),
+MXQ, X96 com S905W, RK3228A/RK3318/RK3328 e Allwinner H3.
+
+A versao principal (Godot 4, OpenGL ES 3) continua no repositorio
+"beta-advanced". Esta edicao e o MESMO JOGO refeito no Godot 3, o motor
+que ainda desenha com OpenGL ES 2.0.
+
+
+O QUE E O MESMO
+---------------
+Tudo o que a crianca ve e joga: as 5 jogadas pelos sensores, Bob e Mia
+(com as roupinhas de cada fase), os 4 cenarios sorteados, a pista com
+neon, setas arco-iris e trilha de estrelas, os pinos com carinha e FISICA
+DE VERDADE, a maquina de pinos (barra, mesa e alcapao do fosso), o
+REPLAY do strike em camera lenta, a cacapa e o retorno de bolas, as telas
+(START, 1 ou 2 jogadores, escolha, SORRIA!, placar, fim, classificacao do
+dia), o menu do operador, o Arduino (sensores, porta, botao, LEDs), a
+camera USB e a placa Zero Delay. As regras, os sons, os textos e o ritmo
+(30% mais rapido) sao os da versao 5.6.
+
+
+O QUE MUDOU PARA RODAR NA OPENGL ES 2.0
+---------------------------------------
+  * MOTOR: Godot 3.6.3 (renderizador GLES2). Os scripts foram convertidos
+    um a um; os modelos 3D sao os mesmos (convertidos do Godot 4 pelas
+    ferramentas tools/exportar_godot4.gd + tools/montar_modelos.gd).
+  * LUZ POR VERTICE: bonecos, pinos e decoracao calculam a luz do sol e do
+    ambiente nos vertices (e nao em cada pixel) - na Mali-400/450 cada
+    pixel e caro. Sem luzes do motor (no GLES2 cada luz desenha tudo de
+    novo).
+  * PISTA ASSADA: a madeira e os desenhos fixos da pista (linha de falta,
+    pontos, estrelas, setas, marcas e holofote dos pinos) vem prontos numa
+    textura (texturas/pista_pronta.png, feita por tools/assar_pista.py com
+    as mesmas contas do Godot 4). O shader so faz o que mexe: estrelas
+    piscando, neon das bordas, luzes correndo, brilho da bola e o verniz.
+  * CEU: uma esfera desenhada no infinito; as estrelas do Espaco vem de
+    uma textura (tools/assar_estrelas.py) - na Mali-400 o sorteio por
+    pixel piscaria.
+  * SEM CONTORNOS 3D, SEM BRILHO (glow) E SEM NEBLINA DO MOTOR (cada um
+    desenharia a cena de novo); a neblina do fundo e feita nos proprios
+    shaders do cenario, por vertice.
+  * IMAGEM 3D EM 720 px esticada ate a tela, com ANTISSERRILHADO 4x (na
+    Mali-400/450 o 4x e o modo da propria placa: quase de graca). Na
+    abertura o jogo confere: se com o antisserrilhado a imagem 3D vier
+    preta (acontece em alguns PCs), ele desliga sozinho. A nitidez
+    automatica continua (70% a 100%).
+  * TEXTURAS menores e comprimidas (ETC1) onde nao tem transparencia: o
+    jogo cabe numa TV Box de 1 GB.
+  * FISICA BULLET (a do Godot 3) no lugar da Jolt: atrito e quique foram
+    convertidos para dar os mesmos numeros de antes em cada par
+    (pino x pino, bola x pino, pino x pista), a margem de colisao dos
+    pinos e de 3 mm (a de fabrica deixava os pinos boiando 4 cm) e a
+    TABELA DE JOGADAS (dados/tabela_jogadas.json) foi calibrada de novo,
+    jogando milhares de bolas na fisica nova (tools/testes/calibrar.gd).
+  * PLUGINS ANDROID (camera e Arduino) no formato do Godot 3 (v1), com os
+    mesmos nomes. O APK e montado sem Gradle (tools/android/montar_apk.sh).
+  * Pacote com.lazersport.strikekids.gles2: instala AO LADO da versao
+    Godot 4 (nao substitui).
+
+
+APK PRONTO PARA A TV BOX
+------------------------
+StrikeKids_GLES2.apk - copie para um pendrive e instale pelo gerenciador
+de arquivos da TV Box (ou: adb install -r StrikeKids_GLES2.apk).
+  - Android 5.0 ou mais novo; programa de 32 E de 64 bits (instala nas
+    TV Boxes com Android de 32 bits, comum nas com Mali-450).
+  - Aparece no inicio da TV Box (icone de TV) e no menu de apps.
+  - Ja vem com o ARDUINO (StrikeSerial) e com a CAMERA (StrikeCamera:
+    camera do sistema e Camera2). Na 1a vez o Android pergunta da CAMERA
+    (Permitir) e do Arduino no USB (marque "Usar por padrao" e OK).
+  - Assinado com a chave do projeto (tools/android/strikekids.keystore).
+  - Na primeira vez, no menu do operador, rode o TESTE DE DESEMPENHO: ele
+    mede a TV Box e escolhe a qualidade. "Mostrar desempenho na tela"
+    mostra os quadros por segundo durante o jogo.
+
+
+COMO TESTAR NO PC
+-----------------
+1. Instale o Godot 3.6.3 (o comum, nao o "Mono"):
+   https://godotengine.org/download/3.x
+2. Abra o project.godot desta pasta (strike-kids-gles2) e aperte F5.
+   - Sensores: A S D F G  (esquerda ... direita)
+   - START: 1 ou Espaco    - Credito: 5    - Configuracao/operador: 9
+   - F3 liga/desliga o painel de desempenho.
+   - Numa janela em pe:  godot --path . -- --janela=540x960
+3. Para ver no PC como fica na TV Box, rode com a placa forcada em
+   OpenGL ES 2.0 (ja e o padrao do projeto).
+Webcam no PC (Windows): coloque o ffmpeg.exe na pasta do jogo (a imagem
+vem por uma conexao local, 127.0.0.1). Sem webcam: -- --camera-falsa.
+
+
+COMO GERAR O APK
+----------------
+No Linux (o jeito usado para o APK pronto):
+     bash tools/android/montar_apk.sh StrikeKids_GLES2.apk 5.6-gles2
+  Ele exporta o jogo com o Godot 3.6.3 (sem Gradle, sem assinar), injeta
+  os plugins StrikeCamera e StrikeSerial (classes2.dex + manifesto), o
+  banner da TV e as permissoes, assina com a chave do projeto e confere
+  o APK (tools/android/conferir_apk.py). Precisa de Java e do Godot
+  3.6.3 com os modelos de exportacao (Editor > Gerenciar modelos).
+  Os plugins sao compilados por tools/android/StrikeCamera/construir.sh e
+  tools/android/StrikeSerial/construir.sh (saem em android/plugins/).
+No editor do Godot 3.6.3 (Windows/Linux): Projeto > Instalar modelo de
+  compilacao Android, ligue "Use Custom Build" e os plugins StrikeCamera e
+  StrikeSerial no preset "Android TV Box" (precisa do Android SDK) - os
+  arquivos .gdap e .aar ja estao em android/plugins/.
+
+
+CAMERA, ARDUINO, ZERO DELAY E MENU DO OPERADOR
+----------------------------------------------
+Funcionam como na versao principal - veja o LEIA-ME.txt dela (secoes
+"FOTO DAS CRIANCAS NA TV BOX", "ARDUINO DA MAQUINA", "BOTOES DA ZERO
+DELAY" e "MENU DO OPERADOR"). O firmware do Arduino esta em
+arduino/strike_kids/strike_kids.ino e o desenho da ligacao em
+docs/ligacao_arduino.pdf.
+Diferencas desta edicao:
+  - O mapa dos botoes da Zero Delay no modo joystick usa a numeracao do
+    Godot 3 (R2 = 7, START = 11, SELECT = 10); um mapa gravado pela
+    versao Godot 4 e traduzido sozinho.
+  - No painel de desempenho nao aparece o tempo da placa de video (o
+    Godot 3 nao mede) e os triangulos viram "mil vertices".
+
+
+PASTAS
+------
+  cenas/      cenas do Godot (principal, operador, configuracao dos botoes)
+  scripts/    o jogo (principal, mundo, temas, maquina, personagem,
+              animacoes, pinos, bola, jogada, placar, camera_cine, hud...)
+              compat.gd e medidas.gd: o que o Godot 3 nao tem pronto
+              (fontes, contas inteiras, medidas da pista, material da Bullet)
+  autoload/   Tela, Ajustes, Sons, ArcadeControls, ArduinoBridge, Fotos
+  shaders/    shaders da OpenGL ES 2.0 (luz linear, saida em tela)
+  android/    plugins/ (StrikeCamera e StrikeSerial, .aar + .gdap)
+  arduino/    firmware do Arduino da maquina
+  dados/      tabela de jogadas calibrada na fisica Bullet (vai no APK)
+  modelos/    mascotes, roupinhas, pinos e cenarios 3D (formato Godot 3)
+  texturas/ ui/ fontes/ sons/
+  tools/      ferramentas (NAO vao no APK):
+              assar_pista.py, assar_estrelas.py, ajustar_importacao.py,
+              exportar_godot4.gd / montar_modelos.gd (modelos do Godot 4),
+              carregar_scripts.gd (confere se os scripts compilam),
+              testar_shaders.gd, android/ (plugins e montagem do APK),
+              testes/ (calibrar, roteiro, instantes, medir_desenho...)
+  docs/       ligacao do Arduino

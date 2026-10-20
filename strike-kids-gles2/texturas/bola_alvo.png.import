@@ -2,15 +2,17 @@
 
 importer="texture"
 type="StreamTexture"
-path="res://.import/bola_alvo.png-19b5d92965e9454c536383af7b17e2f8.stex"
+path.s3tc="res://.import/bola_alvo.png-19b5d92965e9454c536383af7b17e2f8.s3tc.stex"
+path.etc="res://.import/bola_alvo.png-19b5d92965e9454c536383af7b17e2f8.etc.stex"
 metadata={
-"vram_texture": false
+"imported_formats": [ "s3tc", "etc" ],
+"vram_texture": true
 }
 
 [deps]
 
 source_file="res://texturas/bola_alvo.png"
-dest_files=[ "res://.import/bola_alvo.png-19b5d92965e9454c536383af7b17e2f8.stex" ]
+dest_files=[ "res://.import/bola_alvo.png-19b5d92965e9454c536383af7b17e2f8.s3tc.stex", "res://.import/bola_alvo.png-19b5d92965e9454c536383af7b17e2f8.etc.stex" ]
 
 [params]
 

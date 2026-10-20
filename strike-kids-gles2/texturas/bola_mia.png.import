@@ -2,15 +2,17 @@
 
 importer="texture"
 type="StreamTexture"
-path="res://.import/bola_mia.png-33b92c86e03ee994700b1a28ee7b5ebd.stex"
+path.s3tc="res://.import/bola_mia.png-33b92c86e03ee994700b1a28ee7b5ebd.s3tc.stex"
+path.etc="res://.import/bola_mia.png-33b92c86e03ee994700b1a28ee7b5ebd.etc.stex"
 metadata={
-"vram_texture": false
+"imported_formats": [ "s3tc", "etc" ],
+"vram_texture": true
 }
 
 [deps]
 
 source_file="res://texturas/bola_mia.png"
-dest_files=[ "res://.import/bola_mia.png-33b92c86e03ee994700b1a28ee7b5ebd.stex" ]
+dest_files=[ "res://.import/bola_mia.png-33b92c86e03ee994700b1a28ee7b5ebd.s3tc.stex", "res://.import/bola_mia.png-33b92c86e03ee994700b1a28ee7b5ebd.etc.stex" ]
 
 [params]
 

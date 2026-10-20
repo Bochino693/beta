@@ -2,15 +2,17 @@
 
 importer="texture"
 type="StreamTexture"
-path="res://.import/madeira.png-91bb757139af14db5e78562a89f174c2.stex"
+path.s3tc="res://.import/madeira.png-91bb757139af14db5e78562a89f174c2.s3tc.stex"
+path.etc="res://.import/madeira.png-91bb757139af14db5e78562a89f174c2.etc.stex"
 metadata={
-"vram_texture": false
+"imported_formats": [ "s3tc", "etc" ],
+"vram_texture": true
 }
 
 [deps]
 
 source_file="res://texturas/madeira.png"
-dest_files=[ "res://.import/madeira.png-91bb757139af14db5e78562a89f174c2.stex" ]
+dest_files=[ "res://.import/madeira.png-91bb757139af14db5e78562a89f174c2.s3tc.stex", "res://.import/madeira.png-91bb757139af14db5e78562a89f174c2.etc.stex" ]
 
 [params]
 

@@ -20,6 +20,14 @@ uniform float tamanho = 17.8;       // lado do quadrado a essa distância (m)
 varying vec2 uv_raios;
 varying vec2 uv_rosto;
 
+
+// a mesma curva de tela do Godot 4 ("filmic", branco 1,6, + sRGB),
+// aproximada para a meia precisão da Mali-400 (erro < 3%)
+vec3 tela_rapida(vec3 x) {
+	x = max(x, vec3(0.0));
+	return min(sqrt(x) * (1.29 - 0.1 * x) / (1.0 + 0.25 * x), vec3(1.0));
+}
+
 void vertex() {
 	vec3 cam = CAMERA_MATRIX[3].xyz;
 	vec3 centro = cam + normalize(direcao) * distancia;
@@ -40,6 +48,7 @@ void fragment() {
 	vec4 r = texture(rosto, uv_rosto);
 	float a_saida = r.a + fundo.a * (1.0 - r.a);
 	vec3 cor = r.rgb * r.a + fundo.rgb * fundo.a * (1.0 - r.a);
-	ALBEDO = (cor / max(a_saida, 0.0001)) * tinta.rgb;
+	vec3 a = (cor / max(a_saida, 0.0001)) * tinta.rgb;
+	ALBEDO = tela_rapida(a * a);
 	ALPHA = a_saida * tinta.a;
 }

@@ -8,7 +8,8 @@ render_mode unshaded, blend_mix, depth_draw_opaque, cull_back;
 // do pista.gdshader do Godot 4). Aqui só o que mexe: as estrelas piscando
 // em sequência até os pinos, o verniz refletindo o céu e o portal, o
 // brilho do sol, o NEON das bordas com as luzes correndo e o brilho que
-// acompanha a bola. Contas em luz linear; a saída volta para a tela (sqrt).
+// acompanha a bola. Contas em luz linear; a saída vai para a tela com a
+// curva do Godot 4 (tela_rapida).
 // Coordenadas do MUNDO: linha de falta em z = 0, pinos em z_pino1.
 
 uniform sampler2D pista_pronta;      // RGB = sqrt(cor / 1.6), A = estrelas
@@ -34,6 +35,14 @@ uniform float verniz = 0.32;
 varying vec2 uv_p;
 varying vec2 xd;
 varying vec3 olhar;
+
+
+// a mesma curva de tela do Godot 4 ("filmic", branco 1,6, + sRGB),
+// aproximada para a meia precisão da Mali-400 (erro < 3%)
+vec3 tela_rapida(vec3 x) {
+	x = max(x, vec3(0.0));
+	return min(sqrt(x) * (1.29 - 0.1 * x) / (1.0 + 0.25 * x), vec3(1.0));
+}
 
 void vertex() {
 	vec3 pm = (WORLD_MATRIX * vec4(VERTEX, 1.0)).xyz;
@@ -94,5 +103,5 @@ void fragment() {
 	}
 	float forca = 0.75 + 0.45 * corre * chamado + luz * (corre * 0.6 + onda_bola * 1.4);
 	vec3 e = neon * ((borda + espalha) * forca + onda_bola * luz * 0.18 * (1.0 - borda));
-	ALBEDO = sqrt(c + e);
+	ALBEDO = tela_rapida(c + e);
 }

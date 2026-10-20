@@ -12,12 +12,29 @@ uniform float pulso = 0.0;      // brilho do centro pulsando (vem da CPU)
 
 varying vec3 cor;
 
+
+// cor como no Godot 4: s2l = sRGB -> linear; tela = "filmic" (branco 1,6)
+// + sRGB (por vértice, exata)
+vec3 s2l(vec3 c) {
+	return mix(c / 12.92, pow((c + 0.055) / 1.055, vec3(2.4)), step(vec3(0.04045), c));
+}
+
+float s2l1(float c) {
+	return c < 0.04045 ? c / 12.92 : pow((c + 0.055) / 1.055, 2.4);
+}
+
+vec3 tela(vec3 x) {
+	x = max(x, vec3(0.0));
+	vec3 f = clamp(((x * (0.88 * x + 0.06) + 0.002) / (x * (0.88 * x + 0.6) + 0.06) - 0.033333) / 0.68495, 0.0, 1.0);
+	return mix(f * 12.92, 1.055 * pow(f, vec3(0.416667)) - 0.055, step(vec3(0.0031308), f));
+}
+
 void vertex() {
-	float r = COLOR.g;
-	vec3 c = mix(cor_b.rgb, cor_a.rgb, COLOR.r);
+	float r = s2l1(COLOR.g);
+	vec3 c = mix(s2l(cor_b.rgb), s2l(cor_a.rgb), s2l1(COLOR.r));
 	c *= 1.12 - 0.35 * r;
 	c += vec3(1.0, 0.95, 0.8) * (0.3 + 0.12 * pulso) * clamp(1.0 - r * 2.2, 0.0, 1.0);
-	cor = c;
+	cor = tela(c);
 }
 
 void fragment() {

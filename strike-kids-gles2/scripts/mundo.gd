@@ -163,10 +163,6 @@ func aplicar_tema(nome: String) -> void:
 	var para_sol := sol.global_transform.basis.z.normalized() if sol.is_inside_tree() else Vector3(0.35, 0.79, 0.5)
 	var forca_amb := float(c.get("ambiente_forca", 0.62))
 	var forca_sol := float(c.get("sol_forca", 1.05))
-	# a luz do motor (sol + ambiente) agora vai para os toons (Materiais).
-	# O toon passa a cor para luz linear elevando ao quadrado: a força vai
-	# pela raiz (senão ela também sairia ao quadrado)
-	Materiais.definir_luz(para_sol, _vezes(c["sol"], sqrt(forca_sol)), _vezes(c["ambiente"], sqrt(forca_amb)))
 	var amb: Color = _vezes(_linear(c["ambiente"]), forca_amb)
 	var luz_sol: Color = _vezes(_linear(c["sol"]), forca_sol * max(para_sol.y, 0.0))
 	var luz_cena := Vector3(amb.r + luz_sol.r, amb.g + luz_sol.g, amb.b + luz_sol.b)
@@ -175,9 +171,15 @@ func aplicar_tema(nome: String) -> void:
 	var sol_lin: Color = _vezes(_linear(c["sol"]), forca_sol)
 	var sol_cor := Vector3(sol_lin.r, sol_lin.g, sol_lin.b)
 	var amb_v := Vector3(amb.r, amb.g, amb.b)
+	# a luz do motor (sol + ambiente, lineares e com a força) vai para os
+	# toons, a bola e os para-choques (Materiais)
+	Materiais.definir_luz(para_sol, sol_cor, amb_v)
 	var nb: Color = _linear(c["neblina"])
 	var neblina := Vector3(nb.r, nb.g, nb.b)
-	var densidade := float(c.get("neblina_densidade", 0.0045))
+	# (no Godot 4 a neblina por vértice do cenário leve não chegava a
+	# aparecer — conferido quadro a quadro: com e sem ela, o mesmo pixel.
+	# Aqui ela fica desligada para a imagem sair igual e mais barata)
+	var densidade := 0.0
 	for m in [mat_terreno]:
 		m.set_shader_param("sol_dir", para_sol)
 		m.set_shader_param("sol_cor", sol_cor)
