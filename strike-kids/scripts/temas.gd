@@ -24,7 +24,6 @@ const CONFIG := {
 		"parede": Color("#2A63C4"),
 		"placa": Color("#1E3FA0"), "divisoria": Color("#FFB627"), "faixa": Color("#E8384F"), "canaleta": Color("#8FC4EE"),
 		"chao": [Color("#6BCB5D"), Color("#5BB54E"), Color("#FFFFFF"), Color("#FFE873")], "chao_modo": 0,
-		"balao": {"cor": Color("#E8384F")},   # balão com a marca Lazer & Sport
 	},
 	"espaco": {
 		"ceu": [Color("#040A26"), Color("#0E2560"), Color("#2C6AB8"), Color("#14244E")],

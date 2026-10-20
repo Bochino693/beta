@@ -11,13 +11,15 @@ extends Node
 ## Teclado no PC: A S D F G = sensores, 1/Espaço = START, 5 = crédito,
 ## 9 = configuração. Também dá para clicar/tocar nas 5 luzes da tela.
 
-enum E { ABERTURA, ATRACAO, JOGADORES, PERSONAGEM, PRONTO, ARREMESSO, ROLANDO, RESULTADO, REPLAY, FIM, DEMO, FOTO, TESTE }
+enum E { ABERTURA, ATRACAO, JOGADORES, PERSONAGEM, PRONTO, ARREMESSO, ROLANDO, RESULTADO, REPLAY, FIM, DEMO, FOTO, TESTE, OPERADOR }
 
 const Z_INICIO := 3.15
 const X_MAO := 0.28            # a mão direita fica 0,28 m à direita do corpo
 const MESMA_BOLA_MS := 1200
 const VALIDADE_PENDENTE_MS := 10000
-const CENA_OPERADOR := "res://cenas/operador.tscn"
+## menus que abrem POR CIMA do jogo pausado (nada é desmontado)
+const CENA_OPERADOR := preload("res://cenas/operador.tscn")
+const CENA_BOTOES := preload("res://cenas/configuracao_botoes.tscn")
 ## tempo da tela "QUANTOS VÃO JOGAR?" (START de novo dentro dele = 2 jogadores)
 const TEMPO_JOGADORES := 4.0
 ## pódios da escolha do personagem e da foto (Bob à esquerda, Mia à direita)
@@ -75,8 +77,11 @@ var _demo_t := 0.0
 var _camera_t := 0.0
 var _demo_vez := 0
 var _ultimo_som_pino := 0
-var _tema_base := 0           # a 1ª rodada é sempre nos dinos; as outras giram de partida em partida
-var _tema_partida := 0
+## as fases (cenários) de cada rodada desta partida, sorteadas no START
+var _temas_partida: Array[String] = []
+var _temas_prontos := false
+## a roupinha do Bob e da Mia em cada fase (tools/modelos/roupas.py)
+const ROUPA_DO_TEMA := {"mar": "pirata", "dinos": "dino", "espaco": "astronauta", "parque": "parque"}
 var _qualidade := "media"
 ## resolução da imagem 3D: fator (70% a 100%) sobre o LADO_3D — automático
 ## (desce se a máquina não segura 60 quadros e VOLTA A SUBIR quando sobra
@@ -90,7 +95,17 @@ var _fps_bons := 0
 var _teto := 1.0            # fator que já se mostrou pesado demais...
 var _teto_ate := 0          # ...até esta hora (ms): não tenta subir acima dele
 var _fator_salvar := false  # fator novo a gravar (na atração: gravar no meio do jogo trava)
+## troca de resolução (ou de qualidade) decidida, esperando um clarão de
+## tela para acontecer: refazer as imagens da placa de vídeo dá um tranco,
+## e escondido no clarão branco ninguém vê
+var _fator_pendente := -1.0
+var _qualidade_pendente := ""
 var _mouse_parado := 0.0
+## menu do operador / configuração dos botões aberto por cima do jogo
+var _menu: Control = null
+var _camada_menu: CanvasLayer
+var _antes_menu := {}
+var _medidor_antes := false
 
 ## Lado menor da IMAGEM 3D, em pixels, em cada qualidade (nunca maior que a
 ## própria tela): NATIVO — 3D tão nítido quanto a interface. Na TV Box
@@ -103,29 +118,9 @@ func _ready() -> void:
 	randomize()
 	_passos_fisica = int(ProjectSettings.get_setting("physics/common/physics_ticks_per_second", 120))
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
-	_qualidade = str(Ajustes.valor("video", "qualidade"))
-	if OS.has_environment("STRIKE_QUALIDADE"):
-		_qualidade = OS.get_environment("STRIKE_QUALIDADE")
-	if _qualidade == "auto":
-		# o TESTE DE DESEMPENHO do menu do operador já mediu esta máquina?
-		var medida := str(Ajustes.valor("video", "qualidade_auto"))
-		if medida in ["alta", "media", "baixa"]:
-			_qualidade = medida
-		else:
-			_qualidade = "alta" if OS.get_name() != "Android" else "media"
+	_qualidade = _qualidade_escolhida()
 	Materiais.contornos_ligados = _qualidade != "baixa"
-	# NITIDEZ: automática (começa do último fator bom desta máquina) ou fixa
-	var nitidez := str(Ajustes.valor("video", "nitidez"))
-	if nitidez == "auto":
-		_fator = clampf(float(Ajustes.valor("video", "fator")), FATOR_MIN, 1.0)
-	else:
-		_adaptar = false
-		_fator = clampf(float(nitidez.trim_suffix("%")) / 100.0, FATOR_MIN, 1.0)
-	for a in OS.get_cmdline_user_args():
-		# testes e vídeos: resolução fixa e cheia (a máquina de teste é lenta)
-		if a.begins_with("--roteiro") or a.begins_with("--video") or a.begins_with("--instantes") or a.begins_with("--replay-teste"):
-			_adaptar = false
-			_fator = 1.0
+	_ler_nitidez()
 	_montar_3d()
 	hud = Hud.new()
 	add_child(hud)
@@ -142,11 +137,49 @@ func _ready() -> void:
 	add_child(aq)
 	aq.preparar(vp, hud, efeitos.materiais())
 	hud.toque_sensor.connect(_jogada_recebida)
+	# o aviso "marque Sempre abrir / toque em Permitir" antes das janelas do Android
+	ArduinoBridge.janela_android.connect(hud.aviso_android)
+	Fotos.janela_android.connect(hud.aviso_android)
 	Tela.mudou.connect(_tela_mudou)
 	_tela_mudou(Tela.tamanho())
 	ArduinoBridge.send_led("MENU")
+	_camada_menu = CanvasLayer.new()
+	_camada_menu.layer = 20
+	_camada_menu.process_mode = Node.PROCESS_MODE_ALWAYS
+	add_child(_camada_menu)
 	_ligar_roteiro_de_teste()
 	_abertura()
+
+
+## Qualidade gráfica valendo: a do operador (ou STRIKE_QUALIDADE nos
+## testes); "auto" = a medida pelo TESTE DE DESEMPENHO, ou alta no PC e
+## média na TV Box.
+func _qualidade_escolhida() -> String:
+	var q := str(Ajustes.valor("video", "qualidade"))
+	if OS.has_environment("STRIKE_QUALIDADE"):
+		q = OS.get_environment("STRIKE_QUALIDADE")
+	if q == "auto":
+		var medida := str(Ajustes.valor("video", "qualidade_auto"))
+		if medida in ["alta", "media", "baixa"]:
+			q = medida
+		else:
+			q = "alta" if OS.get_name() != "Android" else "media"
+	return q
+
+
+## NITIDEZ: automática (começa do último fator bom desta máquina) ou fixa.
+func _ler_nitidez() -> void:
+	var nitidez := str(Ajustes.valor("video", "nitidez"))
+	_adaptar = nitidez == "auto"
+	if _adaptar:
+		_fator = clampf(float(Ajustes.valor("video", "fator")), FATOR_MIN, 1.0)
+	else:
+		_fator = clampf(float(nitidez.trim_suffix("%")) / 100.0, FATOR_MIN, 1.0)
+	for a in OS.get_cmdline_user_args():
+		# testes e vídeos: resolução fixa e cheia (a máquina de teste é lenta)
+		if a.begins_with("--roteiro") or a.begins_with("--video") or a.begins_with("--instantes") or a.begins_with("--replay-teste"):
+			_adaptar = false
+			_fator = 1.0
 
 
 ## Teste automático (PC): godot --path . -- --roteiro=pasta
@@ -159,6 +192,8 @@ func _ligar_roteiro_de_teste() -> void:
 	for a in OS.get_cmdline_user_args():
 		if a.begins_with("--replay-teste") and ResourceLoader.exists("res://tools/testes/replay_teste.gd"):
 			add_child(load("res://tools/testes/replay_teste.gd").new())
+		if a.begins_with("--glifos") and ResourceLoader.exists("res://tools/testes/glifos.gd"):
+			add_child(load("res://tools/testes/glifos.gd").new())
 	for a in OS.get_cmdline_user_args():
 		if a.begins_with("--roteiro") and ResourceLoader.exists("res://tools/testes/roteiro.gd"):
 			add_child(load("res://tools/testes/roteiro.gd").new())
@@ -254,10 +289,9 @@ func _input(event: InputEvent) -> void:
 		_mouse_parado = 0.0
 		if Input.mouse_mode != Input.MOUSE_MODE_VISIBLE:
 			Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
-	if ArcadeControls.eh_config(event):
+	if ArcadeControls.eh_config(event) or _tecla_menu(event):
 		get_viewport().set_input_as_handled()
-		_parar_lenta()
-		get_tree().change_scene_to_file.call_deferred(CENA_OPERADOR)
+		abrir_menu.call_deferred(CENA_OPERADOR)
 		return
 	if ArcadeControls.eh_credito(event):
 		Ajustes.adicionar_credito()
@@ -418,6 +452,7 @@ func _abertura() -> void:
 	hud.flash(Color.WHITE, 0.6)
 	Sons.tocar("brilho")
 	_atracao()
+	_no_clarao()
 	if bool(Ajustes.valor("video", "testar")):
 		Ajustes.definir("video", "testar", false)
 		_teste_desempenho()
@@ -432,6 +467,8 @@ func _teste_desempenho() -> void:
 	hud.atracao(false)
 	_posicionar_atracao()
 	var r: Dictionary = await medidor.testar()
+	if r.is_empty():
+		return   # o menu do operador abriu no meio do teste
 	_resultado_teste = r["cartaz"]
 	mundo.aplicar_tema(Temas.ORDEM[0])
 
@@ -450,6 +487,7 @@ func _atracao() -> void:
 	Sons.atualizar_volume()
 	_novo_seq()
 	_limpar()
+	_roupa_de_sempre()
 	hud.marca(false, true)
 	hud.tela_fim(false)
 	hud.jogadores(false)
@@ -525,6 +563,12 @@ func _escolher_jogadores() -> void:
 	ArduinoBridge.send_led("MENU")
 	bola.guardar()
 	_parar_lenta()
+	# escolha e fotos com a roupa de sempre; as fases já saem no sorteio e a
+	# roupinha da 1ª vai carregando em segundo plano enquanto escolhem
+	_roupa_de_sempre()
+	_sortear_temas(Ajustes.rodadas())
+	_temas_prontos = true
+	_pedir_roupas(_temas_partida[0])
 
 
 func _confirmar_jogadores() -> void:
@@ -610,8 +654,10 @@ func _comecar(lista: Array) -> void:
 	placar.comecar(lista, Ajustes.rodadas(), Ajustes.tentativas())
 	mundo.definir_protecao(Ajustes.protecao_canaleta())
 	maquina.instantaneo()
-	_tema_partida = _tema_base
-	_tema_base = (_tema_base + maxi(Ajustes.rodadas() - 1, 1)) % (Temas.ORDEM.size() - 1)
+	if not _temas_prontos or _temas_partida.size() != maxi(Ajustes.rodadas(), 1):
+		_sortear_temas(Ajustes.rodadas())
+		_pedir_roupas(_temas_partida[0])
+	_temas_prontos = false
 	Fotos.limpar_partida()
 	# uma foto por jogador (1 jogador = 1 foto, 2 jogadores = 2 fotos)
 	if Fotos.pode_fotografar():
@@ -671,13 +717,64 @@ func _sessao_de_fotos(lista: Array) -> bool:
 	return true
 
 
-## 1ª rodada: Selva dos Dinos, sempre. Da 2ª em diante, os outros cenários
-## em roda — cada partida continua de onde a anterior parou.
+## A fase (cenário) da rodada atual, do sorteio da partida.
 func _tema_da_rodada() -> String:
-	if placar.rodada_atual == 0:
-		return Temas.ORDEM[0]
-	var outros := Temas.ORDEM.size() - 1
-	return Temas.ORDEM[1 + (_tema_partida + placar.rodada_atual - 1) % outros]
+	if _temas_partida.is_empty():
+		return mundo.tema
+	return _temas_partida[clampi(placar.rodada_atual, 0, _temas_partida.size() - 1)]
+
+
+## FASES SORTEADAS: a fase de cada rodada sai num sorteio — todas aparecem
+## antes de alguma se repetir, e nunca a mesma duas rodadas seguidas.
+func _sortear_temas(n: int) -> void:
+	_temas_partida.clear()
+	var antes := ""
+	var usados := {}
+	for i in maxi(n, 1):
+		var opcoes: Array[String] = []
+		for t in Temas.ORDEM:
+			if t != antes and not usados.has(t):
+				opcoes.append(t)
+		if opcoes.is_empty():
+			usados.clear()
+			for t in Temas.ORDEM:
+				if t != antes:
+					opcoes.append(t)
+		var t: String = opcoes.pick_random()
+		_temas_partida.append(t)
+		usados[t] = true
+		antes = t
+
+
+# ================================================================ roupinhas das fases
+## Bob e Mia com a roupinha da fase (pirata no mar, dinossaurinho na selva,
+## astronauta no espaço, boné de hélice no parque). "" = a roupa de sempre.
+func _vestir(tema: String) -> void:
+	var r: String = ROUPA_DO_TEMA.get(tema, "")
+	for nome in personagens:
+		(personagens[nome] as Personagem).trocar_roupa(r)
+
+
+## Começa a carregar (em segundo plano) a roupinha de uma fase que vem aí.
+func _pedir_roupas(tema: String) -> void:
+	var r: String = ROUPA_DO_TEMA.get(tema, "")
+	for nome in personagens:
+		(personagens[nome] as Personagem).pedir_roupa(r)
+
+
+## Roupa de sempre (tela de início, escolha, fotos): se alguém ainda está de
+## roupinha, troca escondido num clarão; o que ficou carregado sem uso sai
+## da memória.
+func _roupa_de_sempre() -> void:
+	var trocar := false
+	for nome in personagens:
+		var p: Personagem = personagens[nome]
+		p.soltar_pedidos()
+		if p.roupa != "":
+			trocar = true
+	if trocar:
+		hud.flash(Color.WHITE, 0.6, 0.35)
+		_vestir("")
 
 
 ## Começo da vez de um jogador (ou da próxima bola dele).
@@ -717,6 +814,11 @@ func _vez(nova_rodada: bool) -> void:
 		var tema := _tema_da_rodada()
 		hud.flash(Color.WHITE, 0.95, 0.6)
 		mundo.aplicar_tema(tema)
+		_vestir(tema)
+		# a roupinha da próxima fase já vai carregando durante esta rodada
+		if placar.rodada_atual + 1 < _temas_partida.size():
+			_pedir_roupas(_temas_partida[placar.rodada_atual + 1])
+		_no_clarao()
 		Sons.tocar("brilho")
 		Sons.tocar("whoosh", 0.6)
 		hud.anunciar_cenario(tema, 1.7)
@@ -820,14 +922,19 @@ func _soltou_bola(pos: Vector3) -> void:
 	_gravacao.clear()
 	_gravando = true
 	mundo.acender_pista(true)
-	a.tocar("assistindo", 0.25)
 	a.olhar_alvo = bola.global_position
-	var p: Personagem = personagens[_plateia]
-	p.tocar("torcida", 0.2)
 	# primeiro por cima (a câmera não atravessa o personagem), depois desce
 	cam.seguir(bola, Vector3(0.5, 2.1, 3.6), Vector3(0, 0.0, -5.0), 50, 40, 3.0)
 	_cam_baixa = false
-	Sons.tocar("start", 0.35, 1.4)
+	# o resto no quadro seguinte: tudo no mesmo quadro dava um tranco na TV
+	# Box bem na hora em que a bola sai da mão
+	var s := _seq
+	_no_proximo_quadro(func():
+		if s != _seq:
+			return
+		a.tocar("assistindo", 0.25)
+		(personagens[_plateia] as Personagem).tocar("torcida", 0.2)
+		Sons.tocar("start", 0.35, 1.4))
 
 
 ## A bola entrou na caçapa do fundo: barulhinho do túnel e, um pouco
@@ -1003,21 +1110,28 @@ func _finalizar_jogada() -> void:
 			Sons.tocar("strike")
 			Sons.tocar("torcida", 0.8)
 			ArduinoBridge.send_led("STRIKE")
-			if not demo:
-				var ft: Texture2D = Fotos.foto("j%d" % placar.jogador_atual)
-				if ft != null:
-					hud.foto_destaque(ft, Hud.COR_BOB if _ativo == "bob" else Hud.COR_MIA, 1.4)
-			efeitos.estrelas(Vector3(0, 0.6, Mundo.Z_PINO1 - 0.4), 40, 1.3)
-			efeitos.confete(Vector3(0, 0.3, Mundo.Z_PINO1 + 1.5), 1.6, 90)
 			mundo.lampadas(1)
+			var jogador := placar.jogador_atual
+			var ativo := _ativo
+			_no_proximo_quadro(func():
+				if s != _seq:
+					return
+				if not demo:
+					var ft: Texture2D = Fotos.foto("j%d" % jogador)
+					if ft != null:
+						hud.foto_destaque(ft, Hud.COR_BOB if ativo == "bob" else Hud.COR_MIA, 1.4)
+				efeitos.estrelas(Vector3(0, 0.6, Mundo.Z_PINO1 - 0.4), 40, 1.3)
+				efeitos.confete(Vector3(0, 0.3, Mundo.Z_PINO1 + 1.5), 1.6, 90))
 		"spare":
 			hud.flash(Color("#C9F7FF"), 0.55)
 			hud.letreiro("spare", "", 1.7)
 			Sons.tocar("spare")
 			Sons.tocar("torcida", 0.6)
 			ArduinoBridge.send_led("SPARE")
-			efeitos.estrelas(Vector3(0, 0.6, Mundo.Z_PINO1 - 0.4), 28)
 			mundo.lampadas(2)
+			_no_proximo_quadro(func():
+				if s == _seq:
+					efeitos.estrelas(Vector3(0, 0.6, Mundo.Z_PINO1 - 0.4), 28))
 		"zero":
 			hud.letreiro("ops", "", 1.5)
 			Sons.tocar("ops", 0.75)
@@ -1364,6 +1478,7 @@ func _fim_demo() -> void:
 	# a atração vai mostrando os 4 cenários
 	hud.flash(Color.WHITE, 0.8, 0.5)
 	mundo.aplicar_tema(Temas.proximo(mundo.tema))
+	_no_clarao()
 
 
 # ================================================================ inatividade
@@ -1433,7 +1548,133 @@ func _som_personagem(nome: String) -> void:
 			Sons.tocar("start", 0.7, 0.9)
 
 
+# ================================================================ menu do operador
+## MENU POR CIMA DO JOGO: o botão de CONFIGURAÇÃO abre o menu do operador
+## (ou a configuração dos botões) por cima do jogo PAUSADO — nada é
+## desmontado, a imagem 3D só para de ser desenhada. Entrar e sair é na
+## hora, sem travar. Só o "Cenário (fundo)", a qualidade BAIXA (sem
+## contornos) e virar a tela de pé/deitada pedem montar o jogo de novo.
+func abrir_menu(cena: PackedScene) -> void:
+	if _menu != null:
+		# troca de menu (operador -> configuração dos botões)
+		_menu.queue_free()
+	else:
+		_novo_seq()           # o que estava acontecendo para (demo, jogada, replay...)
+		_parar_lenta()
+		Sons.rolando(false)
+		_gravando = false
+		estado = E.OPERADOR
+		_antes_menu = _ajustes_que_remontam()
+		_medidor_antes = bool(Ajustes.valor("video", "medidor"))
+		get_tree().paused = true
+		vp.render_target_update_mode = SubViewport.UPDATE_DISABLED
+		hud.visible = false
+	_menu = cena.instantiate()
+	_camada_menu.add_child(_menu)
+
+
+## Saída do menu: o jogo volta na hora para a tela de espera (ou roda o
+## TESTE DE DESEMPENHO, se foi o pedido).
+func fechar_menu() -> void:
+	if _menu == null:
+		return
+	if _ajustes_que_remontam() != _antes_menu:
+		# o mundo é montado de outro jeito: monta de novo, com aviso na tela
+		_menu.set_process_input(false)
+		_aviso_remontar()
+		await get_tree().process_frame
+		await get_tree().process_frame
+		get_tree().paused = false
+		get_tree().reload_current_scene()
+		return
+	_menu.queue_free()
+	_menu = null
+	hud.visible = true
+	vp.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	get_tree().paused = false
+	_fps_t0 = 0
+	# ajustes que valem na hora
+	var q := _qualidade_escolhida()
+	if q != _qualidade:
+		_qualidade = q
+		mundo.aplicar_qualidade(_qualidade)
+		_qualidade_viewport()
+	_ler_nitidez()
+	_tela_mudou(Tela.tamanho())
+	if bool(Ajustes.valor("video", "medidor")) != _medidor_antes:
+		medidor.mostrar(bool(Ajustes.valor("video", "medidor")))
+	if _resultado_teste != null:
+		(_resultado_teste.get_meta("fundo") as Node).queue_free()
+		_resultado_teste = null
+	# a abertura pode ter ficado pela metade
+	hud.tarjas(false)
+	hud.marca(false, true)
+	bola.fogo(false)
+	bola.vestir("bob")
+	mundo.bola_z = 100.0
+	hud.flash(Color.WHITE, 0.5, 0.3)
+	_no_clarao()
+	if bool(Ajustes.valor("video", "testar")):
+		Ajustes.definir("video", "testar", false)
+		_atracao()
+		_teste_desempenho()
+	else:
+		_atracao()
+
+
+func menu_aberto() -> bool:
+	return _menu != null
+
+
+## O que muda a MONTAGEM do jogo (e não dá para trocar com ele montado).
+func _ajustes_que_remontam() -> Dictionary:
+	return {"cenario": Ajustes.cenario_leve(), "contornos": _qualidade_escolhida() != "baixa", "em_pe": Tela.em_pe()}
+
+
+func _aviso_remontar() -> void:
+	var fundo := ColorRect.new()
+	fundo.color = Color(0.03, 0.09, 0.22)
+	Tela.cobrir(fundo)
+	_camada_menu.add_child(fundo)
+	var l := Label.new()
+	Tela.cobrir(l)
+	l.text = "APLICANDO OS AJUSTES...\naguarde um instante"
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	var ls := LabelSettings.new()
+	ls.font = Materiais.fonte("fredoka_700")
+	ls.font_size = 54
+	ls.font_color = Color("#FFD43B")
+	ls.outline_size = 10
+	ls.outline_color = Color("#0B1F45")
+	l.label_settings = ls
+	fundo.add_child(l)
+
+
 # ================================================================ utilidades
+## Tecla MENU do controle remoto da TV Box: abre o menu do operador.
+func _tecla_menu(event: InputEvent) -> bool:
+	return event is InputEventKey and event.is_pressed() and not event.is_echo() \
+		and (event as InputEventKey).keycode == KEY_MENU
+
+
+## VOLTAR do controle remoto da TV Box: o Android pede para voltar (o jogo
+## NÃO fecha — application/config/quit_on_go_back = false). No menu do
+## operador ou na configuração dos botões, volta/sai; no jogo, nada.
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_WM_GO_BACK_REQUEST and _menu != null:
+		if _menu.has_method("comando"):
+			_menu.comando("sair")
+		elif _menu.has_method("cancelar"):
+			_menu.cancelar()
+
+
+## Faz `f` no começo do próximo quadro (espalha o trabalho de um momento
+## pesado por dois quadros: na TV Box tudo junto passava do tempo do quadro).
+func _no_proximo_quadro(f: Callable) -> void:
+	get_tree().process_frame.connect(f, CONNECT_ONE_SHOT)
+
+
 ## Interrompe o que estiver acontecendo (demo, replay, câmera lenta...).
 func _limpar() -> void:
 	_replay_ativo = false
@@ -1532,13 +1773,11 @@ func _medir_fps(_delta: float) -> void:
 		if _fator > FATOR_MIN + 0.01:
 			_teto = _fator
 			_teto_ate = agora + 90000
-			_mudar_fator(maxf(FATOR_MIN, _fator - 0.1), fps)
+			_pedir_fator(maxf(FATOR_MIN, _fator - 0.1), fps)
 		elif str(Ajustes.valor("video", "qualidade")) == "auto" and _qualidade != "baixa" and fps < alvo * 0.7:
-			_qualidade = "media" if _qualidade == "alta" else "baixa"
-			mundo.aplicar_qualidade(_qualidade)
-			_qualidade_viewport()
-			_mudar_fator(1.0, fps)
-			print("Qualidade automática: ", _qualidade, " (", int(fps), " quadros/s)")
+			_qualidade_pendente = "media" if _qualidade == "alta" else "baixa"
+			_pedir_fator(1.0, fps)
+			print("Qualidade automática: ", _qualidade_pendente, " (", int(fps), " quadros/s) no próximo clarão")
 	elif fps >= alvo * 0.97:
 		_fps_ruins = 0
 		_fps_bons += 1
@@ -1547,14 +1786,29 @@ func _medir_fps(_delta: float) -> void:
 			var limite := _teto - 0.01 if agora < _teto_ate else 1.0
 			var novo := minf(minf(1.0, _fator + 0.05), limite)
 			if novo > _fator + 0.001:
-				_mudar_fator(novo, fps)
+				_pedir_fator(novo, fps)
 	else:
 		_fps_ruins = 0
 		_fps_bons = 0
 
 
-func _mudar_fator(novo: float, fps: float) -> void:
-	_fator = novo
-	_tela_mudou(Tela.tamanho())
-	_fator_salvar = true
-	print("Imagem 3D: %d%% (%d quadros/s)" % [int(round(_fator * 100.0)), int(fps)])
+func _pedir_fator(novo: float, fps: float) -> void:
+	if absf(novo - _fator) < 0.001 and _qualidade_pendente == "":
+		return
+	_fator_pendente = novo
+	print("Imagem 3D: %d%% (%d quadros/s) no próximo clarão" % [int(round(novo * 100.0)), int(fps)])
+
+
+## Um clarão branco cobre a tela agora: a troca de resolução pendente
+## acontece aqui (o tranco de refazer as imagens fica escondido).
+func _no_clarao() -> void:
+	if _qualidade_pendente != "":
+		_qualidade = _qualidade_pendente
+		_qualidade_pendente = ""
+		mundo.aplicar_qualidade(_qualidade)
+		_qualidade_viewport()
+	if _fator_pendente > 0.0:
+		_fator = _fator_pendente
+		_fator_pendente = -1.0
+		_tela_mudou(Tela.tamanho())
+		_fator_salvar = true

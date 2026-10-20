@@ -11,7 +11,7 @@ extends Control
 ##
 ## Visual: placas com volume (Painel3D: degradê, verniz, lateral e sombra,
 ## como os objetos 3D) e contorno azul-marinho. A marca Lazer & Sport só
-## aparece na abertura (e, no 3D, num balão do cenário do Parque).
+## aparece na abertura (e, no 3D, sutil em cada cenário: ver Mundo).
 
 const COR_BOB := Color("#169BD5")
 const COR_MIA := Color("#FF7A21")
@@ -79,8 +79,11 @@ var _sel_texto: Label
 var _sel_destaque := 0
 var _sel_sensores: Control
 var _fim: Control
+var _fim_vez := 0          # cada fim de jogo mostrado (os letreiros atrasados conferem)
 var _inativo: Painel3D
 var _inativo_texto: Label
+var _aviso_android: Painel3D
+var _aviso_android_texto: Label
 var _tempo := 0.0
 var _convite := false
 var _retratos := {}
@@ -107,8 +110,8 @@ var _marca_texto: Label
 
 func montar(textura_3d: Texture2D) -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
-	fonte = load("res://fontes/fredoka_700.ttf")
-	fonte_titulo = load("res://fontes/titan_one.ttf")
+	fonte = Materiais.fonte("fredoka_700")
+	fonte_titulo = Materiais.fonte("titan_one")
 	for p in ["bob", "mia"]:
 		_retratos[p] = Materiais.textura("retrato_" + p)
 	tela3d = TextureRect.new()
@@ -137,6 +140,7 @@ func montar(textura_3d: Texture2D) -> void:
 	_fim.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_fim)
 	_montar_inatividade()
+	_montar_aviso_android()
 	_montar_fotos()
 	_montar_etapas()
 	_montar_marca()
@@ -563,14 +567,18 @@ func _estrelas_2d(centro: Vector2, n: int) -> void:
 	p.angular_velocity_max = 360
 	p.scale_amount_min = 0.12 * u
 	p.scale_amount_max = 0.3 * u
-	var g := Gradient.new()
-	g.set_color(0, Color("#FFE14D"))
-	g.set_color(1, Color("#FF9F2E"))
-	g.add_point(0.5, Color("#7FE7FF"))
-	p.color_initial_ramp = g
+	if _estrelas_cor == null:
+		_estrelas_cor = Gradient.new()
+		_estrelas_cor.set_color(0, Color("#FFE14D"))
+		_estrelas_cor.set_color(1, Color("#FF9F2E"))
+		_estrelas_cor.add_point(0.5, Color("#7FE7FF"))
+	p.color_initial_ramp = _estrelas_cor
 	_centro.add_child(p)
 	p.emitting = true
 	get_tree().create_timer(1.6).timeout.connect(p.queue_free)
+
+
+var _estrelas_cor: Gradient
 
 
 func flash(cor := Color.WHITE, forca := 0.7, dur := 0.35) -> void:
@@ -714,7 +722,12 @@ func _montar_atracao() -> void:
 func atracao(ligado: bool, recorde := "", creditos := "", foto_recorde: Texture2D = null, melhores := []) -> void:
 	_atracao.visible = ligado
 	_melhores_hoje = melhores
-	_montar_melhores(melhores, recorde)
+	# o quadro dos melhores só é montado de novo quando muda (montar a cada
+	# volta da demonstração dava um tranco na TV Box)
+	var chave := "%s|%s|%s|%s" % [str(melhores), recorde, str(size), str(retrato)]
+	if chave != _chave_melhores or (_melhores == null and not melhores.is_empty()):
+		_chave_melhores = chave
+		_montar_melhores(melhores, recorde)
 	if not melhores.is_empty():
 		recorde = ""
 	_recorde.text = recorde
@@ -745,6 +758,7 @@ func atracao(ligado: bool, recorde := "", creditos := "", foto_recorde: Texture2
 ## cada um (chama a criançada: "olha eu ali!").
 var _melhores: Control
 var _melhores_hoje := []
+var _chave_melhores := ""
 
 
 func _montar_melhores(lista: Array, recorde: String) -> void:
@@ -1120,8 +1134,10 @@ func tela_fim(ligado: bool, dados := {}) -> void:
 	for f in _fim.get_children():
 		f.queue_free()
 	_fim.visible = ligado
+	_fim_vez += 1
 	if not ligado:
 		return
+	var vez := _fim_vez
 	mostrar_placar(false)
 	mostrar_sensores(false)
 	var T := size
@@ -1152,10 +1168,15 @@ func tela_fim(ligado: bool, dados := {}) -> void:
 	for i in js.size():
 		_cartao_fim(js[i], i, js.size(), area_c, dados.get("vencedor", -9) == i and js.size() > 1)
 	_quadro_classificacao(dados.get("classificacao", []), js, area_q)
+	# (só se ainda for este fim de jogo: com START logo, a partida nova já começou)
 	if dados.get("vencedor", -9) == -1 and js.size() > 1:
-		_atrasado(3.0, func(): letreiro("empate", "", 2.5, 0.55))
+		_atrasado(3.0, func():
+			if vez == _fim_vez:
+				letreiro("empate", "", 2.5, 0.55))
 	if dados.get("recorde", false):
-		_atrasado(3.4, func(): letreiro("novo_recorde", "%d PONTOS" % dados.get("recorde_valor", 0), 3.0, 0.42 if retrato else 0.3))
+		_atrasado(3.4, func():
+			if vez == _fim_vez:
+				letreiro("novo_recorde", "%d PONTOS" % dados.get("recorde_valor", 0), 3.0, 0.42 if retrato else 0.3))
 	# botão "jogar de novo"
 	var bw: float = minf(T.x * 0.92, 940 * u)
 	var botao := Painel3D.new(DESTAQUE, 58, 14, 7)
@@ -1218,7 +1239,8 @@ func _cartao_fim(j: Dictionary, i: int, n: int, area: Rect2, venceu: bool) -> vo
 	pts.position = Vector2(0, yy + 44 * u)
 	c.add_child(pts)
 	var alvo := int(j["pontos"])
-	var tw2 := create_tween()
+	# (a contagem é do próprio texto: some junto com ele)
+	var tw2 := pts.create_tween()
 	tw2.tween_interval(0.8 + i * 0.2)
 	tw2.tween_method(func(v: float): pts.text = str(int(v)), 0.0, float(alvo), 1.4).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 	var leg := rotulo("PONTOS", 30 * u, Color.WHITE, 7 * u)
@@ -1394,6 +1416,23 @@ func _montar_inatividade() -> void:
 	_inativo_texto = rotulo("", 52, Color.WHITE, 12)
 	_inativo_texto.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_inativo.add_child(_inativo_texto)
+
+
+## Aviso no alto da tela ANTES de uma janela de permissão do Android (ela
+## congela a imagem do jogo; o aviso fica visível em volta dela): o que
+## tocar para ela nunca mais aparecer. "" = some.
+func _montar_aviso_android() -> void:
+	_aviso_android = Painel3D.new(Color("#E8384F"), 36, 12, 7)
+	_aviso_android.visible = false
+	add_child(_aviso_android)
+	_aviso_android_texto = rotulo("", 40, Color.WHITE, 10)
+	_aviso_android_texto.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_aviso_android.add_child(_aviso_android_texto)
+
+
+func aviso_android(texto: String) -> void:
+	_aviso_android.visible = texto != ""
+	_aviso_android_texto.text = texto
 
 
 func inatividade(ligado: bool, segundos := 10) -> void:
@@ -1860,6 +1899,12 @@ func layout() -> void:
 	# inatividade
 	_inativo.size = Vector2(mw, 600 * u)
 	_inativo.position = (T - _inativo.size) / 2
+	_aviso_android.size = Vector2(minf(T.x - 60 * u, 1500 * u), 230 * u)
+	_aviso_android.position = Vector2((T.x - _aviso_android.size.x) / 2, 30 * u)
+	_tamanho_rotulo(_aviso_android_texto, 40 * u)
+	_aviso_android_texto.label_settings.outline_size = int(10 * u)
+	_aviso_android_texto.size = _aviso_android.size - Vector2(60 * u, 20 * u)
+	_aviso_android_texto.position = Vector2(30 * u, 10 * u)
 	_tamanho_rotulo(_inativo_texto, 54 * u)
 	_inativo_texto.label_settings.outline_size = int(12 * u)
 	_inativo_texto.size = _inativo.size

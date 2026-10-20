@@ -60,9 +60,54 @@ func valor(secao: String, chave: String):
 	return _cfg.get_value(secao, chave, PADRAO.get(secao, {}).get(chave))
 
 
+## GRAVAR SEM PARAR O JOGO: gravar no disco da TV Box leva alguns ms (às
+## vezes bem mais) — no meio da partida (contador de strikes, fichas) isso
+## era um tranco. As gravações do mesmo quadro viram uma só, e o arquivo é
+## escrito numa linha de trabalho separada (sempre na ordem certa).
+var _salvar_pendente := false
+var _versao := 0
+var _gravada := 0
+var _trava := Mutex.new()
+
+
+func _salvar() -> void:
+	if not _salvar_pendente:
+		_salvar_pendente = true
+		_salvar_agora.call_deferred()
+
+
+func _salvar_agora() -> void:
+	_salvar_pendente = false
+	_versao += 1
+	var v := _versao
+	var texto := _cfg.encode_to_text()
+	Tarefas.rodar(func(): _escrever(texto, v))
+
+
+func _escrever(texto: String, v: int) -> void:
+	_trava.lock()
+	if v > _gravada:
+		var f := FileAccess.open(ARQUIVO, FileAccess.WRITE)
+		if f:
+			f.store_string(texto)
+			f.close()
+			_gravada = v
+	_trava.unlock()
+
+
+## Fechando o jogo: grava na hora o que estiver pendente.
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_WM_CLOSE_REQUEST or what == NOTIFICATION_PREDELETE or what == NOTIFICATION_EXIT_TREE:
+		Tarefas.esperar_todas()
+		if _salvar_pendente:
+			_salvar_pendente = false
+			_versao += 1
+			_escrever(_cfg.encode_to_text(), _versao)
+
+
 func definir(secao: String, chave: String, v) -> void:
 	_cfg.set_value(secao, chave, v)
-	_cfg.save(ARQUIVO)
+	_salvar()
 	mudaram.emit()
 
 
@@ -70,7 +115,7 @@ func restaurar_padrao() -> void:
 	for secao in PADRAO:
 		for chave in PADRAO[secao]:
 			_cfg.set_value(secao, chave, PADRAO[secao][chave])
-	_cfg.save(ARQUIVO)
+	_salvar()
 	mudaram.emit()
 
 
@@ -138,7 +183,7 @@ func registrar_pontos(jogadores: int, pontos: int, quem: String) -> bool:
 	var r := recorde(jogadores)
 	if pontos > int(r.get("pontos", 0)):
 		_cfg.set_value("recorde", "j%d" % jogadores, {"pontos": pontos, "quem": quem})
-		_cfg.save(ARQUIVO)
+		_salvar()
 		return true
 	return false
 
@@ -148,13 +193,13 @@ func definir_foto_recorde(jogadores: int, caminho: String) -> void:
 	var r := recorde(jogadores)
 	r["foto"] = caminho
 	_cfg.set_value("recorde", "j%d" % jogadores, r)
-	_cfg.save(ARQUIVO)
+	_salvar()
 
 
 func zerar_recordes() -> void:
 	if _cfg.has_section("recorde"):
 		_cfg.erase_section("recorde")
-	_cfg.save(ARQUIVO)
+	_salvar()
 	Classificacao.zerar()
 	Fotos.apagar_recordes()
 
@@ -162,7 +207,7 @@ func zerar_recordes() -> void:
 # ---------------------------------------------------------------- contadores
 func contar(chave: String, quanto := 1) -> void:
 	_cfg.set_value("contadores", chave, int(_cfg.get_value("contadores", chave, 0)) + quanto)
-	_cfg.save(ARQUIVO)
+	_salvar()
 
 
 func contador(chave: String) -> int:

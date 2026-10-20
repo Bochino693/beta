@@ -6,6 +6,8 @@ extends SceneTree
 ## (.bin + .json) — de preferência a versão leve que o simplificar.py
 ## grava em saida/leve — e salva recursos nativos do Godot em res://modelos/:
 ##   * bob.scn / mia.scn  — personagem montado (juntas + malhas)
+##   * roupas/<bob|mia>_<roupa>.scn — as roupinhas das fases (mesmas juntas;
+##     o jogo só troca a malha de cada junta: Personagem.trocar_roupa)
 ##   * pino.res + pino_colisao.res
 ##   * cenario/<objeto>.res, terreno.res
 ## Cada malha ganha níveis de detalhe (LOD) automáticos: de longe o Godot
@@ -23,12 +25,20 @@ const SAIDA := "res://modelos/"
 
 func _init() -> void:
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(SAIDA + "cenario"))
+	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(SAIDA + "roupas"))
 	var so := OS.get_cmdline_user_args()   # ex.: -- temas  (só esse pacote)
 	for nome in ["bob", "mia"]:
 		if not so.is_empty() and not so.has(nome):
 			continue
 		if FileAccess.file_exists(ENTRADA + nome + ".json"):
 			_assar_personagem(nome)
+	for nome in ["bob", "mia"]:
+		for roupa in ["pirata", "dino", "astronauta", "parque"]:
+			var pacote: String = nome + "_" + roupa
+			if not so.is_empty() and not so.has(pacote) and not so.has("roupas"):
+				continue
+			if FileAccess.file_exists(ENTRADA + pacote + ".json"):
+				_assar_personagem(pacote, SAIDA + "roupas/")
 	for pac in ["pino", "cenario", "temas", "terreno"]:
 		if not so.is_empty() and not so.has(pac):
 			continue
@@ -92,7 +102,7 @@ func _malha(parte: Dictionary, blob: PackedByteArray, lod := true) -> ArrayMesh:
 	return im.get_mesh()
 
 
-func _assar_personagem(nome: String) -> void:
+func _assar_personagem(nome: String, pasta := SAIDA) -> void:
 	var dados := _ler(nome)
 	var info: Dictionary = dados[0]
 	var blob: PackedByteArray = dados[1]
@@ -118,7 +128,7 @@ func _assar_personagem(nome: String) -> void:
 			raiz.set_meta(k, info[k])
 	var cena := PackedScene.new()
 	cena.pack(raiz)
-	var r := ResourceSaver.save(cena, SAIDA + nome + ".scn", ResourceSaver.FLAG_COMPRESS)
+	var r := ResourceSaver.save(cena, pasta + nome + ".scn", ResourceSaver.FLAG_COMPRESS)
 	print("personagem ", nome, " -> ", r)
 	raiz.free()
 

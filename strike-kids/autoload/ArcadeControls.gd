@@ -285,5 +285,9 @@ func _process(_delta: float) -> void:
 	for chave: String in _segurado_desde:
 		if agora - int(_segurado_desde[chave]) >= SEGURAR_PARA_CONFIGURAR_MS:
 			_segurado_desde.clear()
-			get_tree().change_scene_to_file.call_deferred(CENA_CONFIGURACAO)
+			if cena.has_method("abrir_menu"):
+				# por cima do jogo pausado (nada é desmontado)
+				cena.abrir_menu.call_deferred(load(CENA_CONFIGURACAO))
+			else:
+				get_tree().change_scene_to_file.call_deferred(CENA_CONFIGURACAO)
 			return

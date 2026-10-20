@@ -27,7 +27,9 @@ uniform vec2 rosto_grade = vec2(4.0, 2.0);
 uniform vec2 rosto_celula = vec2(0.0, 0.0);
 
 // ESTAMPA DA ROUPA desenhada aqui (não na malha): bordas perfeitas em 4K.
-//   1 = estrela de frente no peito; 2 = bolinhas em fileiras na saia.
+//   1 = estrela de frente no peito; 2 = bolinhas em fileiras na saia;
+//   3 = listras (camiseta de pirata): faixas de 2 x estampa_raio a cada
+//       bolinhas_dy, a partir de bolinhas_y0, até bolinhas_y_max.
 // Só aparece onde a cor do vértice é a da roupa (estampa_base).
 uniform int estampa = 0;
 uniform vec3 estampa_base : source_color = vec3(1.0);
@@ -122,9 +124,13 @@ void fragment() {
 		if (estampa == 1) {
 			d = sd_estrela(pos_local.xy - estampa_centro, estampa_raio, estampa_dentro) - estampa_raio * 0.06;
 			lado = smoothstep(0.15, 0.4, normal_local.z) * step(0.0, pos_local.z);
-		} else {
+		} else if (estampa == 2) {
 			d = sd_bolinhas(pos_local);
 			lado = 1.0 - smoothstep(bolinhas_y_max - 0.01, bolinhas_y_max, pos_local.y);
+		} else {
+			float y = pos_local.y - bolinhas_y0;
+			d = abs(y - bolinhas_dy * floor(y / bolinhas_dy + 0.5)) - estampa_raio;
+			lado = (1.0 - smoothstep(bolinhas_y_max - 0.01, bolinhas_y_max, pos_local.y)) * step(-estampa_raio, y);
 		}
 		float m = cobre(d) * tecido * lado;
 		// filete um pouco mais escuro em volta (desenho de adesivo)

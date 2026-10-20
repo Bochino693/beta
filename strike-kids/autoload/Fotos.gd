@@ -16,10 +16,12 @@ extends Node
 ##     foto sai na hora, sem esperar a webcam "esquentar", e o driver USB
 ##     não fica abrindo e fechando. Sem imagem, reabre do zero só na tela
 ##     de espera, no máximo a cada 30 s e 3 vezes.
-##     PERMISSÕES: a da câmera é pedida logo que o jogo abre (e de novo na
-##     tela de espera, se foi negada); a da webcam USB só serve para a UVC
-##     direta e só aparece na tela de espera, depois de 20 s sem câmera do
-##     sistema — marque "Usar por padrão" uma vez e ela fica guardada;
+##     PERMISSÕES SÓ NA PRIMEIRA VEZ: a da câmera é pedida UMA vez (na
+##     tela de espera, com o aviso na tela "toque em PERMITIR"; o Android
+##     guarda a resposta para sempre). A da webcam USB só serve para a UVC
+##     direta e também é pedida uma vez só (marque "Usar por padrão").
+##     Depois disso o jogo nunca mais pede sozinho: só o operador, no TESTE
+##     DA CÂMERA do menu (guardado em user://fotos/camera.cfg);
 ##   * PC com Windows: ffmpeg (o Godot 4.6 não tem câmera no Windows).
 ##     Coloque o ffmpeg.exe na pasta do jogo (ou instale no PATH);
 ##   * Linux / Mac / teste: CameraServer do Godot.
@@ -34,10 +36,14 @@ extends Node
 ## Teste no PC sem webcam: godot --path . -- --camera-falsa
 
 signal mudou
+## aviso na tela do jogo antes da janela de permissão do Android ("" = some)
+signal janela_android(texto: String)
 
 const PASTA := "user://fotos/"
 const LADO := 384                  # foto quadrada, em pixels
 const PERMISSAO := "android.permission.CAMERA"
+const DICA_CAMERA := "A FOTO DAS CRIANÇAS USA A CÂMERA: NA JANELA DO ANDROID, TOQUE EM \"PERMITIR\"\nela só aparece desta vez"
+const JANELA_MAX_MS := 25000
 const W_FF := 640
 const H_FF := 480
 
@@ -81,8 +87,8 @@ var _ultimo_n := -1
 var _vigia_t := 0.0
 var _reaberturas := 0
 var _reaberta_ms := -1000000
-var _pedidos_permissao := 0
-var _permissao_pedida_ms := -1000000
+var _pedir_agora := false          # o operador pediu (TESTE DA CÂMERA no menu)
+var _janela_ate := 0               # a janela do Android está aberta (até este ms)
 var _img_y: Image
 var _img_uv: Image
 # Windows (ffmpeg)
@@ -129,6 +135,34 @@ func _ready() -> void:
 	# começar; no Android ela acorda e fica ligada 15 s depois
 	get_tree().create_timer(1.0).timeout.connect(iniciar)
 	get_tree().create_timer(despertar_s).timeout.connect(_acordar)
+	_ler_fotos_guardadas()
+
+
+## As fotos do recorde e da classificação (user://fotos/) são lidas do
+## disco já na abertura, numa linha de trabalho separada: ler e preparar
+## cada PNG na hora em que a tela de espera aparece dava um tranco.
+func _ler_fotos_guardadas() -> void:
+	var caminhos := []
+	for f in DirAccess.get_files_at(PASTA):
+		if f.get_extension() == "png" and (f.begins_with("recorde_") or f.begins_with("rank_")):
+			caminhos.append(PASTA + f)
+	if caminhos.is_empty():
+		return
+	var lidas_chegaram := _fotos_lidas
+	Tarefas.rodar(func():
+		var lidas := {}
+		for c in caminhos:
+			var img := Image.load_from_file(c)
+			if img != null and not img.is_empty():
+				img.generate_mipmaps()
+				lidas[c] = img
+		lidas_chegaram.call_deferred(lidas))
+
+
+func _fotos_lidas(lidas: Dictionary) -> void:
+	for c in lidas:
+		if not _recordes.has(c):
+			_recordes[c] = ImageTexture.create_from_image(lidas[c])
 
 
 func pronta() -> bool:
@@ -168,14 +202,14 @@ func iniciar() -> void:
 		return
 	if OS.get_name() == "Android":
 		if not OS.get_granted_permissions().has(PERMISSAO):
+			# a janela do Android só na tela de espera (na_espera), uma vez
 			_mudar("sem_permissao")
-			_pedir_permissao()
 			return
 		if Engine.has_singleton("StrikeCamera"):
 			_plugin = Engine.get_singleton("StrikeCamera")
 			fonte = "android"
-			_procurar_android()
-			_manter_ligada()
+			# a lista chega sem parar o jogo e então a câmera liga (_lista_chegou)
+			_procurar_android_sem_parar()
 			return
 	elif OS.get_name() == "Windows":
 		fonte = "ffmpeg"
@@ -196,18 +230,60 @@ func procurar_agora() -> void:
 		iniciar()
 
 
-## A janela do Android "Permitir que o Strike Kids tire fotos?".
+## A janela do Android "Permitir que o Strike Kids tire fotos?": UMA vez
+## sozinha (na espera); depois, só quando o operador pede.
 func _pedir_permissao() -> void:
+	if janela_aberta() or ArduinoBridge.janela_aberta():
+		return   # uma janela do Android por vez
+	if _pedir_agora:
+		_pedir_agora = false
+	elif _lembrado("permissao_pedida"):
+		return
+	_lembrar("permissao_pedida")
 	if not get_tree().on_request_permissions_result.is_connected(_permissao):
 		get_tree().on_request_permissions_result.connect(_permissao)
-	_pedidos_permissao += 1
-	_permissao_pedida_ms = Time.get_ticks_msec()
-	OS.request_permission(PERMISSAO)
+	_janela_ate = Time.get_ticks_msec() + JANELA_MAX_MS
+	# a janela do Android congela a imagem do jogo: o aviso entra antes
+	janela_android.emit(DICA_CAMERA)
+	get_tree().create_timer(0.6, true, false, true).timeout.connect(func(): OS.request_permission(PERMISSAO))
+
+
+## O operador pediu (TESTE DA CÂMERA, ou ligou a foto no menu): a janela
+## que faltar (câmera ou webcam USB) pode abrir de novo.
+func pedir_permissao_agora() -> void:
+	if OS.get_name() != "Android":
+		return
+	_pedir_agora = true
+	if not OS.get_granted_permissions().has(PERMISSAO):
+		_mudar("sem_permissao")
+		_pedir_permissao()
+	elif status == "sem_permissao_usb" and _plugin != null:
+		_pedir_usb(Time.get_ticks_msec())
+	else:
+		_pedir_agora = false
+
+
+func janela_aberta() -> bool:
+	return _janela_ate > 0 and Time.get_ticks_msec() < _janela_ate
+
+
+func _fechou_janela() -> void:
+	if _janela_ate > 0:
+		_janela_ate = 0
+		janela_android.emit("")
+
+
+func _notification(what: int) -> void:
+	# o jogo voltou para a frente: a janela do Android fechou
+	if what == NOTIFICATION_APPLICATION_FOCUS_IN or what == NOTIFICATION_APPLICATION_RESUMED:
+		_fechou_janela()
 
 
 func _permissao(nome: String, ok: bool) -> void:
-	if nome == PERMISSAO and ok:
-		iniciar()
+	if nome == PERMISSAO:
+		_fechou_janela()
+		if ok:
+			iniciar()
 
 
 func _mudar(s: String) -> void:
@@ -217,10 +293,11 @@ func _mudar(s: String) -> void:
 
 
 # ================================================================ procurar
-func _procurar_android() -> void:
+func _procurar_android(lista := "") -> void:
 	if _busca_desde_ms < 0:
 		_busca_desde_ms = Time.get_ticks_msec()
-	var lista := str(_plugin.call("listar"))
+	if lista == "":
+		lista = str(_plugin.call("listar"))
 	var melhor := ""
 	var usb_sem_permissao := false
 	for linha in lista.split("\n", false):
@@ -248,27 +325,59 @@ func _procurar_android() -> void:
 	_mudar("pronta")
 
 
+## Na TV Box a lista de câmeras vem do Android (câmera clássica, Camera2 e
+## USB): numa TV Box fraca isso pode levar dezenas de ms — feito numa
+## linha de trabalho separada, o jogo não para enquanto procura.
+var _procurando := false
+
+
+func _procurar_android_sem_parar() -> void:
+	if OS.get_name() != "Android":
+		_procurar_android()
+		return
+	if _procurando or _plugin == null:
+		return
+	_procurando = true
+	var plugin := _plugin
+	var chegou := _lista_chegou
+	Tarefas.rodar(func():
+		var lista := str(plugin.call("listar"))
+		chegou.call_deferred(lista))
+
+
+func _lista_chegou(lista: String) -> void:
+	_procurando = false
+	if _plugin == null or status == "desligada":
+		return
+	_procurar_android(lista if lista != "" else "#vazia")
+	if status == "sem_permissao_usb":
+		_pedir_usb(Time.get_ticks_msec())
+	elif status == "pronta":
+		_manter_ligada()
+
+
 ## Tela de espera (atração), a cada poucos segundos: confere a câmera. As
 ## janelas do Android aparecem SÓ aqui, nunca no meio do jogo (como no
-## jogo de soco): a da câmera, se foi negada (no máximo a cada 60 s e 3
-## vezes), e a da webcam USB. A câmera ligada e sem imagem reabre aqui.
+## jogo de soco), e cada uma UMA vez na vida: a da câmera e a da webcam
+## USB. A câmera ligada e sem imagem reabre aqui.
 func na_espera() -> void:
 	if status == "desligada":
 		return
 	var agora := Time.get_ticks_msec()
+	if _janela_ate > 0 and agora >= _janela_ate:
+		_fechou_janela()
 	if OS.get_name() == "Android" and not OS.get_granted_permissions().has(PERMISSAO):
-		if _pedidos_permissao < 3 and agora - _permissao_pedida_ms >= 60000:
-			_mudar("sem_permissao")
-			_pedir_permissao()
+		_mudar("sem_permissao")
+		_pedir_permissao()
 		return
 	if fonte != "android" or _plugin == null:
 		if status in ["sem_camera", "procurando", "sem_permissao"] and agora - _busca_ms >= BUSCA_MS:
 			procurar_agora()
 		return
-	# (no Android a lista do plugin é rápida e a permissão USB recém-dada
-	# precisa ser vista logo: procura em toda espera, como no jogo de soco)
+	# (a permissão USB recém-dada precisa ser vista logo: procura em toda
+	# espera, como no jogo de soco — na TV Box sem parar o jogo)
 	if status != "pronta":
-		_procurar_android()
+		_procurar_android_sem_parar()
 	if status == "sem_permissao_usb":
 		_pedir_usb(agora)
 	elif status == "pronta":
@@ -283,10 +392,14 @@ func na_espera() -> void:
 ## zero câmeras) e nunca se a webcam já apareceu como câmera do sistema —
 ## aí ela não precisa de permissão USB nenhuma, só abrir.
 func _pedir_usb(agora: int) -> void:
-	if agora - _busca_desde_ms < espera_usb_ms:
+	if agora - _busca_desde_ms < espera_usb_ms and not _pedir_agora:
 		return
 	if _sistema_visto or (_sistema_lembrado() and agora - _busca_desde_ms < 45000):
 		return
+	if _lembrado("usb_pedida") and not _pedir_agora:
+		return   # já pediu uma vez: nunca mais sozinho
+	_pedir_agora = false
+	_lembrar("usb_pedida")
 	_plugin.call("pedir_usb")
 
 
@@ -304,23 +417,32 @@ func _reabrir_se_muda(agora: int) -> void:
 	_abrir_android()
 
 
-## A webcam já mandou imagem como câmera do sistema numa abertura anterior
-## do jogo? (guardado em user://fotos/camera.cfg)
-var _lembranca := -1
+## O que o jogo guarda entre uma abertura e outra (user://fotos/camera.cfg):
+## a webcam já mandou imagem como câmera do sistema? as janelas de
+## permissão já foram pedidas uma vez?
+var _lembrancas: ConfigFile
+
+
+func _lembrado(chave: String) -> bool:
+	if _lembrancas == null:
+		_lembrancas = ConfigFile.new()
+		_lembrancas.load(PASTA + "camera.cfg")
+	return bool(_lembrancas.get_value("camera", chave, false))
+
+
+func _lembrar(chave: String) -> void:
+	if _lembrado(chave):
+		return
+	_lembrancas.set_value("camera", chave, true)
+	_lembrancas.save(PASTA + "camera.cfg")
 
 
 func _sistema_lembrado() -> bool:
-	if _lembranca < 0:
-		var c := ConfigFile.new()
-		_lembranca = 1 if c.load(PASTA + "camera.cfg") == OK and bool(c.get_value("camera", "sistema", false)) else 0
-	return _lembranca == 1
+	return _lembrado("sistema")
 
 
 func _lembrar_sistema() -> void:
-	_lembranca = 1
-	var c := ConfigFile.new()
-	c.set_value("camera", "sistema", true)
-	c.save(PASTA + "camera.cfg")
+	_lembrar("sistema")
 
 
 ## Alguém apertou START. No Android a câmera já fica ligada (só garante);
@@ -642,7 +764,7 @@ func _vigiar_android(delta: float) -> void:
 		_ultimo_n = n
 		_vivo_ms = Time.get_ticks_msec()
 		_reaberturas = 0
-		if _lembranca != 1 and str(_plugin.call("fonte")) in ["sistema", "camera2"]:
+		if not _sistema_lembrado() and str(_plugin.call("fonte")) in ["sistema", "camera2"]:
 			_lembrar_sistema()
 
 
@@ -751,6 +873,7 @@ func _parar_ffmpeg() -> void:
 
 
 func _exit_tree() -> void:
+	Tarefas.esperar_todas()
 	_parar_ffmpeg()
 	if _ff_busca != null:
 		_ff_busca.wait_to_finish()
@@ -840,7 +963,7 @@ func gravar(chave: String, nome_arquivo: String) -> String:
 		img = t.get_image()
 	var caminho := PASTA + nome_arquivo
 	_recordes[caminho] = t
-	WorkerThreadPool.add_task(func(): img.save_png(caminho))
+	Tarefas.rodar(func(): img.save_png(caminho))
 	return caminho
 
 

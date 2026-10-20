@@ -25,11 +25,31 @@ func materiais() -> Array:
 	return [_mat_estrela, _mat_faisca, _mat_fumaca, _mat_confete]
 
 
+## Malhas, degradês e curvas dos efeitos são feitos uma vez só e
+## reaproveitados (criar malha nova a cada estrela/confete pesava na TV Box
+## bem na hora do strike).
+var _quads := {}
+var _arco: Gradient
+var _poeira_cor: Gradient
+var _curvas := {}
+
+
 func _arco_iris() -> Gradient:
-	var g := Gradient.new()
-	g.offsets = PackedFloat32Array([0.0, 0.17, 0.34, 0.5, 0.67, 0.84, 1.0])
-	g.colors = PackedColorArray(ARCO_IRIS)
-	return g
+	if _arco == null:
+		_arco = Gradient.new()
+		_arco.offsets = PackedFloat32Array([0.0, 0.17, 0.34, 0.5, 0.67, 0.84, 1.0])
+		_arco.colors = PackedColorArray(ARCO_IRIS)
+	return _arco
+
+
+func _curva(pontos: Array) -> Curve:
+	var chave := str(pontos)
+	if not _curvas.has(chave):
+		var c := Curve.new()
+		for pt in pontos:
+			c.add_point(pt)
+		_curvas[chave] = c
+	return _curvas[chave]
 
 
 func _novo(qtd: int, vida: float, mat: Material, tam: float) -> CPUParticles3D:
@@ -39,10 +59,13 @@ func _novo(qtd: int, vida: float, mat: Material, tam: float) -> CPUParticles3D:
 	p.one_shot = true
 	p.explosiveness = 0.9
 	p.local_coords = false
-	var q := QuadMesh.new()
-	q.size = Vector2(tam, tam)
-	q.material = mat
-	p.mesh = q
+	var chave := "%d|%.3f" % [mat.get_instance_id(), tam]
+	if not _quads.has(chave):
+		var nq := QuadMesh.new()
+		nq.size = Vector2(tam, tam)
+		nq.material = mat
+		_quads[chave] = nq
+	p.mesh = _quads[chave]
 	add_child(p)
 	get_tree().create_timer(vida + 0.6, false).timeout.connect(p.queue_free)
 	return p
@@ -62,11 +85,7 @@ func estrelas(pos: Vector3, qtd := 30, forca := 1.0) -> void:
 	p.scale_amount_min = 0.6
 	p.scale_amount_max = 1.3
 	p.color_initial_ramp = _arco_iris()
-	var c := Curve.new()
-	c.add_point(Vector2(0, 1))
-	c.add_point(Vector2(0.75, 1))
-	c.add_point(Vector2(1, 0))
-	p.scale_amount_curve = c
+	p.scale_amount_curve = _curva([Vector2(0, 1), Vector2(0.75, 1), Vector2(1, 0)])
 	p.emitting = true
 	var f := _novo(20, 0.6, _mat_faisca, 0.22)
 	f.global_position = pos
@@ -93,15 +112,12 @@ func poeira(pos: Vector3, forca := 1.0) -> void:
 	p.damping_max = 2.5
 	p.scale_amount_min = 0.6
 	p.scale_amount_max = 1.2
-	var c := Curve.new()
-	c.add_point(Vector2(0, 0.4))
-	c.add_point(Vector2(0.3, 1.0))
-	c.add_point(Vector2(1, 1.3))
-	p.scale_amount_curve = c
-	var g := Gradient.new()
-	g.set_color(0, Color(1, 1, 1, 0.85))
-	g.set_color(1, Color(1, 0.95, 1, 0.0))
-	p.color_ramp = g
+	p.scale_amount_curve = _curva([Vector2(0, 0.4), Vector2(0.3, 1.0), Vector2(1, 1.3)])
+	if _poeira_cor == null:
+		_poeira_cor = Gradient.new()
+		_poeira_cor.set_color(0, Color(1, 1, 1, 0.85))
+		_poeira_cor.set_color(1, Color(1, 0.95, 1, 0.0))
+	p.color_ramp = _poeira_cor
 	p.emitting = true
 
 
@@ -157,8 +173,5 @@ func fogos(centro: Vector3, quantos := 5) -> void:
 			p.damping_min = 1.2
 			p.damping_max = 1.6
 			p.color = ARCO_IRIS[randi() % ARCO_IRIS.size()]
-			var c := Curve.new()
-			c.add_point(Vector2(0, 1))
-			c.add_point(Vector2(1, 0))
-			p.scale_amount_curve = c
+			p.scale_amount_curve = _curva([Vector2(0, 1), Vector2(1, 0)])
 			p.emitting = true)

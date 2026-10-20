@@ -56,6 +56,6 @@ void sky() {
 	float s2 = sol * sol;
 	float s4 = s2 * s2;
 	float s8 = s4 * s4;
-	c += cor_sol * (smoothstep(0.9975, 0.9995, sol) * 3.0 + s8 * s4 * 0.25) * forca_sol;
+	c += cor_sol * (smoothstep(0.9992, 0.9997, sol) * 2.0 + s8 * s4 * 0.25) * forca_sol;
 	COLOR = c;
 }

@@ -9,7 +9,8 @@ extends Node3D
 ## Medidas: linha de falta em z = 0; os pinos em z = -10,5 (pista infantil,
 ## mais curta que a de adulto: a bola chega rápido); a pista vai para -Z.
 ##
-## Marca Lazer & Sport (no 3D): só num balão do cenário do Parque.
+## Marca Lazer & Sport (no 3D): sutil, uma em cada cenário (balãozinho no
+## Parque, planetinha no Espaço, bolha no Mar, pterossauro nos Dinos).
 ## Pódios (escolha do personagem e foto) nas cores de Bob e Mia.
 
 const MEIA_LARGURA := 0.675
@@ -57,8 +58,10 @@ var mat_portal: ShaderMaterial
 var temas: Temas
 var tema := ""
 var _bumpers: Array[Node3D] = []
-var balao: Node3D
+var balao: Node3D                # o símbolo do cenário de agora (Parque: o balão)
 var mat_balao: ShaderMaterial
+var _marcas := {}                # cenário -> o seu símbolo Lazer & Sport
+var _bolhinhas: Array[Node3D] = []
 var _podios: Array[Node3D] = []
 var _mats_podio: Array[ShaderMaterial] = []
 var _podio_destaque := -1
@@ -95,18 +98,20 @@ func construir() -> void:
 	leve = Ajustes.cenario_leve()
 	_ambiente()
 	_sol()
+	_astro_no_ceu()
 	_terreno()
 	_pista()
 	_fundo_dos_pinos()
 	_colunas()
-	_balao_marca()
+	_marcas_dos_cenarios()
 	_area_dos_jogadores()
 	_montar_podios()
 	temas = Temas.new()
 	add_child(temas)
 	temas.construir(self)
 	# peças paradas com o mesmo material viram uma malha só (menos desenhos)
-	var fora: Array = [balao, temas]
+	var fora: Array = [temas]
+	fora.append_array(_marcas.values())
 	fora.append_array(_podios)
 	fora.append_array(_bumpers)
 	Lote.juntar(self, fora, 0.0)
@@ -142,21 +147,21 @@ func aplicar_tema(nome: String) -> void:
 	var amb: Color = (c["ambiente"] as Color).srgb_to_linear() * float(c.get("ambiente_forca", 0.62))
 	var luz_sol: Color = (c["sol"] as Color).srgb_to_linear() * float(c.get("sol_forca", 1.05)) * maxf(para_sol.y, 0.0)
 	var luz_cena := Vector3(amb.r + luz_sol.r, amb.g + luz_sol.g, amb.b + luz_sol.b)
-	if leve:
-		# chão e decoração do cenário leve: a luz vai pronta para o vértice
-		var sol_lin: Color = (c["sol"] as Color).srgb_to_linear() * float(c.get("sol_forca", 1.05))
-		var sol_cor := Vector3(sol_lin.r, sol_lin.g, sol_lin.b)
-		var amb_v := Vector3(amb.r, amb.g, amb.b)
-		var nb: Color = (c["neblina"] as Color).srgb_to_linear()
-		var neblina := Vector3(nb.r, nb.g, nb.b)
-		var densidade := float(c.get("neblina_densidade", 0.0045))
-		for m in [mat_terreno]:
-			m.set_shader_parameter("sol_dir", para_sol)
-			m.set_shader_parameter("sol_cor", sol_cor)
-			m.set_shader_parameter("ambiente", amb_v)
-			m.set_shader_parameter("neblina_cor", neblina)
-			m.set_shader_parameter("neblina_densidade", densidade)
-		temas.luz(para_sol, sol_cor, amb_v, neblina, densidade)
+	# chão e decoração: a luz da cena vai pronta para o shader (por
+	# vértice no leve, por pixel na decoração do completo)
+	var sol_lin: Color = (c["sol"] as Color).srgb_to_linear() * float(c.get("sol_forca", 1.05))
+	var sol_cor := Vector3(sol_lin.r, sol_lin.g, sol_lin.b)
+	var amb_v := Vector3(amb.r, amb.g, amb.b)
+	var nb: Color = (c["neblina"] as Color).srgb_to_linear()
+	var neblina := Vector3(nb.r, nb.g, nb.b)
+	var densidade := float(c.get("neblina_densidade", 0.0045))
+	for m in [mat_terreno]:
+		m.set_shader_parameter("sol_dir", para_sol)
+		m.set_shader_parameter("sol_cor", sol_cor)
+		m.set_shader_parameter("ambiente", amb_v)
+		m.set_shader_parameter("neblina_cor", neblina)
+		m.set_shader_parameter("neblina_densidade", densidade)
+	temas.luz(para_sol, sol_cor, amb_v, neblina, densidade)
 	for m in [mat_pista, mat_piso]:
 		m.set_shader_parameter("luz_cena", luz_cena)
 		m.set_shader_parameter("cor_ceu", ceu[2])
@@ -183,14 +188,71 @@ func aplicar_tema(nome: String) -> void:
 		m.set_shader_parameter("tinta", c["canaleta"])
 	var chao: Array = c["chao"]
 	mat_terreno.set_shader_parameter("modo", int(c["chao_modo"]))
+	# cores do chão: lineares no leve; no completo, no espaço da conta do
+	# motor (o terreno antigo passava a cor linear e o motor convertia de
+	# novo: convertida duas vezes, fica igual a ele)
 	for i in 4:
-		if leve:
-			var l: Color = (chao[i] as Color).srgb_to_linear()
-			mat_terreno.set_shader_parameter(["lin_a", "lin_b", "lin_c", "lin_d"][i], Vector3(l.r, l.g, l.b))
-		else:
-			mat_terreno.set_shader_parameter(["cor_a", "cor_b", "cor_c", "cor_d"][i], chao[i])
-	_tema_balao(c.get("balao", {}))
+		var l: Color = _cor_do_chao(chao[i])
+		mat_terreno.set_shader_parameter(["lin_a", "lin_b", "lin_c", "lin_d"][i], Vector3(l.r, l.g, l.b))
+	if not leve:
+		# a terra da selva: o detalhe 2 x (0.72, 0.6, 0.45) na cor sRGB
+		var d: Color = chao[3]
+		var terra := _cor_do_chao(Color(d.r * 0.72, d.g * 0.6, d.b * 0.45))
+		var dl := _cor_do_chao(d)
+		mat_terreno.set_shader_parameter("terra", Vector3(terra.r / maxf(dl.r, 1e-5), terra.g / maxf(dl.g, 1e-5), terra.b / maxf(dl.b, 1e-5)))
+	_mostrar_marca(nome)
+	_mostrar_astro(nome)
 	temas.mostrar(nome)
+
+
+func _cor_do_chao(c: Color) -> Color:
+	var l := c.srgb_to_linear()
+	return l if leve else l.srgb_to_linear()
+
+
+# ================================================================ sol e lua
+## SOL E LUA COM ROSTINHO no céu: sol no Parque, nos Dinos e no Mar (visto
+## de dentro d'água, mais azulado) e a lua no Espaço. Um quadradinho bem
+## longe, sempre de frente para a câmera; os raios giram e o rosto pisca no
+## próprio shader (astro.gdshader). Só a imagem do cenário atual fica na
+## memória. O brilho do sol do céu vai para trás dele.
+## [imagem, posição, tamanho (m), tinta]
+const ASTROS := {
+	"parque": ["sol", Vector3(9.8, 25.2, -59.4), 8.5, Color(1, 1, 1, 1)],
+	"dinos": ["sol", Vector3(9.8, 25.2, -59.4), 8.5, Color(1, 1, 1, 1)],
+	"mar": ["sol", Vector3(9.8, 25.2, -59.4), 8.0, Color(0.86, 1.0, 1.0, 0.82)],
+	"espaco": ["lua", Vector3(-1.1, 26.3, -59.7), 7.2, Color(1, 1, 1, 1)],
+}
+var _astro: MeshInstance3D
+var _mat_astro: ShaderMaterial
+
+
+func _astro_no_ceu() -> void:
+	_mat_astro = ShaderMaterial.new()
+	_mat_astro.shader = load("res://shaders/astro.gdshader")
+	_astro = MeshInstance3D.new()
+	_astro.name = "astro"
+	var q := QuadMesh.new()
+	q.size = Vector2.ONE
+	_astro.mesh = q
+	_astro.material_override = _mat_astro
+	_astro.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	# o quadrado gira para a câmera no shader: folga para não sumir da tela
+	_astro.extra_cull_margin = 8.0
+	add_child(_astro)
+
+
+func _mostrar_astro(nome: String) -> void:
+	var a: Array = ASTROS.get(nome, ASTROS["parque"])
+	var sol: bool = a[0] == "sol"
+	_mat_astro.set_shader_parameter("rosto", load("res://ui/ceu/%s.png" % a[0]))
+	_mat_astro.set_shader_parameter("raios", load("res://ui/ceu/sol_raios.png") if sol else null)
+	_mat_astro.set_shader_parameter("usa_raios", 1.0 if sol else 0.0)
+	_mat_astro.set_shader_parameter("tinta", a[3])
+	_astro.position = a[1]
+	_astro.scale = Vector3.ONE * float(a[2])
+	# o brilho do sol desenhado no céu fica atrás dele (de onde se joga)
+	mat_ceu.set_shader_parameter("dir_sol", ((a[1] as Vector3) - Vector3(0.0, 1.2, 2.4)).normalized())
 
 
 # ================================================================ ambiente
@@ -246,7 +308,9 @@ func _sol() -> void:
 ##   alta  (PC): brilho (glow), neblina e ajuste de cor;
 ##   media (TV Box): neblina e ajuste de cor;
 ##   baixa (TV Box fraca): o mínimo.
-## No cenário LEVE não tem neblina (é uma conta a mais em cada pixel).
+## O chão e a decoração fazem a própria neblina, por vértice (mesma cor e
+## densidade): a do motor (por pixel) só pinta o resto — pista, portal,
+## bichinhos — e só no cenário completo (no leve ela fica desligada).
 func aplicar_qualidade(q: String) -> void:
 	sol.shadow_enabled = false
 	ambiente.glow_enabled = q == "alta"
@@ -256,6 +320,9 @@ func aplicar_qualidade(q: String) -> void:
 # ================================================================ terreno
 func _terreno() -> void:
 	# um relevo só; o desenho do chão de cada cenário sai do shader (nítido)
+	# o desenho do chão é o mesmo nas duas versões, feito do jeito barato
+	# (terreno_desenho.gdshaderinc: 1 sorteio por pixel); no leve a luz é
+	# por vértice e mais simples, no completo é a mesma conta do motor
 	mat_terreno = ShaderMaterial.new()
 	mat_terreno.shader = load("res://shaders/terreno_leve.gdshader" if leve else "res://shaders/terreno.gdshader")
 	var t := MeshInstance3D.new()
@@ -744,60 +811,147 @@ func _colunas() -> void:
 	add_child(lampadas_em(pontos, 50))
 
 
-## BALÃO DA MARCA: um balãozinho com a logo Lazer & Sport (sem fundo)
-## flutuando ao lado da pista — só no cenário do Parque de Diversões.
-func _balao_marca() -> void:
-	balao = Node3D.new()
-	balao.name = "balao_marca"
-	balao.position = BALAO_POS
-	# pequeno: ~60 cm de diâmetro (o modelo é feito com raio 1)
-	balao.scale = Vector3.ONE * 0.3
-	add_child(balao)
-	var logo: Texture2D = load("res://ui/marca/lazer_sport.png")
-	var corpo := MeshInstance3D.new()
+## O SÍMBOLO DA LAZER & SPORT EM TODO CENÁRIO, sutil, flutuando ao lado
+## da pista (sempre no mesmo lugar, boiando de leve), cada um do jeito do
+## cenário: o balãozinho (Parque), o planetinha com anel (Espaço), a bolha
+## (Fundo do Mar) e o pterossauro segurando a plaquinha (Selva dos Dinos).
+func _marcas_dos_cenarios() -> void:
+	_marcas["parque"] = _balao_marca()
+	_marcas["espaco"] = _planeta_marca()
+	_marcas["mar"] = _bolha_marca()
+	_marcas["dinos"] = _ptero_marca()
+	for k in _marcas:
+		(_marcas[k] as Node3D).visible = false
+	balao = _marcas["parque"]
+
+
+func _novo_simbolo(nome: String, escala: float) -> Node3D:
+	var n := Node3D.new()
+	n.name = nome
+	n.position = BALAO_POS
+	n.scale = Vector3.ONE * escala
+	add_child(n)
+	return n
+
+
+## Material com a logo (sem fundo) estampada na frente da peça (+Z).
+## largura: da logo, nas medidas da própria malha; esticar_y: a escala Y
+## da peça (para a logo não sair esticada).
+func _mat_logo(tinta: Color, largura: float, centro := Vector2.ZERO, esticar_y := 1.0, extra := {}) -> ShaderMaterial:
+	var p := {"usa_rosto": true, "rosto": load("res://ui/marca/lazer_sport.png"), "rosto_grade": Vector2(1, 1),
+		"rosto_celula": Vector2.ZERO, "rosto_centro": centro,
+		"rosto_tamanho": Vector2(largura, largura * 1698.0 / 2560.0 / esticar_y), "borda": 0.4, "faixa": 0.12, "luz_minima": 0.38,
+		"especular": 0.3, "tamanho_especular": 0.985, "tinta": tinta}
+	p.merge(extra, true)
+	return Materiais.toon(true, 0.004, p)
+
+
+func _esfera(raio := 1.0, gomos := 32) -> SphereMesh:
 	var sm := SphereMesh.new()
-	sm.radius = 1.0
-	sm.height = 2.0
-	sm.radial_segments = 32
-	sm.rings = 16
-	corpo.mesh = sm
+	sm.radius = raio
+	sm.height = raio * 2.0
+	sm.radial_segments = gomos
+	sm.rings = gomos / 2
+	return sm
+
+
+func _peca_simbolo(pai: Node3D, malha: Mesh, mat: Material, pos := Vector3.ZERO) -> MeshInstance3D:
+	var mi := MeshInstance3D.new()
+	mi.mesh = malha
+	mi.material_override = mat
+	mi.position = pos
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	pai.add_child(mi)
+	return mi
+
+
+## Parque: o balãozinho com a logo (~60 cm).
+func _balao_marca() -> Node3D:
+	var b := _novo_simbolo("balao_marca", 0.3)
+	mat_balao = _mat_logo(Color("#E8384F"), 1.32, Vector2(0.0, 0.06), 1.12)
+	var corpo := _peca_simbolo(b, _esfera(), mat_balao)
 	corpo.scale = Vector3(1.0, 1.12, 1.0)
-	var w := 1.32
-	mat_balao = Materiais.toon(true, 0.004, {"usa_rosto": true, "rosto": logo, "rosto_grade": Vector2(1, 1),
-		"rosto_celula": Vector2.ZERO, "rosto_centro": Vector2(0.0, 0.06),
-		"rosto_tamanho": Vector2(w, w * 1698.0 / 2560.0 / 1.12), "borda": 0.4, "faixa": 0.12, "luz_minima": 0.38,
-		"especular": 0.3, "tamanho_especular": 0.985})
-	corpo.material_override = mat_balao
-	corpo.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	balao.add_child(corpo)
 	# nó e cordão
-	var no := MeshInstance3D.new()
 	var cm := CylinderMesh.new()
 	cm.top_radius = 0.025
 	cm.bottom_radius = 0.09
 	cm.height = 0.14
 	cm.radial_segments = 12
-	no.mesh = cm
-	no.position.y = -1.17
-	no.material_override = mat_balao
-	balao.add_child(no)
-	var cordao := MeshInstance3D.new()
+	_peca_simbolo(b, cm, mat_balao, Vector3(0, -1.17, 0))
 	var cc := CylinderMesh.new()
 	cc.top_radius = 0.012
 	cc.bottom_radius = 0.012
 	cc.height = 4.2
 	cc.radial_segments = 6
-	cordao.mesh = cc
-	cordao.position.y = -1.24 - 2.1
-	cordao.material_override = Materiais.cor_toon(Color("#FFFFFF"), 0.0, {"borda": 0.0, "luz_minima": 0.6})
-	balao.add_child(cordao)
+	_peca_simbolo(b, cc, Materiais.cor_toon(Color("#FFFFFF"), 0.0, {"borda": 0.0, "luz_minima": 0.6}), Vector3(0, -1.24 - 2.1, 0))
+	return b
 
 
-func _tema_balao(b: Dictionary) -> void:
-	# só o Parque tem balão (CONFIG["parque"]["balao"]); os outros não
-	balao.visible = not b.is_empty()
-	if balao.visible:
-		mat_balao.set_shader_parameter("tinta", b.get("cor", Color("#E8384F")))
+## Espaço: um planetinha roxo com anel amarelo e a logo na frente.
+func _planeta_marca() -> Node3D:
+	var b := _novo_simbolo("planeta_marca", 0.27)
+	_peca_simbolo(b, _esfera(), _mat_logo(Color("#7B61FF"), 1.3, Vector2.ZERO, 1.0,
+		{"borda": 0.7, "cor_borda": Color("#9FE8FF")}))
+	# o anel passa por baixo da logo (inclinado para a frente)
+	var anel := TorusMesh.new()
+	anel.inner_radius = 1.32
+	anel.outer_radius = 1.62
+	anel.rings = 48
+	anel.ring_segments = 8
+	var a := _peca_simbolo(b, anel, Materiais.cor_toon(Color("#FFD43B"), 0.003, {"borda": 0.5, "luz_minima": 0.5}))
+	a.rotation_degrees = Vector3(32, 0, -12)
+	a.scale = Vector3(1.0, 0.35, 1.0)
+	return b
+
+
+## Fundo do Mar: uma bolha com a logo dentro e bolhinhas subindo.
+func _bolha_marca() -> Node3D:
+	var b := _novo_simbolo("bolha_marca", 0.3)
+	_peca_simbolo(b, _esfera(), _mat_logo(Color("#C9F4FF"), 1.25, Vector2.ZERO, 1.0,
+		{"borda": 1.3, "cor_borda": Color(1, 1, 1), "luz_minima": 0.75, "especular": 0.45, "tamanho_especular": 0.985}))
+	var mb := Materiais.cor_toon(Color("#DDF8FF"), 0.0, {"borda": 1.4, "cor_borda": Color(1, 1, 1), "luz_minima": 0.8})
+	for i in 4:
+		var bi := _peca_simbolo(b, _esfera(1.0, 12), mb)
+		bi.scale = Vector3.ONE * (0.12 + 0.05 * (i % 2))
+		_bolhinhas.append(bi)
+	return b
+
+
+## Selva dos Dinos: um pterossauro batendo asas, segurando a plaquinha de
+## madeira com a logo.
+func _ptero_marca() -> Node3D:
+	var b := _novo_simbolo("ptero_marca", 1.0)
+	var moldura := BoxMesh.new()
+	moldura.size = Vector3(0.74, 0.52, 0.05)
+	_peca_simbolo(b, moldura, Materiais.cor_toon(Color("#7A4A22"), 0.003, {"borda": 0.25}), Vector3(0, 0, -0.012))
+	var placa := BoxMesh.new()
+	placa.size = Vector3(0.68, 0.46, 0.05)
+	_peca_simbolo(b, placa, _mat_logo(Color("#FFE9C2"), 0.62, Vector2.ZERO, 1.0, {"borda": 0.2, "especular": 0.0}))
+	# cordinhas até os pés do pterossauro
+	var mc := Materiais.cor_toon(Color("#5A3A1A"), 0.0, {"borda": 0.0, "luz_minima": 0.5})
+	for lado in [-1.0, 1.0]:
+		var c := CylinderMesh.new()
+		c.top_radius = 0.006
+		c.bottom_radius = 0.006
+		c.height = 0.36
+		c.radial_segments = 5
+		var mi := _peca_simbolo(b, c, mc, Vector3(lado * 0.17, 0.4, 0.0))
+		mi.rotation.z = lado * 0.45
+	var pt := _peca_simbolo(b, load("res://modelos/cenario/ptero.res"), _mat_ptero(), Vector3(0, 0.66, 0.02))
+	pt.scale = Vector3.ONE * 0.62
+	pt.name = "ptero"
+	return b
+
+
+func _mat_ptero() -> Material:
+	# o mesmo toon dos pterossauros do cenário (contorno fino)
+	return Materiais.toon(false, 0.003, {"borda": 0.3})
+
+
+func _mostrar_marca(nome: String) -> void:
+	for k in _marcas:
+		(_marcas[k] as Node3D).visible = k == nome
+	balao = _marcas.get(nome, _marcas["parque"])
 
 
 # ================================================================ área dos jogadores
@@ -1041,10 +1195,9 @@ func _process(delta: float) -> void:
 		mat_piso.set_shader_parameter("pulso", 0.5 + 0.5 * sin(_t * 3.1))
 	mat_pista.set_shader_parameter("bola_z", bola_z)
 	mat_lampadas.set_shader_parameter("fase", fposmod(_t * 0.9, 100.0))
-	# balão da marca: flutua — sobe e desce, vai e volta e balança
+	# o símbolo do cenário flutua — sobe e desce, vai e volta e balança
 	if balao.visible:
-		balao.position = BALAO_POS + Vector3(sin(_t * 0.31) * 0.18, sin(_t * 0.8) * 0.14, sin(_t * 0.23) * 0.1)
-		balao.rotation = Vector3(sin(_t * 0.5) * 0.05, sin(_t * 0.45) * 0.3, sin(_t * 0.6) * 0.08)
+		_mexer_marca()
 	mat_fundo.set_shader_parameter("fase", fposmod(_t * 0.4, 100.0))
 	mat_portal.set_shader_parameter("pulso", sin(_t * 2.2))
 	_mexer_tiras(delta)
@@ -1053,6 +1206,31 @@ func _process(delta: float) -> void:
 		if i == _podio_destaque:
 			on = 0.75 + 0.25 * sin(_t * 6.0)
 		_mats_podio[i].set_shader_parameter("emissao", Color(1.0, 0.75, 0.15) * on * 1.6)
+
+
+func _mexer_marca() -> void:
+	balao.position = BALAO_POS + Vector3(sin(_t * 0.31) * 0.18, sin(_t * 0.8) * 0.14, sin(_t * 0.23) * 0.1)
+	match tema:
+		"espaco":
+			balao.rotation = Vector3(sin(_t * 0.4) * 0.06, sin(_t * 0.3) * 0.35, sin(_t * 0.5) * 0.05)
+		"mar":
+			var pulso := sin(_t * 2.0)
+			balao.rotation = Vector3(0, sin(_t * 0.35) * 0.25, sin(_t * 0.6) * 0.06)
+			balao.scale = Vector3(1.0 + pulso * 0.03, 1.0 - pulso * 0.03, 1.0 + pulso * 0.03) * 0.3
+			for i in _bolhinhas.size():
+				# sobem em volta da bolha e recomeçam embaixo
+				var f := fposmod(_t * 0.22 + i * 0.25, 1.0)
+				var a := i * 1.9 + _t * 0.4
+				_bolhinhas[i].position = Vector3(cos(a) * 1.25, -1.0 + f * 3.4, sin(a) * 0.5 + 0.3)
+				_bolhinhas[i].visible = f < 0.92
+		"dinos":
+			balao.rotation = Vector3(sin(_t * 0.7) * 0.05, sin(_t * 0.4) * 0.22, sin(_t * 0.9) * 0.06)
+			var pt := balao.get_node("ptero") as Node3D
+			# bate asas: o corpo sobe e desce um tiquinho, inclinando
+			pt.position.y = 0.66 + sin(_t * 5.0) * 0.025
+			pt.rotation.x = sin(_t * 5.0) * 0.08
+		_:
+			balao.rotation = Vector3(sin(_t * 0.5) * 0.05, sin(_t * 0.45) * 0.3, sin(_t * 0.6) * 0.08)
 
 
 ## Modo das lâmpadas: 0 corrida, 1 piscando todas (strike!), 2 alternado.

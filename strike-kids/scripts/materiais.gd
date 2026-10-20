@@ -14,6 +14,17 @@ static var _texturas := {}
 static var contornos_ligados := true
 
 
+## Fonte com as letras JÁ DESENHADAS em cada tamanho que o jogo usa
+## (fontes/*_pronta.res, feitas jogando o jogo inteiro sozinho:
+## tools/testes/glifos.gd). Desenhar uma letra com contorno na hora, na
+## primeira vez que um texto aparece, dava travadinhas na TV Box.
+static func fonte(nome: String) -> Font:
+	var pronta := "res://fontes/%s_pronta.res" % nome
+	if ResourceLoader.exists(pronta) and not OS.get_cmdline_user_args().has("--glifos"):
+		return load(pronta)
+	return load("res://fontes/%s.ttf" % nome)
+
+
 static func shader(caminho: String) -> Shader:
 	if not _shaders.has(caminho):
 		_shaders[caminho] = load(caminho)

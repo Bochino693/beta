@@ -25,6 +25,8 @@ def regra(rel):
         return 0, False
     if rel.startswith("ui/marca/"):
         return (0, False) if nome == "fundo" else (2, True)
+    if rel.startswith("ui/ceu/"):   # sol e lua: pequenos no céu, sem perda + mipmaps
+        return 0, False
     if rel.startswith("ui/"):
         if nome in LETREIROS or nome.startswith("cen_"):
             return 2, True
@@ -47,7 +49,7 @@ def ajustar(caminho, modo, hq):
 def main():
     mudou = 0
     for imp in glob.glob(os.path.join(RAIZ, "texturas", "*.png.import")) + glob.glob(os.path.join(RAIZ, "ui", "*.png.import")) + \
-            glob.glob(os.path.join(RAIZ, "ui", "marca", "*.png.import")):
+            glob.glob(os.path.join(RAIZ, "ui", "marca", "*.png.import")) + glob.glob(os.path.join(RAIZ, "ui", "ceu", "*.png.import")):
         rel = os.path.relpath(imp, RAIZ).replace(os.sep, "/")[:-len(".import")]
         r = regra(rel)
         if r and ajustar(imp, *r):

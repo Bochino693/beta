@@ -33,11 +33,27 @@ static func _ler() -> Dictionary:
 	return d
 
 
+## Grava numa linha de trabalho separada (no fim da partida, gravar na
+## hora dava um tranco na TV Box), sempre na ordem certa.
+static var _versao := 0
+static var _gravada := 0
+static var _trava := Mutex.new()
+
+
 static func _gravar(d: Dictionary) -> void:
 	_cache = d
-	var f := FileAccess.open(ARQUIVO, FileAccess.WRITE)
-	if f:
-		f.store_string(JSON.stringify(d, " "))
+	_versao += 1
+	var v := _versao
+	var texto := JSON.stringify(d, " ")
+	Tarefas.rodar(func():
+		_trava.lock()
+		if v > _gravada:
+			var f := FileAccess.open(ARQUIVO, FileAccess.WRITE)
+			if f:
+				f.store_string(texto)
+				f.close()
+				_gravada = v
+		_trava.unlock())
 
 
 static func _apagar_fotos(lista: Array) -> void:

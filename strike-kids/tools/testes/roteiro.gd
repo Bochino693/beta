@@ -11,6 +11,7 @@ var principal: Node
 var n_foto := 0
 var poucas := false
 var _rodadas_antes = null
+var terminou := false
 
 
 func _ready() -> void:
@@ -175,4 +176,6 @@ func _rodar() -> void:
 	if _rodadas_antes != null:
 		Ajustes.definir("jogo", "rodadas", _rodadas_antes)
 	print("ROTEIRO OK")
-	get_tree().quit()
+	terminou = true
+	if not OS.get_cmdline_user_args().has("--sem-sair"):
+		get_tree().quit()
