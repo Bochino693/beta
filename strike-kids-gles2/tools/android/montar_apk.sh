@@ -15,7 +15,8 @@
 # Antes, refaça os .aar se mudou o Java: sh tools/android/StrikeCamera/construir.sh
 # e sh tools/android/StrikeSerial/construir.sh.
 #
-# Variáveis (todas com padrão):
+# Variáveis (todas com padrão; as ferramentas ficam em FERRAMENTAS, por
+# padrão ~/strikekids_ferramentas):
 #   GODOT3       Godot 3.6.3 headless (Godot_v3.6.3-stable_linux_headless.64)
 #   MODELOS      modelos de exportação 3.6.3 (~/.local/share/godot/templates/3.6.3.stable)
 #   APKTOOL_JAR, DX_JAR, UBER_JAR   apktool 2.10, dx 9.0.0_r3, uber-apk-signer 1.3
@@ -26,17 +27,17 @@
 #                a libuvc no APK; veja manifesto.py)
 #   SEM_TV=1     sem o lançador/banner da Android TV
 set -e
-SP=/tmp/claude-0/-home-user/3085202e-83f2-5769-a806-7ea1a3edfbdb/scratchpad
+FERRAMENTAS=${FERRAMENTAS:-$HOME/strikekids_ferramentas}
 AQUI=$(cd "$(dirname "$0")" && pwd)
 P=$(cd "$AQUI/../.." && pwd)
 SAIDA=$(realpath -m "${1:-$P/build/android/StrikeKids_GLES2.apk}")
 NOME_VERSAO=${2:-}
-GODOT3=${GODOT3:-$SP/g3/bin/Godot_v3.6.3-stable_linux_headless.64}
+GODOT3=${GODOT3:-$FERRAMENTAS/Godot_v3.6.3-stable_linux_headless.64}
 MODELOS=${MODELOS:-$HOME/.local/share/godot/templates/3.6.3.stable}
-APKTOOL_JAR=${APKTOOL_JAR:-$SP/ferramentas/apktool/apktool_2.10.0.jar}
-DX_JAR=${DX_JAR:-$SP/ferramentas/dx/dalvik-dx-9.0.0_r3.jar}
-UBER_JAR=${UBER_JAR:-$SP/uber/uber-apk-signer-1.3.0.jar}
-PY=${PY:-$SP/venv_apk/bin/python}
+APKTOOL_JAR=${APKTOOL_JAR:-$FERRAMENTAS/apktool_2.10.0.jar}
+DX_JAR=${DX_JAR:-$FERRAMENTAS/dalvik-dx-9.0.0_r3.jar}
+UBER_JAR=${UBER_JAR:-$FERRAMENTAS/uber-apk-signer-1.3.0.jar}
+PY=${PY:-$FERRAMENTAS/venv_apk/bin/python}
 TRAB=${TRAB:-${TMPDIR:-/tmp}/strikekids_gles2_apk}
 CHAVE=$AQUI/strikekids.keystore
 OPCOES=""
