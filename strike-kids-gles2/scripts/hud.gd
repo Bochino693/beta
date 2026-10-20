@@ -12,6 +12,9 @@ extends Control
 ## Visual: placas com volume (Painel3D: degradê, verniz, lateral e sombra,
 ## como os objetos 3D) e contorno azul-marinho. A marca Lazer & Sport só
 ## aparece na abertura (e, no 3D, sutil em cada cenário: ver Mundo).
+##
+## EDIÇÃO OPENGL ES 2.0 (Godot 3): textos sem LabelSettings — cada texto usa
+## a DynamicFont do seu tamanho e contorno (ver rotulo()).
 
 const COR_BOB := Color("#169BD5")
 const COR_MIA := Color("#FF7A21")
@@ -27,8 +30,9 @@ const CENTRO_ALVO := Vector2(0.4752, 0.2780)
 const CENTRO_PLACA := Vector2(0.5, 0.7792)
 const PROPORCAO_LOGO := 1698.0 / 2560.0
 
-var fonte: FontFile
-var fonte_titulo: FontFile
+## nomes das fontes (Compat.fonte): no Godot 3 cada tamanho é uma DynamicFont
+var fonte := "fredoka_700"
+var fonte_titulo := "titan_one"
 var u := 1.0
 var retrato := true
 
@@ -65,7 +69,7 @@ var _jog: Control
 var _jog_veu: ColorRect
 var _jog_painel: Painel3D
 var _jog_titulo: Label
-var _jog_cartoes: Array = []
+var _jog_cartoes: Array = []      # Painel3D
 var _jog_dica: Label
 var _jog_trilho: Painel3D
 var _jog_barra: Painel3D
@@ -73,8 +77,8 @@ var _jog_n := 1
 # escolha do personagem
 var _selecao: Control
 var _sel_titulo: Painel3D
-var _sel_placas: Array = []
-var _sel_nomes: Array = []
+var _sel_placas: Array = []       # Painel3D
+var _sel_nomes: Array = []        # Label
 var _sel_dica: Painel3D
 var _sel_texto: Label
 var _sel_destaque := 0
@@ -111,15 +115,13 @@ var _marca_texto: Label
 
 func montar(textura_3d: Texture) -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
-	fonte = Materiais.fonte("fredoka_700")
-	fonte_titulo = Materiais.fonte("titan_one")
 	for p in ["bob", "mia"]:
 		_retratos[p] = Materiais.textura("retrato_" + p)
 	tela3d = TextureRect.new()
 	tela3d.texture = textura_3d
 	tela3d.expand = true
 	tela3d.stretch_mode = TextureRect.STRETCH_SCALE
-	tela3d.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR   # imagem 3D (sem mipmaps)
+	_filtrar(textura_3d)   # imagem 3D (sem mipmaps)
 	var m3d := ShaderMaterial.new()
 	m3d.shader = load("res://shaders/tela3d.shader")
 	tela3d.material = m3d
@@ -156,24 +158,82 @@ func montar(textura_3d: Texture) -> void:
 
 
 # ================================================================ peças
-func rotulo(texto: String, tam: float, cor := Color.white, contorno := 0.0, cor_contorno := MARINHO, f: Font = null) -> Label:
+## Godot 3: o contorno vem na medida do Godot 4 (LabelSettings.outline_size)
+## e vira o contorno da DynamicFont 4x menor — o Godot 4 passa
+## outline_size x 16 ao FreeType e o Godot 3 passa outline_size x 64 (em
+## 1/64 de pixel): o mesmo número desenharia um contorno 4x mais grosso.
+const CONTORNO_G4_PARA_G3 := 0.25
+## sombra dos textos (a do LabelSettings do Godot 4)
+const SOMBRA := Color(0.0, 0.05, 0.15, 0.45)
+## Godot 3: cada tamanho de fonte guarda as letras numa página de
+## nextpow2(tamanho x 8) pixels; acima disto (x u) o texto é desenhado
+## menor e esticado (ver _rotulo_grande).
+const FONTE_MAX := 128.0
+
+
+## f: nome da fonte (Compat.fonte); vazio = `fonte`. contorno na medida do
+## Godot 4. Godot 3: sem LabelSettings — Compat.estilo_rotulo põe a fonte
+## do tamanho, a cor e o contorno; a sombra é a do próprio Label.
+func rotulo(texto: String, tam: float, cor := Color.white, contorno := 0.0, cor_contorno := MARINHO, f := "") -> Label:
 	var l := Label.new()
 	l.text = texto
-	var ls := LabelSettings.new()  #G3?
-	ls.font = f if f != null else fonte
-	ls.font_size = int(tam)
-	ls.font_color = cor
-	if contorno > 0.0:
-		ls.outline_size = int(contorno)
-		ls.outline_color = cor_contorno
-	ls.shadow_size = int(max(1.0, tam * 0.06))
-	ls.shadow_color = Color(0.0, 0.05, 0.15, 0.45)
-	ls.shadow_offset = Vector2(0, tam * 0.06)
-	l.label_settings = ls  #G3?
+	Compat.estilo_rotulo(l, f if f != "" else fonte, int(tam), cor, _contorno_g3(contorno), cor_contorno)
+	l.set_meta("contorno", contorno)
+	_sombra(l, SOMBRA, tam * 0.06)
 	l.align = Label.ALIGN_CENTER
 	l.valign = Label.VALIGN_CENTER
 	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return l
+
+
+func _contorno_g3(contorno: float) -> int:
+	if contorno <= 0.0:
+		return 0
+	return Compat.imax(int(round(contorno * CONTORNO_G4_PARA_G3)), 1)
+
+
+## Sombra do texto (Godot 4: shadow_color/shadow_offset; o shadow_size, o
+## contorno da sombra, não existe no Godot 3: a sombra é só a letra
+## deslocada). Só nos textos SEM contorno: com contorno, o Godot 3 desenharia
+## o contorno de novo, deslocado e opaco (e no Godot 4 ela ficava quase toda
+## escondida atrás do contorno). Sem `cor`/`dy`: mantém os de antes.
+func _sombra(l: Label, cor = null, dy := -1.0) -> void:
+	if not l.has_meta("sombra"):
+		l.set_meta("sombra", [SOMBRA, 0.0])
+	var s: Array = l.get_meta("sombra")
+	if cor != null:
+		s[0] = cor
+	if dy >= 0.0:
+		s[1] = dy
+	var e: Array = l.get_meta("estilo")
+	l.add_color_override("font_color_shadow", s[0] if int(e[3]) == 0 else Color(0, 0, 0, 0))
+	l.add_constant_override("shadow_offset_x", 0)
+	l.add_constant_override("shadow_offset_y", int(round(s[1])))
+
+
+## Troca tamanho, contorno (medida do Godot 4) e/ou cor de um texto já
+## criado (Godot 4: mexia direto no label_settings). < 0 / null = mantém.
+## Uma chamada só por mudança: cada combinação é uma DynamicFont.
+func _estilo(l: Label, tam := -1.0, contorno := -1.0, cor = null) -> void:
+	var e: Array = l.get_meta("estilo")
+	if contorno >= 0.0:
+		l.set_meta("contorno", contorno)
+	Compat.estilo_rotulo(l, e[0], e[1] if tam < 0.0 else int(tam), e[2] if cor == null else cor,
+			e[3] if contorno < 0.0 else _contorno_g3(contorno), e[4])
+	_sombra(l)
+
+
+## Largura de um texto na fonte atual do rótulo (Godot 3: a DynamicFont já
+## é do tamanho; get_string_size não recebe tamanho).
+func _largura_texto(l: Label, texto: String) -> float:
+	return l.get_font("font").get_string_size(texto).x
+
+
+## Godot 3: o filtro (imagem suave ao esticar) é da textura, não do nó — e a
+## textura de um Viewport (o 3D, a câmera) nasce sem filtro.
+func _filtrar(tex: Texture) -> void:
+	if tex != null and not (tex.flags & Texture.FLAG_FILTER):
+		tex.flags = tex.flags | Texture.FLAG_FILTER
 
 
 func caixa(cor: Color, raio := 28.0, borda := 0.0, cor_borda := Color.white, sombra := 10.0) -> StyleBoxFlat:
@@ -197,19 +257,40 @@ func painel(cor: Color, raio := 28.0, borda := 0.0, cor_borda := Color.white) ->
 	return p
 
 
-func _tamanho_rotulo(l: Label, tam: float) -> void:
-	l.label_settings.font_size = int(tam)  #G3?
-	l.label_settings.shadow_size = int(max(1.0, tam * 0.06))  #G3?
-	l.label_settings.shadow_offset = Vector2(0, tam * 0.06)  #G3?
+## Novo tamanho de letra (e, com `contorno` >= 0, o contorno junto: no
+## Godot 3 cada combinação é uma fonte). A sombra acompanha o tamanho.
+func _tamanho_rotulo(l: Label, tam: float, contorno := -1.0) -> void:
+	var s: Array = l.get_meta("sombra")
+	s[1] = tam * 0.06
+	_estilo(l, tam, contorno)
 
 
 ## Diminui a letra até o texto caber na largura (nunca estoura a placa).
+## Godot 3: mede o texto uma vez (na fonte atual) e faz a conta para os
+## outros tamanhos — medir em cada tamanho criaria uma fonte nova e
+## desenharia as letras de cada um.
 func _caber(l: Label, tam: float, largura: float) -> void:
-	var ls := l.label_settings  #G3?
+	var e: Array = l.get_meta("estilo")
+	var por_px: float = _largura_texto(l, l.text) / max(float(e[1]), 1.0)
+	var margem: float = l.get_meta("contorno")
 	var t := tam
-	while t > 12.0 and ls.font.get_string_size(l.text, Label.ALIGN_LEFT, -1, int(t)).x + ls.outline_size > largura:
+	while t > 12.0 and por_px * int(t) + margem > largura:
 		t *= 0.94
-	ls.font_size = int(t)
+	_estilo(l, t)
+
+
+## Textos ENORMES (o "1"/"2" dos cartões, a contagem da foto). Godot 3: uma
+## letra de 280 px ficaria numa página de 4096 x 4096 (32 MB, mais a do
+## contorno, mandada de novo à placa de vídeo a cada letra nova). A letra é
+## desenhada em até FONTE_MAX px (x u) e esticada (rect_scale) até `area`.
+func _rotulo_grande(l: Label, tam: float, contorno: float, area: Rect2) -> void:
+	var k: float = max(tam / (FONTE_MAX * max(u, 1.0)), 1.0)
+	_tamanho_rotulo(l, tam / k, contorno / k)
+	l.rect_size = area.size / k
+	l.rect_position = area.position + (area.size - l.rect_size) / 2
+	l.rect_pivot_offset = l.rect_size / 2
+	l.rect_scale = Vector2.ONE * k
+	l.set_meta("escala", k)
 
 
 # ================================================================ placar
@@ -236,14 +317,14 @@ func _montar_placar() -> void:
 		pts.align = Label.ALIGN_RIGHT
 		p.add_child(pts)
 		var rod := HBoxContainer.new()
-		rod.alignment = BoxContainer.ALIGNMENT_BEGIN
+		rod.alignment = BoxContainer.ALIGN_BEGIN
 		rod.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		p.add_child(rod)
 		_cartoes.append({"painel": p, "avatar": av, "selo": selo, "nome": nome, "pontos": pts, "rodadas": rod, "cor": cor, "valor": 0.0, "alvo": 0})
 	_info = rotulo("", 34, Color.white, 9)
 	add_child(_info)
 	_bolas_box = HBoxContainer.new()
-	_bolas_box.alignment = BoxContainer.ALIGNMENT_CENTER
+	_bolas_box.alignment = BoxContainer.ALIGN_CENTER
 	_bolas_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_bolas_box)
 	mostrar_placar(false)
@@ -307,34 +388,35 @@ func atualizar_placar(placar: Placar) -> void:
 					txt = ""
 				elif soma >= 10:
 					cor_cel = Color("#7FE7FF")
-			var atual := (i == placar.jogador_atual and r == placar.rodada_atual)
-			cel.add_stylebox_override("panel", caixa(cor_cel, 23 * u, 4 * u if atual else 0.0, DESTAQUE, 0))
+			var atual: bool = (i == placar.jogador_atual and r == placar.rodada_atual)
+			# Godot 3: raio 1 px menor que a metade (com borda e fundo transparente,
+			# o raio = metade deixava um risco claro no meio da bolinha)
+			cel.add_stylebox_override("panel", caixa(cor_cel, 23 * u - 1.0, 4 * u if atual else 0.0, DESTAQUE, 0))
 			if txt != "":
 				var l := rotulo(txt, 26 * u, MARINHO)
-				l.label_settings.shadow_size = 0  #G3?
-				l.set_anchors_and_margins_preset(Control.PRESET_FULL_RECT)
+				l.set_anchors_and_margins_preset(Control.PRESET_WIDE)
 				cel.add_child(l)
 			elif cor_cel == Color("#FFD43B"):
 				var e := TextureRect.new()
 				e.texture = Materiais.textura("estrela_placar")
 				e.expand = true
 				e.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-				e.set_anchors_and_margins_preset(Control.PRESET_FULL_RECT)
+				e.set_anchors_and_margins_preset(Control.PRESET_WIDE)
 				e.mouse_filter = Control.MOUSE_FILTER_IGNORE
 				cel.add_child(e)
 			rod.add_child(cel)
-		var ativo := i == placar.jogador_atual
+		var ativo: bool = i == placar.jogador_atual
 		var painel_c: Control = c["painel"]
 		painel_c.modulate = Color(1, 1, 1, 1) if ativo or placar.jogadores.size() == 1 else Color(0.78, 0.78, 0.85, 0.9)
-		painel_c.scale = Vector2.ONE * (1.0 if ativo else 0.94)
+		painel_c.rect_scale = Vector2.ONE * (1.0 if ativo else 0.94)
 	_info.text = "RODADA %d de %d" % [placar.rodada_atual + 1, placar.rodadas]
 	for b in _bolas_box.get_children():
 		b.queue_free()
 	for k in placar.tentativas:
 		var bola := Panel.new()
 		bola.rect_min_size = Vector2(34, 34) * u
-		var usada := k < placar.bola_atual
-		bola.add_stylebox_override("panel", caixa(Color(1, 1, 1, 0.25) if usada else _cor_atual(placar), 17 * u, 3 * u, Color.white, 4))
+		var usada: bool = k < placar.bola_atual
+		bola.add_stylebox_override("panel", caixa(Color(1, 1, 1, 0.25) if usada else _cor_atual(placar), 17 * u - 1.0, 3 * u, Color.white, 4))
 		bola.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		_bolas_box.add_child(bola)
 
@@ -369,7 +451,7 @@ func mostrar_mapa(em_pe: Array) -> void:
 func _montar_toque() -> void:
 	_toque = Control.new()
 	_toque.mouse_filter = Control.MOUSE_FILTER_STOP
-	_toque.gui_input.connect(_ao_tocar)  #G3?
+	_toque.connect("gui_input", self, "_ao_tocar")
 	_toque.visible = false
 	add_child(_toque)
 	_aviso = rotulo("ROLE A BOLA!", 64, Color("#FFF6A8"), 16, MARINHO, fonte_titulo)
@@ -400,7 +482,7 @@ func _ao_tocar(ev: InputEvent) -> void:
 		pos = ev.position
 	if pos.x < 0.0:
 		return
-	var i := Compat.iclamp(int(pos.x / max(size.x, 1.0) * 5.0), 0, 4)
+	var i := Compat.iclamp(int(pos.x / max(rect_size.x, 1.0) * 5.0), 0, 4)
 	emit_signal("toque_sensor", ZONAS[i])
 
 
@@ -431,23 +513,23 @@ func anunciar_cenario(tema: String, dur := 2.2) -> void:
 	if tex == null:
 		return
 	_cenario.texture = tex
-	var T := size
+	var T := rect_size
 	var w: float = min(T.x * 0.86, 900.0 * u)
 	var h: float = w * float(tex.get_height()) / float(tex.get_width())
-	_cenario.size = Vector2(w, h)
-	_cenario.position = Vector2((T.x - w) / 2, T.y * (0.3 if retrato else 0.24) - h / 2)
-	_cenario.rect_pivot_offset = _cenario.size / 2
+	_cenario.rect_size = Vector2(w, h)
+	_cenario.rect_position = Vector2((T.x - w) / 2, T.y * (0.3 if retrato else 0.24) - h / 2)
+	_cenario.rect_pivot_offset = _cenario.rect_size / 2
 	_cenario.visible = true
-	_cenario.scale = Vector2.ZERO
-	_cenario.rotation = -0.5
+	_cenario.rect_scale = Vector2.ZERO
+	_cenario.rect_rotation = rad2deg(-0.5)
 	_cenario.modulate.a = 1.0
 	var tw := create_tween()
-	tw.tween_property(_cenario, "scale", Vector2.ONE, 0.55).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	tw.parallel().tween_property(_cenario, "rotation", 0.0, 0.55).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tw.tween_property(_cenario, "rect_scale", Vector2.ONE, 0.55).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tw.parallel().tween_property(_cenario, "rect_rotation", 0.0, 0.55).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	tw.tween_interval(dur)
-	tw.tween_property(_cenario, "scale", Vector2.ONE * 1.25, 0.3)
+	tw.tween_property(_cenario, "rect_scale", Vector2.ONE * 1.25, 0.3)
 	tw.parallel().tween_property(_cenario, "modulate:a", 0.0, 0.3)
-	tw.tween_callback(func(): _cenario.visible = false)  #G3?
+	tw.tween_callback(_cenario, "hide")
 
 
 ## Sequência de strikes (aparece embaixo do placar do jogador).
@@ -469,55 +551,55 @@ func letreiro(nome: String, sub := "", dur := 1.7, altura := 0.38) -> void:
 	tr.expand = true
 	tr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	tr.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var T := size
+	var T := rect_size
 	var larg: float = min(T.x * 0.9, tex.get_width() / ESCALA_ARTE * u * 0.95)
 	var alt := larg * tex.get_height() / tex.get_width()
-	tr.size = Vector2(larg, alt)
-	tr.position = Vector2((T.x - larg) / 2, T.y * altura - alt / 2)
-	tr.rect_pivot_offset = tr.size / 2
-	tr.scale = Vector2.ZERO
-	tr.rotation = deg2rad(-12)
+	tr.rect_size = Vector2(larg, alt)
+	tr.rect_position = Vector2((T.x - larg) / 2, T.y * altura - alt / 2)
+	tr.rect_pivot_offset = tr.rect_size / 2
+	tr.rect_scale = Vector2.ZERO
+	tr.rect_rotation = -12.0
 	_centro.add_child(tr)
 	var tw := create_tween()
-	tw.tween_property(tr, "scale", Vector2.ONE * 1.18, 0.22).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	tw.parallel().tween_property(tr, "rotation", deg2rad(3), 0.22)
-	tw.tween_property(tr, "scale", Vector2.ONE, 0.18).set_trans(Tween.TRANS_SINE)
-	tw.parallel().tween_property(tr, "rotation", 0.0, 0.18)
-	tw.tween_property(tr, "scale", Vector2.ONE * 1.05, dur * 0.5).set_trans(Tween.TRANS_SINE)
-	tw.tween_property(tr, "position:y", tr.position.y - 120 * u, 0.3).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_IN)
+	tw.tween_property(tr, "rect_scale", Vector2.ONE * 1.18, 0.22).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tw.parallel().tween_property(tr, "rect_rotation", 3.0, 0.22)
+	tw.tween_property(tr, "rect_scale", Vector2.ONE, 0.18).set_trans(Tween.TRANS_SINE)
+	tw.parallel().tween_property(tr, "rect_rotation", 0.0, 0.18)
+	tw.tween_property(tr, "rect_scale", Vector2.ONE * 1.05, dur * 0.5).set_trans(Tween.TRANS_SINE)
+	tw.tween_property(tr, "rect_position:y", tr.rect_position.y - 120 * u, 0.3).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_IN)
 	tw.parallel().tween_property(tr, "modulate:a", 0.0, 0.3)
-	tw.tween_callback(tr.queue_free)  #G3?
-	_estrelas_2d(tr.position + tr.size / 2, 26)
+	tw.tween_callback(tr, "queue_free")
+	_estrelas_2d(tr.rect_position + tr.rect_size / 2, 26)
 	if sub != "":
 		var l := rotulo(sub, 58 * u, Color.white, 14 * u, MARINHO, fonte_titulo)
-		l.size = Vector2(T.x, 90 * u)
-		l.position = Vector2(0, tr.position.y + alt + 10 * u)
-		l.rect_pivot_offset = l.size / 2
-		l.scale = Vector2.ZERO
+		l.rect_size = Vector2(T.x, 90 * u)
+		l.rect_position = Vector2(0, tr.rect_position.y + alt + 10 * u)
+		l.rect_pivot_offset = l.rect_size / 2
+		l.rect_scale = Vector2.ZERO
 		_centro.add_child(l)
 		var t2 := create_tween()
 		t2.tween_interval(0.18)
-		t2.tween_property(l, "scale", Vector2.ONE, 0.3).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		t2.tween_property(l, "rect_scale", Vector2.ONE, 0.3).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 		t2.tween_interval(dur * 0.55)
 		t2.tween_property(l, "modulate:a", 0.0, 0.3)
-		t2.tween_callback(l.queue_free)  #G3?
+		t2.tween_callback(l, "queue_free")
 
 
 ## Texto grande simples (ex.: "7 PINOS!").
 func texto_grande(texto: String, cor := Color("#FFF6A8"), dur := 1.4, altura := 0.38) -> void:
-	var T := size
+	var T := rect_size
 	var l := rotulo(texto, 110 * u, cor, 22 * u, MARINHO, fonte_titulo)
-	l.size = Vector2(T.x, 160 * u)
-	l.position = Vector2(0, T.y * altura - 80 * u)
-	l.rect_pivot_offset = l.size / 2
-	l.scale = Vector2.ZERO
+	l.rect_size = Vector2(T.x, 160 * u)
+	l.rect_position = Vector2(0, T.y * altura - 80 * u)
+	l.rect_pivot_offset = l.rect_size / 2
+	l.rect_scale = Vector2.ZERO
 	_centro.add_child(l)
 	var tw := create_tween()
-	tw.tween_property(l, "scale", Vector2.ONE * 1.12, 0.2).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	tw.tween_property(l, "scale", Vector2.ONE, 0.15)
+	tw.tween_property(l, "rect_scale", Vector2.ONE * 1.12, 0.2).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tw.tween_property(l, "rect_scale", Vector2.ONE, 0.15)
 	tw.tween_interval(dur)
 	tw.tween_property(l, "modulate:a", 0.0, 0.3)
-	tw.tween_callback(l.queue_free)  #G3?
+	tw.tween_callback(l, "queue_free")
 
 
 ## "+120" voando até o placar do jogador.
@@ -527,26 +609,30 @@ func pontos_voando(pontos: int, jogador: int) -> void:
 	var c: Dictionary = _cartoes[jogador]
 	var p: Control = c["painel"]
 	var l := rotulo("+%d" % pontos, 84 * u, Color("#FFF6A8"), 18 * u, MARINHO, fonte_titulo)
-	l.size = Vector2(400, 120) * u
-	l.position = Vector2(size.x / 2 - 200 * u, size.y * 0.5)
-	l.rect_pivot_offset = l.size / 2
+	l.rect_size = Vector2(400, 120) * u
+	l.rect_position = Vector2(rect_size.x / 2 - 200 * u, rect_size.y * 0.5)
+	l.rect_pivot_offset = l.rect_size / 2
 	_centro.add_child(l)
-	var destino := p.position + p.size / 2 - l.size / 2
+	var destino := p.rect_position + p.rect_size / 2 - l.rect_size / 2
 	var tw := create_tween()
-	tw.tween_property(l, "scale", Vector2.ONE * 1.2, 0.15)
+	tw.tween_property(l, "rect_scale", Vector2.ONE * 1.2, 0.15)
 	tw.tween_interval(0.35)
-	tw.tween_property(l, "position", destino, 0.55).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
-	tw.parallel().tween_property(l, "scale", Vector2.ONE * 0.5, 0.55)
-	tw.tween_callback(func():  #G3?
-		l.queue_free()
-		_pular(p))
+	tw.tween_property(l, "rect_position", destino, 0.55).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	tw.parallel().tween_property(l, "rect_scale", Vector2.ONE * 0.5, 0.55)
+	tw.tween_callback(self, "_pontos_chegaram", [l, p])
+
+
+## O "+120" chegou no placar: some e o placar pula (Godot 3: sem lambda).
+func _pontos_chegaram(l: Label, p: Control) -> void:
+	l.queue_free()
+	_pular(p)
 
 
 func _pular(no: Control) -> void:
-	no.rect_pivot_offset = no.size / 2
+	no.rect_pivot_offset = no.rect_size / 2
 	var tw := create_tween()
-	tw.tween_property(no, "scale", Vector2.ONE * 1.08, 0.08)
-	tw.tween_property(no, "scale", Vector2.ONE, 0.3).set_trans(Tween.TRANS_ELASTIC).set_ease(Tween.EASE_OUT)
+	tw.tween_property(no, "rect_scale", Vector2.ONE * 1.08, 0.08)
+	tw.tween_property(no, "rect_scale", Vector2.ONE, 0.3).set_trans(Tween.TRANS_ELASTIC).set_ease(Tween.EASE_OUT)
 
 
 func _estrelas_2d(centro: Vector2, n: int) -> void:
@@ -561,13 +647,16 @@ func _estrelas_2d(centro: Vector2, n: int) -> void:
 	p.emission_sphere_radius = 60 * u
 	p.direction = Vector2(0, -1)
 	p.spread = 180.0
-	p.initial_velocity_min = 450 * u
-	p.initial_velocity_max = 900 * u
+	# Godot 3: valor + "_random" no lugar de _min/_max — velocidade 450..900,
+	# giro -360..360 e tamanho 0,12..0,3 (o sorteio do tamanho vai na direção
+	# de 1,0: a fração é a parte do caminho até 1,0)
+	p.initial_velocity = 900 * u
+	p.initial_velocity_random = 0.5
 	p.gravity = Vector2(0, 900 * u)
-	p.angular_velocity_min = -360
-	p.angular_velocity_max = 360
-	p.scale_amount_min = 0.12 * u
-	p.scale_amount_max = 0.3 * u
+	p.angular_velocity = 360
+	p.angular_velocity_random = 1.0
+	p.scale_amount = 0.12 * u
+	p.scale_amount_random = (0.3 * u - 0.12 * u) / max(1.0 - 0.12 * u, 0.01)
 	if _estrelas_cor == null:
 		_estrelas_cor = Gradient.new()
 		_estrelas_cor.set_color(0, Color("#FFE14D"))
@@ -576,7 +665,7 @@ func _estrelas_2d(centro: Vector2, n: int) -> void:
 	p.color_initial_ramp = _estrelas_cor
 	_centro.add_child(p)
 	p.emitting = true
-	get_tree().create_timer(1.6).timeout.connect(p.queue_free)  #G3?
+	get_tree().create_timer(1.6).connect("timeout", p, "queue_free")
 
 
 var _estrelas_cor: Gradient
@@ -587,7 +676,7 @@ func flash(cor := Color.white, forca := 0.7, dur := 0.35) -> void:
 	_flash.visible = true
 	var tw := create_tween()
 	tw.tween_property(_flash, "color:a", 0.0, dur)
-	tw.tween_callback(func(): _flash.visible = false)  #G3?
+	tw.tween_callback(_flash, "hide")
 
 
 # ================================================================ faixa "VEZ DE"
@@ -610,28 +699,27 @@ func faixa(personagem: String, texto: String, sub := "", foto: Texture = null) -
 	_faixa_avatar.texture = foto if foto != null else _retratos.get(personagem)
 	_faixa_avatar.material = material_foto(Color.white) if foto != null else null
 	_faixa_texto.text = texto + ("\n" + sub if sub != "" else "")
-	var T := size
+	var T := rect_size
 	var h := 210 * u
 	var w: float = min(T.x * 0.92, 980 * u)
-	_faixa.size = Vector2(w, h)
+	_faixa.rect_size = Vector2(w, h)
 	if foto != null:
-		_faixa_avatar.size = Vector2(h * 1.05, h * 1.05)
-		_faixa_avatar.position = Vector2(-h * 0.05, -h * 0.12)
+		_faixa_avatar.rect_size = Vector2(h * 1.05, h * 1.05)
+		_faixa_avatar.rect_position = Vector2(-h * 0.05, -h * 0.12)
 	else:
-		_faixa_avatar.size = Vector2(h * 1.25, h * 1.25)
-		_faixa_avatar.position = Vector2(-h * 0.15, -h * 0.35)
-	_faixa_texto.size = Vector2(w - h * 1.1, h)
-	_faixa_texto.position = Vector2(h * 1.05, 0)
-	_tamanho_rotulo(_faixa_texto, (70 if sub == "" else 58) * u)
-	_faixa_texto.label_settings.outline_size = int(16 * u)  #G3?
+		_faixa_avatar.rect_size = Vector2(h * 1.25, h * 1.25)
+		_faixa_avatar.rect_position = Vector2(-h * 0.15, -h * 0.35)
+	_faixa_texto.rect_size = Vector2(w - h * 1.1, h)
+	_faixa_texto.rect_position = Vector2(h * 1.05, 0)
+	_tamanho_rotulo(_faixa_texto, (70 if sub == "" else 58) * u, 16 * u)
 	var y := T.y * (0.3 if retrato else 0.36)
-	_faixa.position = Vector2(-w - 50 * u, y)
+	_faixa.rect_position = Vector2(-w - 50 * u, y)
 	_faixa.visible = true
 	var tw := create_tween()
-	tw.tween_property(_faixa, "position:x", (T.x - w) / 2, 0.38).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tw.tween_property(_faixa, "rect_position:x", (T.x - w) / 2, 0.38).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	tw.tween_interval(1.25)
-	tw.tween_property(_faixa, "position:x", T.x + 50 * u, 0.3).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_IN)
-	tw.tween_callback(func(): _faixa.visible = false)  #G3?
+	tw.tween_property(_faixa, "rect_position:x", T.x + 50 * u, 0.3).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_IN)
+	tw.tween_callback(_faixa, "hide")
 
 
 # ================================================================ replay
@@ -656,30 +744,30 @@ func _montar_replay() -> void:
 
 ## Faixas pretas de cinema (abertura), sem o selo de replay.
 func tarjas(ligado: bool) -> void:
-	var T := size
+	var T := rect_size
 	var h := T.y * (0.09 if retrato else 0.1) if ligado else 0.0
 	var tw := create_tween().set_parallel(true)
-	tw.tween_property(_tarja_cima, "size:y", h, 0.4).set_trans(Tween.TRANS_QUAD)
-	tw.tween_property(_tarja_baixo, "size:y", h, 0.4).set_trans(Tween.TRANS_QUAD)
-	tw.tween_property(_tarja_baixo, "position:y", T.y - h, 0.4).set_trans(Tween.TRANS_QUAD)
+	tw.tween_property(_tarja_cima, "rect_size:y", h, 0.4).set_trans(Tween.TRANS_QUAD)
+	tw.tween_property(_tarja_baixo, "rect_size:y", h, 0.4).set_trans(Tween.TRANS_QUAD)
+	tw.tween_property(_tarja_baixo, "rect_position:y", T.y - h, 0.4).set_trans(Tween.TRANS_QUAD)
 
 
 func modo_replay(ligado: bool) -> void:
-	var T := size
+	var T := rect_size
 	var h := T.y * (0.1 if retrato else 0.12) if ligado else 0.0
 	var tw := create_tween().set_parallel(true)
-	tw.tween_property(_tarja_cima, "size:y", h, 0.35).set_trans(Tween.TRANS_QUAD)
-	tw.tween_property(_tarja_baixo, "size:y", h, 0.35).set_trans(Tween.TRANS_QUAD)
-	tw.tween_property(_tarja_baixo, "position:y", T.y - h, 0.35).set_trans(Tween.TRANS_QUAD)
+	tw.tween_property(_tarja_cima, "rect_size:y", h, 0.35).set_trans(Tween.TRANS_QUAD)
+	tw.tween_property(_tarja_baixo, "rect_size:y", h, 0.35).set_trans(Tween.TRANS_QUAD)
+	tw.tween_property(_tarja_baixo, "rect_position:y", T.y - h, 0.35).set_trans(Tween.TRANS_QUAD)
 	_replay.visible = ligado
 	_replay_ponto.visible = ligado
 	# na demonstração (tela inicial) o logo grande sai da frente do selo REPLAY
 	create_tween().tween_property(_logo, "modulate:a", 0.0 if ligado else 1.0, 0.3)
 	var w := 420 * u
-	_replay.size = Vector2(w, w * 0.236)
-	_replay.position = Vector2(T.x - w - 40 * u, T.y * (0.1 if retrato else 0.12) * 0.5 - w * 0.118)
-	_replay_ponto.size = Vector2(34, 34) * u
-	_replay_ponto.position = _replay.position + Vector2(-50 * u, w * 0.118 - 17 * u)
+	_replay.rect_size = Vector2(w, w * 0.236)
+	_replay.rect_position = Vector2(T.x - w - 40 * u, T.y * (0.1 if retrato else 0.12) * 0.5 - w * 0.118)
+	_replay_ponto.rect_size = Vector2(34, 34) * u
+	_replay_ponto.rect_position = _replay.rect_position + Vector2(-50 * u, w * 0.118 - 17 * u)
 	if ligado:
 		mostrar_placar(false)
 		mostrar_sensores(false)
@@ -700,7 +788,7 @@ func _montar_atracao() -> void:
 	_aperte_botao = Painel3D.new(DESTAQUE, 70, 18, 8)
 	_atracao.add_child(_aperte_botao)
 	_aperte = rotulo("APERTE START", 88, MARINHO, 0, MARINHO, fonte_titulo)
-	_aperte.label_settings.shadow_color = Color(1, 1, 1, 0.55)  #G3?
+	_sombra(_aperte, Color(1, 1, 1, 0.55))
 	_aperte_botao.add_child(_aperte)
 	# placa do recorde
 	_recorde_placa = Painel3D.new(AZUL, 40, 10, 5)
@@ -725,7 +813,7 @@ func atracao(ligado: bool, recorde := "", creditos := "", foto_recorde: Texture 
 	_melhores_hoje = melhores
 	# o quadro dos melhores só é montado de novo quando muda (montar a cada
 	# volta da demonstração dava um tranco na TV Box)
-	var chave := "%s|%s|%s|%s" % [str(melhores), recorde, str(size), str(retrato)]
+	var chave := "%s|%s|%s|%s" % [str(melhores), recorde, str(rect_size), str(retrato)]
 	if chave != _chave_melhores or (_melhores == null and not melhores.empty()):
 		_chave_melhores = chave
 		_montar_melhores(melhores, recorde)
@@ -737,19 +825,18 @@ func atracao(ligado: bool, recorde := "", creditos := "", foto_recorde: Texture 
 	_rec_foto.visible = foto_recorde != null and recorde != ""
 	_recorde_placa.visible = recorde != ""
 	if recorde != "":
-		var ls := _recorde.label_settings  #G3?
-		var larg := ls.font.get_string_size(recorde, Label.ALIGN_LEFT, -1, ls.font_size).x
+		var larg := _largura_texto(_recorde, recorde)
 		var h := 100 * u
 		var d := 124 * u
 		var foto_l := d * 0.82 if _rec_foto.visible else 0.0
-		var w := min(larg + foto_l + 80 * u, size.x * 0.94)
-		_recorde_placa.size = Vector2(w, h)
-		var cx := _aperte_botao.position.x + _aperte_botao.size.x / 2
-		_recorde_placa.position = Vector2(clamp(cx - w / 2, 16 * u, size.x - w - 16 * u), _aperte_botao.position.y + _aperte_botao.size.y + 34 * u)
-		_recorde.size = Vector2(w - foto_l - 50 * u, h - 10 * u)
-		_recorde.position = Vector2(foto_l + 30 * u, 0)
-		_rec_foto.size = Vector2(d, d)
-		_rec_foto.position = Vector2(-d * 0.3, (h - d) / 2 - 6 * u)
+		var w: float = min(larg + foto_l + 80 * u, rect_size.x * 0.94)
+		_recorde_placa.rect_size = Vector2(w, h)
+		var cx := _aperte_botao.rect_position.x + _aperte_botao.rect_size.x / 2
+		_recorde_placa.rect_position = Vector2(clamp(cx - w / 2, 16 * u, rect_size.x - w - 16 * u), _aperte_botao.rect_position.y + _aperte_botao.rect_size.y + 34 * u)
+		_recorde.rect_size = Vector2(w - foto_l - 50 * u, h - 10 * u)
+		_recorde.rect_position = Vector2(foto_l + 30 * u, 0)
+		_rec_foto.rect_size = Vector2(d, d)
+		_rec_foto.rect_position = Vector2(-d * 0.3, (h - d) / 2 - 6 * u)
 	if ligado:
 		mostrar_placar(false)
 		mostrar_sensores(false)
@@ -768,7 +855,7 @@ func _montar_melhores(lista: Array, recorde: String) -> void:
 		_melhores = null
 	if lista.empty():
 		return
-	var T := size
+	var T := rect_size
 	var d := 150 * u
 	var gap := 34 * u
 	var w := lista.size() * d + (lista.size() - 1) * gap + 80 * u
@@ -776,42 +863,42 @@ func _montar_melhores(lista: Array, recorde: String) -> void:
 	var h := cab_h + d + 96 * u
 	w = max(w, 560 * u)
 	var p := Painel3D.new(Color("#0E2A5C"), 40, 14, 7)
-	p.size = Vector2(w, h)
+	p.rect_size = Vector2(w, h)
 	if retrato:
-		var y := _aperte_botao.position.y + _aperte_botao.size.y + 34 * u
-		p.position = Vector2((T.x - w) / 2, min(y, T.y - h - 110 * u))
+		var y := _aperte_botao.rect_position.y + _aperte_botao.rect_size.y + 34 * u
+		p.rect_position = Vector2((T.x - w) / 2, min(y, T.y - h - 110 * u))
 	else:
-		p.position = Vector2(T.x - w - 40 * u, T.y * 0.06)
+		p.rect_position = Vector2(T.x - w - 40 * u, T.y * 0.06)
 	_atracao.add_child(p)
 	_melhores = p
 	var cab_txt := "MELHORES DE HOJE"
 	var cab := rotulo(cab_txt, 42 * u, CREME, 10 * u, MARINHO, fonte_titulo)
-	cab.size = Vector2(w, cab_h)
+	cab.rect_size = Vector2(w, cab_h)
 	p.add_child(cab)
 	_caber(cab, 42 * u, w - 40 * u)
 	var x0 := (w - (lista.size() * d + (lista.size() - 1) * gap)) / 2
 	for k in lista.size():
 		var e: Dictionary = lista[k]
 		var fr := TextureRect.new()
-		var ft := Fotos.carregar(str(e.get("foto", "")))
+		var ft: Texture = Fotos.carregar(str(e.get("foto", "")))
 		fr.texture = ft if ft != null else _retratos.get(str(e.get("personagem", "bob")))
 		fr.expand = true
 		fr.stretch_mode = TextureRect.STRETCH_SCALE
 		fr.material = material_foto(_cor_medalha(k + 1))
-		fr.size = Vector2(d, d)
-		fr.position = Vector2(x0 + k * (d + gap), cab_h)
+		fr.rect_size = Vector2(d, d)
+		fr.rect_position = Vector2(x0 + k * (d + gap), cab_h)
 		p.add_child(fr)
 		var md := 54 * u
 		var med := Painel3D.new(_cor_medalha(k + 1), md / 2.0 / u, 5, 4)
-		med.size = Vector2(md, md)
-		med.position = fr.position + Vector2(-md * 0.2, -md * 0.15)
+		med.rect_size = Vector2(md, md)
+		med.rect_position = fr.rect_position + Vector2(-md * 0.2, -md * 0.15)
 		p.add_child(med)
 		var ln := rotulo(str(k + 1), md * 0.56, MARINHO, 0, MARINHO, fonte_titulo)
-		ln.size = Vector2(md, md - 4 * u)
+		ln.rect_size = Vector2(md, md - 4 * u)
 		med.add_child(ln)
 		var lp := rotulo("%d" % int(e.get("pontos", 0)), 46 * u, Color.white, 10 * u, MARINHO, fonte_titulo)
-		lp.size = Vector2(d + gap, 60 * u)
-		lp.position = Vector2(fr.position.x - gap / 2, cab_h + d + 8 * u)
+		lp.rect_size = Vector2(d + gap, 60 * u)
+		lp.rect_position = Vector2(fr.rect_position.x - gap / 2, cab_h + d + 8 * u)
 		p.add_child(lp)
 
 
@@ -820,7 +907,7 @@ func _montar_melhores(lista: Array, recorde: String) -> void:
 ## preparação: a criança (e o pai) sabem em que passo estão.
 const ETAPAS := ["JOGADORES", "AMIGO", "FOTO", "JOGAR"]
 var _etapas: Control
-var _etapas_pilulas: Array = []
+var _etapas_pilulas: Array = []   # Painel3D
 
 
 func _montar_etapas() -> void:
@@ -842,23 +929,21 @@ func _montar_etapas() -> void:
 func etapa(n: int) -> void:
 	_etapas.visible = n > 0
 	for i in _etapas_pilulas.size():
-		var p := _etapas_pilulas[i]
-		var passo := i + 1
+		var p: Painel3D = _etapas_pilulas[i]
+		var passo: int = i + 1
+		var texto := p.get_node("texto") as Label
 		if passo == n:
 			p.pintar(DESTAQUE)
 			p.modulate = Color.white
-			(p.get_node("texto") as Label).label_settings.font_color = MARINHO  #G3?
-			(p.get_node("texto") as Label).label_settings.outline_size = 0  #G3?
+			_estilo(texto, -1.0, 0.0, MARINHO)
 		elif passo < n:
 			p.pintar(Color("#2DBE4E"))
 			p.modulate = Color(1, 1, 1, 0.9)
-			(p.get_node("texto") as Label).label_settings.font_color = Color.white  #G3?
-			(p.get_node("texto") as Label).label_settings.outline_size = int(7 * u)  #G3?
+			_estilo(texto, -1.0, 7 * u, Color.white)
 		else:
 			p.pintar(AZUL)
 			p.modulate = Color(1, 1, 1, 0.75)
-			(p.get_node("texto") as Label).label_settings.font_color = Color.white  #G3?
-			(p.get_node("texto") as Label).label_settings.outline_size = int(7 * u)  #G3?
+			_estilo(texto, -1.0, 7 * u, Color.white)
 
 
 func _layout_etapas(T: Vector2) -> void:
@@ -867,12 +952,12 @@ func _layout_etapas(T: Vector2) -> void:
 	var h := 66 * u
 	var x0 := (T.x - (w * 4 + gap * 3)) / 2
 	for i in _etapas_pilulas.size():
-		var p := _etapas_pilulas[i]
-		p.size = Vector2(w, h)
-		p.position = Vector2(x0 + i * (w + gap), 24 * u)
+		var p: Painel3D = _etapas_pilulas[i]
+		p.rect_size = Vector2(w, h)
+		p.rect_position = Vector2(x0 + i * (w + gap), 24 * u)
 		var l := p.get_node("texto") as Label
-		l.size = Vector2(w, h - 8 * u)
-		l.position = Vector2.ZERO
+		l.rect_size = Vector2(w, h - 8 * u)
+		l.rect_position = Vector2.ZERO
 		_caber(l, 30 * u, w - 20 * u)
 
 
@@ -898,23 +983,22 @@ func _sensores(cores: Array, legendas: Array) -> Control:
 
 func _layout_sensores(c: Control, largura: float) -> void:
 	var d := 40 * u
-	var passo := min(largura / 5.0, 76 * u)
+	var passo: float = min(largura / 5.0, 76 * u)
 	var x0 := (largura - passo * 4 - d) / 2
 	for i in 5:
 		var b := c.get_node("s%d" % i) as Panel
-		b.size = Vector2(d, d)
-		b.position = Vector2(x0 + i * passo, 0)
+		b.rect_size = Vector2(d, d)
+		b.rect_position = Vector2(x0 + i * passo, 0)
 	for l in c.get_children():
 		if l is Label:
 			var de: int = l.get_meta("de")
 			var ate: int = l.get_meta("ate")
 			var xa := x0 + de * passo
 			var xb := x0 + ate * passo + d
-			_tamanho_rotulo(l, 26 * u)
-			l.label_settings.outline_size = int(7 * u)  #G3?
-			l.size = Vector2(max(xb - xa, 120 * u), 36 * u)
-			l.position = Vector2((xa + xb) / 2 - l.size.x / 2, d + 4 * u)
-	c.size = Vector2(largura, d + 44 * u)
+			_tamanho_rotulo(l, 26 * u, 7 * u)
+			l.rect_size = Vector2(max(xb - xa, 120 * u), 36 * u)
+			l.rect_position = Vector2((xa + xb) / 2 - l.rect_size.x / 2, d + 4 * u)
+	c.rect_size = Vector2(largura, d + 44 * u)
 
 
 # ================================================================ quantos vão jogar
@@ -943,7 +1027,6 @@ func _montar_jogadores() -> void:
 		num.name = "num"
 		c.add_child(num)
 		var leg := rotulo("JOGADOR" if i == 0 else "JOGADORES", 46, MARINHO, 0, MARINHO, fonte_titulo)
-		leg.label_settings.shadow_size = 0  #G3?
 		leg.name = "leg"
 		c.add_child(leg)
 		for k in 2:
@@ -955,7 +1038,6 @@ func _montar_jogadores() -> void:
 			r.name = "retrato_%d" % k
 			c.add_child(r)
 		var mei := rotulo("ou" if i == 0 else "x", 40, MARINHO, 0, MARINHO, fonte_titulo)
-		mei.label_settings.shadow_size = 0  #G3?
 		mei.name = "meio"
 		c.add_child(mei)
 		# como escolher: o botão START desenhado + quantas vezes
@@ -966,7 +1048,6 @@ func _montar_jogadores() -> void:
 		bl.name = "texto"
 		bt.add_child(bl)
 		var vezes := rotulo("1 VEZ" if i == 0 else "2 VEZES", 40, MARINHO, 0, MARINHO, fonte_titulo)
-		vezes.label_settings.shadow_size = 0  #G3?
 		vezes.align = Label.ALIGN_LEFT
 		vezes.name = "vezes"
 		c.add_child(vezes)
@@ -985,9 +1066,9 @@ func _montar_jogadores() -> void:
 ## fracao: tempo que falta (1 → 0); segundos: para a contagem escrita.
 func jogadores(ligado: bool, n := 1, fracao := 0.0, segundos := 0) -> void:
 	if ligado and not _jog.visible:
-		_jog_painel.rect_pivot_offset = _jog_painel.size / 2
-		_jog_painel.scale = Vector2.ONE * 0.75
-		create_tween().tween_property(_jog_painel, "scale", Vector2.ONE, 0.3).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		_jog_painel.rect_pivot_offset = _jog_painel.rect_size / 2
+		_jog_painel.rect_scale = Vector2.ONE * 0.75
+		create_tween().tween_property(_jog_painel, "rect_scale", Vector2.ONE, 0.3).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	_jog.visible = ligado
 	if not ligado:
 		return
@@ -998,85 +1079,76 @@ func jogadores(ligado: bool, n := 1, fracao := 0.0, segundos := 0) -> void:
 		_jog_dica.text = "Vão jogar em 2? Aperte START de novo agora!\nSe não, começa com 1 jogador em %d..." % Compat.imax(segundos, 1)
 	else:
 		_jog_dica.text = "2 JOGADORES: BOB x MIA!\nPreparem-se..."
-	_jog_barra.size.x = max(_jog_trilho.size.x * clamp(fracao, 0.0, 1.0), _jog_trilho.size.y)
+	_jog_barra.rect_size.x = max(_jog_trilho.rect_size.x * clamp(fracao, 0.0, 1.0), _jog_trilho.rect_size.y)
 	_jog_barra.visible = fracao > 0.0
 	for i in 2:
-		var c := _jog_cartoes[i]
+		var c: Painel3D = _jog_cartoes[i]
 		c.modulate = Color.white if i == n - 1 else Color(0.78, 0.82, 0.9, 0.9)
 		if i != n - 1:
 			c.realcar(0.0)
 
 
 func _layout_jogadores(T: Vector2) -> void:
-	_jog_veu.position = Vector2.ZERO
-	_jog_veu.size = T
+	_jog_veu.rect_position = Vector2.ZERO
+	_jog_veu.rect_size = T
 	var mw: float = min(T.x * 0.92, 980 * u)
 	var mh := 830 * u
-	_jog_painel.size = Vector2(mw, mh)
-	_jog_painel.position = (T - _jog_painel.size) / 2 + Vector2(0, (50 if retrato else 30) * u)
-	_jog_painel.rect_pivot_offset = _jog_painel.size / 2
-	_tamanho_rotulo(_jog_titulo, 70 * u)
-	_jog_titulo.label_settings.outline_size = int(16 * u)  #G3?
-	_jog_titulo.size = Vector2(mw, 120 * u)
-	_jog_titulo.position = Vector2(0, 22 * u)
+	_jog_painel.rect_size = Vector2(mw, mh)
+	_jog_painel.rect_position = (T - _jog_painel.rect_size) / 2 + Vector2(0, (50 if retrato else 30) * u)
+	_jog_painel.rect_pivot_offset = _jog_painel.rect_size / 2
+	_tamanho_rotulo(_jog_titulo, 70 * u, 16 * u)
+	_jog_titulo.rect_size = Vector2(mw, 120 * u)
+	_jog_titulo.rect_position = Vector2(0, 22 * u)
 	_caber(_jog_titulo, 70 * u, mw - 60 * u)
 	var gap := 36 * u
 	var cw := (mw - gap * 3) / 2
 	var ch := 470 * u
 	for i in 2:
-		var c := _jog_cartoes[i]
-		c.size = Vector2(cw, ch)
-		c.position = Vector2(gap + i * (cw + gap), 150 * u)
-		c.rect_pivot_offset = c.size / 2
-		var num := c.get_node("num") as Label
-		_tamanho_rotulo(num, 170 * u)
-		num.label_settings.outline_size = int(22 * u)  #G3?
-		num.size = Vector2(cw, 180 * u)
-		num.position = Vector2(0, 0)
+		var c: Painel3D = _jog_cartoes[i]
+		c.rect_size = Vector2(cw, ch)
+		c.rect_position = Vector2(gap + i * (cw + gap), 150 * u)
+		c.rect_pivot_offset = c.rect_size / 2
+		# o número enorme: desenhado menor e esticado (ver _rotulo_grande)
+		_rotulo_grande(c.get_node("num") as Label, 170 * u, 22 * u, Rect2(0, 0, cw, 180 * u))
 		var leg := c.get_node("leg") as Label
 		_tamanho_rotulo(leg, 44 * u)
-		leg.label_settings.shadow_size = 0  #G3?
-		leg.size = Vector2(cw, 56 * u)
-		leg.position = Vector2(0, 172 * u)
+		leg.rect_size = Vector2(cw, 56 * u)
+		leg.rect_position = Vector2(0, 172 * u)
 		_caber(leg, 44 * u, cw - 30 * u)
 		var rs := 112 * u
 		for k in 2:
 			var r := c.get_node("retrato_%d" % k) as TextureRect
-			r.size = Vector2(rs, rs)
-			r.position = Vector2(cw / 2 + (-rs - 20 * u if k == 0 else 20 * u), 232 * u)
+			r.rect_size = Vector2(rs, rs)
+			r.rect_position = Vector2(cw / 2 + (-rs - 20 * u if k == 0 else 20 * u), 232 * u)
 		var mei := c.get_node("meio") as Label
 		_tamanho_rotulo(mei, 38 * u)
-		mei.label_settings.shadow_size = 0  #G3?
-		mei.size = Vector2(cw, rs)
-		mei.position = Vector2(0, 232 * u)
+		mei.rect_size = Vector2(cw, rs)
+		mei.rect_position = Vector2(0, 232 * u)
 		# botão START + "1 VEZ"/"2 VEZES", centralizados
 		var bt := c.get_node("botao") as Painel3D
 		var vezes := c.get_node("vezes") as Label
 		var bw := 150 * u
 		var bh := 60 * u
 		_tamanho_rotulo(vezes, 38 * u)
-		vezes.label_settings.shadow_size = 0  #G3?
-		var vw := vezes.label_settings.font.get_string_size(vezes.text, Label.ALIGN_LEFT, -1, vezes.label_settings.font_size).x  #G3?
+		var vw := _largura_texto(vezes, vezes.text)
 		var total := bw + 14 * u + vw
 		var x0 := (cw - total) / 2
-		bt.size = Vector2(bw, bh)
-		bt.position = Vector2(x0, 372 * u)
+		bt.rect_size = Vector2(bw, bh)
+		bt.rect_position = Vector2(x0, 372 * u)
 		var bl := bt.get_node("texto") as Label
-		_tamanho_rotulo(bl, 32 * u)
-		bl.label_settings.outline_size = int(7 * u)  #G3?
-		bl.size = Vector2(bw, bh - 7 * u)
-		bl.position = Vector2.ZERO
-		vezes.size = Vector2(vw + 10 * u, bh)
-		vezes.position = Vector2(x0 + bw + 14 * u, 372 * u - 4 * u)
-	_tamanho_rotulo(_jog_dica, 34 * u)
-	_jog_dica.label_settings.outline_size = int(9 * u)  #G3?
-	_jog_dica.size = Vector2(mw - 40 * u, 100 * u)
-	_jog_dica.position = Vector2(20 * u, 636 * u)
-	_jog_dica.autowrap = true
-	_jog_trilho.size = Vector2(mw - 140 * u, 34 * u)
-	_jog_trilho.position = Vector2(70 * u, 752 * u)
-	_jog_barra.size = Vector2(_jog_barra.size.x, 34 * u)
-	_jog_barra.position = Vector2.ZERO
+		_tamanho_rotulo(bl, 32 * u, 7 * u)
+		bl.rect_size = Vector2(bw, bh - 7 * u)
+		bl.rect_position = Vector2.ZERO
+		vezes.rect_size = Vector2(vw + 10 * u, bh)
+		vezes.rect_position = Vector2(x0 + bw + 14 * u, 372 * u - 4 * u)
+	_tamanho_rotulo(_jog_dica, 34 * u, 9 * u)
+	_jog_dica.rect_size = Vector2(mw - 40 * u, 100 * u)
+	_jog_dica.rect_position = Vector2(20 * u, 636 * u)
+	_jog_dica.autowrap = false
+	_jog_trilho.rect_size = Vector2(mw - 140 * u, 34 * u)
+	_jog_trilho.rect_position = Vector2(70 * u, 752 * u)
+	_jog_barra.rect_size = Vector2(_jog_barra.rect_size.x, 34 * u)
+	_jog_barra.rect_position = Vector2.ZERO
 
 
 # ================================================================ escolha do personagem
@@ -1121,13 +1193,13 @@ func selecao(ligado: bool, destaque := 0, texto := "", pes: Array = []) -> void:
 		_pular(_sel_placas[destaque])
 	_sel_destaque = destaque
 	for i in 2:
-		var p := _sel_placas[i]
+		var p: Painel3D = _sel_placas[i]
 		if pes.size() == 2:
 			var pe: Vector2 = pes[i]
-			p.position = Vector2(clamp(pe.x - p.size.x / 2, 12 * u, size.x - p.size.x - 12 * u), pe.y + 30 * u)
-		p.rect_pivot_offset = p.size / 2
+			p.rect_position = Vector2(clamp(pe.x - p.rect_size.x / 2, 12 * u, rect_size.x - p.rect_size.x - 12 * u), pe.y + 30 * u)
+		p.rect_pivot_offset = p.rect_size / 2
 		var alvo := 1.12 if i == destaque else 0.9
-		p.scale = p.scale.lerp(Vector2.ONE * alvo, 0.25)  #G3?
+		p.rect_scale = p.rect_scale.linear_interpolate(Vector2.ONE * alvo, 0.25)
 		p.modulate = Color.white if i == destaque else Color(0.8, 0.84, 0.92, 0.85)
 		if i != destaque:
 			p.realcar(0.0)
@@ -1149,7 +1221,7 @@ func tela_fim(ligado: bool, dados := {}) -> void:
 	var vez := _fim_vez
 	mostrar_placar(false)
 	mostrar_sensores(false)
-	var T := size
+	var T := rect_size
 	var bh := 116 * u
 	var y_botao := T.y - bh - (110 if retrato else 34) * u
 	var titulo := TextureRect.new()
@@ -1157,13 +1229,13 @@ func tela_fim(ligado: bool, dados := {}) -> void:
 	titulo.expand = true
 	titulo.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	var tw_l: float = min(T.x * 0.42, 440 * u) if retrato else 340 * u
-	titulo.size = Vector2(tw_l, tw_l * 0.61)
-	titulo.position = Vector2((T.x - tw_l) / 2, (40 if retrato else 14) * u)
-	titulo.rect_pivot_offset = titulo.size / 2
-	titulo.scale = Vector2.ZERO
+	titulo.rect_size = Vector2(tw_l, tw_l * 0.61)
+	titulo.rect_position = Vector2((T.x - tw_l) / 2, (40 if retrato else 14) * u)
+	titulo.rect_pivot_offset = titulo.rect_size / 2
+	titulo.rect_scale = Vector2.ZERO
 	_fim.add_child(titulo)
-	create_tween().tween_property(titulo, "scale", Vector2.ONE, 0.45).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	var y0 := titulo.position.y + titulo.size.y + 6 * u
+	create_tween().tween_property(titulo, "rect_scale", Vector2.ONE, 0.45).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	var y0 := titulo.rect_position.y + titulo.rect_size.y + 6 * u
 	var area_c: Rect2
 	var area_q: Rect2
 	if retrato:
@@ -1179,26 +1251,29 @@ func tela_fim(ligado: bool, dados := {}) -> void:
 	_quadro_classificacao(dados.get("classificacao", []), js, area_q)
 	# (só se ainda for este fim de jogo: com START logo, a partida nova já começou)
 	if dados.get("vencedor", -9) == -1 and js.size() > 1:
-		_atrasado(3.0, func():  #G3?
-			if vez == _fim_vez:
-				letreiro("empate", "", 2.5, 0.55))
+		_atrasado(3.0, "_letreiro_do_fim", [vez, "empate", "", 2.5, 0.55])
 	if dados.get("recorde", false):
-		_atrasado(3.4, func():  #G3?
-			if vez == _fim_vez:
-				letreiro("novo_recorde", "%d PONTOS" % dados.get("recorde_valor", 0), 3.0, 0.42 if retrato else 0.3))
+		_atrasado(3.4, "_letreiro_do_fim", [vez, "novo_recorde", "%d PONTOS" % dados.get("recorde_valor", 0), 3.0, 0.42 if retrato else 0.3])
 	# botão "jogar de novo"
 	var bw: float = min(T.x * 0.92, 940 * u)
 	var botao := Painel3D.new(DESTAQUE, 58, 14, 7)
-	botao.size = Vector2(bw, bh)
-	botao.position = Vector2((T.x - bw) / 2, y_botao)
+	botao.rect_size = Vector2(bw, bh)
+	botao.rect_position = Vector2((T.x - bw) / 2, y_botao)
 	botao.name = "botao"
 	_fim.add_child(botao)
 	var ap := rotulo("APERTE START PARA JOGAR DE NOVO", 44 * u, MARINHO, 0, MARINHO, fonte_titulo)
-	ap.label_settings.shadow_color = Color(1, 1, 1, 0.55)  #G3?
-	ap.size = Vector2(bw, bh - 14 * u)
+	_sombra(ap, Color(1, 1, 1, 0.55))
+	ap.rect_size = Vector2(bw, bh - 14 * u)
 	ap.name = "aperte"
 	botao.add_child(ap)
 	_caber(ap, 44 * u, bw - 70 * u)
+
+
+## Letreiro atrasado do fim de jogo (Godot 3: sem lambda): só se ainda for
+## o mesmo fim de jogo.
+func _letreiro_do_fim(vez: int, nome: String, sub: String, dur: float, altura: float) -> void:
+	if vez == _fim_vez:
+		letreiro(nome, sub, dur, altura)
 
 
 ## Cartão de um jogador: foto grande em cima, nome, pontos, estrelas e o
@@ -1212,12 +1287,12 @@ func _cartao_fim(j: Dictionary, i: int, n: int, area: Rect2, venceu: bool) -> vo
 	var x := area.position.x + (area.size.x - (w * n + gap * (n - 1))) / 2 + i * (w + gap)
 	var y := area.position.y + d * 0.42
 	var c := Painel3D.new(cor, 44, 18, 8)
-	c.size = Vector2(w, h)
-	c.position = Vector2(x, y + 900 * u)
+	c.rect_size = Vector2(w, h)
+	c.rect_position = Vector2(x, y + 900 * u)
 	_fim.add_child(c)
 	var tw := create_tween()
 	tw.tween_interval(0.3 + i * 0.2)
-	tw.tween_property(c, "position:y", y, 0.5).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tw.tween_property(c, "rect_position:y", y, 0.5).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	# foto (da câmera; sem câmera, o mascote)
 	var ft: Texture = j.get("foto")
 	var fr := TextureRect.new()
@@ -1225,9 +1300,9 @@ func _cartao_fim(j: Dictionary, i: int, n: int, area: Rect2, venceu: bool) -> vo
 	fr.expand = true
 	fr.stretch_mode = TextureRect.STRETCH_SCALE
 	fr.material = material_foto(DESTAQUE if venceu else Color.white)
-	fr.size = Vector2(d, d)
-	fr.position = Vector2((w - d) / 2, -d * 0.42)
-	fr.rect_pivot_offset = fr.size / 2
+	fr.rect_size = Vector2(d, d)
+	fr.rect_position = Vector2((w - d) / 2, -d * 0.42)
+	fr.rect_pivot_offset = fr.rect_size / 2
 	c.add_child(fr)
 	if ft != null:
 		# o mascote com quem jogou, no cantinho da foto
@@ -1235,26 +1310,26 @@ func _cartao_fim(j: Dictionary, i: int, n: int, area: Rect2, venceu: bool) -> vo
 		selo.texture = _retratos.get(j["personagem"])
 		selo.expand = true
 		selo.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		selo.size = Vector2(d, d) * 0.4
-		selo.position = fr.position + Vector2(d * 0.7, d * 0.62)
+		selo.rect_size = Vector2(d, d) * 0.4
+		selo.rect_position = fr.rect_position + Vector2(d * 0.7, d * 0.62)
 		c.add_child(selo)
 	var yy := d * 0.6
 	var nome := rotulo(str(j["personagem"]).to_upper(), 46 * u, Color.white, 10 * u, MARINHO, fonte_titulo)
-	nome.size = Vector2(w, 58 * u)
-	nome.position = Vector2(0, yy)
+	nome.rect_size = Vector2(w, 58 * u)
+	nome.rect_position = Vector2(0, yy)
 	c.add_child(nome)
 	var pts := rotulo("0", 96 * u, CREME, 20 * u, MARINHO, fonte_titulo)
-	pts.size = Vector2(w, 100 * u)
-	pts.position = Vector2(0, yy + 44 * u)
+	pts.rect_size = Vector2(w, 100 * u)
+	pts.rect_position = Vector2(0, yy + 44 * u)
 	c.add_child(pts)
 	var alvo := int(j["pontos"])
 	# (a contagem é do próprio texto: some junto com ele)
 	var tw2 := pts.create_tween()
 	tw2.tween_interval(0.8 + i * 0.2)
-	tw2.tween_method(func(v: float): pts.text = str(int(v)), 0.0, float(alvo), 1.4).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)  #G3?
+	tw2.tween_method(self, "_contar_pontos", 0.0, float(alvo), 1.4, [pts]).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 	var leg := rotulo("PONTOS", 30 * u, Color.white, 7 * u)
-	leg.size = Vector2(w, 34 * u)
-	leg.position = Vector2(0, yy + 136 * u)
+	leg.rect_size = Vector2(w, 34 * u)
+	leg.rect_position = Vector2(0, yy + 136 * u)
 	c.add_child(leg)
 	var ne := int(j.get("estrelas", 1))
 	for k in 3:
@@ -1262,38 +1337,43 @@ func _cartao_fim(j: Dictionary, i: int, n: int, area: Rect2, venceu: bool) -> vo
 		e.texture = Materiais.textura("estrela_placar" if k < ne else "estrela_vazia")
 		e.expand = true
 		e.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		var es := 64 * u if k == 1 else 54 * u
-		e.size = Vector2(es, es)
-		e.position = Vector2(w / 2 - es / 2 + (k - 1) * 72 * u, yy + 176 * u - (6 * u if k == 1 else 0.0))
-		e.rect_pivot_offset = e.size / 2
-		e.scale = Vector2.ZERO
+		var es: float = 64 * u if k == 1 else 54 * u
+		e.rect_size = Vector2(es, es)
+		e.rect_position = Vector2(w / 2 - es / 2 + (k - 1) * 72 * u, yy + 176 * u - (6 * u if k == 1 else 0.0))
+		e.rect_pivot_offset = e.rect_size / 2
+		e.rect_scale = Vector2.ZERO
 		c.add_child(e)
 		var tw3 := create_tween()
 		tw3.tween_interval(2.2 + k * 0.25 + i * 0.1)
-		tw3.tween_property(e, "scale", Vector2.ONE, 0.35).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		tw3.tween_property(e, "rect_scale", Vector2.ONE, 0.35).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	# lugar no dia (e quem venceu a partida de 2)
 	var pos := int(j.get("posicao", 0))
 	if pos > 0 or venceu:
 		var fita_h := 58 * u
 		var fita := Painel3D.new(DESTAQUE if venceu else _cor_medalha(pos), 28, 8, 5)
-		fita.size = Vector2(w * 0.88, fita_h)
-		fita.position = Vector2(w * 0.06, h - fita_h - 16 * u)
+		fita.rect_size = Vector2(w * 0.88, fita_h)
+		fita.rect_position = Vector2(w * 0.06, h - fita_h - 16 * u)
 		c.add_child(fita)
 		var txt := "%dº LUGAR HOJE!" % pos if pos <= 3 else "%dº LUGAR HOJE" % pos
 		if venceu:
 			txt = "VENCEU!  %dº HOJE" % pos if pos > 0 else "VENCEU!"
 			pos = Compat.imin(pos, 3) if pos > 0 else 1
 		var lf := rotulo(txt, 34 * u, MARINHO if pos <= 3 else Color.white, 0 if pos <= 3 else 7 * u, MARINHO, fonte_titulo)
-		lf.size = Vector2(w * 0.86, fita_h - 6 * u)
+		lf.rect_size = Vector2(w * 0.86, fita_h - 6 * u)
 		fita.add_child(lf)
 		_caber(lf, 34 * u, w * 0.8)
-		fita.rect_pivot_offset = fita.size / 2
-		fita.scale = Vector2.ZERO
+		fita.rect_pivot_offset = fita.rect_size / 2
+		fita.rect_scale = Vector2.ZERO
 		var tw5 := create_tween()
 		tw5.tween_interval(2.8 + i * 0.15)
-		tw5.tween_property(fita, "scale", Vector2.ONE, 0.4).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		tw5.tween_property(fita, "rect_scale", Vector2.ONE, 0.4).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	if venceu:
 		c.realcar(0.55)
+
+
+## Os pontos do cartão contando (Godot 3: sem lambda no tween_method).
+func _contar_pontos(v: float, rotulo_pontos: Label) -> void:
+	rotulo_pontos.text = str(int(v))
 
 
 func _cor_medalha(pos: int) -> Color:
@@ -1328,13 +1408,13 @@ func _quadro_classificacao(lista: Array, js: Array, area: Rect2) -> void:
 	var lh: float = clamp((area.size.y - cab_h - gap * (n + 1)) / n, 70 * u, 112 * u)
 	var altura := cab_h + gap + n * (lh + gap)
 	var quadro := Painel3D.new(Color("#0E2A5C"), 40, 14, 7)
-	quadro.size = Vector2(area.size.x, altura)
-	quadro.position = area.position
+	quadro.rect_size = Vector2(area.size.x, altura)
+	quadro.rect_position = area.position
 	quadro.modulate.a = 0.0
 	_fim.add_child(quadro)
 	create_tween().tween_property(quadro, "modulate:a", 1.0, 0.4).set_delay(1.0)
 	var cab := rotulo("CLASSIFICAÇÃO DE HOJE", 50 * u, CREME, 12 * u, MARINHO, fonte_titulo)
-	cab.size = Vector2(area.size.x, cab_h)
+	cab.rect_size = Vector2(area.size.x, cab_h)
 	quadro.add_child(cab)
 	_caber(cab, 50 * u, area.size.x - 60 * u)
 	if lista.empty() and linhas.empty():
@@ -1347,8 +1427,8 @@ func _quadro_classificacao(lista: Array, js: Array, area: Rect2) -> void:
 		var minha: bool = atuais.has(pos)
 		var cor := Color("#2A63C4") if not minha else Color("#FFB627")
 		var lin := Painel3D.new(cor, 26, 8, 4)
-		lin.size = Vector2(lw, lh)
-		lin.position = Vector2(18 * u, cab_h + gap + k * (lh + gap))
+		lin.rect_size = Vector2(lw, lh)
+		lin.rect_position = Vector2(18 * u, cab_h + gap + k * (lh + gap))
 		quadro.add_child(lin)
 		lin.modulate.a = 0.0
 		var tw := create_tween()
@@ -1357,11 +1437,11 @@ func _quadro_classificacao(lista: Array, js: Array, area: Rect2) -> void:
 		# número (medalha para os 3 primeiros)
 		var md := lh * 0.74
 		var med := Painel3D.new(_cor_medalha(pos), md / 2.0 / u, 6, 4)
-		med.size = Vector2(md, md)
-		med.position = Vector2(12 * u, (lh - md) / 2 - 3 * u)
+		med.rect_size = Vector2(md, md)
+		med.rect_position = Vector2(12 * u, (lh - md) / 2 - 3 * u)
 		lin.add_child(med)
 		var ln := rotulo(str(pos), md * 0.55, MARINHO if pos <= 3 else Color.white, 0 if pos <= 3 else 6 * u, MARINHO, fonte_titulo)
-		ln.size = Vector2(md, md - 4 * u)
+		ln.rect_size = Vector2(md, md - 4 * u)
 		med.add_child(ln)
 		# foto da criança (ou o mascote)
 		var fd := lh * 0.92
@@ -1373,8 +1453,8 @@ func _quadro_classificacao(lista: Array, js: Array, area: Rect2) -> void:
 		fr.expand = true
 		fr.stretch_mode = TextureRect.STRETCH_SCALE
 		fr.material = material_foto(Color.white)
-		fr.size = Vector2(fd, fd)
-		fr.position = Vector2(24 * u + md, (lh - fd) / 2 - 3 * u)
+		fr.rect_size = Vector2(fd, fd)
+		fr.rect_position = Vector2(24 * u + md, (lh - fd) / 2 - 3 * u)
 		lin.add_child(fr)
 		var px := 24 * u + md + fd + 14 * u
 		var quem := "com %s" % str(e.get("personagem", "")).to_upper()
@@ -1382,23 +1462,22 @@ func _quadro_classificacao(lista: Array, js: Array, area: Rect2) -> void:
 			quem += "  ·  %s" % e["hora"]
 		var lq := rotulo(quem, 30 * u, Color.white, 7 * u, MARINHO)
 		lq.align = Label.ALIGN_LEFT
-		lq.size = Vector2(lw * 0.5, lh - 6 * u)
-		lq.position = Vector2(px, 0)
+		lq.rect_size = Vector2(lw * 0.5, lh - 6 * u)
+		lq.rect_position = Vector2(px, 0)
 		lin.add_child(lq)
 		if minha:
 			var voce := rotulo("VOCÊ!", 34 * u, MARINHO, 0, MARINHO, fonte_titulo)
 			voce.align = Label.ALIGN_LEFT
-			voce.size = Vector2(lw * 0.3, lh * 0.5)
-			voce.position = Vector2(px, -2 * u)
-			lq.position.y = lh * 0.36
-			lq.size.y = lh * 0.6
-			lq.label_settings.font_color = MARINHO  #G3?
-			lq.label_settings.outline_size = 0  #G3?
+			voce.rect_size = Vector2(lw * 0.3, lh * 0.5)
+			voce.rect_position = Vector2(px, -2 * u)
+			lq.rect_position.y = lh * 0.36
+			lq.rect_size.y = lh * 0.6
+			_estilo(lq, -1.0, 0.0, MARINHO)
 			lin.add_child(voce)
 		var lp := rotulo(str(int(e.get("pontos", 0))), lh * 0.6, CREME if not minha else MARINHO, 0 if minha else 10 * u, MARINHO, fonte_titulo)
 		lp.align = Label.ALIGN_RIGHT
-		lp.size = Vector2(lw * 0.3, lh - 6 * u)
-		lp.position = Vector2(lw * 0.7 - 24 * u, 0)
+		lp.rect_size = Vector2(lw * 0.3, lh - 6 * u)
+		lp.rect_position = Vector2(lw * 0.7 - 24 * u, 0)
 		lin.add_child(lp)
 
 
@@ -1406,15 +1485,17 @@ func fim_contagem(segundos: int) -> void:
 	var ap := _fim.find_node("aperte", true, false) as Label
 	if ap:
 		ap.text = "APERTE START PARA JOGAR DE NOVO  (%d)" % segundos
-		_caber(ap, 44 * u, ap.size.x - 70 * u)
+		_caber(ap, 44 * u, ap.rect_size.x - 70 * u)
 	var b := _fim.get_node_or_null("botao") as Control
 	if b:
-		b.rect_pivot_offset = b.size / 2
-		b.scale = Vector2.ONE * (1.0 + sin(_tempo * 4.0) * 0.025)
+		b.rect_pivot_offset = b.rect_size / 2
+		b.rect_scale = Vector2.ONE * (1.0 + sin(_tempo * 4.0) * 0.025)
 
 
-func _atrasado(t: float, f: FuncRef) -> void:
-	get_tree().create_timer(t).timeout.connect(f)  #G3?
+## Chama o método `metodo` (com `args`) daqui a `t` segundos.
+## Godot 3: sem lambda — nome do método + argumentos.
+func _atrasado(t: float, metodo: String, args := []) -> void:
+	get_tree().create_timer(t).connect("timeout", self, metodo, args)
 
 
 # ================================================================ inatividade
@@ -1473,7 +1554,6 @@ func _montar_fotos() -> void:
 	_foto_circulo = TextureRect.new()
 	_foto_circulo.expand = true
 	_foto_circulo.stretch_mode = TextureRect.STRETCH_SCALE
-	_foto_circulo.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
 	_foto_circulo.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_foto_tela.add_child(_foto_circulo)
 	_foto_selo = TextureRect.new()
@@ -1495,30 +1575,25 @@ func _montar_fotos() -> void:
 
 
 func _layout_fotos() -> void:
-	var T := size
-	_foto_fundo.size = T
+	var T := rect_size
+	_foto_fundo.rect_size = T
 	var d: float = min(T.x * 0.7, T.y * 0.44)
 	var cy := T.y * (0.47 if retrato else 0.52)
-	_foto_circulo.size = Vector2(d, d)
-	_foto_circulo.position = Vector2((T.x - d) / 2, cy - d / 2)
-	_foto_circulo.rect_pivot_offset = _foto_circulo.size / 2
+	_foto_circulo.rect_size = Vector2(d, d)
+	_foto_circulo.rect_position = Vector2((T.x - d) / 2, cy - d / 2)
+	_foto_circulo.rect_pivot_offset = _foto_circulo.rect_size / 2
 	var sd := d * 0.42
-	_foto_selo.size = Vector2(sd, sd)
-	_foto_selo.position = _foto_circulo.position + Vector2(d * 0.74, d * 0.66)
-	_tamanho_rotulo(_foto_titulo, 110 * u)
-	_foto_titulo.label_settings.outline_size = int(24 * u)  #G3?
-	_foto_titulo.size = Vector2(T.x, 150 * u)
-	_foto_titulo.position = Vector2(0, cy - d / 2 - 190 * u)
-	_foto_titulo.rect_pivot_offset = _foto_titulo.size / 2
-	_tamanho_rotulo(_foto_numero, 280 * u)
-	_foto_numero.label_settings.outline_size = int(44 * u)  #G3?
-	_foto_numero.size = Vector2(T.x, 360 * u)
-	_foto_numero.position = Vector2(0, cy - 180 * u)
-	_foto_numero.rect_pivot_offset = _foto_numero.size / 2
-	_tamanho_rotulo(_foto_sub, 46 * u)
-	_foto_sub.label_settings.outline_size = int(12 * u)  #G3?
-	_foto_sub.size = Vector2(T.x * 0.9, 140 * u)
-	_foto_sub.position = Vector2(T.x * 0.05, cy + d / 2 + 30 * u)
+	_foto_selo.rect_size = Vector2(sd, sd)
+	_foto_selo.rect_position = _foto_circulo.rect_position + Vector2(d * 0.74, d * 0.66)
+	_tamanho_rotulo(_foto_titulo, 110 * u, 24 * u)
+	_foto_titulo.rect_size = Vector2(T.x, 150 * u)
+	_foto_titulo.rect_position = Vector2(0, cy - d / 2 - 190 * u)
+	_foto_titulo.rect_pivot_offset = _foto_titulo.rect_size / 2
+	# o número enorme: desenhado menor e esticado (ver _rotulo_grande)
+	_rotulo_grande(_foto_numero, 280 * u, 44 * u, Rect2(0, cy - 180 * u, T.x, 360 * u))
+	_tamanho_rotulo(_foto_sub, 46 * u, 12 * u)
+	_foto_sub.rect_size = Vector2(T.x * 0.9, 140 * u)
+	_foto_sub.rect_position = Vector2(T.x * 0.05, cy + d / 2 + 30 * u)
 
 
 ## Tela "SORRIA!": a câmera ao vivo num círculo, com o mascote do lado.
@@ -1529,24 +1604,27 @@ func foto_tela(ligado: bool, textura: Texture = null, personagem := "", titulo :
 	_layout_fotos()
 	var cor := COR_BOB if personagem == "bob" else COR_MIA
 	_foto_circulo.texture = textura
+	_filtrar(textura)   # a câmera ao vivo vem de um Viewport
 	_foto_circulo.material = material_foto(cor.lightened(0.35))
 	_foto_selo.texture = _retratos.get(personagem)
 	_foto_titulo.text = titulo
 	_foto_sub.text = sub
 	_foto_numero.text = ""
-	_foto_circulo.scale = Vector2.ZERO
+	_foto_circulo.rect_scale = Vector2.ZERO
 	var tw := create_tween()
-	tw.tween_property(_foto_circulo, "scale", Vector2.ONE, 0.45).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tw.tween_property(_foto_circulo, "rect_scale", Vector2.ONE, 0.45).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	_pular(_foto_titulo)
 
 
 func foto_contagem(n: int) -> void:
 	_foto_numero.text = str(n) if n > 0 else ""
 	if n > 0:
-		_foto_numero.scale = Vector2.ONE * 1.6
+		# (o número é desenhado menor e esticado: escala de _rotulo_grande)
+		var k: float = _foto_numero.get_meta("escala", 1.0)
+		_foto_numero.rect_scale = Vector2.ONE * 1.6 * k
 		_foto_numero.modulate.a = 1.0
 		var tw := create_tween()
-		tw.tween_property(_foto_numero, "scale", Vector2.ONE, 0.35).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		tw.tween_property(_foto_numero, "rect_scale", Vector2.ONE * k, 0.35).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 		tw.parallel().tween_property(_foto_numero, "modulate:a", 0.75, 0.6)
 
 
@@ -1562,35 +1640,35 @@ func foto_pronta(foto: Texture, personagem: String) -> void:
 		_foto_titulo.text = "VAMOS JOGAR!"
 		_foto_sub.text = "(a câmera não mandou imagem)"
 	_pular(_foto_titulo)
-	_foto_circulo.scale = Vector2.ONE * 1.12
-	create_tween().tween_property(_foto_circulo, "scale", Vector2.ONE, 0.4).set_trans(Tween.TRANS_ELASTIC).set_ease(Tween.EASE_OUT)
-	_estrelas_2d(_foto_circulo.position + _foto_circulo.size / 2, 26)
+	_foto_circulo.rect_scale = Vector2.ONE * 1.12
+	create_tween().tween_property(_foto_circulo, "rect_scale", Vector2.ONE, 0.4).set_trans(Tween.TRANS_ELASTIC).set_ease(Tween.EASE_OUT)
+	_estrelas_2d(_foto_circulo.rect_position + _foto_circulo.rect_size / 2, 26)
 
 
 ## Foto da criança pulando na tela (no strike).
 func foto_destaque(foto: Texture, cor: Color, dur := 1.6) -> void:
 	if foto == null:
 		return
-	var T := size
+	var T := rect_size
 	var d: float = min(T.x * 0.36, 360.0 * u)
 	_foto_destaque.texture = foto
 	_foto_destaque.material = material_foto(cor.lightened(0.3))
-	_foto_destaque.size = Vector2(d, d)
-	_foto_destaque.position = Vector2((T.x - d) / 2, T.y * (0.56 if retrato else 0.58) - d / 2)
-	_foto_destaque.rect_pivot_offset = _foto_destaque.size / 2
+	_foto_destaque.rect_size = Vector2(d, d)
+	_foto_destaque.rect_position = Vector2((T.x - d) / 2, T.y * (0.56 if retrato else 0.58) - d / 2)
+	_foto_destaque.rect_pivot_offset = _foto_destaque.rect_size / 2
 	_foto_destaque.visible = true
-	_foto_destaque.scale = Vector2.ZERO
-	_foto_destaque.rotation = -0.6
+	_foto_destaque.rect_scale = Vector2.ZERO
+	_foto_destaque.rect_rotation = rad2deg(-0.6)
 	_foto_destaque.modulate.a = 1.0
 	var tw := create_tween()
-	tw.tween_property(_foto_destaque, "scale", Vector2.ONE, 0.5).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	tw.parallel().tween_property(_foto_destaque, "rotation", 0.08, 0.5).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	tw.tween_property(_foto_destaque, "rotation", -0.08, 0.4).set_trans(Tween.TRANS_SINE)
-	tw.tween_property(_foto_destaque, "rotation", 0.0, 0.3).set_trans(Tween.TRANS_SINE)
+	tw.tween_property(_foto_destaque, "rect_scale", Vector2.ONE, 0.5).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tw.parallel().tween_property(_foto_destaque, "rect_rotation", rad2deg(0.08), 0.5).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tw.tween_property(_foto_destaque, "rect_rotation", rad2deg(-0.08), 0.4).set_trans(Tween.TRANS_SINE)
+	tw.tween_property(_foto_destaque, "rect_rotation", 0.0, 0.3).set_trans(Tween.TRANS_SINE)
 	tw.tween_interval(max(dur - 1.2, 0.1))
-	tw.tween_property(_foto_destaque, "scale", Vector2.ZERO, 0.3).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_IN)
-	tw.tween_callback(func(): _foto_destaque.visible = false)  #G3?
-	_estrelas_2d(_foto_destaque.position + _foto_destaque.size / 2, 22)
+	tw.tween_property(_foto_destaque, "rect_scale", Vector2.ZERO, 0.3).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_IN)
+	tw.tween_callback(_foto_destaque, "hide")
+	_estrelas_2d(_foto_destaque.rect_position + _foto_destaque.rect_size / 2, 22)
 
 
 # ================================================================ marca Lazer & Sport
@@ -1652,7 +1730,7 @@ func _montar_marca() -> void:
 
 
 func _layout_marca(T: Vector2) -> void:
-	_marca_fundo.size = T
+	_marca_fundo.rect_size = T
 	var lw: float = min(T.x * 0.82, T.y * 0.62 / PROPORCAO_LOGO)
 	var lh := lw * PROPORCAO_LOGO
 	var centro_y := 0.4 if _marca_veu.visible else 0.46
@@ -1660,22 +1738,23 @@ func _layout_marca(T: Vector2) -> void:
 	var ref := float(_marca_placa.texture.get_width())     # a placa tem a largura da logo inteira
 	for par in [[_marca_alvo, CENTRO_ALVO], [_marca_placa, CENTRO_PLACA]]:
 		var t: TextureRect = par[0]
-		var tam := Vector2(t.texture.get_size()) * (lw / ref)
-		t.size = tam
-		t.position = origem + Vector2(lw, lh) * (par[1] as Vector2) - tam / 2
+		var centro: Vector2 = par[1]
+		var tam: Vector2 = t.texture.get_size() * (lw / ref)
+		t.rect_size = tam
+		t.rect_position = origem + Vector2(lw, lh) * centro - tam / 2
 		t.rect_pivot_offset = tam / 2
 	var gw := lw * 0.46
 	var gh := gw * 188.0 / 616.0
-	_marca_games.size = Vector2(gw, gh)
-	_marca_games.position = Vector2((T.x - gw) / 2, origem.y + lh + 10 * u)
-	_marca_games.rect_pivot_offset = _marca_games.size / 2
-	var vw := max(T.x, T.y) * 1.25
-	_marca_veu.size = Vector2(vw, vw)
-	_marca_veu.position = origem + Vector2(lw, lh) * 0.5 - _marca_veu.size / 2
+	_marca_games.rect_size = Vector2(gw, gh)
+	_marca_games.rect_position = Vector2((T.x - gw) / 2, origem.y + lh + 10 * u)
+	_marca_games.rect_pivot_offset = _marca_games.rect_size / 2
+	var vw: float = max(T.x, T.y) * 1.25
+	_marca_veu.rect_size = Vector2(vw, vw)
+	_marca_veu.rect_position = origem + Vector2(lw, lh) * 0.5 - _marca_veu.rect_size / 2
+	# (o shadow_size do Godot 4 não existe aqui: a sombra é a letra deslocada)
 	_tamanho_rotulo(_marca_texto, 52 * u)
-	_marca_texto.label_settings.shadow_size = int(4 * u)  #G3?
-	_marca_texto.size = Vector2(T.x, 80 * u)
-	_marca_texto.position = Vector2(0, origem.y + lh + gh + 26 * u)
+	_marca_texto.rect_size = Vector2(T.x, 80 * u)
+	_marca_texto.rect_position = Vector2(0, origem.y + lh + gh + 26 * u)
 
 
 ## Abertura: a logo aparece (sobre o fundo azul da inicialização ou, com
@@ -1691,62 +1770,67 @@ func marca(ligado: bool, na_hora := false, sobre_3d := false) -> void:
 			return
 		var tw := create_tween()
 		tw.tween_property(_marca_tela, "modulate:a", 0.0, 0.4)
-		tw.tween_callback(func(): _marca_tela.visible = false)  #G3?
+		tw.tween_callback(_marca_tela, "hide")
 		return
 	_marca_fundo.visible = not sobre_3d
 	_marca_veu.visible = sobre_3d
-	_layout_marca(size)
+	_layout_marca(rect_size)
 	_marca_tela.visible = true
 	_marca_tela.modulate.a = 1.0
 	_marca_texto.modulate.a = 0.0
-	_marca_alvo.scale = Vector2.ONE
+	_marca_alvo.rect_scale = Vector2.ONE
 	_marca_games.visible = true
-	_marca_games.scale = Vector2.ZERO
+	_marca_games.rect_scale = Vector2.ZERO
 	var tg := create_tween()
 	tg.tween_interval(0.55)
-	tg.tween_property(_marca_games, "scale", Vector2(1.12, 1.12), 0.2).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	tg.tween_property(_marca_games, "scale", Vector2.ONE, 0.18)
+	tg.tween_property(_marca_games, "rect_scale", Vector2(1.12, 1.12), 0.2).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tg.tween_property(_marca_games, "rect_scale", Vector2.ONE, 0.18)
 	if sobre_3d:
 		# logo "estoura" na tela
 		for t in [_marca_alvo, _marca_placa]:
-			(t as Control).scale = Vector2.ZERO
+			(t as Control).rect_scale = Vector2.ZERO
 			var tp := create_tween()
 			tp.tween_interval(0.0 if t == _marca_placa else 0.08)
-			tp.tween_property(t, "scale", Vector2.ONE, 0.42).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+			tp.tween_property(t, "rect_scale", Vector2.ONE, 0.42).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 		_marca_veu.modulate.a = 0.0
 		create_tween().tween_property(_marca_veu, "modulate:a", 1.0, 0.3)
-		_atrasado(0.12, func(): _estrelas_2d(_marca_placa.position + _marca_placa.size * 0.5, 36))  #G3?
+		_atrasado(0.12, "_estrelas_2d", [_marca_placa.rect_position + _marca_placa.rect_size * 0.5, 36])
 	var tw := create_tween()
 	tw.tween_interval(0.3)
-	tw.tween_property(_marca_alvo, "scale", Vector2(1.07, 0.94), 0.07)
-	tw.tween_property(_marca_alvo, "scale", Vector2.ONE, 0.5).set_trans(Tween.TRANS_ELASTIC).set_ease(Tween.EASE_OUT)
-	_atrasado(0.32, func(): _estrelas_2d(_marca_alvo.position + _marca_alvo.size * Vector2(0.43, 0.5), 30))  #G3?
+	tw.tween_property(_marca_alvo, "rect_scale", Vector2(1.07, 0.94), 0.07)
+	tw.tween_property(_marca_alvo, "rect_scale", Vector2.ONE, 0.5).set_trans(Tween.TRANS_ELASTIC).set_ease(Tween.EASE_OUT)
+	_atrasado(0.32, "_estrelas_2d", [_marca_alvo.rect_position + _marca_alvo.rect_size * Vector2(0.43, 0.5), 30])
 	for t in [_marca_placa, _marca_alvo]:
 		var m := (t as TextureRect).material as ShaderMaterial
 		m.set_shader_param("pos", -1.0)
 		var tb := create_tween()
 		tb.tween_interval(0.7 if t == _marca_placa else 0.6)
-		tb.tween_method(func(v: float): m.set_shader_param("pos", v), -0.4, 1.6, 0.9).set_trans(Tween.TRANS_SINE)  #G3?
+		tb.tween_method(self, "_brilho_marca", -0.4, 1.6, 0.9, [m]).set_trans(Tween.TRANS_SINE)
 	var tt := create_tween()
 	tt.tween_interval(1.0)
 	tt.tween_property(_marca_texto, "modulate:a", 1.0, 0.4)
 
 
+## O brilho passando pela logo (Godot 3: sem lambda no tween_method).
+func _brilho_marca(v: float, m: ShaderMaterial) -> void:
+	m.set_shader_param("pos", v)
+
+
 # ================================================================ layout responsivo
 func layout() -> void:
-	var T := Tela.tamanho()
-	size = T
-	position = Vector2.ZERO
+	var T: Vector2 = Tela.tamanho()
+	rect_size = T
+	rect_position = Vector2.ZERO
 	retrato = T.y >= T.x
 	u = min(T.x, T.y) / 1080.0
-	tela3d.position = Vector2.ZERO
-	tela3d.size = T
-	_flash.size = T
-	_centro.size = T
-	_tarja_cima.position = Vector2.ZERO
-	_tarja_cima.size = Vector2(T.x, _tarja_cima.size.y)
-	_tarja_baixo.size = Vector2(T.x, _tarja_baixo.size.y)
-	_tarja_baixo.position = Vector2(0, T.y - _tarja_baixo.size.y)
+	tela3d.rect_position = Vector2.ZERO
+	tela3d.rect_size = T
+	_flash.rect_size = T
+	_centro.rect_size = T
+	_tarja_cima.rect_position = Vector2.ZERO
+	_tarja_cima.rect_size = Vector2(T.x, _tarja_cima.rect_size.y)
+	_tarja_baixo.rect_size = Vector2(T.x, _tarja_baixo.rect_size.y)
+	_tarja_baixo.rect_position = Vector2(0, T.y - _tarja_baixo.rect_size.y)
 	# placar
 	var usados := 0
 	for c in _cartoes:
@@ -1762,162 +1846,148 @@ func layout() -> void:
 	for i in 2:
 		var c: Dictionary = _cartoes[i]
 		var p: Control = c["painel"]
-		p.size = Vector2(larg, alt)
+		p.rect_size = Vector2(larg, alt)
 		var x: float
 		if usados == 1:
 			x = (T.x - larg) / 2 if retrato else margem
 		else:
 			x = margem if i == 0 else T.x - larg - margem
-		p.position = Vector2(x, margem + 40 * u)
-		p.rect_pivot_offset = p.size / 2
+		p.rect_position = Vector2(x, margem + 40 * u)
+		p.rect_pivot_offset = p.rect_size / 2
 		var av: TextureRect = c["avatar"]
 		if c.get("foto", false):
 			# foto da criança dentro do cartão + o mascote de "selo"
-			av.size = Vector2(alt * 0.86, alt * 0.86)
-			av.position = Vector2(alt * 0.07, alt * 0.07)
+			av.rect_size = Vector2(alt * 0.86, alt * 0.86)
+			av.rect_position = Vector2(alt * 0.07, alt * 0.07)
 			var selo: TextureRect = c["selo"]
-			selo.size = Vector2(alt * 0.5, alt * 0.5)
-			selo.position = Vector2(alt * 0.55, alt * 0.52)
+			selo.rect_size = Vector2(alt * 0.5, alt * 0.5)
+			selo.rect_position = Vector2(alt * 0.55, alt * 0.52)
 		else:
-			av.size = Vector2(alt * 1.15, alt * 1.15)
-			av.position = Vector2(-alt * 0.12, -alt * 0.32)
+			av.rect_size = Vector2(alt * 1.15, alt * 1.15)
+			av.rect_position = Vector2(-alt * 0.12, -alt * 0.32)
 		var nome: Label = c["nome"]
-		_tamanho_rotulo(nome, 42 * u)
-		nome.label_settings.outline_size = int(10 * u)  #G3?
-		nome.size = Vector2(larg - alt * 1.0, 54 * u)
-		nome.position = Vector2(alt * 0.98, 10 * u)
+		_tamanho_rotulo(nome, 42 * u, 10 * u)
+		nome.rect_size = Vector2(larg - alt * 1.0, 54 * u)
+		nome.rect_position = Vector2(alt * 0.98, 10 * u)
 		var pts: Label = c["pontos"]
-		_tamanho_rotulo(pts, 78 * u)
-		pts.label_settings.outline_size = int(14 * u)  #G3?
-		pts.size = Vector2(larg - alt * 1.0 - 20 * u, 88 * u)
-		pts.position = Vector2(alt * 0.98, 52 * u)
+		_tamanho_rotulo(pts, 78 * u, 14 * u)
+		pts.rect_size = Vector2(larg - alt * 1.0 - 20 * u, 88 * u)
+		pts.rect_position = Vector2(alt * 0.98, 52 * u)
 		pts.align = Label.ALIGN_LEFT
 		var rod: HBoxContainer = c["rodadas"]
-		rod.position = Vector2(alt * 0.98, alt - 64 * u)
-		rod.size = Vector2(larg - alt, 50 * u)
+		rod.rect_position = Vector2(alt * 0.98, alt - 64 * u)
+		rod.rect_size = Vector2(larg - alt, 50 * u)
 		rod.add_constant_override("separation", int(8 * u))
 	var base_y := margem + 40 * u + alt + 16 * u
-	_tamanho_rotulo(_info, 34 * u)
-	_info.label_settings.outline_size = int(9 * u)  #G3?
+	_tamanho_rotulo(_info, 34 * u, 9 * u)
 	if retrato:
-		_info.size = Vector2(T.x, 48 * u)
-		_info.position = Vector2(0, base_y)
-		_bolas_box.size = Vector2(T.x, 40 * u)
-		_bolas_box.position = Vector2(0, base_y + 52 * u)
+		_info.rect_size = Vector2(T.x, 48 * u)
+		_info.rect_position = Vector2(0, base_y)
+		_bolas_box.rect_size = Vector2(T.x, 40 * u)
+		_bolas_box.rect_position = Vector2(0, base_y + 52 * u)
 	else:
-		_info.size = Vector2(larg, 48 * u)
-		_info.position = Vector2(margem, base_y)
-		_bolas_box.size = Vector2(larg, 40 * u)
-		_bolas_box.position = Vector2(margem, base_y + 52 * u)
+		_info.rect_size = Vector2(larg, 48 * u)
+		_info.rect_position = Vector2(margem, base_y)
+		_bolas_box.rect_size = Vector2(larg, 40 * u)
+		_bolas_box.rect_position = Vector2(margem, base_y + 52 * u)
 	_bolas_box.add_constant_override("separation", int(14 * u))
 	# mapa dos pinos (canto)
 	var ms := 190 * u
-	_mapa.size = Vector2(ms, ms * 0.86)
-	_mapa.position = Vector2(T.x - ms - margem, base_y + 8 * u) if retrato else Vector2(T.x - ms - margem, margem + 300 * u)
+	_mapa.rect_size = Vector2(ms, ms * 0.86)
+	_mapa.rect_position = Vector2(T.x - ms - margem, base_y + 8 * u) if retrato else Vector2(T.x - ms - margem, margem + 300 * u)
 	for n in _mapa_pontos:
 		var pos := Pinos.posicao_do_pino(n)
 		var d: Panel = _mapa_pontos[n]
 		var r := 24 * u
-		d.size = Vector2(r, r)
+		d.rect_size = Vector2(r, r)
 		var fx := pos.x / (Medidas.ESPACO_PINOS * 1.5)  # -1..1
 		var fy := (Medidas.Z_PINO1 - pos.z) / (Medidas.FILEIRA * 3.0)  # 0..1 (fundo em cima)
-		d.position = Vector2(ms / 2 + fx * ms * 0.36 - r / 2, ms * 0.86 * (0.78 - fy * 0.56) - r / 2)
+		d.rect_position = Vector2(ms / 2 + fx * ms * 0.36 - r / 2, ms * 0.86 * (0.78 - fy * 0.56) - r / 2)
 	# toque e convite
-	_toque.position = Vector2.ZERO
-	_toque.size = T
+	_toque.rect_position = Vector2.ZERO
+	_toque.rect_size = T
 	var y_aviso := T.y - (330 if retrato else 210) * u
-	_tamanho_rotulo(_aviso, 84 * u)
-	_aviso.label_settings.outline_size = int(20 * u)  #G3?
-	_aviso.size = Vector2(T.x, 120 * u)
-	_aviso.position = Vector2(0, y_aviso)
-	_aviso.rect_pivot_offset = _aviso.size / 2
-	_tamanho_rotulo(_aviso_sub, 44 * u)
-	_aviso_sub.label_settings.outline_size = int(11 * u)  #G3?
-	_aviso_sub.size = Vector2(T.x, 64 * u)
-	_aviso_sub.position = Vector2(0, y_aviso + 112 * u)
-	_aviso_sub.rect_pivot_offset = _aviso_sub.size / 2
-	_tamanho_rotulo(_sequencia, 40 * u)
-	_sequencia.label_settings.outline_size = int(10 * u)  #G3?
-	_sequencia.size = Vector2(T.x if retrato else larg, 56 * u)
-	_sequencia.position = Vector2(0 if retrato else margem, base_y + 100 * u)
-	_sequencia.rect_pivot_offset = _sequencia.size / 2
+	_tamanho_rotulo(_aviso, 84 * u, 20 * u)
+	_aviso.rect_size = Vector2(T.x, 120 * u)
+	_aviso.rect_position = Vector2(0, y_aviso)
+	_aviso.rect_pivot_offset = _aviso.rect_size / 2
+	_tamanho_rotulo(_aviso_sub, 44 * u, 11 * u)
+	_aviso_sub.rect_size = Vector2(T.x, 64 * u)
+	_aviso_sub.rect_position = Vector2(0, y_aviso + 112 * u)
+	_aviso_sub.rect_pivot_offset = _aviso_sub.rect_size / 2
+	_tamanho_rotulo(_sequencia, 40 * u, 10 * u)
+	_sequencia.rect_size = Vector2(T.x if retrato else larg, 56 * u)
+	_sequencia.rect_position = Vector2(0 if retrato else margem, base_y + 100 * u)
+	_sequencia.rect_pivot_offset = _sequencia.rect_size / 2
 	# atração
 	var lw: float = min(T.x * 0.9, 980 * u) if retrato else T.x * 0.36
 	var lt := _logo.texture
 	var lh: float = lw * (float(lt.get_height()) / float(lt.get_width()) if lt else 0.4)
-	_logo.size = Vector2(lw, lh)
+	_logo.rect_size = Vector2(lw, lh)
 	if retrato:
-		_logo.position = Vector2((T.x - lw) / 2, T.y * 0.05)
+		_logo.rect_position = Vector2((T.x - lw) / 2, T.y * 0.05)
 	else:
-		_logo.position = Vector2(T.x * 0.03, T.y * 0.05)
-	_logo.rect_pivot_offset = _logo.size / 2
+		_logo.rect_position = Vector2(T.x * 0.03, T.y * 0.05)
+	_logo.rect_pivot_offset = _logo.rect_size / 2
 	var bw: float = min(T.x * 0.78, 780 * u) if retrato else T.x * 0.34
 	var bh := 150 * u
-	_aperte_botao.size = Vector2(bw, bh)
+	_aperte_botao.rect_size = Vector2(bw, bh)
 	if retrato:
-		_aperte_botao.position = Vector2((T.x - bw) / 2, T.y * 0.69)
+		_aperte_botao.rect_position = Vector2((T.x - bw) / 2, T.y * 0.69)
 	else:
-		_aperte_botao.position = Vector2(T.x * 0.03 + (lw - bw) / 2, T.y * 0.6)
-	_aperte_botao.rect_pivot_offset = _aperte_botao.size / 2
+		_aperte_botao.rect_position = Vector2(T.x * 0.03 + (lw - bw) / 2, T.y * 0.6)
+	_aperte_botao.rect_pivot_offset = _aperte_botao.rect_size / 2
 	_tamanho_rotulo(_aperte, 84 * u)
-	_aperte.label_settings.shadow_size = int(3 * u)  #G3?
-	_aperte.label_settings.shadow_offset = Vector2(0, 3 * u)  #G3?
-	_aperte.size = Vector2(bw, bh - 18 * u)
-	_aperte.position = Vector2.ZERO
+	_sombra(_aperte, null, 3 * u)
+	_aperte.rect_size = Vector2(bw, bh - 18 * u)
+	_aperte.rect_position = Vector2.ZERO
 	_caber(_aperte, 84 * u, bw - 90 * u)
-	_tamanho_rotulo(_recorde, 40 * u)
-	_recorde.label_settings.outline_size = int(8 * u)  #G3?
-	_tamanho_rotulo(_creditos, 30 * u)
-	_creditos.label_settings.outline_size = int(8 * u)  #G3?
-	_creditos.size = Vector2(T.x, 46 * u)
-	_creditos.position = Vector2(0, T.y - (90 if retrato else 64) * u)
+	_tamanho_rotulo(_recorde, 40 * u, 8 * u)
+	_tamanho_rotulo(_creditos, 30 * u, 8 * u)
+	_creditos.rect_size = Vector2(T.x, 46 * u)
+	_creditos.rect_position = Vector2(0, T.y - (90 if retrato else 64) * u)
 	# quantos vão jogar
 	_layout_jogadores(T)
 	_layout_etapas(T)
 	# seleção
 	var sw: float = min(T.x * 0.9, 900 * u)
-	_sel_titulo.size = Vector2(sw, 130 * u)
-	_sel_titulo.position = Vector2((T.x - sw) / 2, 112 * u)
-	_sel_titulo.rect_pivot_offset = _sel_titulo.size / 2
+	_sel_titulo.rect_size = Vector2(sw, 130 * u)
+	_sel_titulo.rect_position = Vector2((T.x - sw) / 2, 112 * u)
+	_sel_titulo.rect_pivot_offset = _sel_titulo.rect_size / 2
 	var t := _sel_titulo.get_node("titulo") as Label
-	_tamanho_rotulo(t, 74 * u)
-	t.label_settings.outline_size = int(16 * u)  #G3?
-	t.size = Vector2(sw, 116 * u)
-	t.position = Vector2.ZERO
+	_tamanho_rotulo(t, 74 * u, 16 * u)
+	t.rect_size = Vector2(sw, 116 * u)
+	t.rect_position = Vector2.ZERO
 	for i in 2:
-		var p := _sel_placas[i]
-		p.size = Vector2(330, 116) * u
-		if p.position == Vector2.ZERO:
-			p.position = Vector2(T.x * (0.27 if i == 0 else 0.73) - p.size.x / 2, T.y * 0.64)
-		var l := _sel_nomes[i]
-		_tamanho_rotulo(l, 70 * u)
-		l.label_settings.outline_size = int(16 * u)  #G3?
-		l.size = Vector2(p.size.x, p.size.y - 14 * u)
-		l.position = Vector2.ZERO
+		var p: Painel3D = _sel_placas[i]
+		p.rect_size = Vector2(330, 116) * u
+		if p.rect_position == Vector2.ZERO:
+			p.rect_position = Vector2(T.x * (0.27 if i == 0 else 0.73) - p.rect_size.x / 2, T.y * 0.64)
+		var l: Label = _sel_nomes[i]
+		_tamanho_rotulo(l, 70 * u, 16 * u)
+		l.rect_size = Vector2(p.rect_size.x, p.rect_size.y - 14 * u)
+		l.rect_position = Vector2.ZERO
 	var dw: float = min(T.x * 0.9, 860 * u)
 	var dh := 230 * u
-	_sel_dica.size = Vector2(dw, dh)
-	_sel_dica.position = Vector2((T.x - dw) / 2, T.y - dh - (60 if retrato else 24) * u)
-	_tamanho_rotulo(_sel_texto, 34 * u)
-	_sel_texto.label_settings.outline_size = int(9 * u)  #G3?
-	_sel_texto.size = Vector2(dw, 100 * u)
-	_sel_texto.position = Vector2(0, 8 * u)
+	_sel_dica.rect_size = Vector2(dw, dh)
+	_sel_dica.rect_position = Vector2((T.x - dw) / 2, T.y - dh - (60 if retrato else 24) * u)
+	_tamanho_rotulo(_sel_texto, 34 * u, 9 * u)
+	_sel_texto.rect_size = Vector2(dw, 100 * u)
+	_sel_texto.rect_position = Vector2(0, 8 * u)
 	_layout_sensores(_sel_sensores, min(dw - 80 * u, 420 * u))
-	_sel_sensores.position = Vector2((dw - _sel_sensores.size.x) / 2, 112 * u)
+	_sel_sensores.rect_position = Vector2((dw - _sel_sensores.rect_size.x) / 2, 112 * u)
 	var mw: float = min(T.x * 0.86, 860 * u)
 	# inatividade
-	_inativo.size = Vector2(mw, 600 * u)
-	_inativo.position = (T - _inativo.size) / 2
-	_aviso_android.size = Vector2(min(T.x - 60 * u, 1500 * u), 230 * u)
-	_aviso_android.position = Vector2((T.x - _aviso_android.size.x) / 2, 30 * u)
-	_tamanho_rotulo(_aviso_android_texto, 40 * u)
-	_aviso_android_texto.label_settings.outline_size = int(10 * u)  #G3?
-	_aviso_android_texto.size = _aviso_android.size - Vector2(60 * u, 20 * u)
-	_aviso_android_texto.position = Vector2(30 * u, 10 * u)
-	_tamanho_rotulo(_inativo_texto, 54 * u)
-	_inativo_texto.label_settings.outline_size = int(12 * u)  #G3?
-	_inativo_texto.size = _inativo.size
-	_inativo_texto.position = Vector2.ZERO
+	_inativo.rect_size = Vector2(mw, 600 * u)
+	_inativo.rect_position = (T - _inativo.rect_size) / 2
+	_aviso_android.rect_size = Vector2(min(T.x - 60 * u, 1500 * u), 230 * u)
+	_aviso_android.rect_position = Vector2((T.x - _aviso_android.rect_size.x) / 2, 30 * u)
+	_tamanho_rotulo(_aviso_android_texto, 40 * u, 10 * u)
+	_aviso_android_texto.rect_size = _aviso_android.rect_size - Vector2(60 * u, 20 * u)
+	_aviso_android_texto.rect_position = Vector2(30 * u, 10 * u)
+	_tamanho_rotulo(_inativo_texto, 54 * u, 12 * u)
+	_inativo_texto.rect_size = _inativo.rect_size
+	_inativo_texto.rect_position = Vector2.ZERO
 	if _foto_tela.visible:
 		_layout_fotos()
 	if _marca_tela.visible:
@@ -1934,17 +2004,17 @@ func _process(delta: float) -> void:
 			c["valor"] = min(float(c["alvo"]), c["valor"] + delta * max(60.0, (float(c["alvo"]) - c["valor"]) * 3.0))
 			(c["pontos"] as Label).text = str(int(c["valor"]))
 	if _aviso.visible:
-		_aviso.scale = Vector2.ONE * (1.0 + sin(_tempo * 5.0) * 0.05)
+		_aviso.rect_scale = Vector2.ONE * (1.0 + sin(_tempo * 5.0) * 0.05)
 		_aviso_sub.modulate.a = 0.6 + 0.4 * abs(sin(_tempo * 2.6))
 	if _atracao.visible:
-		_logo.scale = Vector2.ONE * (1.0 + sin(_tempo * 2.2) * 0.025)
-		_logo.rotation = sin(_tempo * 1.3) * 0.02
-		_aperte_botao.scale = Vector2.ONE * (1.0 + sin(_tempo * 3.0) * 0.035)
+		_logo.rect_scale = Vector2.ONE * (1.0 + sin(_tempo * 2.2) * 0.025)
+		_logo.rect_rotation = rad2deg(sin(_tempo * 1.3) * 0.02)
+		_aperte_botao.rect_scale = Vector2.ONE * (1.0 + sin(_tempo * 3.0) * 0.035)
 		_aperte_botao.realcar(0.35 + 0.35 * abs(sin(_tempo * 3.0)))
 	if _jog.visible:
 		_jog_cartoes[_jog_n - 1].realcar(0.7 + 0.3 * sin(_tempo * 6.0))
-		_jog_cartoes[_jog_n - 1].scale = Vector2.ONE * (1.05 + sin(_tempo * 6.0) * 0.015)
-		_jog_cartoes[2 - _jog_n].scale = Vector2.ONE * 0.94
+		_jog_cartoes[_jog_n - 1].rect_scale = Vector2.ONE * (1.05 + sin(_tempo * 6.0) * 0.015)
+		_jog_cartoes[2 - _jog_n].rect_scale = Vector2.ONE * 0.94
 	if _selecao.visible:
 		_sel_placas[_sel_destaque].realcar(0.7 + 0.3 * sin(_tempo * 6.0))
 	if _replay_ponto.visible:

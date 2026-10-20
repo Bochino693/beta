@@ -16,6 +16,8 @@ extends Control
 
 const JOGO := "res://cenas/principal.tscn"
 const BOTOES := "res://cenas/configuracao_botoes.tscn"
+## Godot 3: sem LabelSettings — o Compat monta a fonte de cada tamanho pelo nome
+const FONTE := "fredoka_700"
 
 ## [rótulo, seção, chave, tipo, opções]
 const ITENS := [
@@ -59,7 +61,6 @@ const NOMES := {"facil": "FÁCIL", "normal": "NORMAL", "dificil": "DIFÍCIL", "a
 
 var _sel := 0
 var _linhas: Array = []
-var _fonte: Font
 var _info: Label
 var _teste := false
 var _teste_contagem := [0, 0, 0, 0, 0]
@@ -77,10 +78,10 @@ var u := 1.0
 
 
 func _ready() -> void:
-	_fonte = Materiais.fonte("fredoka_700")
 	_montar()
-	Fotos.mudou.connect(_atualizar)  #G3?
-	ArduinoBridge.mudou.connect(_arduino_mudou)  #G3?
+	# Godot 3: sem Callable, a conexão é pelo nome do método
+	Fotos.connect("mudou", self, "_atualizar")
+	ArduinoBridge.connect("mudou", self, "_arduino_mudou")
 	# no menu a porta das bolas fica fechada; aqui pode aparecer a janela
 	# de permissão USB do Arduino
 	ArduinoBridge.porta(false)
@@ -90,14 +91,14 @@ func _ready() -> void:
 
 func _montar() -> void:
 	Tela.cobrir(self)
-	var T := Tela.tamanho()
+	var T: Vector2 = Tela.tamanho()
 	u = min(T.x, T.y) / 1080.0
 	var fundo := ColorRect.new()
 	fundo.color = Color(0.03, 0.09, 0.22)
-	fundo.size = T
+	fundo.rect_size = T
 	add_child(fundo)
 	var titulo := _rotulo("STRIKE KIDS · OPERADOR", Vector2(0, 40 * u), 58 * u, Color("#FFD43B"))
-	titulo.size.x = T.x
+	titulo.rect_size.x = T.x
 	# a lista inteira se couber; senão, uma janela que rola com a seleção
 	var area: float = T.y - 420 * u
 	_esp = clamp(area / ITENS.size(), 44.0 * u, 68.0 * u)
@@ -105,22 +106,22 @@ func _montar() -> void:
 	for i in ITENS.size():
 		var l := _rotulo("", Vector2(60 * u, 150 * u), min(34 * u, _esp * 0.55), Color.white)
 		l.align = Label.ALIGN_LEFT
-		l.size.x = T.x - 120 * u
+		l.rect_size.x = T.x - 120 * u
 		_linhas.append(l)
 	_info = _rotulo("", Vector2(0, T.y - 250 * u), 26 * u, Color(1, 1, 1, 0.75))
-	_info.size = Vector2(T.x, 220 * u)
+	_info.rect_size = Vector2(T.x, 220 * u)
 	_info.autowrap = true
 	_teste_rotulo = _rotulo("", Vector2(0, T.y * 0.35), 54 * u, Color.white)
-	_teste_rotulo.size = Vector2(T.x, 500 * u)
+	_teste_rotulo.rect_size = Vector2(T.x, 500 * u)
 	_teste_rotulo.autowrap = true
 	_teste_rotulo.visible = false
 	_camera_tela = TextureRect.new()
 	_camera_tela.expand = true
 	_camera_tela.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	_camera_tela.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
+	# Godot 3: o filtro linear é da textura (ver _camera_ao_vivo), não do nó
 	var lado: float = min(T.x * 0.8, T.y * 0.5)
-	_camera_tela.size = Vector2(lado, lado)
-	_camera_tela.position = Vector2((T.x - lado) / 2, T.y * 0.3)
+	_camera_tela.rect_size = Vector2(lado, lado)
+	_camera_tela.rect_position = Vector2((T.x - lado) / 2, T.y * 0.3)
 	_camera_tela.visible = false
 	add_child(_camera_tela)
 
@@ -138,27 +139,21 @@ func _remontar() -> void:
 
 ## Volta ao jogo (que ficou pausado por baixo do menu).
 func _sair() -> void:
-	var jogo := get_tree().current_scene
+	var jogo: Node = get_tree().current_scene
 	if jogo != null and jogo != self and jogo.has_method("fechar_menu"):
 		jogo.fechar_menu()
 	else:
-		get_tree().change_scene_to_file.call_deferred(JOGO)
+		get_tree().call_deferred("change_scene", JOGO)
 
 
 func _rotulo(texto: String, pos: Vector2, tam: float, cor: Color) -> Label:
 	var l := Label.new()
 	l.text = texto
-	l.position = pos
-	l.size = Vector2(Tela.tamanho().x, tam * 1.5)
+	l.rect_position = pos
+	l.rect_size = Vector2(Tela.tamanho().x, tam * 1.5)
 	l.align = Label.ALIGN_CENTER
 	l.valign = Label.VALIGN_CENTER
-	var ls := LabelSettings.new()  #G3?
-	ls.font = _fonte
-	ls.font_size = int(tam)
-	ls.font_color = cor
-	ls.outline_size = int(tam * 0.18)
-	ls.outline_color = Color("#0B1F45")
-	l.label_settings = ls  #G3?
+	Compat.estilo_rotulo(l, FONTE, int(tam), cor, int(tam * 0.18), Color("#0B1F45"))
 	add_child(l)
 	return l
 
@@ -187,13 +182,15 @@ func _atualizar() -> void:
 	var em_teste := _teste or _camera or _porta or _calibrando
 	for i in ITENS.size():
 		var item: Array = ITENS[i]
-		var l := _linhas[i]
+		var l: Label = _linhas[i]
 		var v := _valor_texto(item)
-		var j := i - _topo
+		var j: int = i - _topo
 		l.visible = not em_teste and j >= 0 and j < _visiveis
-		l.position.y = 150 * u + j * _esp
-		l.text = ("▶ " if i == _sel else "   ") + str(item[0]) + ("" if v == "" else ":   " + v)
-		l.label_settings.font_color = Color("#FFD43B") if i == _sel else Color(1, 1, 1, 0.85)  #G3?
+		l.rect_position.y = 150 * u + j * _esp
+		# Godot 3: as fontes do jogo não têm ▶ ● ○ (o Godot 4 achava nas fontes
+		# do sistema) — aqui e no teste dos sensores vão » • –
+		l.text = ("» " if i == _sel else "   ") + str(item[0]) + ("" if v == "" else ":   " + v)
+		Compat.cor_rotulo(l, Color("#FFD43B") if i == _sel else Color(1, 1, 1, 0.85))
 	var rolar := ""
 	if _visiveis < ITENS.size():
 		rolar = "   (%d de %d)" % [_sel + 1, ITENS.size()]
@@ -206,10 +203,43 @@ func _atualizar() -> void:
 
 ## Qual é o aparelho (para saber qual TV Box é — a TX9, por exemplo, sai
 ## com chips diferentes): modelo, sistema, placa de vídeo, núcleos e memória.
+## Godot 3: sem OS.get_memory_info() nem OS.get_version() — a memória total
+## vem do /proc/meminfo e a versão do Android do /system/build.prop. O que
+## não muda é lido uma vez só (o menu atualiza a cada mudança do Arduino).
 static func texto_aparelho() -> String:
-	var gb := float(OS.get_memory_info().get("physical", 0)) / 1073741824.0
-	return "Aparelho: %s · %s %s · %s · %d núcleos%s" % [OS.get_model_name(), OS.get_name(), OS.get_version(),
-		VisualServer.get_video_adapter_name(), OS.get_processor_count(), " · %.1f GB" % gb if gb > 0.0 else ""]
+	var e: Dictionary = Compat.estado("operador")
+	if not e.has("aparelho"):
+		var sistema := OS.get_name()
+		var versao := _ler_campo("/system/build.prop", "ro.build.version.release=")
+		if versao != "":
+			sistema += " " + versao
+		var placa := VisualServer.get_video_adapter_name()
+		var fabricante := VisualServer.get_video_adapter_vendor()
+		if fabricante != "" and placa.findn(fabricante) < 0:
+			placa = fabricante + " " + placa   # "ARM Mali-450 MP"
+		var gles := "OpenGL ES 2.0" if OS.get_current_video_driver() == OS.VIDEO_DRIVER_GLES2 else "OpenGL ES 3.0"
+		var gb := float(_ler_campo("/proc/meminfo", "MemTotal:").to_int()) / 1048576.0   # kB -> GB
+		e["aparelho"] = "Aparelho: %s · %s · %s · %s · %d núcleos%s" % [OS.get_model_name(), sistema, placa, gles,
+			OS.get_processor_count(), " · %.1f GB" % gb if gb > 0.0 else ""]
+	# memória usada pelo jogo: só as versões de teste (debug) do Godot contam
+	var mb: int = OS.get_static_memory_usage() / 1048576
+	return str(e["aparelho"]) + (" · jogo usa %d MB" % mb if mb > 0 else "")
+
+
+## O valor da linha que começa com `prefixo` num arquivo do sistema (vazio
+## se não houver). Linha a linha: os arquivos do /proc dizem tamanho 0.
+static func _ler_campo(caminho: String, prefixo: String) -> String:
+	var f := File.new()
+	if not f.file_exists(caminho) or f.open(caminho, File.READ) != OK:
+		return ""
+	var valor := ""
+	while not f.eof_reached():
+		var linha := f.get_line().strip_edges()
+		if linha.begins_with(prefixo):
+			valor = linha.substr(prefixo.length()).strip_edges()
+			break
+	f.close()
+	return valor
 
 
 func _arduino_mudou() -> void:
@@ -234,10 +264,10 @@ func _input(event: InputEvent) -> void:
 	elif ArcadeControls.eh_start(event):
 		cmd = "ok"
 	else:
-		var z := ArcadeControls.tecla_jogada(event)
+		var z: String = ArcadeControls.tecla_jogada(event)
 		cmd = {"X": "sobe", "V": "desce", "Z": "menos", "B": "mais", "C": "ok"}.get(z, "")
 		if _teste and z != "":
-			var i := ["Z", "X", "C", "V", "B"].find(z)
+			var i: int = ["Z", "X", "C", "V", "B"].find(z)
 			_teste_contagem[i] += 1
 			_mostrar_teste(z)
 			return
@@ -359,11 +389,11 @@ func _acao() -> void:
 			else:
 				_camera_relatorio("")
 		"botoes":
-			var jogo := get_tree().current_scene
+			var jogo: Node = get_tree().current_scene
 			if jogo != null and jogo != self and jogo.has_method("abrir_menu"):
 				jogo.abrir_menu(load(BOTOES))
 			else:
-				get_tree().change_scene_to_file.call_deferred(BOTOES)
+				get_tree().call_deferred("change_scene", BOTOES)
 		"desempenho":
 			# volta ao jogo e roda o teste
 			Ajustes.definir("video", "testar", true)
@@ -383,9 +413,9 @@ func _entrar_no_teste() -> void:
 		l.visible = false
 	_teste_rotulo.visible = true
 	_teste_rotulo.text = ""
-	_teste_rotulo.label_settings.font_size = int(42 * u)  #G3?
-	_teste_rotulo.position = Vector2(40 * u, 120 * u)
-	_teste_rotulo.size = Vector2(Tela.tamanho().x - 80 * u, Tela.tamanho().y - 400 * u)
+	Compat.tamanho_rotulo(_teste_rotulo, int(42 * u))
+	_teste_rotulo.rect_position = Vector2(40 * u, 120 * u)
+	_teste_rotulo.rect_size = Vector2(Tela.tamanho().x - 80 * u, Tela.tamanho().y - 400 * u)
 
 
 func _sair_do_teste() -> void:
@@ -399,9 +429,9 @@ func _sair_do_teste() -> void:
 	_calibrando = false
 	_teste_rotulo.visible = false
 	_teste_rotulo.text = ""
-	_teste_rotulo.position = Vector2(0, Tela.tamanho().y * 0.35)
-	_teste_rotulo.size = Vector2(Tela.tamanho().x, 500 * u)
-	_teste_rotulo.label_settings.font_size = int(54 * u)  #G3?
+	_teste_rotulo.rect_position = Vector2(0, Tela.tamanho().y * 0.35)
+	_teste_rotulo.rect_size = Vector2(Tela.tamanho().x, 500 * u)
+	Compat.tamanho_rotulo(_teste_rotulo, int(54 * u))
 	_camera_tela.visible = false
 	Fotos.desligar(2.0)
 	_atualizar()
@@ -410,22 +440,23 @@ func _sair_do_teste() -> void:
 ## As últimas linhas do relatório do Arduino (USB, chip, firmware), para
 ## quando ele não está conectado.
 func _relatorio_arduino() -> String:
-	var linhas := ArduinoBridge.relatorio().split("\n")
-	return "\n".join(linhas.slice(0, Compat.imin(linhas.size(), 12)))  #G3?
+	var linhas: PoolStringArray = ArduinoBridge.relatorio().split("\n")
+	# Godot 3: o slice tem o fim incluído e não há String.join
+	return PoolStringArray(Compat.fatia(linhas, 0, 12)).join("\n")
 
 
 ## Teste da porta: o que o jogo pediu e o que o Arduino confirmou.
 func _mostrar_porta() -> void:
 	var t := "TESTE DA PORTA (trava das bolas)\n\n"
 	if ArduinoBridge.completo():
-		var pedida := "ABERTA" if ArduinoBridge.porta_quer else "FECHADA"
-		var confirmada := "ABERTA" if ArduinoBridge.porta_aberta else "FECHADA"
+		var pedida: String = "ABERTA" if ArduinoBridge.porta_quer else "FECHADA"
+		var confirmada: String = "ABERTA" if ArduinoBridge.porta_aberta else "FECHADA"
 		t += "Porta: %s\n" % pedida
 		t += ("(o Arduino confirmou)" if confirmada == pedida else "(esperando o Arduino...)") + "\n\n"
 		t += "C ou START: abre / fecha\nCONFIGURAÇÃO: sai (a porta fecha)\n\n"
 		t += "Abriu quando devia fechar? Ligue \"Porta invertida\" no menu."
 	else:
-		_teste_rotulo.label_settings.font_size = int(30 * u)  #G3?
+		Compat.tamanho_rotulo(_teste_rotulo, int(30 * u))
 		t += "SEM O ARDUINO\n%s\n\n%s\n\nCONFIGURAÇÃO ou START sai" % [ArduinoBridge.status, _relatorio_arduino()]
 	_teste_rotulo.text = t
 
@@ -434,10 +465,10 @@ func _mostrar_porta() -> void:
 func _mostrar_calibracao() -> void:
 	var t := "CALIBRAR SENSORES\n\n"
 	if not ArduinoBridge.completo():
-		_teste_rotulo.label_settings.font_size = int(30 * u)  #G3?
+		Compat.tamanho_rotulo(_teste_rotulo, int(30 * u))
 		t += "SEM O ARDUINO\n%s\n\n%s\n\nCONFIGURAÇÃO ou START sai" % [ArduinoBridge.status, _relatorio_arduino()]
 	elif ArduinoBridge.calibracao.begins_with("CAL:OK:"):
-		var niveis := ArduinoBridge.calibracao.substr(7)
+		var niveis: String = ArduinoBridge.calibracao.substr(7)
 		t += "PRONTO! Sem bola cada sensor fica em:\n"
 		for i in Compat.imin(5, niveis.length()):
 			t += "S%d: %s\n" % [i + 1, "ALTO (aciona em baixo)" if niveis[i] == "H" else "BAIXO (aciona em alto)"]
@@ -449,22 +480,27 @@ func _mostrar_calibracao() -> void:
 
 ## Teste da câmera: a imagem ao vivo (Z / B giram).
 func _camera_ao_vivo() -> void:
-	_camera_tela.texture = Fotos.ao_vivo()
+	var imagem: Texture = Fotos.ao_vivo()
+	# Godot 3: o filtro linear (imagem esticada sem serrilhado) é uma
+	# marca da textura, não do TextureRect
+	if imagem != null:
+		imagem.flags = imagem.flags | Texture.FLAG_FILTER
+	_camera_tela.texture = imagem
 	_camera_tela.visible = true
-	_teste_rotulo.label_settings.font_size = int(54 * u)  #G3?
-	_teste_rotulo.position.y = 40 * u
-	_teste_rotulo.size.y = Tela.tamanho().y * 0.25
+	Compat.tamanho_rotulo(_teste_rotulo, int(54 * u))
+	_teste_rotulo.rect_position.y = 40 * u
+	_teste_rotulo.rect_size.y = Tela.tamanho().y * 0.25
 	_teste_rotulo.text = "TESTE DA CÂMERA\n%s\nZ / B giram a imagem · START sai" % Fotos.nome_camera
 
 
 ## Teste da câmera sem imagem: o que o Android enxerga e o que o jogo tentou.
 func _camera_relatorio(aviso: String) -> void:
 	_camera_tela.visible = false
-	var linhas := Fotos.relatorio().split("\n")
-	var rel := "\n".join(linhas.slice(0, Compat.imin(linhas.size(), 18)))  #G3?
-	_teste_rotulo.label_settings.font_size = int(30 * u)  #G3?
-	_teste_rotulo.position.y = 30 * u
-	_teste_rotulo.size.y = Tela.tamanho().y - 60 * u
+	var linhas: PoolStringArray = Fotos.relatorio().split("\n")
+	var rel := PoolStringArray(Compat.fatia(linhas, 0, 18)).join("\n")
+	Compat.tamanho_rotulo(_teste_rotulo, int(30 * u))
+	_teste_rotulo.rect_position.y = 30 * u
+	_teste_rotulo.rect_size.y = Tela.tamanho().y - 60 * u
 	_teste_rotulo.text = "TESTE DA CÂMERA%s\n\nCâmera: %s\n\n%s\n\nSTART ou CONFIGURAÇÃO para sair" % [aviso, Fotos.texto_status(), rel]
 
 
@@ -485,15 +521,15 @@ func _process(delta: float) -> void:
 
 func _mostrar_teste(ultimo: String) -> void:
 	var nomes := ["S1 ESQUERDA (Z)", "S2 MEIO-ESQ. (X)", "S3 CENTRO (C)", "S4 MEIO-DIR. (V)", "S5 DIREITA (B)"]
-	var ao_vivo := ArduinoBridge.sensores
+	var ao_vivo: String = ArduinoBridge.sensores
 	var txt := "TESTE DOS SENSORES\nrole a bola (ou passe a mão) em cada um\n\n"
 	for i in 5:
 		var agora := ""
 		if ao_vivo.length() == 5:
-			agora = "   ● BOLA" if ao_vivo[i] == "1" else "   ○ livre"
-		txt += "%s%s:  %d%s\n" % ["▶ " if ["Z", "X", "C", "V", "B"][i] == ultimo else "", nomes[i], _teste_contagem[i], agora]
+			agora = "   • BOLA" if ao_vivo[i] == "1" else "   – livre"
+		txt += "%s%s:  %d%s\n" % ["» " if ["Z", "X", "C", "V", "B"][i] == ultimo else "", nomes[i], _teste_contagem[i], agora]
 	if ArduinoBridge.completo():
-		txt += "\nArduino conectado: ● aparece enquanto a bola tapa o sensor."
+		txt += "\nArduino conectado: • aparece enquanto a bola tapa o sensor."
 	else:
 		txt += "\nSem o Arduino (contando os botões da placa).\n%s" % ArduinoBridge.status
 	txt += "\nSTART ou CONFIGURAÇÃO para sair"

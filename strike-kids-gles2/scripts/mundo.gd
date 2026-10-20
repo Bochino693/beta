@@ -12,6 +12,11 @@ extends Spatial
 ## Marca Lazer & Sport (no 3D): sutil, uma em cada cenário (balãozinho no
 ## Parque, planetinha no Espaço, bolha no Mar, pterossauro nos Dinos).
 ## Pódios (escolha do personagem e foto) nas cores de Bob e Mia.
+##
+## Edição OpenGL ES 2.0 (Godot 3): as medidas moram em Medidas (os nomes
+## continuam aqui, iguais); sem luz do motor (o sol e a luz ambiente de cada
+## cenário vão para os shaders: Materiais.definir_luz); o céu é uma esfera
+## desenhada no infinito (sem shader de céu no Godot 3).
 
 const MEIA_LARGURA = Medidas.MEIA_LARGURA
 const CANALETA = Medidas.CANALETA
@@ -45,9 +50,21 @@ const LARGURA_BOCA = Medidas.LARGURA_BOCA
 const RETORNO = Medidas.RETORNO
 const ALTURA_PODIO = Medidas.ALTURA_PODIO
 const BALAO_POS = Medidas.BALAO_POS
+## Bullet (Godot 3): a margem de colisão de uma forma CONVEXA fica do lado de
+## FORA da malha (0,04 m: tudo ficava 4 cm mais gordo). As formas convexas
+## do cenário usam 1 mm — a colisão fica onde a peça está (como no Godot 4).
+## Caixas, cilindros e a meia-cana (trimesh) não têm esse problema.
+const MARGEM_CONVEXA := 0.001
 
 var ambiente: Environment
-var sol: DirectionalLight
+## o SOL: sem luz do motor na OpenGL ES 2 (na Mali-400 cada luz desenharia a
+## cena de novo). É só um Spatial com a direção de antes (o sol fica no +Z
+## dele: uma luz ilumina para o seu -Z); a cor e a força de cada cenário
+## vão para os shaders em aplicar_tema (Materiais.definir_luz).
+var sol: Spatial
+## o CÉU: esfera com o ceu.shader, desenhada "no infinito", atrás de tudo
+## (o Godot 3 não tem shader de céu)
+var ceu: MeshInstance
 var mat_pista: ShaderMaterial
 var mat_piso: ShaderMaterial
 var mat_lampadas: ShaderMaterial
@@ -90,6 +107,7 @@ var mat_boca_luz: ShaderMaterial
 var leve := false
 
 
+## Onde um objeto movido pela física APARECE neste quadro (Medidas.na_tela).
 static func na_tela(n: Spatial) -> Transform:
 	return Medidas.na_tela(n)
 
@@ -110,7 +128,8 @@ func construir() -> void:
 	add_child(temas)
 	temas.construir(self)
 	# peças paradas com o mesmo material viram uma malha só (menos desenhos)
-	var fora: Array = [temas]
+	# (o céu e o astro ficam de fora: são desenhados no infinito)
+	var fora: Array = [temas, ceu, _astro]
 	fora.append_array(_marcas.values())
 	fora.append_array(_podios)
 	fora.append_array(_bumpers)
@@ -125,34 +144,34 @@ func aplicar_tema(nome: String) -> void:
 		nome = "parque"
 	tema = nome
 	var c: Dictionary = Temas.CONFIG[nome]
-	var ceu: Array = c["ceu"]
-	mat_ceu.set_shader_param("cor_topo", ceu[0])
-	mat_ceu.set_shader_param("cor_meio", ceu[1])
-	mat_ceu.set_shader_param("cor_horizonte", ceu[2])
-	mat_ceu.set_shader_param("cor_chao", ceu[3])
+	var ceu_cores: Array = c["ceu"]
+	mat_ceu.set_shader_param("cor_topo", ceu_cores[0])
+	mat_ceu.set_shader_param("cor_meio", ceu_cores[1])
+	mat_ceu.set_shader_param("cor_horizonte", ceu_cores[2])
+	mat_ceu.set_shader_param("cor_chao", ceu_cores[3])
 	mat_ceu.set_shader_param("cor_sol", c.get("cor_sol", Color(1.0, 0.95, 0.75)))
 	mat_ceu.set_shader_param("forca_sol", c.get("forca_sol", 1.0))
 	mat_ceu.set_shader_param("estrelas", c.get("estrelas", 0.0))
 	mat_ceu.set_shader_param("cor_nebulosa", c.get("nebulosa", Color(0.9, 0.4, 1.0)))
 	mat_ceu.set_shader_param("raios", c.get("raios", 0.0))
-	ambiente.ambient_light_color = c["ambiente"]
-	ambiente.ambient_light_energy = c.get("ambiente_forca", 0.62)
-	ambiente.fog_light_color = c["neblina"]
-	ambiente.fog_density = c.get("neblina_densidade", 0.0045)
-	sol.light_color = c["sol"]
-	sol.light_energy = c.get("sol_forca", 1.05)
+	# o fundo (se algo não cobrir a tela) é o horizonte do céu
+	ambiente.background_color = ceu_cores[2]
 	# a pista e o piso não usam o cálculo de luz do motor (são leves): a luz
 	# da cena (ambiente + sol batendo no chão) vai pronta para o shader
 	var para_sol := sol.global_transform.basis.z.normalized() if sol.is_inside_tree() else Vector3(0.35, 0.79, 0.5)
-	var amb: Color = (c["ambiente"] as Color).srgb_to_linear() * float(c.get("ambiente_forca", 0.62))
-	var luz_sol: Color = (c["sol"] as Color).srgb_to_linear() * float(c.get("sol_forca", 1.05)) * max(para_sol.y, 0.0)
+	var forca_amb := float(c.get("ambiente_forca", 0.62))
+	var forca_sol := float(c.get("sol_forca", 1.05))
+	# a luz do motor (sol + ambiente) agora vai para os toons (Materiais)
+	Materiais.definir_luz(para_sol, _vezes(c["sol"], forca_sol), _vezes(c["ambiente"], forca_amb))
+	var amb: Color = _vezes(_linear(c["ambiente"]), forca_amb)
+	var luz_sol: Color = _vezes(_linear(c["sol"]), forca_sol * max(para_sol.y, 0.0))
 	var luz_cena := Vector3(amb.r + luz_sol.r, amb.g + luz_sol.g, amb.b + luz_sol.b)
 	# chão e decoração: a luz da cena vai pronta para o shader (por
 	# vértice no leve, por pixel na decoração do completo)
-	var sol_lin: Color = (c["sol"] as Color).srgb_to_linear() * float(c.get("sol_forca", 1.05))
+	var sol_lin: Color = _vezes(_linear(c["sol"]), forca_sol)
 	var sol_cor := Vector3(sol_lin.r, sol_lin.g, sol_lin.b)
 	var amb_v := Vector3(amb.r, amb.g, amb.b)
-	var nb: Color = (c["neblina"] as Color).srgb_to_linear()
+	var nb: Color = _linear(c["neblina"])
 	var neblina := Vector3(nb.r, nb.g, nb.b)
 	var densidade := float(c.get("neblina_densidade", 0.0045))
 	for m in [mat_terreno]:
@@ -164,7 +183,7 @@ func aplicar_tema(nome: String) -> void:
 	temas.luz(para_sol, sol_cor, amb_v, neblina, densidade)
 	for m in [mat_pista, mat_piso]:
 		m.set_shader_param("luz_cena", luz_cena)
-		m.set_shader_param("cor_ceu", ceu[2])
+		m.set_shader_param("cor_ceu", ceu_cores[2])
 	mat_pista.set_shader_param("dir_sol", para_sol)
 	var f: Array = c["fundo"]
 	mat_fundo.set_shader_param("cor_a", f[0])
@@ -214,15 +233,30 @@ func aplicar_tema(nome: String) -> void:
 
 
 func _cor_do_chao(c: Color) -> Color:
-	var l := c.srgb_to_linear()
-	return l if leve else l.srgb_to_linear()
+	var l := _linear(c)
+	return l if leve else _linear(l)
+
+
+## Cor sRGB -> linear (a mesma conta do srgb_to_linear() do Godot 4, que o
+## Color do Godot 3 não tem).
+static func _linear(c: Color) -> Color:
+	return Color(_canal_linear(c.r), _canal_linear(c.g), _canal_linear(c.b), c.a)
+
+
+static func _canal_linear(v: float) -> float:
+	return v * (1.0 / 12.92) if v < 0.04045 else pow((v + 0.055) * (1.0 / (1.0 + 0.055)), 2.4)
+
+
+## Cor x força (o alfa fica 1).
+static func _vezes(c: Color, forca: float) -> Color:
+	return Color(c.r * forca, c.g * forca, c.b * forca, 1.0)
 
 
 # ================================================================ sol e lua
 ## SOL E LUA COM ROSTINHO no céu: sol no Parque, nos Dinos e no Mar (visto
 ## de dentro d'água, mais azulado) e a lua no Espaço. Um quadradinho sempre
 ## de frente para a câmera, desenhado NA DIREÇÃO do sol do céu e sempre à
-## mesma distância da câmera (astro.gdshader) — como o céu, ele fica "no
+## mesma distância da câmera (astro.shader) — como o céu, ele fica "no
 ## infinito": por mais que a câmera passeie (pinos, caçapa, trilhos), o
 ## rostinho fica exatamente onde o céu desenha o brilho do sol, e atrás de
 ## todo o cenário. Os raios giram e o rosto pisca no próprio shader.
@@ -263,18 +297,18 @@ func _astro_no_ceu() -> void:
 	_astro.cast_shadow = GeometryInstance.SHADOW_CASTING_SETTING_OFF
 	# o shader coloca o quadrado longe, na frente da câmera: a caixa de
 	# visibilidade cobre toda a visão (nunca some por engano)
-	_astro.custom_aabb = AABB(Vector3(-400, -400, -400), Vector3(800, 800, 800))
+	_astro.set_custom_aabb(AABB(Vector3(-400, -400, -400), Vector3(800, 800, 800)))
 	add_child(_astro)
 
 
 func _mostrar_astro(nome: String) -> void:
 	var a: Array = ASTROS.get(nome, ASTROS["parque"])
-	var sol: bool = a[0] == "sol"
+	var e_sol: bool = a[0] == "sol"
 	var rel: Vector3 = (a[1] as Vector3) - ASTRO_REFERENCIA
 	var dir := rel.normalized()
 	_mat_astro.set_shader_param("rosto", _img_astro[a[0]])
-	_mat_astro.set_shader_param("raios", _img_astro["sol_raios"] if sol else null)
-	_mat_astro.set_shader_param("usa_raios", 1.0 if sol else 0.0)
+	_mat_astro.set_shader_param("raios", _img_astro["sol_raios"] if e_sol else null)
+	_mat_astro.set_shader_param("usa_raios", 1.0 if e_sol else 0.0)
 	_mat_astro.set_shader_param("tinta", a[3])
 	_mat_astro.set_shader_param("direcao", dir)
 	# o mesmo tamanho na tela que teria a ~67 m, agora a ASTRO_DISTANCIA
@@ -284,73 +318,72 @@ func _mostrar_astro(nome: String) -> void:
 
 
 # ================================================================ ambiente
+## O CÉU E O FUNDO. O Godot 3 (OpenGL ES 2) não tem shader de céu: o céu é
+## uma esfera com o ceu.shader (o mesmo nos dois cenários), que a desenha
+## no infinito, atrás de tudo; o fundo da tela é só a cor do horizonte.
+## Sem luz ambiente do motor (a cena não tem luz nenhuma: os shaders recebem
+## a luz do cenário), sem brilho (glow), sem tonemap nem ajuste de cor (cada
+## um é uma passada a mais na tela inteira) e sem a neblina do motor (ver
+## aplicar_qualidade).
 func _ambiente() -> void:
 	var we := WorldEnvironment.new()
 	ambiente = Environment.new()
-	var ceu := Sky.new()
-	var mc := ShaderMaterial.new()
-	mc.shader = load("res://shaders/ceu_leve.shader" if leve else "res://shaders/ceu.shader")
-	mat_ceu = mc
-	ceu.sky_material = mc
-	ceu.radiance_size = Sky.RADIANCE_SIZE_32
-	ambiente.background_mode = Environment.BG_SKY
-	ambiente.sky = ceu
-	ambiente.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	ambiente.ambient_light_color = Color(0.62, 0.7, 0.86)
-	ambiente.ambient_light_energy = 0.62
-	# sem reflexo do céu nos materiais (o toon não usa; a pista e o piso
-	# desenham o próprio verniz): economiza uma busca de textura por pixel
-	ambiente.reflected_light_source = Environment.REFLECTION_SOURCE_DISABLED
-	ambiente.tonemap_mode = Environment.TONE_MAPPER_FILMIC
+	mat_ceu = ShaderMaterial.new()
+	mat_ceu.shader = load("res://shaders/ceu.shader")
+	ceu = MeshInstance.new()
+	ceu.name = "ceu"
+	var esfera := SphereMesh.new()
+	esfera.radius = 1.0
+	esfera.height = 2.0
+	esfera.radial_segments = 32
+	esfera.rings = 16
+	ceu.mesh = esfera
+	ceu.material_override = mat_ceu
+	# o shader leva a esfera para longe, em volta da câmera: nunca sai do quadro
+	ceu.extra_cull_margin = 16384.0
+	ceu.cast_shadow = GeometryInstance.SHADOW_CASTING_SETTING_OFF
+	add_child(ceu)
+	ambiente.background_mode = Environment.BG_COLOR
+	ambiente.background_color = Color("#E4F4FF")
+	ambiente.ambient_light_color = Color.black
+	ambiente.ambient_light_energy = 0.0
+	ambiente.ambient_light_sky_contribution = 0.0
+	ambiente.tonemap_mode = Environment.TONE_MAPPER_LINEAR
 	ambiente.tonemap_exposure = 1.0
-	ambiente.tonemap_white = 1.6
-	ambiente.glow_enabled = true
-	ambiente.glow_intensity = 0.55
-	ambiente.glow_strength = 0.9
-	ambiente.glow_bloom = 0.0
-	ambiente.glow_hdr_threshold = 1.0
-	ambiente.glow_blend_mode = Environment.GLOW_BLEND_MODE_SOFTLIGHT
-	ambiente.fog_enabled = true
-	ambiente.fog_light_color = Color(0.86, 0.9, 1.0)
-	ambiente.fog_density = 0.0045
-	ambiente.fog_sky_affect = 0.0
-	# saturação e contraste: feitos na hora de colocar o 3D na tela (hud),
-	# sem a passada extra de pós-processamento do motor
+	ambiente.glow_enabled = false
 	ambiente.adjustment_enabled = false
+	ambiente.fog_enabled = false
 	we.environment = ambiente
 	add_child(we)
 
 
+## O sol: só a direção (ver `sol`).
 func _sol() -> void:
-	sol = DirectionalLight.new()
+	sol = Spatial.new()
+	sol.name = "sol"
 	sol.rotation_degrees = Vector3(-52, 28, 0)
-	sol.light_color = Color(1.0, 0.95, 0.86)
-	sol.light_energy = 1.05
-	sol.shadow_enabled = false
 	add_child(sol)
 
 
-## Qualidade (o sol NÃO faz sombra de verdade em nenhuma: no Godot
-## "Compatibilidade" isso desenha a cena inteira duas vezes. Pinos, bola e
-## bichinhos têm sombrinha pintada no chão, que acompanha cada um):
-##   alta  (PC): brilho (glow), neblina e ajuste de cor;
-##   media (TV Box): neblina e ajuste de cor;
-##   baixa (TV Box fraca): o mínimo.
-## O chão e a decoração fazem a própria neblina, por vértice (mesma cor e
-## densidade): a do motor (por pixel) só pinta o resto — pista, portal,
-## bichinhos — e só no cenário completo (no leve ela fica desligada).
-func aplicar_qualidade(q: String) -> void:
-	sol.shadow_enabled = false
-	ambiente.glow_enabled = q == "alta"
-	ambiente.fog_enabled = q != "baixa" and not leve
+## Qualidade (o sol NÃO faz sombra de verdade em nenhuma. Pinos, bola e
+## bichinhos têm sombrinha pintada no chão, que acompanha cada um).
+## Edição OpenGL ES 2.0: sem brilho (glow) e sem a neblina do motor em
+## nenhuma — no Godot 3 não dá para tirar a neblina de um material só: ela
+## pintaria o céu (desenhado longe) e passaria de novo no chão e na
+## decoração, que fazem a própria neblina no shader (mesma cor e densidade).
+## O que a do motor ainda pintava (pista, portal, bichinhos) fica perto da
+## câmera, onde ela quase não aparecia.
+func aplicar_qualidade(_q: String) -> void:
+	ambiente.glow_enabled = false
+	ambiente.fog_enabled = false
 
 
 # ================================================================ terreno
 func _terreno() -> void:
 	# um relevo só; o desenho do chão de cada cenário sai do shader (nítido)
 	# o desenho do chão é o mesmo nas duas versões, feito do jeito barato
-	# (terreno_desenho.gdshaderinc: 1 sorteio por pixel); no leve a luz é
-	# por vértice e mais simples, no completo é a mesma conta do motor
+	# (1 sorteio por pixel); no leve a luz é por vértice e mais simples, no
+	# completo é a conta por pixel
 	mat_terreno = ShaderMaterial.new()
 	mat_terreno.shader = load("res://shaders/terreno_leve.shader" if leve else "res://shaders/terreno.shader")
 	var t := MeshInstance.new()
@@ -363,7 +396,7 @@ func _terreno() -> void:
 	var cs := CollisionShape.new()
 	cs.shape = PlaneShape.new()
 	chao.add_child(cs)
-	chao.position.y = POCO_FUNDO - 0.85   # abaixo do poço do alçapão
+	chao.translation.y = POCO_FUNDO - 0.85   # abaixo do poço do alçapão
 	chao.collision_layer = CAMADA_MUNDO
 	add_child(chao)
 
@@ -375,7 +408,7 @@ func _caixa(tam: Vector3, pos: Vector3, mat: Material, colisao := true, sombra :
 	bm.size = tam
 	mi.mesh = bm
 	mi.material_override = mat
-	mi.position = pos
+	mi.translation = pos
 	if not sombra:
 		mi.cast_shadow = GeometryInstance.SHADOW_CASTING_SETTING_OFF
 	add_child(mi)
@@ -386,11 +419,13 @@ func _caixa(tam: Vector3, pos: Vector3, mat: Material, colisao := true, sombra :
 
 ## Corpo parado com uma forma pronta (a do próprio desenho da peça).
 func _corpo_forma(forma: Shape, pos: Vector3, atrito := 0.4, quique := 0.2) -> StaticBody:
+	if forma is ConvexPolygonShape:
+		forma.margin = MARGEM_CONVEXA
 	var sb := StaticBody.new()
 	var cs := CollisionShape.new()
 	cs.shape = forma
 	sb.add_child(cs)
-	sb.position = pos
+	sb.translation = pos
 	sb.collision_layer = CAMADA_MUNDO
 	sb.collision_mask = 0
 	var pm := PhysicsMaterial.new()
@@ -405,10 +440,11 @@ func _corpo_caixa(tam: Vector3, pos: Vector3, atrito := 0.4, quique := 0.2) -> S
 	var sb := StaticBody.new()
 	var cs := CollisionShape.new()
 	var bs := BoxShape.new()
-	bs.size = tam
+	# Godot 3: a caixa é dada pela METADE do tamanho
+	bs.extents = tam * 0.5
 	cs.shape = bs
 	sb.add_child(cs)
-	sb.position = pos
+	sb.translation = pos
 	sb.collision_layer = CAMADA_MUNDO
 	sb.collision_mask = 0
 	var pm := PhysicsMaterial.new()
@@ -453,13 +489,14 @@ func _pista() -> void:
 	# curva), lábios no nível da pista; começam na linha de falta
 	var perfil_c := Perfis.canaleta(CANALETA / 2.0)
 	# mais escura no fundo da calha, clara nos lábios: lê-se a curva de longe
-	var malha_c := Perfis.extrudar(perfil_c, Z_FIM_DECK, 0.1, true, true, 50.0, Vector4(-0.15, -0.005, 0.5, 1.05))
+	# (Godot 3: sem Vector4 — Perfis.extrudar recebe os 4 números num Quat)
+	var malha_c := Perfis.extrudar(perfil_c, Z_FIM_DECK, 0.1, true, true, 50.0, Quat(-0.15, -0.005, 0.5, 1.05))
 	# a colisão é a MESMA meia-cana do desenho: bola e pinos rolam e param
 	# dentro da calha, encostados na parede curva — nada atravessa nada
 	var forma_c := malha_c.create_trimesh_shape()
 	for s in [-1, 1]:
 		var x: float = s * (MEIA_LARGURA + CANALETA / 2)
-		# o desenho de cada cenário (shaders/canaleta.gdshader; Temas.CONFIG)
+		# o desenho de cada cenário (shaders/canaleta.shader; Temas.CONFIG)
 		var mcan := ShaderMaterial.new()
 		mcan.shader = load("res://shaders/canaleta.shader")
 		mcan.set_shader_param("centro", MEIA_LARGURA + CANALETA / 2)
@@ -467,7 +504,7 @@ func _pista() -> void:
 		var can := MeshInstance.new()
 		can.mesh = malha_c
 		can.material_override = mcan
-		can.position = Vector3(x, 0.0, 0.0)
+		can.translation = Vector3(x, 0.0, 0.0)
 		can.cast_shadow = GeometryInstance.SHADOW_CASTING_SETTING_OFF
 		can.name = "canaleta_%d" % s
 		add_child(can)
@@ -481,11 +518,11 @@ func _pista() -> void:
 		var cap := MeshInstance.new()
 		cap.mesh = Perfis.extrudar(Perfis.retangulo(largura_cap, 0.34, 0.06, Vector2(0, -0.07)), Z_PINO1 + 0.2, 0.1)
 		cap.material_override = mat_divisoria
-		cap.position = Vector3(xc, 0.0, 0.0)
+		cap.translation = Vector3(xc, 0.0, 0.0)
 		cap.name = "divisoria_%d" % s
 		add_child(cap)
 		# colisão = o próprio desenho (quinas arredondadas, mesmo lugar)
-		_corpo_forma(cap.mesh.create_convex_shape(), cap.position, 0.3, 0.3)
+		_corpo_forma(cap.mesh.create_convex_shape(), cap.translation, 0.3, 0.3)
 		# faixinha de luz em cima da divisória
 		var luzes := _caixa(Vector3(0.05, 0.012, -Z_PINO1 - 0.3), Vector3(xc, 0.104, (Z_PINO1 + 0.2) / 2.0 + 0.05),
 			Materiais.cor_toon(Color("#FFFFFF"), 0.0, {"emissao": Color(0.35, 0.85, 1.0), "borda": 0.0}), false, false)
@@ -493,15 +530,11 @@ func _pista() -> void:
 
 	# --- para-choques (bumpers) listrados de doce
 	# cápsula simples + listras pelo shader (nítidas em 4K e levinhas)
-	var mb := CapsuleMesh.new()
-	mb.radius = 0.07
-	mb.height = 1.14
-	mb.radial_segments = 14
-	mb.rings = 3
+	var mb := _capsula_em_pe(0.07, 1.14, 14, 3)
 	var mat_b := ShaderMaterial.new()
 	mat_b.shader = load("res://shaders/doce_listrado.shader")
 	mat_bumper = mat_b
-	if Materiais.contornos_ligados:
+	if Materiais.contornos_ligados():
 		var contorno_b := ShaderMaterial.new()
 		contorno_b.shader = Materiais.shader(Materiais.CONTORNO)
 		contorno_b.set_shader_param("espessura", 0.003)
@@ -516,7 +549,7 @@ func _pista() -> void:
 		mm.mesh = mb
 		# terminam ANTES da máquina de pinos (como num boliche de verdade): a
 		# barra varredora desce e varre ali sem encostar neles
-		var n := N_BUMPERS
+		var n: int = N_BUMPERS
 		mm.instance_count = n
 		for i in n:
 			mm.set_instance_transform(i, Transform(Basis(Vector3.RIGHT, PI / 2), Vector3(s * 0.735, 0.1, -0.6 - i * 0.96)))
@@ -531,7 +564,7 @@ func _pista() -> void:
 		cap.height = n * 0.96 + 0.2
 		cs.shape = cap
 		cs.rotation_degrees.x = 90
-		cs.position = Vector3(s * 0.735, 0.1, -0.6 - (n - 1) * 0.96 / 2)
+		cs.translation = Vector3(s * 0.735, 0.1, -0.6 - (n - 1) * 0.96 / 2)
 		sb.add_child(cs)
 		sb.collision_layer = CAMADA_MUNDO
 		sb.collision_mask = 0
@@ -542,6 +575,55 @@ func _pista() -> void:
 		sb.name = "fisica"
 		grupo.add_child(sb)
 		_bumpers.append(grupo)
+
+
+## CÁPSULA EM PÉ (eixo Y e `altura` total, como a CapsuleMesh do Godot 4; a
+## do Godot 3 é deitada no eixo Z e o mid_height é só a parte reta). Com
+## meia volta em Y o UV.x dá a volta igual ao do Godot 4: o
+## doce_listrado.shader desenha as listras pela posição Y e pelo UV.x.
+static func _capsula_em_pe(raio: float, altura: float, gomos: int, aneis: int) -> ArrayMesh:
+	var c := CapsuleMesh.new()
+	c.radius = raio
+	c.mid_height = max(altura - 2.0 * raio, 0.0)
+	c.radial_segments = gomos
+	c.rings = aneis
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	st.append_from(c, 0, Transform(Basis(Vector3.UP, PI) * Basis(Vector3.RIGHT, -PI / 2), Vector3.ZERO))
+	return st.commit()
+
+
+## TOROIDE (o Godot 3 não tem TorusMesh): a mesma malha do Godot 4 — deitado
+## no plano XZ, `aneis` gomos na volta grande e `gomos` na volta do tubo.
+static func _toro(raio_dentro: float, raio_fora: float, aneis: int, gomos: int) -> ArrayMesh:
+	var r_min: float = min(raio_dentro, raio_fora)
+	var r_max: float = max(raio_dentro, raio_fora)
+	var raio := (r_max - r_min) * 0.5
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	for i in aneis + 1:
+		var inci := float(i) / float(aneis)
+		var angi := inci * TAU
+		var ni := Vector2(-sin(angi), -cos(angi))
+		for j in gomos + 1:
+			var incj := float(j) / float(gomos)
+			var angj := incj * TAU
+			var nj := Vector2(-cos(angj), sin(angj))
+			var nk := nj * raio + Vector2(r_min + raio, 0.0)
+			st.add_normal(Vector3(ni.x * nj.x, nj.y, ni.y * nj.x))
+			st.add_uv(Vector2(inci, incj))
+			st.add_vertex(Vector3(ni.x * nk.x, nk.y, ni.y * nk.x))
+	for i in range(1, aneis + 1):
+		var antes: int = (i - 1) * (gomos + 1)
+		var esta: int = i * (gomos + 1)
+		for j in range(1, gomos + 1):
+			st.add_index(esta + j - 1)
+			st.add_index(antes + j)
+			st.add_index(antes + j - 1)
+			st.add_index(esta + j - 1)
+			st.add_index(esta + j)
+			st.add_index(antes + j)
+	return st.commit()
 
 
 func definir_protecao(ligada: bool) -> void:
@@ -584,7 +666,7 @@ func _poco_do_alcapao() -> void:
 	pb.flip_faces = true
 	poco.mesh = pb
 	poco.material_override = mat
-	poco.position = Vector3(0, (topo + POCO_FUNDO) / 2.0, (z0 + z1) / 2.0)
+	poco.translation = Vector3(0, (topo + POCO_FUNDO) / 2.0, (z0 + z1) / 2.0)
 	poco.cast_shadow = GeometryInstance.SHADOW_CASTING_SETTING_OFF
 	poco.name = "poco_alcapao"
 	add_child(poco)
@@ -634,7 +716,7 @@ func _fundo_dos_pinos() -> void:
 	var fundo := MeshInstance.new()
 	fundo.mesh = Perfis.cortina(2.2, 1.95, 11, 0.07)
 	fundo.material_override = mat_fundo
-	fundo.position = Vector3(0, Y_BOCA + 0.08 + 0.975, Z_FUNDO + 0.04)
+	fundo.translation = Vector3(0, Y_BOCA + 0.08 + 0.975, Z_FUNDO + 0.04)
 	fundo.cast_shadow = GeometryInstance.SHADOW_CASTING_SETTING_OFF
 	fundo.name = "cortina"
 	add_child(fundo)
@@ -670,14 +752,8 @@ func _fundo_dos_pinos() -> void:
 		var asp := float(logo_tex.get_width()) / float(logo_tex.get_height())
 		lq.size = Vector2(min(2.5, 0.86 * asp), min(2.5, 0.86 * asp) / asp)
 		logo.mesh = lq
-		var ml := SpatialMaterial.new()
-		ml.shading_mode = SpatialMaterial.SHADING_MODE_UNSHADED
-		ml.albedo_texture = logo_tex
-		ml.transparency = SpatialMaterial.TRANSPARENCY_ALPHA_SCISSOR
-		ml.alpha_scissor_threshold = 0.4
-		ml.texture_filter = SpatialMaterial.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
-		logo.material_override = ml
-		logo.position = Vector3(0, 1.86, Z_PINO1 + 0.83)
+		logo.material_override = _mat_logo_letreiro(logo_tex)
+		logo.translation = Vector3(0, 1.86, Z_PINO1 + 0.83)
 		logo.name = "logo"
 		add_child(logo)
 	# ARCO em cima do letreiro: leque de raios nas cores do cenário (a frente)
@@ -702,11 +778,22 @@ func _fundo_dos_pinos() -> void:
 		pontos.append(Vector3(-1.33, 1.41 + i * 0.11, zc))
 		pontos.append(Vector3(1.33, 1.41 + i * 0.11, zc))
 	for i in 31:
-		var a := PI * float(i) / 30.0
+		var a: float = PI * float(i) / 30.0
 		pontos.append(Vector3(cos(a) * 1.47, 2.45 + sin(a) * 0.91, zc - 0.02))
 	mat_lampadas = ShaderMaterial.new()
 	mat_lampadas.shader = load("res://shaders/lampadas.shader")
 	add_child(lampadas_em(pontos))
+
+
+## Material do logo dos letreiros: a imagem sem luz, com o fundo recortado
+## (alpha scissor). O filtro com mipmaps vem da importação da textura.
+static func _mat_logo_letreiro(logo_tex: Texture) -> SpatialMaterial:
+	var ml := SpatialMaterial.new()
+	ml.flags_unshaded = true
+	ml.albedo_texture = logo_tex
+	ml.params_use_alpha_scissor = true
+	ml.params_alpha_scissor_threshold = 0.4
+	return ml
 
 
 ## CAÇAPA DAS BOLAS: no fundo do fosso, embaixo da cortina, uma boca
@@ -719,7 +806,7 @@ const Y_CHAO_FOSSO = Medidas.Y_CHAO_FOSSO
 
 func _cacapa_das_bolas() -> void:
 	var escuro := SpatialMaterial.new()
-	escuro.shading_mode = SpatialMaterial.SHADING_MODE_UNSHADED
+	escuro.flags_unshaded = true
 	escuro.albedo_color = Color("#05070D")
 	var borracha := Materiais.cor_toon(Color("#20263A"), 0.0, {"borda": 0.3, "luz_minima": 0.35})
 	var meia := LARGURA_BOCA / 2.0
@@ -760,7 +847,10 @@ func _cacapa_das_bolas() -> void:
 	_tiras.material_override = Materiais.cor_toon(Color("#151A28"), 0.0, {"borda": 0.25, "luz_minima": 0.3})
 	_tiras.cast_shadow = GeometryInstance.SHADOW_CASTING_SETTING_OFF
 	add_child(_tiras)
-	_abertura_tiras.resize(N_TIRAS)
+	# (Godot 3: o resize não zera os números novos)
+	_abertura_tiras = PoolRealArray()
+	for i in N_TIRAS:
+		_abertura_tiras.append(0.0)
 	_mexer_tiras(0.0)
 
 
@@ -769,16 +859,16 @@ func _mexer_tiras(delta: float) -> void:
 	var mm := _tiras.multimesh
 	var alto := Y_BOCA - Y_CHAO_FOSSO - 0.03
 	var meia := LARGURA_BOCA / 2.0
-	var pb := bola.global_position if bola != null and bola.visible else Vector3(100, 100, 100)
+	var pb: Vector3 = bola.global_translation if bola != null and bola.visible else Vector3(100, 100, 100)
 	var mexeu := delta <= 0.0
 	for i in N_TIRAS:
-		var x := -meia + LARGURA_BOCA * (float(i) + 0.5) / N_TIRAS
+		var x: float = -meia + LARGURA_BOCA * (float(i) + 0.5) / N_TIRAS
 		var alvo := 0.0
 		# abrem ANTES de a bola chegar (e depressa): ela nunca encosta nelas
 		if abs(pb.z - Z_FUNDO) < 0.8 and abs(pb.x - x) < 0.3 and pb.y < Y_BOCA:
 			alvo = 1.25
-		var a := _abertura_tiras[i]
-		var novo := move_toward(a, alvo, delta * (14.0 if alvo > a else 2.2))
+		var a: float = _abertura_tiras[i]
+		var novo: float = move_toward(a, alvo, delta * (14.0 if alvo > a else 2.2))
 		if novo != a or mexeu:
 			_abertura_tiras[i] = novo
 			# balancinho depois que a bola passa
@@ -801,13 +891,13 @@ func retorno_bola(mat: Material) -> void:
 		add_child(_bola_volta)
 	_bola_volta.material_override = mat
 	_bola_volta.visible = true
-	_bola_volta.position = RETORNO + Vector3(0, 0.69, 0.62)
+	_bola_volta.translation = RETORNO + Vector3(0, 0.69, 0.62)
 	_bola_volta.rotation = Vector3.ZERO
 	var tw := create_tween()
-	tw.tween_property(_bola_volta, "position:z", RETORNO.z + 0.26, 0.55).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tw.tween_property(_bola_volta, "translation:z", RETORNO.z + 0.26, 0.55).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 	tw.parallel().tween_property(_bola_volta, "rotation:x", -4.0, 0.55).set_ease(Tween.EASE_OUT)
-	tw.tween_property(_bola_volta, "position:z", RETORNO.z + 0.29, 0.08)
-	tw.tween_property(_bola_volta, "position:z", RETORNO.z + 0.26, 0.1)
+	tw.tween_property(_bola_volta, "translation:z", RETORNO.z + 0.29, 0.08)
+	tw.tween_property(_bola_volta, "translation:z", RETORNO.z + 0.26, 0.1)
 
 
 ## Esconde a bola do retorno (ela vai para a mão do bichinho).
@@ -822,30 +912,16 @@ func guardar_retorno() -> void:
 static func _leque_raios(r: float, y0: float, yc: float, alto: float, setores: int, z: float) -> ArrayMesh:
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
-	var borda := func(ang: float) -> Vector2:  #G3?
-		var d := Vector2(cos(ang), sin(ang))
-		# laterais retas (x = ±r, até yc)
-		if abs(d.x) > 1e-4:
-			var t_lado := r / abs(d.x)
-			var y_lado := y0 + t_lado * d.y
-			if y_lado <= yc:
-				return Vector2(t_lado * d.x, y_lado)
-		# meia-elipse: (x/r)² + ((y - yc)/alto)² = 1, com x = t·dx, y = y0 + t·dy
-		var a := (d.x * d.x) / (r * r) + (d.y * d.y) / (alto * alto)
-		var b := 2.0 * (y0 - yc) * d.y / (alto * alto)
-		var c := (y0 - yc) * (y0 - yc) / (alto * alto) - 1.0
-		var t := (-b + sqrt(max(b * b - 4.0 * a * c, 0.0))) / (2.0 * a)
-		return Vector2(t * d.x, y0 + t * d.y)
 	var sub := 4
 	var centro := Vector3(0, y0, z)
 	for k in setores:
 		var cor := Color(float(k % 2), 1.0, 0.0)
 		var cor_c := Color(float(k % 2), 0.0, 0.0)
 		for j in sub:
-			var a0 := PI * (float(k) + float(j) / sub) / setores
-			var a1 := PI * (float(k) + float(j + 1) / sub) / setores
-			var p0: Vector2 = borda.call(a0)  #G3?
-			var p1: Vector2 = borda.call(a1)  #G3?
+			var a0: float = PI * (float(k) + float(j) / sub) / setores
+			var a1: float = PI * (float(k) + float(j + 1) / sub) / setores
+			var p0 := _borda_do_arco(a0, r, y0, yc, alto)
+			var p1 := _borda_do_arco(a1, r, y0, yc, alto)
 			# frente virada para +Z (horário visto de +Z: centro, p1, p0)
 			for v in [[centro, cor_c], [Vector3(p1.x, p1.y, z), cor], [Vector3(p0.x, p0.y, z), cor]]:
 				st.add_color(v[1])
@@ -854,13 +930,31 @@ static func _leque_raios(r: float, y0: float, yc: float, alto: float, setores: i
 	return st.commit()
 
 
+## Onde o raio de ângulo `ang` (saindo do meio da base) encontra o contorno
+## do arco (Godot 3: sem lambda).
+static func _borda_do_arco(ang: float, r: float, y0: float, yc: float, alto: float) -> Vector2:
+	var d := Vector2(cos(ang), sin(ang))
+	# laterais retas (x = ±r, até yc)
+	if abs(d.x) > 1e-4:
+		var t_lado: float = r / abs(d.x)
+		var y_lado := y0 + t_lado * d.y
+		if y_lado <= yc:
+			return Vector2(t_lado * d.x, y_lado)
+	# meia-elipse: (x/r)² + ((y - yc)/alto)² = 1, com x = t·dx, y = y0 + t·dy
+	var a := (d.x * d.x) / (r * r) + (d.y * d.y) / (alto * alto)
+	var b := 2.0 * (y0 - yc) * d.y / (alto * alto)
+	var c := (y0 - yc) * (y0 - yc) / (alto * alto) - 1.0
+	var t := (-b + sqrt(max(b * b - 4.0 * a * c, 0.0))) / (2.0 * a)
+	return Vector2(t * d.x, y0 + t * d.y)
+
+
 ## Contorno do arco: base reta em y0, laterais até yc e meia-elipse
 ## (raio r na largura, `alto` na altura) por cima. Anti-horário.
 static func _perfil_arco(r: float, y0: float, yc: float, alto: float) -> PoolVector2Array:
 	var p := PoolVector2Array()
 	p.append(Vector2(r, y0))
 	for i in 49:
-		var a := PI * float(i) / 48.0
+		var a: float = PI * float(i) / 48.0
 		p.append(Vector2(cos(a) * r, yc + sin(a) * alto))
 	p.append(Vector2(-r, y0))
 	return p
@@ -899,7 +993,7 @@ func _marcas_dos_cenarios() -> void:
 func _novo_simbolo(nome: String, escala: float) -> Spatial:
 	var n := Spatial.new()
 	n.name = nome
-	n.position = BALAO_POS
+	n.translation = BALAO_POS
 	n.scale = Vector3.ONE * escala
 	add_child(n)
 	return n
@@ -930,7 +1024,7 @@ func _peca_simbolo(pai: Spatial, malha: Mesh, mat: Material, pos := Vector3.ZERO
 	var mi := MeshInstance.new()
 	mi.mesh = malha
 	mi.material_override = mat
-	mi.position = pos
+	mi.translation = pos
 	mi.cast_shadow = GeometryInstance.SHADOW_CASTING_SETTING_OFF
 	pai.add_child(mi)
 	return mi
@@ -964,11 +1058,8 @@ func _planeta_marca() -> Spatial:
 	_peca_simbolo(b, _esfera(), _mat_logo(Color("#7B61FF"), 1.3, Vector2.ZERO, 1.0,
 		{"borda": 0.7, "cor_borda": Color("#9FE8FF")}))
 	# o anel passa por baixo da logo (inclinado para a frente)
-	var anel := TorusMesh.new()
-	anel.inner_radius = 1.32
-	anel.outer_radius = 1.62
-	anel.rings = 48
-	anel.ring_segments = 8
+	# (Godot 3: sem TorusMesh — o mesmo toroide, feito aqui)
+	var anel := _toro(1.32, 1.62, 48, 8)
 	var a := _peca_simbolo(b, anel, Materiais.cor_toon(Color("#FFD43B"), 0.003, {"borda": 0.5, "luz_minima": 0.5}))
 	a.rotation_degrees = Vector3(32, 0, -12)
 	a.scale = Vector3(1.0, 0.35, 1.0)
@@ -1052,28 +1143,22 @@ func _area_dos_jogadores() -> void:
 		var lq := QuadMesh.new()
 		var lw := 3.0
 		lq.size = Vector2(lw, lw * float(logo_tex.get_height()) / float(logo_tex.get_width()))
-		var ml := SpatialMaterial.new()
-		ml.shading_mode = SpatialMaterial.SHADING_MODE_UNSHADED
-		ml.albedo_texture = logo_tex
-		ml.transparency = SpatialMaterial.TRANSPARENCY_ALPHA_SCISSOR
-		ml.alpha_scissor_threshold = 0.4
-		ml.texture_filter = SpatialMaterial.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 		var logo := MeshInstance.new()
 		logo.mesh = lq
-		logo.material_override = ml
+		logo.material_override = _mat_logo_letreiro(logo_tex)
 		logo.rotation_degrees.y = 180
-		logo.position = Vector3(0, 2.55, z_parede - 0.2)
+		logo.translation = Vector3(0, 2.55, z_parede - 0.2)
 		logo.cast_shadow = GeometryInstance.SHADOW_CASTING_SETTING_OFF
 		add_child(logo)
 		for i in 30:
-			var x := -1.85 + i * (3.7 / 29.0)
+			var x: float = -1.85 + i * (3.7 / 29.0)
 			pontos.append(Vector3(x, 3.35, z_parede - 0.21))
 			pontos.append(Vector3(x, 1.75, z_parede - 0.21))
 	add_child(lampadas_em(pontos, 200))
 	# sofás vermelhos encostados na mureta
 	for s in [-1, 1]:
 		var sofa := Spatial.new()
-		sofa.position = Vector3(s * 3.4, 0, z_parede - 0.42)
+		sofa.translation = Vector3(s * 3.4, 0, z_parede - 0.42)
 		sofa.rotation_degrees.y = 90
 		add_child(sofa)
 		for parte in [[Perfis.retangulo(0.66, 0.42, 0.12, Vector2(0.0, 0.21)), 0.0],
@@ -1088,12 +1173,12 @@ func _area_dos_jogadores() -> void:
 			sofa.add_child(mi)
 			if parte[1] == 1.0:
 				var outro := mi.duplicate() as MeshInstance
-				mi.position.z = -1.2
-				outro.position.z = 1.2
+				mi.translation.z = -1.2
+				outro.translation.z = 1.2
 				sofa.add_child(outro)
 	# retorno de bolas (como num boliche de verdade), do lado direito
 	var ret := Spatial.new()
-	ret.position = RETORNO
+	ret.translation = RETORNO
 	add_child(ret)
 	var corpo := MeshInstance.new()
 	corpo.mesh = Perfis.extrudar(Perfis.retangulo(0.56, 0.5, 0.1, Vector2(0, 0.25)), -0.8, 0.8)
@@ -1117,7 +1202,7 @@ func _area_dos_jogadores() -> void:
 		sm.rings = 12
 		b.mesh = sm
 		b.material_override = Materiais.cor_toon(cores[i], 0.003, {"borda": 0.4, "especular": 0.8})
-		b.position = Vector3(0, 0.69, -0.62 + i * 0.29)
+		b.translation = Vector3(0, 0.69, -0.62 + i * 0.29)
 		ret.add_child(b)
 
 
@@ -1137,7 +1222,7 @@ func _montar_podios() -> void:
 		cm.radial_segments = 48
 		cm.rings = 1
 		base.mesh = cm
-		base.position.y = 0.07
+		base.translation.y = 0.07
 		base.material_override = Materiais.cor_toon(cor, 0.004, {"borda": 0.35})
 		g.add_child(base)
 		var tampa := MeshInstance.new()
@@ -1148,18 +1233,14 @@ func _montar_podios() -> void:
 		ct.radial_segments = 48
 		ct.rings = 1
 		tampa.mesh = ct
-		tampa.position.y = 0.146
+		tampa.translation.y = 0.146
 		tampa.material_override = Materiais.cor_toon(Color("#F4F8FF"), 0.0, {"borda": 0.2})
 		g.add_child(tampa)
 		# anel de luz em volta da tampa (acende no escolhido)
+		# (Godot 3: sem TorusMesh — o mesmo toroide, feito aqui)
 		var aro := MeshInstance.new()
-		var tm := TorusMesh.new()
-		tm.inner_radius = 0.37
-		tm.outer_radius = 0.405
-		tm.rings = 64
-		tm.ring_segments = 10
-		aro.mesh = tm
-		aro.position.y = 0.142
+		aro.mesh = _toro(0.37, 0.405, 64, 10)
+		aro.translation.y = 0.142
 		var ma := Materiais.cor_toon(Color("#FFD43B"), 0.0, {"borda": 0.0, "emissao": Color(0, 0, 0)})
 		aro.material_override = ma
 		aro.cast_shadow = GeometryInstance.SHADOW_CASTING_SETTING_OFF
@@ -1171,11 +1252,11 @@ func _montar_podios() -> void:
 ## Liga/desliga os pódios (posições no chão) e acende o do escolhido.
 func podios(ligar: bool, posicoes: Array = [], destaque := -1) -> void:
 	for i in _podios.size():
-		var g := _podios[i]
+		var g: Spatial = _podios[i]
 		var ia := not g.visible
 		g.visible = ligar and i < posicoes.size()
 		if g.visible:
-			g.position = posicoes[i]
+			g.translation = posicoes[i]
 			if ia:
 				g.scale = Vector3(1, 0.2, 1)
 				create_tween().tween_property(g, "scale", Vector3.ONE, 0.35).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
@@ -1183,17 +1264,17 @@ func podios(ligar: bool, posicoes: Array = [], destaque := -1) -> void:
 
 
 ## Lâmpada: bolinha de 64 triângulos (são centenas delas na tela).
-static var _lampada: SphereMesh  #G3?
-
-
+## (Godot 3: sem "static var" — a malha fica guardada em Compat.estado)
 static func _malha_lampada() -> SphereMesh:
-	if _lampada == null:
-		_lampada = SphereMesh.new()
-		_lampada.radius = 0.07
-		_lampada.height = 0.14
-		_lampada.radial_segments = 8
-		_lampada.rings = 4
-	return _lampada
+	var e := Compat.estado("mundo")
+	if not e.has("lampada"):
+		var l := SphereMesh.new()
+		l.radius = 0.07
+		l.height = 0.14
+		l.radial_segments = 8
+		l.rings = 4
+		e["lampada"] = l
+	return e["lampada"]
 
 
 ## Fileira de lâmpadas (MultiMesh) que piscam com o material comum.
@@ -1201,6 +1282,7 @@ func lampadas_em(pontos: Array, fase0 := 0) -> MultiMeshInstance:
 	var cores := [Color("#FFE14D"), Color("#FF9F2E"), Color("#4FD8FF"), Color("#8DFF6A")]
 	var mm := MultiMesh.new()
 	mm.transform_format = MultiMesh.TRANSFORM_3D
+	# Godot 3: os formatos antes do número de cópias
 	mm.color_format = MultiMesh.COLOR_FLOAT
 	mm.custom_data_format = MultiMesh.CUSTOM_DATA_FLOAT
 	mm.mesh = _malha_lampada()
@@ -1225,7 +1307,7 @@ func _objeto(nome: String, pos: Vector3, rot_y := 0.0, escala := 1.0, contorno :
 		return mi
 	mi.mesh = load(caminho)
 	mi.material_override = Materiais.toon(false, contorno, {"borda": 0.3})
-	mi.position = pos
+	mi.translation = pos
 	mi.rotation.y = rot_y
 	mi.scale = Vector3.ONE * escala
 	# só os objetos perto da pista fazem sombra (economiza a placa de vídeo)
@@ -1280,7 +1362,7 @@ func _process(delta: float) -> void:
 
 
 func _mexer_marca() -> void:
-	balao.position = BALAO_POS + Vector3(sin(_t * 0.31) * 0.18, sin(_t * 0.8) * 0.14, sin(_t * 0.23) * 0.1)
+	balao.translation = BALAO_POS + Vector3(sin(_t * 0.31) * 0.18, sin(_t * 0.8) * 0.14, sin(_t * 0.23) * 0.1)
 	match tema:
 		"espaco":
 			balao.rotation = Vector3(sin(_t * 0.4) * 0.06, sin(_t * 0.3) * 0.35, sin(_t * 0.5) * 0.05)
@@ -1290,15 +1372,16 @@ func _mexer_marca() -> void:
 			balao.scale = Vector3(1.0 + pulso * 0.03, 1.0 - pulso * 0.03, 1.0 + pulso * 0.03) * 0.3
 			for i in _bolhinhas.size():
 				# sobem em volta da bolha e recomeçam embaixo
-				var f := fposmod(_t * 0.22 + i * 0.25, 1.0)
-				var a := i * 1.9 + _t * 0.4
-				_bolhinhas[i].position = Vector3(cos(a) * 1.25, -1.0 + f * 3.4, sin(a) * 0.5 + 0.3)
-				_bolhinhas[i].visible = f < 0.92
+				var f: float = fposmod(_t * 0.22 + i * 0.25, 1.0)
+				var a: float = i * 1.9 + _t * 0.4
+				var bi: Spatial = _bolhinhas[i]
+				bi.translation = Vector3(cos(a) * 1.25, -1.0 + f * 3.4, sin(a) * 0.5 + 0.3)
+				bi.visible = f < 0.92
 		"dinos":
 			balao.rotation = Vector3(sin(_t * 0.7) * 0.05, sin(_t * 0.4) * 0.22, sin(_t * 0.9) * 0.06)
 			var pt := balao.get_node("ptero") as Spatial
 			# bate asas: o corpo sobe e desce um tiquinho, inclinando
-			pt.position.y = 0.66 + sin(_t * 5.0) * 0.025
+			pt.translation.y = 0.66 + sin(_t * 5.0) * 0.025
 			pt.rotation.x = sin(_t * 5.0) * 0.08
 		_:
 			balao.rotation = Vector3(sin(_t * 0.5) * 0.05, sin(_t * 0.45) * 0.3, sin(_t * 0.6) * 0.08)

@@ -8,6 +8,9 @@ extends SceneTree
 
 var origem := ""
 var _cache := {}
+## primitiva do Godot 4 -> do Godot 3
+const PRIMITIVA_G4 := [Mesh.PRIMITIVE_POINTS, Mesh.PRIMITIVE_LINES, Mesh.PRIMITIVE_LINE_STRIP,
+	Mesh.PRIMITIVE_TRIANGLES, Mesh.PRIMITIVE_TRIANGLE_STRIP]
 
 
 func _malha(arq: String) -> ArrayMesh:
@@ -57,8 +60,10 @@ func _malha(arq: String) -> ArrayMesh:
 			for i in ni:
 				idx[i] = f.get_32()
 			arrays[Mesh.ARRAY_INDEX] = idx
-		# cores em 8 bits e normais compactadas (padrão); posição em float
-		m.add_surface_from_arrays(prim, arrays)
+		# cores em 8 bits e normais compactadas (padrão); posição em float.
+		# O tipo de primitiva tem outra numeração no Godot 3 (lá o 3 é
+		# LINE_LOOP): 0 pontos, 1 linhas, 2 tira de linhas, 3 triângulos, 4 tira
+		m.add_surface_from_arrays(PRIMITIVA_G4[prim], arrays)
 	f.close()
 	_cache[arq] = m
 	return m
@@ -81,6 +86,9 @@ func _no(d: Dictionary, raiz: Node) -> Spatial:
 	if d.has("xf"):
 		n.transform = _xf(d["xf"])
 	n.visible = d.get("visivel", true)
+	var metas: Dictionary = d.get("meta", {})
+	for k in metas:
+		n.set_meta(k, metas[k])
 	for c in d["filhos"]:
 		var filho := _no(c, raiz if raiz else n)
 		n.add_child(filho)
@@ -115,6 +123,9 @@ func _init() -> void:
 			r = cena
 		elif item.has("malha"):
 			r = _malha(item["malha"])
+			var metas: Dictionary = item.get("meta", {})
+			for k in metas:
+				r.set_meta(k, metas[k])
 		elif item.has("convexa"):
 			var pts := PoolVector3Array()
 			var p: Array = item["convexa"]

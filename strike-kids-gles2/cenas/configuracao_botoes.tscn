@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=2]
+
+[ext_resource path="res://scripts/configuracao_botoes.gd" type="Script" id=1]
+
+[node name="configuracao_botoes" type="Control"]
+script = ExtResource( 1 )

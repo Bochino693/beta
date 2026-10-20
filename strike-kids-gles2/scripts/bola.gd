@@ -1,7 +1,7 @@
 class_name Bola
 extends RigidBody
 
-## A BOLA: corpo físico (Jolt), textura do personagem (patinhas do Bob,
+## A BOLA: corpo físico, textura do personagem (patinhas do Bob,
 ## estrelas da Mia), rastro de arco-íris no chão e brilhinhos. Com 2 ou
 ## mais strikes seguidos ela vira BOLA DE FOGO (rastro e chamas).
 
@@ -15,8 +15,7 @@ const FOGO := [Color("#FFF3B0"), Color("#FFD43B"), Color("#FF9F2E"), Color("#FF5
 
 var malha: MeshInstance
 var _sombra: MeshInstance
-var _rastro: MeshInstance
-var _im: ImmediateMesh
+var _rastro: ImmediateGeometry
 var _pontos: Array = []
 var _brilhos: CPUParticles
 var _chamas: CPUParticles
@@ -34,19 +33,15 @@ static func material(nome: String) -> ShaderMaterial:
 	var m := ShaderMaterial.new()
 	m.shader = Materiais.shader("res://shaders/bola.shader")
 	m.set_shader_param("textura", Materiais.textura("bola_" + nome))
-	var c := ShaderMaterial.new()
-	c.shader = Materiais.shader(Materiais.CONTORNO)
-	c.set_shader_param("espessura", 0.0025)
-	c.set_shader_param("usa_cor_vertice", 0.0)
-	m.next_pass = c
-	return m
+	# sem contorno na OpenGL ES 2 (desenharia a bola 2 vezes)
+	return Materiais.registrar(m)
 
 
 func _init() -> void:
 	mass = MASSA
 	continuous_cd = true
 	contact_monitor = true
-	max_contacts_reported = 6
+	contacts_reported = 6
 	can_sleep = false
 	collision_layer = Medidas.CAMADA_BOLA
 	collision_mask = Medidas.CAMADA_MUNDO | Medidas.CAMADA_PINOS | Medidas.CAMADA_PISO_BOLA
@@ -68,24 +63,23 @@ func _init() -> void:
 	malha.mesh = esfera
 	add_child(malha)
 	_sombra = MeshInstance.new()
-	var q := QuadMesh.new()
+	# Godot 3: a QuadMesh só olha para Z; a PlaneMesh já é deitada
+	var q := PlaneMesh.new()
 	q.size = Vector2(0.42, 0.42)
-	q.orientation = PlaneMesh.FACE_Y
 	_sombra.mesh = q
 	_sombra.material_override = Materiais.sombra_blob(0.6)
-	_sombra.top_level = true
+	_sombra.set_as_toplevel(true)
 	add_child(_sombra)
-	_im = ImmediateMesh.new()
-	_rastro = MeshInstance.new()
-	_rastro.mesh = _im
-	_rastro.top_level = true
+	# rastro: no Godot 3 é a ImmediateGeometry (desenho refeito a cada quadro)
+	_rastro = ImmediateGeometry.new()
+	_rastro.set_as_toplevel(true)
 	var mr := SpatialMaterial.new()
-	mr.shading_mode = SpatialMaterial.SHADING_MODE_UNSHADED
+	mr.flags_unshaded = true
 	mr.vertex_color_use_as_albedo = true
-	mr.transparency = SpatialMaterial.TRANSPARENCY_ALPHA
-	mr.blend_mode = SpatialMaterial.BLEND_MODE_ADD
-	mr.cull_mode = SpatialMaterial.CULL_DISABLED
-	mr.depth_draw_mode = SpatialMaterial.DEPTH_DRAW_DISABLED
+	mr.flags_transparent = true
+	mr.params_blend_mode = SpatialMaterial.BLEND_MODE_ADD
+	mr.params_cull_mode = SpatialMaterial.CULL_DISABLED
+	mr.params_depth_draw_mode = SpatialMaterial.DEPTH_DRAW_DISABLED
 	_rastro.material_override = mr
 	_rastro.cast_shadow = GeometryInstance.SHADOW_CASTING_SETTING_OFF
 	add_child(_rastro)
@@ -98,11 +92,12 @@ func _init() -> void:
 	_brilhos.emission_sphere_radius = RAIO
 	_brilhos.direction = Vector3(0, 1, 0)
 	_brilhos.spread = 70.0
-	_brilhos.initial_velocity_min = 0.3
-	_brilhos.initial_velocity_max = 0.9
+	# Godot 3: valor máximo + quanto ele varia (0,3..0,9 / 0,5..1,0)
+	_brilhos.initial_velocity = 0.9
+	_brilhos.initial_velocity_random = 0.67
 	_brilhos.gravity = Vector3(0, -0.6, 0)
-	_brilhos.scale_amount_min = 0.5
-	_brilhos.scale_amount_max = 1.0
+	_brilhos.scale_amount = 1.0
+	_brilhos.scale_amount_random = 0.5
 	var curva_esc := Curve.new()
 	curva_esc.add_point(Vector2(0, 1))
 	curva_esc.add_point(Vector2(1, 0))
@@ -112,7 +107,6 @@ func _init() -> void:
 	qm.size = Vector2(0.09, 0.09)
 	qm.material = Materiais.particula("faisca")
 	_brilhos.mesh = qm
-	_brilhos.top_level = false
 	add_child(_brilhos)
 	_chamas = CPUParticles.new()
 	_chamas.amount = 46
@@ -123,11 +117,11 @@ func _init() -> void:
 	_chamas.emission_sphere_radius = RAIO * 0.8
 	_chamas.direction = Vector3(0, 1, 0)
 	_chamas.spread = 25.0
-	_chamas.initial_velocity_min = 0.6
-	_chamas.initial_velocity_max = 1.4
+	_chamas.initial_velocity = 1.4
+	_chamas.initial_velocity_random = 0.57
 	_chamas.gravity = Vector3(0, 1.5, 0)
-	_chamas.scale_amount_min = 0.7
-	_chamas.scale_amount_max = 1.3
+	_chamas.scale_amount = 1.3
+	_chamas.scale_amount_random = 0.46
 	var ce := Curve.new()
 	ce.add_point(Vector2(0, 0.6))
 	ce.add_point(Vector2(0.3, 1.0))
@@ -146,7 +140,7 @@ func _init() -> void:
 	_grad_fogo = Gradient.new()
 	_grad_fogo.offsets = PoolRealArray([0.0, 0.25, 0.5, 0.75, 1.0])
 	_grad_fogo.colors = PoolColorArray(FOGO)
-	body_entered.connect(_ao_bater)  #G3?
+	connect("body_entered", self, "_ao_bater")
 	# a bola anda pela física: aparece interpolada entre os passos (lisa em
 	# qualquer monitor); sombra, rastro e brilhos são postos a cada quadro
 	physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_ON
@@ -175,9 +169,9 @@ func vestir(nome: String) -> void:
 
 
 func lancar(origem: Vector3, velocidade: Vector3, efeito := 0.0) -> void:
-	freeze = false  #G3?
+	mode = RigidBody.MODE_RIGID
 	visible = true
-	global_position = origem
+	global_translation = origem
 	rotation = Vector3.ZERO
 	linear_velocity = velocidade
 	angular_velocity = Vector3.UP.cross(velocidade) / RAIO
@@ -195,14 +189,14 @@ func lancar(origem: Vector3, velocidade: Vector3, efeito := 0.0) -> void:
 func guardar() -> void:
 	rolando = false
 	em_replay = false
-	freeze = true  #G3?
+	mode = RigidBody.MODE_STATIC
 	visible = false
 	linear_velocity = Vector3.ZERO
 	angular_velocity = Vector3.ZERO
-	global_position = Vector3(0, -5, 20)
+	global_translation = Vector3(0, -5, 20)
 	reset_physics_interpolation()
 	_pontos.clear()
-	_im.clear_surfaces()
+	_rastro.clear()
 	_brilhos.emitting = false
 	_chamas.emitting = false
 
@@ -215,22 +209,24 @@ func fogo(ligar: bool) -> void:
 		_chamas.emitting = false
 
 
-func _physics_process(_delta: float) -> void:
+func _physics_process(delta: float) -> void:
 	if not rolando:
 		return
-	var p := global_position
+	var p := global_translation
+	# Godot 3: add_central_force fica valendo para sempre; a força de UM
+	# passo (o apply_central_force do Godot 4) é um impulso de força x passo
 	if curva != 0.0 and p.z > Medidas.Z_PINO1 + 1.4 and p.y > -0.02:
-		apply_central_force(Vector3(curva * mass, 0, 0))
+		apply_central_impulse(Vector3(curva * mass, 0, 0) * delta)
 	# no fosso: o chão "puxa" a bola para a caçapa (como a esteira de verdade)
 	if p.z < Medidas.Z_FIM_DECK and p.y < 0.0 and linear_velocity.z > -1.6:
-		apply_central_force(Vector3(-p.x * 3.0, 0, -4.0) * mass)
+		apply_central_impulse(Vector3(-p.x * 3.0, 0, -4.0) * mass * delta)
 	# entrou no túnel da caçapa: some (e volta no retorno de bolas)
 	if p.z < Medidas.Z_FUNDO - 0.35:
 		rolando = false
 		_brilhos.emitting = false
 		_chamas.emitting = false
 		visible = false
-		set_deferred("freeze", true)  #G3?
+		call_deferred("set_mode", RigidBody.MODE_STATIC)
 		emit_signal("recolhida")
 
 
@@ -239,15 +235,14 @@ func _process(_delta: float) -> void:
 		return
 	# onde a bola APARECE neste quadro (entre dois passos da física)
 	var g := Medidas.na_tela(self).origin
-	_sombra.global_position = Vector3(g.x, max(g.y - RAIO, -0.3) + 0.008, g.z)
-	_sombra.global_rotation = Vector3.ZERO
 	var alt: float = clamp(1.0 - (g.y - RAIO) * 1.5, 0.3, 1.0)
 	# a sombra é um adesivo reto: só no chão reto (pista, área de quem joga,
 	# fundo do fosso). Indo para a canaleta ela some — dentro da calha
 	# curva ela atravessaria a parede.
 	if g.z > Medidas.Z_FIM_DECK and g.z < 0.12:
 		alt *= clamp((Medidas.MEIA_LARGURA - abs(g.x)) / 0.2, 0.0, 1.0)
-	_sombra.scale = Vector3(max(alt, 0.001), 1, max(alt, 0.001))
+	_sombra.global_transform = Transform(Basis().scaled(Vector3(max(alt, 0.001), 1, max(alt, 0.001))),
+		Vector3(g.x, max(g.y - RAIO, -0.3) + 0.008, g.z))
 	if rolando:
 		marcar_rastro(g)
 	if (rolando or em_replay) and g.z < Medidas.Z_PINO1 + 0.4:
@@ -278,7 +273,7 @@ func replay(ligar: bool) -> void:
 	if not ligar:
 		reset_physics_interpolation()
 	_pontos.clear()
-	_im.clear_surfaces()
+	_rastro.clear()
 	_brilhos.emitting = ligar
 	_chamas.emitting = ligar and _fogo
 	replay_ritmo(1.0)
@@ -291,14 +286,14 @@ func replay_ritmo(vel: float) -> void:
 
 
 func _desenhar_rastro() -> void:
-	_im.clear_surfaces()
+	_rastro.clear()
 	if _pontos.size() < 2:
 		return
 	var g := _grad_fogo if _fogo else _grad_arco
-	_im.surface_begin(Mesh.PRIMITIVE_TRIANGLE_STRIP)
+	_rastro.begin(Mesh.PRIMITIVE_TRIANGLE_STRIP)
 	var n := _pontos.size()
 	for i in n:
-		var p := _pontos[i]
+		var p: Vector3 = _pontos[i]
 		var d: Vector3
 		if i < n - 1:
 			d = (p - _pontos[i + 1])
@@ -312,13 +307,13 @@ func _desenhar_rastro() -> void:
 		var w := RAIO * (1.2 if _fogo else 0.95) * (0.35 + 0.65 * f)
 		# nunca passa da borda da pista
 		w = clamp(min(w, Medidas.MEIA_LARGURA - abs(p.x)), 0.0, w)
-		var c := g.sample(float(i) / float(n - 1) if _fogo else fposmod(float(i) / 10.0, 1.0))
+		var c := g.interpolate(float(i) / float(n - 1) if _fogo else fposmod(float(i) / 10.0, 1.0))
 		c.a = f * 0.75
-		_im.surface_set_color(c)
-		_im.surface_add_vertex(p + lado * w)
-		_im.surface_set_color(c)
-		_im.surface_add_vertex(p - lado * w)
-	_im.surface_end()
+		_rastro.set_color(c)
+		_rastro.add_vertex(p + lado * w)
+		_rastro.set_color(c)
+		_rastro.add_vertex(p - lado * w)
+	_rastro.end()
 
 
 func velocidade() -> float:

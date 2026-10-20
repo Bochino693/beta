@@ -1,17 +1,23 @@
 class_name Pino
 extends RigidBody
 
-## UM PINO com carinha. Corpo físico (Jolt) com o centro de massa no lugar
-## de um pino de verdade (ele tomba fácil), sons de batida e expressões:
+## UM PINO com carinha. Corpo físico com o centro de massa no lugar de um
+## pino de verdade (ele tomba fácil), sons de batida e expressões:
 ## normal / piscando / medo (bola chegando) / tonto ou bravinho (caiu) /
 ## feliz (ficou de pé — às vezes até dá pulinhos de comemoração).
 ## Os pulinhos são animação (o pino fica preso, sem física) e terminam
 ## exatamente onde ele estava: na hora da jogada está tudo no lugar.
+##
+## Godot 3 (Bullet): o centro de massa é sempre a ORIGEM do corpo. Então a
+## origem do pino fica no centro de massa (COM, 17 cm acima da base) e a
+## malha e a colisão descem 17 cm. `lugar` continua sendo a BASE do pino;
+## posicao_base() / colocar_em() fazem a conta.
 
 signal bateu(pino, forca)
 
 const EXPR := ["normal", "piscando", "medo", "tonto", "feliz", "surpreso", "triste", "bravo"]
 const MASSA := 1.5
+const COM := Vector3(0, 0.17, 0)
 
 var numero := 1
 var lugar := Vector3.ZERO
@@ -35,11 +41,9 @@ func montar(n: int, pos: Vector3, malha_pino: Mesh, forma: Shape, rosto: Texture
 	lugar = pos
 	name = "Pino%d" % n
 	mass = MASSA
-	center_of_mass_mode = RigidBody.CENTER_OF_MASS_MODE_CUSTOM
-	center_of_mass = Vector3(0, 0.17, 0)
 	can_sleep = true
 	contact_monitor = true
-	max_contacts_reported = 4
+	contacts_reported = 4
 	collision_layer = Medidas.CAMADA_PINOS
 	collision_mask = Medidas.CAMADA_MUNDO | Medidas.CAMADA_PINOS | Medidas.CAMADA_BOLA | Medidas.CAMADA_PISO_PINOS | Medidas.CAMADA_SO_PINOS
 	var pm := PhysicsMaterial.new()
@@ -48,6 +52,7 @@ func montar(n: int, pos: Vector3, malha_pino: Mesh, forma: Shape, rosto: Texture
 	physics_material_override = pm
 	var cs := CollisionShape.new()
 	cs.shape = forma
+	cs.translation = -COM
 	add_child(cs)
 	malha = MeshInstance.new()
 	malha.mesh = malha_pino
@@ -58,28 +63,29 @@ func montar(n: int, pos: Vector3, malha_pino: Mesh, forma: Shape, rosto: Texture
 		"borda": 0.4, "cor_borda": Color(0.92, 0.96, 1.0),
 	})
 	malha.material_override = mat
-	malha.lod_bias = 3.0
+	malha.translation = -COM
 	add_child(malha)
 	_estrelas = Spatial.new()
-	_estrelas.top_level = true
+	_estrelas.set_as_toplevel(true)
 	_estrelas.visible = false
 	var me := SpatialMaterial.new()
-	me.shading_mode = SpatialMaterial.SHADING_MODE_UNSHADED
+	me.flags_unshaded = true
 	me.albedo_texture = Materiais.textura("estrela")
 	me.albedo_color = Color("#FFE14D")
-	me.transparency = SpatialMaterial.TRANSPARENCY_ALPHA_SCISSOR
-	me.billboard_mode = SpatialMaterial.BILLBOARD_ENABLED
+	me.params_use_alpha_scissor = true
+	me.params_alpha_scissor_threshold = 0.5
+	me.params_billboard_mode = SpatialMaterial.BILLBOARD_ENABLED
 	for i in 3:
 		var e := MeshInstance.new()
 		var qe := QuadMesh.new()
 		qe.size = Vector2(0.07, 0.07)
 		e.mesh = qe
 		e.material_override = me
-		var a := TAU * i / 3.0
-		e.position = Vector3(cos(a) * 0.1, 0, sin(a) * 0.1)
+		var a = TAU * i / 3.0
+		e.translation = Vector3(cos(a) * 0.1, 0, sin(a) * 0.1)
 		_estrelas.add_child(e)
 	add_child(_estrelas)
-	body_entered.connect(_ao_bater)  #G3?
+	connect("body_entered", self, "_ao_bater")
 	# o pino anda pela física e pela máquina (passos da física): interpolado.
 	# As estrelinhas da tontura são postas a cada quadro.
 	physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_ON
@@ -87,13 +93,27 @@ func montar(n: int, pos: Vector3, malha_pino: Mesh, forma: Shape, rosto: Texture
 	recolocar()
 
 
+## A base do pino (onde ele pisa), no mundo.
+func posicao_base() -> Vector3:
+	return global_transform.xform(-COM)
+
+
+## Põe o pino em pé com a base em `base`.
+func colocar_em(base: Vector3) -> void:
+	global_transform = Transform(Basis(), base + COM)
+
+
+## Preso = sem física (a máquina carrega, os pulinhos animam).
+func preso() -> bool:
+	return mode != RigidBody.MODE_RIGID
+
+
 func recolocar() -> void:
 	parar_pulo()
-	freeze_mode = RigidBody.FREEZE_MODE_KINEMATIC  #G3?
-	freeze = true  #G3?
+	mode = RigidBody.MODE_KINEMATIC
 	removido = false
 	visible = true
-	global_transform = Transform(Basis(), lugar)
+	colocar_em(lugar)
 	linear_velocity = Vector3.ZERO
 	angular_velocity = Vector3.ZERO
 	collision_layer = Medidas.CAMADA_PINOS
@@ -113,13 +133,12 @@ func soltar() -> void:
 	parar_pulo()
 	if physics_interpolation_mode != Node.PHYSICS_INTERPOLATION_MODE_ON:
 		interpolar(true)
-	freeze = false  #G3?
+	mode = RigidBody.MODE_RIGID
 	sleeping = false
 
 
 func prender() -> void:
-	freeze_mode = RigidBody.FREEZE_MODE_KINEMATIC  #G3?
-	freeze = true  #G3?
+	mode = RigidBody.MODE_KINEMATIC
 
 
 func esta_caido() -> bool:
@@ -128,9 +147,10 @@ func esta_caido() -> bool:
 	var up := global_transform.basis.y.normalized()
 	if up.y < 0.74:
 		return true
-	if global_position.y < -0.12:
+	var b := posicao_base()
+	if b.y < -0.12:
 		return true
-	if Vector2(global_position.x - lugar.x, global_position.z - lugar.z).length() > 0.75:
+	if Vector2(b.x - lugar.x, b.z - lugar.z).length() > 0.75:
 		return true
 	return false
 
@@ -141,7 +161,7 @@ func tirar() -> void:
 	visible = false
 	collision_layer = 0
 	collision_mask = 0
-	global_position = lugar + Vector3(0, -3, 0)
+	colocar_em(lugar + Vector3(0, -3, 0))
 	_estrelas.visible = false
 
 
@@ -166,13 +186,13 @@ func _process(delta: float) -> void:
 	if not visible:
 		return
 	# caindo no poço do alçapão: escurece com a fundura (lá embaixo é escuro)
-	var y := global_position.y
+	var y := posicao_base().y
 	if y < Medidas.Y_CHAO_FOSSO - 0.05 or _escuro < 1.0:
 		_escurecer(clamp(1.0 + (y - Medidas.Y_CHAO_FOSSO + 0.05) * 0.75, 0.1, 1.0))
 	# tontura: estrelinhas girando em volta da cabeça
 	if _estrelas.visible:
-		var topo := global_transform * Vector3(0, 0.42, 0)
-		_estrelas.global_position = topo + Vector3(0, 0.1, 0)
+		var topo = global_transform.xform(Vector3(0, 0.42, 0) - COM)
+		_estrelas.global_translation = topo + Vector3(0, 0.1, 0)
 		_estrelas.rotation.y += delta * 5.0
 	# piscar
 	if _piscando > 0.0:
@@ -230,12 +250,12 @@ func comemorar(atraso: float, pulos: int) -> void:
 		var h := 0.16 if i == 0 else 0.1
 		_pulo.tween_property(malha, "scale", Vector3(1.08, 0.86, 1.08), 0.08)
 		_pulo.tween_property(malha, "scale", Vector3(0.94, 1.1, 0.94), 0.07)
-		_pulo.parallel().tween_method(_altura_pulo, 0.0, h, 0.17).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)  #G3?
-		_pulo.tween_method(_altura_pulo, h, 0.0, 0.17).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)  #G3?
+		_pulo.parallel().tween_method(self, "_altura_pulo", 0.0, h, 0.17).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+		_pulo.tween_method(self, "_altura_pulo", h, 0.0, 0.17).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 		_pulo.parallel().tween_property(malha, "scale", Vector3.ONE, 0.17)
 		_pulo.tween_property(malha, "scale", Vector3(1.07, 0.9, 1.07), 0.06)
 		_pulo.tween_property(malha, "scale", Vector3.ONE, 0.1)
-	_pulo.tween_callback(parar_pulo)  #G3?
+	_pulo.tween_callback(self, "parar_pulo")
 
 
 func _altura_pulo(h: float) -> void:

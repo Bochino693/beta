@@ -52,6 +52,11 @@ func _xf(t: Transform3D) -> Array:
 
 func _no(n: Node, base: String, caminho: String) -> Dictionary:
 	var d := {"nome": str(n.name), "tipo": n.get_class(), "visivel": n.visible if n is Node3D else true}
+	var metas := {}
+	for k in n.get_meta_list():
+		metas[str(k)] = n.get_meta(k)
+	if not metas.is_empty():
+		d["meta"] = metas
 	if n is Node3D:
 		d["xf"] = _xf(n.transform)
 	if n is MeshInstance3D and n.mesh:
@@ -82,6 +87,11 @@ func _init() -> void:
 			raiz.free()
 		elif r is Mesh:
 			indice[rel] = {"malha": _malha(r, base)}
+			var metas := {}
+			for k in r.get_meta_list():
+				metas[str(k)] = r.get_meta(k)
+			if not metas.is_empty():
+				indice[rel]["meta"] = metas
 		elif r is ConvexPolygonShape3D:
 			var pts := []
 			for q in r.points:

@@ -35,10 +35,12 @@ func _ready() -> void:
 	# pinos) liga a interpolação e aparece sempre no lugar certo do instante
 	# do quadro — liso em qualquer monitor. Todo o resto (câmera, bichinhos,
 	# telas), que anda a cada quadro, fica desligado.
-	get_tree().root.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
+	# (Godot 3: `get_tree().root.x = ...` tentaria regravar o root — por variável)
+	var raiz := get_tree().root
+	raiz.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
 	_janela_de_teste()
 	giro = _giro_configurado()
-	get_tree().root.size_changed.connect(_aplicar)  #G3?
+	get_tree().root.connect("size_changed", self, "_aplicar")
 	_aplicar()
 
 
@@ -47,11 +49,11 @@ func _ready() -> void:
 func _janela_de_teste() -> void:
 	for a in OS.get_cmdline_args():
 		if a.begins_with("--janela="):
-			var p := a.substr(9).split("x")
-			var w := get_tree().root
-			w.mode = Window.MODE_WINDOWED
+			var p = a.substr(9).split("x")
+			OS.window_fullscreen = false
 			if p.size() == 2:
-				w.size = Vector2(int(p[0]), int(p[1]))
+				OS.window_size = Vector2(int(p[0]), int(p[1]))
+				OS.center_window()
 			return
 
 
@@ -63,7 +65,7 @@ func _giro_configurado() -> int:
 		return ajuste
 	if OS.get_name() != "Android":
 		return 0
-	return int(ProjectSettings.get_setting("strike/tela/giro", 1))
+	return int(Compat.config("strike/tela/giro", 1))
 
 
 ## O operador pode trocar o giro na tela de ajustes (sem gerar outro APK).
@@ -71,7 +73,7 @@ func _ler_ajuste_giro() -> int:
 	var cfg := ConfigFile.new()
 	if cfg.load("user://ajustes.cfg") != OK:
 		return 99
-	return int(cfg.get_value("tela", "giro", 99))  #G3?
+	return int(cfg.get_value("tela", "giro", 99))
 
 
 func definir_giro(novo: int) -> void:
@@ -99,8 +101,8 @@ func retangulo() -> Rect2:
 ## Faz um Control cobrir a tela do jogo inteira.
 func cobrir(no: Control) -> void:
 	no.set_anchors_preset(Control.PRESET_TOP_LEFT)
-	no.position = Vector2.ZERO
-	no.size = _tamanho
+	no.rect_position = Vector2.ZERO
+	no.rect_size = _tamanho
 
 
 ## Converte um ponto da janela (ex.: toque do mouse) para coordenadas do jogo.
@@ -108,11 +110,19 @@ func janela_para_jogo(p: Vector2) -> Vector2:
 	return get_tree().root.global_canvas_transform.affine_inverse() * p
 
 
+var _aplicando := false
+
+
 func _aplicar() -> void:
+	if _aplicando:
+		return
 	var janela := get_tree().root
-	var real := Vector2(janela.size)
+	# Godot 3: o tamanho de verdade da janela (o do Viewport raiz já vem
+	# esticado pelo set_screen_stretch)
+	var real := OS.window_size
 	if real.x <= 0 or real.y <= 0:
 		return
+	_aplicando = true
 	var w := real.x
 	var h := real.y
 	if giro != 0:
@@ -121,20 +131,30 @@ func _aplicar() -> void:
 		h = t
 	_fisico = Vector2(int(w), int(h))
 	if w <= h:
-		_tamanho = Vector2(LADO_MENOR, roundf(LADO_MENOR * h / w))
+		_tamanho = Vector2(LADO_MENOR, round(LADO_MENOR * h / w))
 	else:
-		_tamanho = Vector2(roundf(LADO_MENOR * w / h), LADO_MENOR)
-	janela.content_scale_mode = Window.CONTENT_SCALE_MODE_CANVAS_ITEMS
-	janela.content_scale_aspect = Window.CONTENT_SCALE_ASPECT_IGNORE
+		_tamanho = Vector2(round(LADO_MENOR * w / h), LADO_MENOR)
+	# Godot 3: esticar as telas 2D = set_screen_stretch (modo 2D, sem manter
+	# proporção: o tamanho lógico já tem a proporção da tela)
 	if giro == 0:
-		janela.content_scale_size = Vector2(_tamanho)
+		get_tree().set_screen_stretch(SceneTree.STRETCH_MODE_2D, SceneTree.STRETCH_ASPECT_IGNORE, _tamanho)
 		janela.global_canvas_transform = Transform2D.IDENTITY
 	else:
-		janela.content_scale_size = Vector2(int(_tamanho.y), int(_tamanho.x))
+		get_tree().set_screen_stretch(SceneTree.STRETCH_MODE_2D, SceneTree.STRETCH_ASPECT_IGNORE, Vector2(_tamanho.y, _tamanho.x))
 		if giro > 0:
 			# (x, y) do jogo -> (y, largura_jogo - x) na tela
 			janela.global_canvas_transform = Transform2D(Vector2(0, -1), Vector2(1, 0), Vector2(0, _tamanho.x))
 		else:
 			# (x, y) do jogo -> (altura_jogo - y, x) na tela
 			janela.global_canvas_transform = Transform2D(Vector2(0, 1), Vector2(-1, 0), Vector2(_tamanho.y, 0))
+	_aplicando = false
 	emit_signal("mudou", _tamanho)
+
+
+## Ao fechar o jogo: as tarefas em segundo plano terminam e o que ficou
+## guardado nos estados estáticos (Compat.estado: texturas, shaders...) sai
+## ANTES de a placa de vídeo ser desligada (senão o Godot 3 fecha com erro).
+func _exit_tree() -> void:
+	Tarefas.esperar_todas()
+	if Engine.has_meta("compat_estados"):
+		Engine.remove_meta("compat_estados")

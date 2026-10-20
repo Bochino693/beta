@@ -58,7 +58,7 @@ func _ready() -> void:
 
 
 func valor(secao: String, chave: String):
-	return _cfg.get_value(secao, chave, PADRAO.get(secao, {}).get(chave))  #G3?
+	return _cfg.get_value(secao, chave, PADRAO.get(secao, {}).get(chave))
 
 
 ## GRAVAR SEM PARAR O JOGO: gravar no disco da TV Box leva alguns ms (às
@@ -74,40 +74,52 @@ var _trava := Mutex.new()
 func _salvar() -> void:
 	if not _salvar_pendente:
 		_salvar_pendente = true
-		_salvar_agora.call_deferred()  #G3?
+		call_deferred("_salvar_agora")
 
 
 func _salvar_agora() -> void:
 	_salvar_pendente = false
 	_versao += 1
 	var v := _versao
-	var texto := _cfg.encode_to_text()
-	Tarefas.rodar(func(): _escrever(texto, v))  #G3?
+	# Godot 3: o ConfigFile não tem encode_to_text — a linha de trabalho
+	# grava uma cópia, tirada aqui (no quadro do jogo)
+	Tarefas.rodar(self, "_escrever", [_copia(), v])
 
 
-func _escrever(texto: String, v: int) -> void:
+## Os ajustes de agora, copiados (a linha de trabalho grava a cópia enquanto
+## o jogo continua mexendo no _cfg).
+func _copia() -> ConfigFile:
+	var c := ConfigFile.new()
+	for secao in _cfg.get_sections():
+		for chave in _cfg.get_section_keys(secao):
+			var v = _cfg.get_value(secao, chave)
+			if v is Dictionary or v is Array:
+				v = v.duplicate(true)
+			c.set_value(secao, chave, v)
+	return c
+
+
+func _escrever(cfg: ConfigFile, v: int) -> void:
 	_trava.lock()
 	if v > _gravada:
-		var f := FileAccess.open(ARQUIVO, FileAccess.WRITE)  #G3?
-		if f:
-			f.store_string(texto)
-			f.close()
+		if cfg.save(ARQUIVO) == OK:
 			_gravada = v
 	_trava.unlock()
 
 
 ## Fechando o jogo: grava na hora o que estiver pendente.
 func _notification(what: int) -> void:
-	if what == NOTIFICATION_WM_CLOSE_REQUEST or what == NOTIFICATION_PREDELETE or what == NOTIFICATION_EXIT_TREE:
+	if what == NOTIFICATION_WM_QUIT_REQUEST or what == NOTIFICATION_PREDELETE or what == NOTIFICATION_EXIT_TREE:
 		Tarefas.esperar_todas()
 		if _salvar_pendente:
 			_salvar_pendente = false
 			_versao += 1
-			_escrever(_cfg.encode_to_text(), _versao)
+			# (nenhuma linha de trabalho rodando: grava o próprio _cfg)
+			_escrever(_cfg, _versao)
 
 
 func definir(secao: String, chave: String, v) -> void:
-	_cfg.set_value(secao, chave, v)  #G3?
+	_cfg.set_value(secao, chave, v)
 	_salvar()
 	emit_signal("mudaram")
 
@@ -115,7 +127,7 @@ func definir(secao: String, chave: String, v) -> void:
 func restaurar_padrao() -> void:
 	for secao in PADRAO:
 		for chave in PADRAO[secao]:
-			_cfg.set_value(secao, chave, PADRAO[secao][chave])  #G3?
+			_cfg.set_value(secao, chave, PADRAO[secao][chave])
 	_salvar()
 	emit_signal("mudaram")
 
@@ -144,7 +156,11 @@ func cenario() -> String:
 	var c := str(valor("video", "cenario"))
 	if c in ["leve", "completo"]:
 		return c
-	return "completo" if str(ProjectSettings.get_setting("strike/video/cenario", "leve")) == "completo" else "leve"
+	# Godot 3: get_setting não tem valor padrão
+	var padrao := "leve"
+	if ProjectSettings.has_setting("strike/video/cenario"):
+		padrao = str(ProjectSettings.get_setting("strike/video/cenario"))
+	return "completo" if padrao == "completo" else "leve"
 
 
 func tentativas() -> int:
@@ -176,19 +192,19 @@ func pode_comecar() -> bool:
 
 func gastar_creditos() -> void:
 	if not modo_livre():
-		creditos = max(0, creditos - int(valor("jogo", "creditos_por_partida")))
+		creditos = Compat.imax(0, creditos - int(valor("jogo", "creditos_por_partida")))
 
 
 # ---------------------------------------------------------------- recorde
 func recorde(jogadores: int) -> Dictionary:
-	return _cfg.get_value("recorde", "j%d" % jogadores, {"pontos": 0, "quem": ""})  #G3?
+	return _cfg.get_value("recorde", "j%d" % jogadores, {"pontos": 0, "quem": ""})
 
 
 ## Grava se for recorde. Retorna true se bateu.
 func registrar_pontos(jogadores: int, pontos: int, quem: String) -> bool:
 	var r := recorde(jogadores)
 	if pontos > int(r.get("pontos", 0)):
-		_cfg.set_value("recorde", "j%d" % jogadores, {"pontos": pontos, "quem": quem})  #G3?
+		_cfg.set_value("recorde", "j%d" % jogadores, {"pontos": pontos, "quem": quem})
 		_salvar()
 		return true
 	return false
@@ -198,7 +214,7 @@ func registrar_pontos(jogadores: int, pontos: int, quem: String) -> bool:
 func definir_foto_recorde(jogadores: int, caminho: String) -> void:
 	var r := recorde(jogadores)
 	r["foto"] = caminho
-	_cfg.set_value("recorde", "j%d" % jogadores, r)  #G3?
+	_cfg.set_value("recorde", "j%d" % jogadores, r)
 	_salvar()
 
 
@@ -212,9 +228,9 @@ func zerar_recordes() -> void:
 
 # ---------------------------------------------------------------- contadores
 func contar(chave: String, quanto := 1) -> void:
-	_cfg.set_value("contadores", chave, int(_cfg.get_value("contadores", chave, 0)) + quanto)  #G3?
+	_cfg.set_value("contadores", chave, int(_cfg.get_value("contadores", chave, 0)) + quanto)
 	_salvar()
 
 
 func contador(chave: String) -> int:
-	return int(_cfg.get_value("contadores", chave, 0))  #G3?
+	return int(_cfg.get_value("contadores", chave, 0))

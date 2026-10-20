@@ -52,6 +52,13 @@ static func rand_int(a: int, b: int) -> int:
 	return a + randi() % (b - a + 1)
 
 
+## ProjectSettings.get_setting(nome, padrao) do Godot 4 (o 3 não tem o padrão).
+static func config(nome: String, padrao = null):
+	if ProjectSettings.has_setting(nome):
+		return ProjectSettings.get_setting(nome)
+	return padrao
+
+
 # ------------------------------------------------------------- listas
 ## Array.slice(inicio, fim) do Godot 4: o `fim` NÃO entra, índices
 ## negativos contam do fim (no Godot 3 o fim entra e não aceita lista vazia).

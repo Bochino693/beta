@@ -2,7 +2,7 @@ class_name Jogada
 extends Reference
 
 ## O PLANEJADOR DA JOGADA — ele só escolhe a LINHA da bola. Quem derruba os
-## pinos é a física de verdade (Jolt): a bola bate, os pinos voam, batem uns
+## pinos é a física de verdade: a bola bate, os pinos voam, batem uns
 ## nos outros, nas paredes, e caem. Nenhum pino é empurrado "de mentira".
 ##
 ## A mira é sempre o STRIKE (o "bolso" entre os pinos 1 e 3, ou 1 e 2). O
@@ -58,25 +58,39 @@ var canaleta := false
 
 ## Só para testes e para gravar o vídeo de divulgação: resultados desejados
 ## em sequência (quantos pinos caem). Vazio = sorteio normal.
-static var forcar: Array = []  #G3?
-
-static var _grupos := {}    # zona -> [{xt, v, e, resultados: [n...], entrada}]  #G3?
-
-
-var strike_provavel: bool:
-	get:
-		return esperado == 10
+## (Godot 3: sem "static var" — a lista mora no Compat.estado.)
+static func forcar() -> Array:
+	var e := Compat.estado("jogada")
+	if not e.has("forcar"):
+		e["forcar"] = []
+	return e["forcar"]
 
 
-static func planejar(z: String, em_pe: Array, primeira_bola: bool, dificuldade: String, protecao: bool) -> Jogada:
-	var j := Jogada.new()
+## zona -> [{xt, v, e, resultados: [n...], entrada}]
+static func _grupos() -> Dictionary:
+	var e := Compat.estado("jogada")
+	if not e.has("grupos"):
+		e["grupos"] = {}
+	return e["grupos"]
+
+
+var strike_provavel: bool setget , _strike_provavel
+
+
+func _strike_provavel() -> bool:
+	return esperado == 10
+
+
+static func planejar(z: String, em_pe: Array, primeira_bola: bool, dificuldade: String, protecao: bool) -> Reference:
+	var j = load("res://scripts/jogada.gd").new()
 	j.zona = z
 	var linha: float = LINHA.get(z, 0.0)
 	var grupo := "C" if z == "C" else ("X" if z in ["X", "V"] else "Z")
 	var dif: String = dificuldade if TABELA.has(dificuldade) else "facil"
 	var desejado := -1
-	if not forcar.empty():
-		desejado = Compat.iclamp(int(forcar.pop_front()), 0, em_pe.size())
+	var forcados := forcar()
+	if not forcados.empty():
+		desejado = Compat.iclamp(int(forcados.pop_front()), 0, em_pe.size())
 	if primeira_bola and em_pe.size() == 10:
 		if desejado < 0:
 			desejado = _sortear(TABELA[dif][grupo])
@@ -103,7 +117,7 @@ static func _sortear(tabela: Dictionary) -> int:
 	return 0
 
 
-static func _canaleta(j: Jogada, linha: float) -> void:
+static func _canaleta(j, linha: float) -> void:
 	var lado: float = sign(linha) if linha != 0.0 else (1.0 if randf() < 0.5 else -1.0)
 	j.canaleta = true
 	j.esperado = 0
@@ -114,7 +128,8 @@ static func _canaleta(j: Jogada, linha: float) -> void:
 
 # ---------------------------------------------------------------- 1ª bola
 static func _carregar() -> void:
-	if not _grupos.empty():
+	var grupos := _grupos()
+	if not grupos.empty():
 		return
 	if not Compat.existe_arquivo(ARQUIVO):
 		push_warning("Jogada: sem tabela de calibração (%s)" % ARQUIVO)
@@ -129,9 +144,9 @@ static func _carregar() -> void:
 		if not idx.has(chave):
 			idx[chave] = {"zona": str(r[0]), "xt": float(r[2]), "v": float(r[3]), "e": float(r[4]),
 				"resultados": [], "entrada": float(r[7]) if r.size() > 7 else float(r[2])}
-			if not _grupos.has(str(r[0])):
-				_grupos[str(r[0])] = []
-			_grupos[str(r[0])].append(idx[chave])
+			if not grupos.has(str(r[0])):
+				grupos[str(r[0])] = []
+			grupos[str(r[0])].append(idx[chave])
 		idx[chave]["resultados"].append(int(r[5]))
 	# a física é caótica: um tiquinho de diferença muda o resultado. Por isso
 	# cada linha olha também as vizinhas (2 cm para cada lado): só conta como
@@ -152,9 +167,9 @@ static func _chave(z: String, xt: float, v: float, e: float) -> String:
 
 ## Pega na tabela uma linha da zona que costuma render `n` pinos (a mais
 ## "garantida", contando as vizinhas).
-static func _da_tabela(j: Jogada, z: String, n: int, protecao: bool) -> bool:
+static func _da_tabela(j, z: String, n: int, protecao: bool) -> bool:
 	_carregar()
-	var lista: Array = _grupos.get(z, [])
+	var lista: Array = _grupos().get(z, [])
 	if lista.empty():
 		return false
 	var melhor := -1.0
@@ -194,7 +209,7 @@ static func _media(a: Array) -> float:
 # ---------------------------------------------------------------- bolas seguintes
 ## Mira no que sobrou: o pino da frente do grupo, batendo do lado que joga
 ## ele em cima dos outros. Errou a mira? A bola passa raspando ou de lado.
-static func _resto(j: Jogada, linha: float, em_pe: Array, dif: String, desejado: int, protecao: bool) -> void:
+static func _resto(j, linha: float, em_pe: Array, dif: String, desejado: int, protecao: bool) -> void:
 	j.origem_x = clamp(linha, -0.45, 0.45)
 	j.velocidade = rand_range(8.0, 8.8)
 	j.efeito = 0.0

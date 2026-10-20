@@ -3,8 +3,8 @@ extends Spatial
 
 ## OS 10 PINOS: montagem no triângulo, contagem dos caídos, carinhas e
 ## gravação para o replay. Quem varre e recoloca é a Maquina (maquina.gd).
-## A queda é 100% física (Jolt): um pino derruba o outro, batem nas
-## paredes e voltam, caem no fosso.
+## A queda é 100% física: um pino derruba o outro, batem nas paredes e
+## voltam, caem no fosso.
 ##
 ## Numeração oficial (vista de quem joga):
 ##          7   8   9   10
@@ -41,11 +41,11 @@ func montar() -> void:
 		var p := Pino.new()
 		add_child(p)
 		p.montar(n, posicao_do_pino(n), malha, forma, rosto, meta)
-		p.bateu.connect(func(pino: Pino, f: float): emit_signal("batida", pino.global_position, f))  #G3?
+		p.connect("bateu", self, "_pino_bateu")
 		pinos.append(p)
-	var q := QuadMesh.new()
+	# Godot 3: a QuadMesh só olha para Z; a PlaneMesh já é deitada (olha para Y)
+	var q := PlaneMesh.new()
 	q.size = Vector2(0.28, 0.28)
-	q.orientation = PlaneMesh.FACE_Y
 	var mm := MultiMesh.new()
 	mm.transform_format = MultiMesh.TRANSFORM_3D
 	mm.mesh = q
@@ -57,13 +57,18 @@ func montar() -> void:
 	add_child(_sombras)
 
 
+func _pino_bateu(pino: Pino, f: float) -> void:
+	emit_signal("batida", pino.global_translation, f)
+
+
 func _process(_d: float) -> void:
 	var mm := _sombras.multimesh
 	for i in pinos.size():
-		var p := pinos[i]
-		# onde o pino APARECE neste quadro (interpolado entre passos da física)
+		var p: Pino = pinos[i]
+		# onde o pino APARECE neste quadro (interpolado entre passos da física);
+		# a sombra é da BASE do pino (a origem do corpo é o centro de massa)
 		var tp := Medidas.na_tela(p)
-		var g := tp.origin
+		var g = tp.xform(-Pino.COM)
 		# pino levantado pela máquina ou longe do chão: a sombra some
 		var f := 0.0 if p.removido or not p.visible or g.y < -0.1 else clamp(1.0 - g.y * 2.2, 0.0, 1.0)
 		# deitado: a sombra fica comprida no sentido do pino
@@ -81,7 +86,7 @@ func _process(_d: float) -> void:
 		if chao > 0.0:
 			f *= clamp((Medidas.MEIA_LARGURA - abs(g.x)) / 0.16, 0.0, 1.0)
 			b = Basis(Vector3.UP, giro) * Basis().scaled(Vector3(max(f * (1.0 + deitado * 0.2), 0.001), 1.0, max(f * (1.0 + deitado * 1.6), 0.001)))
-		var centro := g + Vector3(eixo.x, 0, eixo.z) * 0.19 * deitado
+		var centro = g + Vector3(eixo.x, 0, eixo.z) * 0.19 * deitado
 		mm.set_instance_transform(i, Transform(b, Vector3(centro.x, chao, centro.z)))
 
 
@@ -118,7 +123,7 @@ func susto(bola_pos: Vector3) -> void:
 	for p in pinos:
 		if p.removido or p.esta_caido():
 			continue
-		var d := p.global_position.distance_to(bola_pos)
+		var d: float = p.global_translation.distance_to(bola_pos)
 		if d < 3.2 and p._expr == "normal":
 			p.expressao("medo")
 
@@ -134,7 +139,7 @@ func reviver() -> void:
 
 func todos_parados() -> bool:
 	for p in pinos:
-		if p.removido or p.freeze:  #G3?
+		if p.removido or p.preso():
 			continue
 		if p.linear_velocity.length() > 0.06 or p.angular_velocity.length() > 0.25:
 			return false

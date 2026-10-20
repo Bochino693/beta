@@ -28,7 +28,7 @@ const PODIOS := [Vector3(-0.62, 0, 2.5), Vector3(0.62, 0, 2.5)]
 const POS_PISTA := Vector3(0.0, 1.05, 2.2)
 const ALVO_PISTA := Vector3(0.0, 0.18, Medidas.Z_PINO1 + 0.6)
 
-var estado := E.ABERTURA
+var estado = E.ABERTURA
 var vp: Viewport
 var cam: CameraCine
 var mundo: Mundo
@@ -65,7 +65,11 @@ var _replay_inicio := 0.0
 var _replay_fim := 0.0
 var _replay_alvo: Spatial
 var _replay_rastro := 0.0
-var _lenta: SceneTreeTween
+## câmera lenta em andamento (no relógio de verdade): escala, quanto dura
+## (segundos de verdade) e quando começou (ms); < 0 = parada
+var _lenta_escala := 1.0
+var _lenta_dur := 0.0
+var _lenta_t0 := -1
 ## passos da física por segundo (o do project.godot, lido ao abrir); a câmera
 ## lenta só diminui quantos passos acontecem por segundo, nunca o tamanho
 var _passos_fisica := 120
@@ -122,20 +126,21 @@ var _antes_menu := {}
 var _medidor_antes := false
 
 ## Lado menor da IMAGEM 3D, em pixels, em cada qualidade (nunca maior que a
-## própria tela): NATIVO — 3D tão nítido quanto a interface. Na TV Box
-## 1080p o 3D sai em 1080 px com antisserrilhado 4x; no PC, até 4K.
-const LADO_3D := {"alta": 2160, "media": 1080, "baixa": 720}
+## própria tela). Edição OpenGL ES 2.0 (Mali-400/450): na TV Box o 3D sai em
+## 720 px com antisserrilhado 4x (que nessa placa é quase de graça) e é
+## esticado até a tela; no PC, até 1080.
+const LADO_3D := {"alta": 1080, "media": 720, "baixa": 540}
 const FATOR_MIN := 0.7
 
 
 func _ready() -> void:
 	randomize()
-	_passos_fisica = int(ProjectSettings.get_setting("physics/common/physics_ticks_per_second", 120))
+	_passos_fisica = int(Compat.config("physics/common/physics_fps", 120))
 	_velocidade = Ajustes.velocidade()
 	_ritmo(1.0)
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	_qualidade = _qualidade_escolhida()
-	Materiais.contornos_ligados = _qualidade != "baixa"
+	Materiais.definir_contornos(_qualidade != "baixa")
 	_ler_nitidez()
 	_montar_3d()
 	hud = Hud.new()
@@ -152,11 +157,11 @@ func _ready() -> void:
 	var aq := Aquecer.new()
 	add_child(aq)
 	aq.preparar(vp, hud, efeitos.materiais())
-	hud.toque_sensor.connect(_jogada_recebida)  #G3?
+	hud.connect("toque_sensor", self, "_jogada_recebida")
 	# o aviso "marque Sempre abrir / toque em Permitir" antes das janelas do Android
-	ArduinoBridge.janela_android.connect(hud.aviso_android)  #G3?
-	Fotos.janela_android.connect(hud.aviso_android)  #G3?
-	Tela.mudou.connect(_tela_mudou)  #G3?
+	ArduinoBridge.connect("janela_android", hud, "aviso_android")
+	Fotos.connect("janela_android", hud, "aviso_android")
+	Tela.connect("mudou", self, "_tela_mudou")
 	_tela_mudou(Tela.tamanho())
 	ArduinoBridge.send_led("MENU")
 	_camada_menu = CanvasLayer.new()
@@ -246,10 +251,16 @@ func _montar_3d() -> void:
 	# (o Godot liga a interpolação da física em toda Viewport; aqui ela
 	# fica desligada e só bola, pinos e máquina ligam — Tela.gd explica)
 	vp.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
-	vp.own_world_3d = true
+	vp.own_world = true
 	vp.render_target_update_mode = Viewport.UPDATE_ALWAYS
+	# Godot 3: a imagem de uma Viewport sai de cabeça para baixo na tela
+	# sem isto; OpenGL ES 2.0 não tem HDR
+	vp.render_target_v_flip = true
+	vp.hdr = false
+	vp.usage = Viewport.USAGE_3D
+	vp.transparent_bg = false
 	_qualidade_viewport()
-	vp.positional_shadow_atlas_size = 0
+	vp.shadow_atlas_size = 0
 	add_child(vp)
 	mundo = Mundo.new()
 	vp.add_child(mundo)
@@ -258,17 +269,17 @@ func _montar_3d() -> void:
 	pinos = Pinos.new()
 	vp.add_child(pinos)
 	pinos.montar()
-	pinos.batida.connect(_batida_pino)  #G3?
+	pinos.connect("batida", self, "_batida_pino")
 	maquina = Maquina.new()
 	vp.add_child(maquina)
 	maquina.montar(pinos)
-	maquina.som.connect(_som_maquina)  #G3?
-	maquina.alcapao.connect(_alcapao_maquina)  #G3?
+	maquina.connect("som", self, "_som_maquina")
+	maquina.connect("alcapao", self, "_alcapao_maquina")
 	bola = Bola.new()
 	vp.add_child(bola)
 	bola.guardar()
-	bola.bateu.connect(_bola_bateu)  #G3?
-	bola.recolhida.connect(_bola_recolhida)  #G3?
+	bola.connect("bateu", self, "_bola_bateu")
+	bola.connect("recolhida", self, "_bola_recolhida")
 	mundo.bola = bola
 	efeitos = Efeitos.new()
 	vp.add_child(efeitos)
@@ -276,8 +287,8 @@ func _montar_3d() -> void:
 		var p := Personagem.new()
 		vp.add_child(p)
 		p.montar(nome)
-		p.soltou_bola.connect(_soltou_bola)  #G3?
-		p.som.connect(_som_personagem)  #G3?
+		p.connect("soltou_bola", self, "_soltou_bola")
+		p.connect("som", self, "_som_personagem")
 		personagens[nome] = p
 	cam = CameraCine.new()
 	vp.add_child(cam)
@@ -286,26 +297,20 @@ func _montar_3d() -> void:
 	vp.add_child(_replay_alvo)
 
 
-## Antisserrilhado e nível de detalhe conforme a qualidade:
-##   alta  (PC): MSAA 4x, filtro anisotrópico 4x, malhas no detalhe máximo;
-##   media (TV Box): MSAA 4x, anisotrópico 2x, malhas de longe mais simples;
-##   baixa (TV Box fraca): MSAA 2x, malhas bem simplificadas.
-## Na TV Box (placa Mali) o MSAA é resolvido DENTRO da placa (extensão
-## GL_EXT_multisampled_render_to_texture, que o Godot usa no Android): bordas
-## lisas quase de graça — não é preciso abrir mão dele.
+## Antisserrilhado conforme a qualidade: MSAA 4x (na Mali-400/450 o 4x é
+## o modo da própria placa, resolvido dentro dela: bordas lisas quase de
+## graça); na baixa, 2x.
 func _qualidade_viewport() -> void:
-	vp.msaa_3d = Viewport.MSAA_2X if _qualidade == "baixa" else Viewport.MSAA_4X
-	vp.mesh_lod_threshold = {"alta": 1.0, "media": 1.5, "baixa": 3.0}.get(_qualidade, 1.5)
-	vp.anisotropic_filtering_level = {"alta": Viewport.ANISOTROPY_4X, "media": Viewport.ANISOTROPY_2X}.get(_qualidade, Viewport.ANISOTROPY_DISABLED)
+	vp.msaa = Viewport.MSAA_2X if _qualidade == "baixa" else Viewport.MSAA_4X
 
 
 ## Tamanho da imagem 3D: o lado menor da tela, limitado pelo LADO_3D da
 ## qualidade e pelo fator automático; a imagem é esticada até a tela.
 func _tela_mudou(_t: Vector2) -> void:
-	var f := Vector2(Tela.tamanho_fisico())
-	var menor := min(f.x, f.y)
-	var lado := min(menor, float(LADO_3D.get(_qualidade, 720))) * _fator
-	var k := lado / max(menor, 1.0)
+	var f: Vector2 = Tela.tamanho_fisico()
+	var menor: float = min(f.x, f.y)
+	var lado: float = min(menor, float(LADO_3D.get(_qualidade, 720))) * _fator
+	var k: float = lado / max(menor, 1.0)
 	vp.size = Vector2(Compat.imax(64, int(round(f.x * k))), Compat.imax(64, int(round(f.y * k))))
 	if _parado_3d and _menu == null:
 		# 3D parado atrás do modal: a imagem do tamanho novo sai uma vez
@@ -329,7 +334,7 @@ func _input(event: InputEvent) -> void:
 			Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	if ArcadeControls.eh_config(event) or _tecla_menu(event):
 		get_tree().set_input_as_handled()
-		abrir_menu.call_deferred(CENA_OPERADOR)
+		call_deferred("abrir_menu", CENA_OPERADOR)
 		return
 	if ArcadeControls.eh_credito(event):
 		Ajustes.adicionar_credito()
@@ -424,11 +429,11 @@ func _abertura() -> void:
 	bola.fogo(false)
 	hud.tarjas(true)
 	cam.corte(Vector3(0.16, 0.3, 1.45), Vector3(0.0, 0.14, -10.0), 26, 30)
-	if not await _esperar(0.5, s, false):  #G3?
+	if not yield(_esperar(0.5, s, false), "completed"):
 		return
 	# o strike da abertura entra na FRENTE da lista (que os testes e o vídeo
 	# de divulgação usam para pedir os resultados deles) sem apagá-la
-	Jogada.forcar.push_front(10)
+	Jogada.forcar().push_front(10)
 	var j := Jogada.planejar("C", pinos.em_pe(), true, "facil", true)
 	var origem := Vector3(j.origem_x, Bola.RAIO + 0.04, 0.35)
 	var dir := Vector3(j.alvo_x, Bola.RAIO, Medidas.Z_PINO1) - origem
@@ -438,17 +443,17 @@ func _abertura() -> void:
 	Sons.tocar("whoosh", 0.6)
 	cam.seguir(bola, Vector3(0.14, 0.3, 1.3), Vector3(0.0, 0.06, -3.0), 28, 32, 7.0)
 	var t := 0.0
-	while bola.global_position.z > Medidas.Z_PINO1 + 0.32 and t < 3.0:
+	while bola.global_translation.z > Medidas.Z_PINO1 + 0.32 and t < 3.0:
 		yield(get_tree(), "idle_frame")
 		if s != _seq:
 			Sons.rolando(false)
 			return
 		t += get_process_delta_time()
 		Sons.rolando(true, bola.velocidade())
-		mundo.bola_z = -bola.global_position.z
+		mundo.bola_z = -bola.global_translation.z
 		# os pinos fazem cara de medo quando a bola chega
-		if bola.global_position.z < Medidas.Z_PINO1 + 3.3:
-			pinos.susto(bola.global_position)
+		if bola.global_translation.z < Medidas.Z_PINO1 + 3.3:
+			pinos.susto(bola.global_translation)
 	Sons.rolando(false)
 	# 2) ...STRIKE em câmera lenta, vista de lado (de cima da canaleta, por
 	# dentro das paredes da caçapa)
@@ -456,7 +461,7 @@ func _abertura() -> void:
 	cam.tremer(0.05, 0.4)
 	Sons.tocar("pinos_queda", 0.9)
 	_camera_lenta(0.3, 1.3)
-	if not await _esperar(1.0, s, false):  #G3?
+	if not yield(_esperar(1.0, s, false), "completed"):
 		return
 	# 3) LAZER & SPORT GAMES apresenta (por cima do strike)
 	Sons.tocar("strike", 0.75)
@@ -466,7 +471,7 @@ func _abertura() -> void:
 	_atrasado_som(0.6, "pop")
 	efeitos.estrelas(Vector3(0, 0.6, Medidas.Z_PINO1 - 0.3), 30)
 	cam.ir(Vector3(0.0, 1.25, Medidas.Z_PINO1 + 4.6), Vector3(0.0, 1.0, Medidas.Z_PINO1 - 1.0), 46, 44, 0.8)
-	if not await _esperar(2.7, s, false):  #G3?
+	if not yield(_esperar(2.7, s, false), "completed"):
 		return
 	hud.marca(false)
 	hud.tarjas(false)
@@ -485,7 +490,7 @@ func _abertura() -> void:
 		[Vector3(0.0, 3.3, 0.6), Vector3(0, 0.6, -4), 1.3],
 		[Vector3(0, 1.4, 5.6), Vector3(0, 0.75, 1.6), 1.2],
 	], 52, 40)
-	if not await _esperar(2.4, s):  #G3?
+	if not yield(_esperar(2.4, s), "completed"):
 		return
 	hud.flash(Color.white, 0.6)
 	Sons.tocar("brilho")
@@ -504,7 +509,9 @@ func _teste_desempenho() -> void:
 	_novo_seq()
 	hud.atracao(false)
 	_posicionar_atracao()
-	var r: Dictionary = await medidor.testar()  #G3?
+	var r = medidor.testar()
+	if r is GDScriptFunctionState:
+		r = yield(r, "completed")
 	if r.empty():
 		return   # o menu do operador abriu no meio do teste
 	_resultado_teste = r["cartaz"]
@@ -570,14 +577,14 @@ func _posicionar_atracao() -> void:
 
 
 func _atualizar_atracao() -> void:
-	if estado not in [E.ATRACAO, E.DEMO, E.ABERTURA]:
+	if not (estado in [E.ATRACAO, E.DEMO, E.ABERTURA]):
 		return
 	var r1 := Ajustes.recorde(1)
 	var txt := ""
 	if int(r1.get("pontos", 0)) > 0:
 		txt = "RECORDE: %d PONTOS (%s)" % [int(r1["pontos"]), str(r1.get("quem", "")).to_upper()]
 	var cred := "MODO LIVRE" if Ajustes.modo_livre() else "CRÉDITOS: %d" % Ajustes.creditos
-	hud.atracao(true, txt, cred, Fotos.foto_recorde(1), Classificacao.lista().slice(0, 3))  #G3?
+	hud.atracao(true, txt, cred, Fotos.foto_recorde(1), Compat.fatia(Classificacao.lista(), 0, 3))
 
 
 # ================================================================ escolha
@@ -662,14 +669,14 @@ func _subir_nos_podios() -> void:
 ## Frente de cada pódio na tela (as placas com os nomes ficam logo abaixo).
 func _pes_na_tela() -> Array:
 	var r := []
-	var f := hud.size / Vector2(vp.size)
+	var f := hud.rect_size / Vector2(vp.size)
 	for p in PODIOS:
 		r.append(cam.unproject_position(p + Vector3(0, 0, 0.45)) * f)
 	return r
 
 
 func _atrasado_som(t: float, nome: String) -> void:
-	get_tree().create_timer(t).timeout.connect(func(): Sons.tocar(nome))  #G3?
+	get_tree().create_timer(t).connect("timeout", Sons, "tocar", [nome])
 
 
 func _confirmar_personagem() -> void:
@@ -684,8 +691,8 @@ func _confirmar_personagem() -> void:
 	(personagens[escolhido] as Personagem).tocar("escolhido", 0.15, true)
 	(personagens[outro] as Personagem).tocar("feliz", 0.2, true)
 	hud.flash(Color.white, 0.4)
-	efeitos.estrelas((personagens[escolhido] as Personagem).global_position + Vector3(0, 1.2, 0), 26)
-	if not await _esperar(1.5, s):  #G3?
+	efeitos.estrelas((personagens[escolhido] as Personagem).global_translation + Vector3(0, 1.2, 0), 26)
+	if not yield(_esperar(1.5, s), "completed"):
 		return
 	personagens["bob"].destaque(0.0)
 	personagens["mia"].destaque(0.0)
@@ -706,7 +713,7 @@ func _comecar(lista: Array) -> void:
 	Fotos.limpar_partida()
 	# uma foto por jogador (1 jogador = 1 foto, 2 jogadores = 2 fotos)
 	if Fotos.pode_fotografar():
-		if not await _sessao_de_fotos(lista):  #G3?
+		if not yield(_sessao_de_fotos(lista), "completed"):
 			return
 	hud.configurar_placar(lista)
 	hud.atualizar_placar(placar)
@@ -737,24 +744,26 @@ func _sessao_de_fotos(lista: Array) -> bool:
 		a.tocar("acenar", 0.2, true)
 		hud.foto_tela(true, Fotos.ao_vivo(), p, "SORRIA!", sub)
 		Sons.tocar("vez")
-		if not await _esperar(1.9, s, false, false):  #G3?
+		if not yield(_esperar(1.9, s, false, false), "completed"):
 			return false
 		for n in [3, 2, 1]:
 			hud.foto_contagem(n)
 			Sons.tocar("tique", 0.9, 1.0 + (3 - n) * 0.15)
-			if not await _esperar(0.85, s, false, false):  #G3?
+			if not yield(_esperar(0.85, s, false, false), "completed"):
 				return false
 		hud.foto_contagem(0)
 		hud.flash(Color.white, 0.95, 0.45)
 		Sons.tocar("brilho")
 		Sons.tocar("pop", 0.8, 0.8)
-		var foto: Texture = await Fotos.tirar("j%d" % i)  #G3?
+		var foto = Fotos.tirar("j%d" % i)
+		if foto is GDScriptFunctionState:
+			foto = yield(foto, "completed")
 		if s != _seq:
 			return false
 		hud.foto_pronta(foto, p)
 		a.tocar("feliz", 0.2, true)
 		a.expressao("empolgado")
-		if not await _esperar(1.5, s, false):  #G3?
+		if not yield(_esperar(1.5, s, false), "completed"):
 			return false
 	hud.foto_tela(false)
 	Fotos.desligar()
@@ -785,7 +794,7 @@ func _sortear_temas(n: int) -> void:
 			for t in Temas.ORDEM:
 				if t != antes:
 					opcoes.append(t)
-		var t: String = opcoes.pick_random()  #G3?
+		var t: String = Compat.sorteia(opcoes)
 		_temas_partida.append(t)
 		usados[t] = true
 		antes = t
@@ -874,7 +883,7 @@ func _vez(nova_rodada: bool) -> void:
 			[Vector3(2.2, 3.4, -5.0), Vector3(0, 1.4, Medidas.Z_FUNDO), 1.4],
 			[POS_PISTA, ALVO_PISTA, 1.3],
 		], 34, 40)
-		if not await _esperar(2.9, s, false):  #G3?
+		if not yield(_esperar(2.9, s, false), "completed"):
 			return
 	elif nova_rodada:
 		_plano_pista(false)
@@ -884,7 +893,7 @@ func _vez(nova_rodada: bool) -> void:
 		hud.faixa(_ativo, "VEZ %s %s!" % [artigo, _ativo.to_upper()], sub, Fotos.foto("j%d" % placar.jogador_atual))
 		Sons.tocar("vez")
 		ArduinoBridge.send_led("BLUE" if _ativo == "bob" else "RED")
-		if not await _esperar(1.6, s, false):  #G3?
+		if not yield(_esperar(1.6, s, false), "completed"):
 			return
 	_pronto()
 
@@ -939,7 +948,7 @@ func _arremessar(zona: String) -> void:
 	tw.tween_property(a, "base:origin:x", x_corpo, 0.45).set_trans(Tween.TRANS_SINE)
 	a.tocar("arremesso", 0.12, true)
 	# corte seco da pista para o mascote arremessando
-	cam.corte(a.global_position + Vector3(1.15, 2.05, 3.3), a.global_position + Vector3(-0.35, 0.05, -7.0), 50, 40)
+	cam.corte(a.global_translation + Vector3(1.15, 2.05, 3.3), a.global_translation + Vector3(-0.35, 0.05, -7.0), 50, 40)
 	cam.seguir(a, Vector3(1.15, 2.05, 3.3), Vector3(-0.35, 0.05, -7.0), 50, 40, 3.0)
 	Sons.tocar("whoosh", 0.5)
 
@@ -967,19 +976,21 @@ func _soltou_bola(pos: Vector3) -> void:
 	_gravacao.clear()
 	_gravando = true
 	mundo.acender_pista(true)
-	a.olhar_alvo = bola.global_position
+	a.olhar_alvo = bola.global_translation
 	# primeiro por cima (a câmera não atravessa o personagem), depois desce
 	cam.seguir(bola, Vector3(0.5, 2.1, 3.6), Vector3(0, 0.0, -5.0), 50, 40, 3.0)
 	_cam_baixa = false
 	# o resto no quadro seguinte: tudo no mesmo quadro dava um tranco na TV
 	# Box bem na hora em que a bola sai da mão
-	var s := _seq
-	_no_proximo_quadro(func():  #G3?
-		if s != _seq:
-			return
-		a.tocar("assistindo", 0.25)
-		(personagens[_plateia] as Personagem).tocar("torcida", 0.2)
-		Sons.tocar("start", 0.35, 1.4))
+	_no_proximo_quadro("_depois_de_soltar", [_seq, a])
+
+
+func _depois_de_soltar(s: int, a: Personagem) -> void:
+	if s != _seq:
+		return
+	a.tocar("assistindo", 0.25)
+	(personagens[_plateia] as Personagem).tocar("torcida", 0.2)
+	Sons.tocar("start", 0.35, 1.4)
 
 
 ## A bola entrou na caçapa do fundo: barulhinho do túnel e, um pouco
@@ -988,14 +999,17 @@ func _bola_recolhida() -> void:
 	if estado in [E.ABERTURA, E.TESTE]:
 		return
 	Sons.tocar("whoosh", 0.45, 0.55)
-	var nome := _ativo
-	get_tree().create_timer(1.3).timeout.connect(func():  #G3?
-		mundo.retorno_bola(Bola.material(nome))
-		Sons.tocar("pop", 0.55, 0.5))
+	get_tree().create_timer(1.3).connect("timeout", self, "_bola_no_retorno", [_ativo])
+
+
+func _bola_no_retorno(nome: String) -> void:
+	mundo.retorno_bola(Bola.material(nome))
+	Sons.tocar("pop", 0.55, 0.5)
 
 
 func _process(delta: float) -> void:
 	_medir_fps(delta)
+	_andar_lenta()
 	# as contagens da tela andam em segundos de verdade
 	var real := _delta_real()
 	# PC em tela cheia: a setinha do mouse some sozinha quando ninguém mexe
@@ -1038,11 +1052,11 @@ func _process(delta: float) -> void:
 	for nome in personagens:
 		var p: Personagem = personagens[nome]
 		if p.olhar_alvo != null and bola.visible:
-			p.olhar_alvo = bola.global_position
+			p.olhar_alvo = bola.global_translation
 
 
 func _rolando(_delta: float) -> void:
-	var b := bola.global_position
+	var b := bola.global_translation
 	mundo.bola_z = -b.z
 	Sons.rolando(b.z > Medidas.Z_PINO1 - 0.5, bola.velocidade())
 	for nome in personagens:
@@ -1090,10 +1104,28 @@ func _impacto(b: Vector3) -> void:
 ## encurta junto com a velocidade do jogo).
 func _camera_lenta(escala: float, dur_real: float) -> void:
 	_parar_lenta()
-	_lenta = create_tween().set_ignore_time_scale(true)
-	_lenta.tween_method(_ritmo, 1.0, escala, 0.08).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)  #G3?
-	_lenta.tween_interval(max(dur_real / _velocidade - 0.08, 0.0))
-	_lenta.tween_method(_ritmo, escala, 1.0, 0.3).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)  #G3?
+	_lenta_escala = escala
+	_lenta_dur = max(dur_real / _velocidade - 0.08, 0.0)
+	_lenta_t0 = Time.get_ticks_msec()
+	_andar_lenta()
+
+
+## A cada quadro: em que ponto da câmera lenta estamos (relógio de verdade).
+func _andar_lenta() -> void:
+	if _lenta_t0 < 0:
+		return
+	var t := float(Time.get_ticks_msec() - _lenta_t0) / 1000.0
+	var v := 1.0
+	if t < 0.08:
+		v = lerp(1.0, _lenta_escala, sin(t / 0.08 * PI * 0.5))
+	elif t < 0.08 + _lenta_dur:
+		v = _lenta_escala
+	elif t < 0.38 + _lenta_dur:
+		var u := (t - 0.08 - _lenta_dur) / 0.3
+		v = lerp(_lenta_escala, 1.0, 1.0 - cos(u * PI * 0.5))
+	else:
+		_lenta_t0 = -1
+	_ritmo(v)
 
 
 ## Ritmo do tempo SEM mudar a física: o passo da física continua sempre de
@@ -1109,9 +1141,7 @@ func _ritmo(v: float) -> void:
 
 
 func _parar_lenta() -> void:
-	if _lenta != null and _lenta.is_valid():
-		_lenta.kill()
-	_lenta = null
+	_lenta_t0 = -1
 	_ritmo(1.0)
 
 
@@ -1161,17 +1191,7 @@ func _finalizar_jogada() -> void:
 			Sons.tocar("torcida", 0.8)
 			ArduinoBridge.send_led("STRIKE")
 			mundo.lampadas(1)
-			var jogador := placar.jogador_atual
-			var ativo := _ativo
-			_no_proximo_quadro(func():  #G3?
-				if s != _seq:
-					return
-				if not demo:
-					var ft: Texture = Fotos.foto("j%d" % jogador)
-					if ft != null:
-						hud.foto_destaque(ft, Hud.COR_BOB if ativo == "bob" else Hud.COR_MIA, 1.4)
-				efeitos.estrelas(Vector3(0, 0.6, Medidas.Z_PINO1 - 0.4), 40, 1.3)
-				efeitos.confete(Vector3(0, 0.3, Medidas.Z_PINO1 + 1.5), 1.6, 90))
+			_no_proximo_quadro("_festa_strike", [s, placar.jogador_atual, _ativo])
 		"spare":
 			hud.flash(Color("#C9F7FF"), 0.55)
 			hud.letreiro("spare", "", 1.7)
@@ -1179,9 +1199,7 @@ func _finalizar_jogada() -> void:
 			Sons.tocar("torcida", 0.6)
 			ArduinoBridge.send_led("SPARE")
 			mundo.lampadas(2)
-			_no_proximo_quadro(func():  #G3?
-				if s == _seq:
-					efeitos.estrelas(Vector3(0, 0.6, Medidas.Z_PINO1 - 0.4), 28))
+			_no_proximo_quadro("_festa_spare", [s])
 		"zero":
 			hud.letreiro("ops", "", 1.5)
 			Sons.tocar("ops", 0.75)
@@ -1189,7 +1207,7 @@ func _finalizar_jogada() -> void:
 		_:
 			var nome := "boa"
 			if n >= 7:
-				nome = "super" if randf() < 0.5 else "uau"  #G3?
+				nome = "super" if randf() < 0.5 else "uau"
 			elif sobrou == 1:
 				nome = "quase"
 			hud.letreiro(nome, "%d %s!" % [n, "PINO" if n == 1 else "PINOS"], 1.5)
@@ -1204,23 +1222,22 @@ func _finalizar_jogada() -> void:
 		var seguidos := int(placar.atual()["seguidos"]) if not demo else 0
 		if seguidos >= 2:
 			hud.sequencia(seguidos)
-			get_tree().create_timer(1.0).timeout.connect(func():  #G3?
-				if estado == E.RESULTADO or estado == E.REPLAY:
-					hud.letreiro("pegando_fogo", "%d STRIKES SEGUIDOS!" % seguidos, 1.6, 0.55)
-					Sons.tocar("brilho"))
+			get_tree().create_timer(1.0).connect("timeout", self, "_aviso_seguidos", [seguidos])
 	# replay do strike
 	if tipo == "strike" and bool(Ajustes.valor("jogo", "replay_strike")) and _gravacao.size() > 20:
-		if not await _esperar(1.5, s, false):  #G3?
+		if not yield(_esperar(1.5, s, false), "completed"):
 			return
-		await _replay()  #G3?
+		var rp = _replay()
+		if rp is GDScriptFunctionState:
+			yield(rp, "completed")
 		if s != _seq:
 			return
 	else:
 		# se sobrou pino comemorando, a câmera fica um pouco mais nos pinos
-		if not await _esperar(1.6 if festa_pinos > 0 else 1.1, s):  #G3?
+		if not yield(_esperar(1.6 if festa_pinos > 0 else 1.1, s), "completed"):
 			return
 	# reação do personagem (câmera bem de frente)
-	var pa := a.global_position
+	var pa := a.global_translation
 	if tipo == "strike":
 		# ele vai voar: plano mais aberto e mais alto para caber o voo inteiro
 		cam.ir(pa + Vector3(0.45, 1.35, -3.6), pa + Vector3(0, 1.2, 0), 44, 34, 3.0)
@@ -1243,7 +1260,7 @@ func _finalizar_jogada() -> void:
 			else:
 				a.tocar("feliz", 0.15, true)
 	var espera := 2.6 if tipo == "strike" else 1.8
-	if not await _esperar(espera, s):  #G3?
+	if not yield(_esperar(espera, s), "completed"):
 		return
 	if demo:
 		_fim_demo()
@@ -1260,13 +1277,35 @@ func _finalizar_jogada() -> void:
 		maquina.reposicionar(n > 0)
 	else:
 		maquina.rack_novo(n > 0)
-	if not await _esperar(0.3, s, false):  #G3?
+	if not yield(_esperar(0.3, s, false), "completed"):
 		return
 	while maquina.trabalhando:
-		if not await _esperar(0.1, s, false):  #G3?
+		if not yield(_esperar(0.1, s, false), "completed"):
 			return
 	hud.mostrar_mapa(pinos.em_pe())
 	_vez(proximo == "rodada")
+
+
+func _festa_strike(s: int, jogador: int, ativo: String) -> void:
+	if s != _seq:
+		return
+	if not demo:
+		var ft: Texture = Fotos.foto("j%d" % jogador)
+		if ft != null:
+			hud.foto_destaque(ft, Hud.COR_BOB if ativo == "bob" else Hud.COR_MIA, 1.4)
+	efeitos.estrelas(Vector3(0, 0.6, Medidas.Z_PINO1 - 0.4), 40, 1.3)
+	efeitos.confete(Vector3(0, 0.3, Medidas.Z_PINO1 + 1.5), 1.6, 90)
+
+
+func _festa_spare(s: int) -> void:
+	if s == _seq:
+		efeitos.estrelas(Vector3(0, 0.6, Medidas.Z_PINO1 - 0.4), 28)
+
+
+func _aviso_seguidos(seguidos: int) -> void:
+	if estado == E.RESULTADO or estado == E.REPLAY:
+		hud.letreiro("pegando_fogo", "%d STRIKES SEGUIDOS!" % seguidos, 1.6, 0.55)
+		Sons.tocar("brilho")
 
 
 ## Câmera de frente para os pinos, baixinha, para ver a máquina trabalhar.
@@ -1307,9 +1346,9 @@ func _replay() -> void:
 	pinos.prender_todos()
 	pinos.interpolar(false)
 	pinos.reviver()
-	bola.freeze = true  #G3?
+	bola.mode = RigidBody.MODE_STATIC
 	_replay_inicio = max(float(_gravacao[0]["t"]), _t_impacto - REPLAY_ANTES)
-	_replay_fim = min(_t_impacto + REPLAY_DEPOIS, float(_gravacao[-1]["t"]))
+	_replay_fim = min(_t_impacto + REPLAY_DEPOIS, float(_gravacao.back()["t"]))
 	_replay_t = _replay_inicio
 	# o rastro já começa comprido (como estava na jogada nesse instante)
 	_replay_rastro = max(float(_gravacao[0]["t"]), _replay_inicio - 27.0 * REPLAY_RASTRO)
@@ -1318,7 +1357,7 @@ func _replay() -> void:
 	_mostrar_quadro(_replay_t)
 	bola.acender(0.8)
 	# 1) câmera rasante colada na bola (corte seco, como na TV)
-	cam.corte(_replay_alvo.global_position + Vector3(0.42, 0.16, 0.75), _replay_alvo.global_position + Vector3(-0.1, 0.08, -1.2), 40, 46)
+	cam.corte(_replay_alvo.global_translation + Vector3(0.42, 0.16, 0.75), _replay_alvo.global_translation + Vector3(-0.1, 0.08, -1.2), 40, 46)
 	cam.seguir(_replay_alvo, Vector3(0.42, 0.16, 0.75), Vector3(-0.1, 0.08, -1.2), 40, 46, 12.0)
 	while _replay_ativo and _replay_t < _t_impacto - 0.12:
 		yield(get_tree(), "idle_frame")
@@ -1370,21 +1409,22 @@ func _rodar_replay(delta: float) -> void:
 		var q := _quadro(_replay_rastro, false)
 		if q["v"]:
 			bola.marcar_rastro((q["b"] as Transform).origin)
-	var antes := bola.global_position
+	var antes := bola.global_translation
 	var dt_jogada := delta * vel
 	_mostrar_quadro(_replay_t)
 	# o barulho da bola rolando, mais grave (câmera lenta)
 	if dt_jogada > 0.0:
-		var v := bola.global_position.distance_to(antes) / dt_jogada
-		Sons.rolando(bola.visible and bola.global_position.z > Medidas.Z_PINO1 - 0.5, v * vel)
+		var v := bola.global_translation.distance_to(antes) / dt_jogada
+		Sons.rolando(bola.visible and bola.global_translation.z > Medidas.Z_PINO1 - 0.5, v * vel)
 	if _replay_t < _t_impacto + 0.1:
-		pinos.susto(bola.global_position)
+		pinos.susto(bola.global_translation)
 	if _replay_t >= _replay_fim:
 		_replay_ativo = false
 		# termina exatamente como ficou de verdade
-		bola.global_transform = _gravacao[-1]["b"]
-		bola.visible = bool(_gravacao[-1]["v"])
-		pinos.aplicar_foto(_gravacao[-1]["p"])
+		var ultimo: Dictionary = _gravacao.back()
+		bola.global_transform = ultimo["b"]
+		bola.visible = bool(ultimo["v"])
+		pinos.aplicar_foto(ultimo["p"])
 
 
 ## Põe a bola e os pinos como estavam no instante t da jogada.
@@ -1393,7 +1433,7 @@ func _mostrar_quadro(t: float) -> void:
 	var tb: Transform = q["b"]
 	bola.global_transform = tb
 	bola.visible = bool(q["v"])
-	_replay_alvo.global_position = tb.origin
+	_replay_alvo.global_translation = tb.origin
 	pinos.aplicar_foto(q["p"])
 
 
@@ -1457,7 +1497,7 @@ func _fim_de_jogo() -> void:
 			Ajustes.definir_foto_recorde(placar.jogadores.size(), caminho)
 		dados["recorde"] = true
 		dados["recorde_valor"] = melhor
-		get_tree().create_timer(3.3).timeout.connect(func(): Sons.tocar("recorde"))  #G3?
+		get_tree().create_timer(3.3).connect("timeout", Sons, "tocar", ["recorde"])
 	# classificação do dia, com a foto de cada um
 	var entradas := []
 	for i in placar.jogadores.size():
@@ -1528,7 +1568,7 @@ func _jogada_demo() -> void:
 	p.posicionar(Vector3(lado * 1.85, 0, 1.0), 180 - lado * 38)
 	p.tocar("torcida", 0.2, true)
 	_plano_pista(true)
-	if not await _esperar(1.6, s, false):  #G3?
+	if not yield(_esperar(1.6, s, false), "completed"):
 		return
 	var zonas := ["C", "C", "X", "V", "C", "Z", "B", "C"]
 	_ultima_jogada_ms = -100000
@@ -1713,13 +1753,7 @@ func _aviso_remontar() -> void:
 	l.text = "APLICANDO OS AJUSTES...\naguarde um instante"
 	l.align = Label.ALIGN_CENTER
 	l.valign = Label.VALIGN_CENTER
-	var ls := LabelSettings.new()  #G3?
-	ls.font = Materiais.fonte("fredoka_700")
-	ls.font_size = 54
-	ls.font_color = Color("#FFD43B")
-	ls.outline_size = 10
-	ls.outline_color = Color("#0B1F45")
-	l.label_settings = ls  #G3?
+	Compat.estilo_rotulo(l, "fredoka_700", 54, Color("#FFD43B"), 10, Color("#0B1F45"))
 	fundo.add_child(l)
 
 
@@ -1741,10 +1775,12 @@ func _notification(what: int) -> void:
 			_menu.cancelar()
 
 
-## Faz `f` no começo do próximo quadro (espalha o trabalho de um momento
-## pesado por dois quadros: na TV Box tudo junto passava do tempo do quadro).
-func _no_proximo_quadro(f: FuncRef) -> void:
-	get_tree(), "idle_frame".connect(f, CONNECT_ONE_SHOT)  #G3?
+## Chama `metodo` no começo do próximo quadro (espalha o trabalho de um
+## momento pesado por dois quadros: na TV Box tudo junto passava do tempo do
+## quadro).
+func _no_proximo_quadro(metodo: String, args := []) -> void:
+	yield(get_tree(), "idle_frame")
+	callv(metodo, args)
 
 
 ## Interrompe o que estiver acontecendo (demo, replay, câmera lenta...).
@@ -1850,17 +1886,8 @@ func _medir_fps(_delta: float) -> void:
 	if _q_ultimo > 0 and float(agora_us - _q_ultimo) > 1500000.0 / alvo:
 		_q_lentos += 1
 	_q_ultimo = agora_us
-	if not _mede_placa and OS.get_name() != "Android":
-		# no PC (OpenGL) a placa de vídeo informa quanto levou em cada quadro
-		_mede_placa = true
-		VisualServer.viewport_set_measure_render_time(vp.get_viewport_rid(), true)
-		VisualServer.viewport_set_measure_render_time(get_viewport().get_viewport_rid(), true)
-	if _mede_placa:
-		var g := VisualServer.viewport_get_measured_render_time_gpu(vp.get_viewport_rid()) + \
-			VisualServer.viewport_get_measured_render_time_gpu(get_viewport().get_viewport_rid())
-		if g > 0.0:
-			_gpu_ms += g
-			_gpu_n += 1
+	# (o Godot 3 não informa quanto a placa de vídeo levou: vale a conta do
+	# processador, como na TV Box)
 	# trocar o tamanho da imagem 3D refaz as imagens da placa de vídeo (um
 	# tranco): nunca no meio da jogada — a medida continua e a troca fica
 	# para a espera da próxima bola

@@ -106,20 +106,20 @@ func _process(_delta: float) -> void:
 				_ultima_procura = agora
 				_procurar_sem_parar(agora)
 		"abrindo":
-			var e := str(_plugin.call("estado"))  #G3?
+			var e := str(_plugin.call("estado"))
 			if e == "aberta":
 				_fase = "apresentando"
 				_desde = agora
 				_ultimo_ping = agora - 1000
 				_set_status("Arduino: conversando com %s..." % tipo)
 			elif e == "erro" or e == "fechada" or agora - _desde > 8000:
-				_falha(str(_plugin.call("erro")) if e == "erro" else "não abriu")  #G3?
+				_falha(str(_plugin.call("erro")) if e == "erro" else "não abriu")
 		"apresentando", "conectado":
-			var e := str(_plugin.call("estado"))  #G3?
+			var e := str(_plugin.call("estado"))
 			if e != "aberta":
-				_perdeu(str(_plugin.call("erro")))  #G3?
+				_perdeu(str(_plugin.call("erro")))
 				return
-			var texto := str(_plugin.call("ler"))  #G3?
+			var texto := str(_plugin.call("ler"))
 			if texto != "":
 				for linha in texto.split("\n", false):
 					_receber(linha.strip_edges(), agora)
@@ -147,11 +147,14 @@ func _procurar_sem_parar(agora: int) -> void:
 		_procurar(agora)
 		return
 	_procurando = true
-	var plugin := _plugin
-	var chegou := _lista_chegou
-	Tarefas.rodar(func():  #G3?
-		var lista := str(plugin.call("listar"))  #G3?
-		chegou.call_deferred(lista))
+	Tarefas.rodar(self, "_listar_usb", [_plugin])
+
+
+## (linha de trabalho) A lista do USB; a resposta volta para o quadro do
+## jogo em _lista_chegou. Godot 3: sem lambda.
+func _listar_usb(plugin: Object) -> void:
+	var lista := str(plugin.call("listar"))
+	call_deferred("_lista_chegou", lista)
 
 
 func _lista_chegou(lista: String) -> void:
@@ -162,11 +165,11 @@ func _lista_chegou(lista: String) -> void:
 
 func _procurar(agora: int, lista := "") -> void:
 	if lista == "":
-		lista = str(_plugin.call("listar"))  #G3?
+		lista = str(_plugin.call("listar"))
 	var com_permissao: Array = []
 	var sem_permissao: Array = []
 	for linha in lista.split("\n", false):
-		var p := linha.split("|")
+		var p: PoolStringArray = linha.split("|")
 		if p.size() < 4:
 			continue
 		if agora - int(_falhou.get(p[0], -100000)) < 15000:
@@ -181,7 +184,7 @@ func _procurar(agora: int, lista := "") -> void:
 		_fase = "abrindo"
 		_desde = agora
 		_set_status("Arduino: abrindo o USB (%s)..." % tipo)
-		_plugin.call("abrir", device, BAUD)  #G3?
+		_plugin.call("abrir", device, BAUD)
 		return
 	if not sem_permissao.empty():
 		var chave := _chave_de(lista, sem_permissao[0])
@@ -203,7 +206,7 @@ const NOMES_CHIP := {"ch34x": "CH340", "cdc": "USB original", "ftdi": "FTDI", "c
 ## vendor:produto do aparelho (a permissão é pedida uma vez por Arduino)
 func _chave_de(lista: String, nome: String) -> String:
 	for linha in lista.split("\n", false):
-		var p := linha.split("|")
+		var p: PoolStringArray = linha.split("|")
 		if p.size() >= 2 and p[0] == nome:
 			return p[1]
 	return nome
@@ -211,7 +214,7 @@ func _chave_de(lista: String, nome: String) -> String:
 
 func _tipo_de(lista: String, nome: String) -> String:
 	for linha in lista.split("\n", false):
-		var p := linha.split("|")
+		var p: PoolStringArray = linha.split("|")
 		if p.size() >= 3 and p[0] == nome:
 			return str(NOMES_CHIP.get(p[2], p[2]))
 	return "?"
@@ -220,7 +223,7 @@ func _tipo_de(lista: String, nome: String) -> String:
 ## A janela de permissão USB do Android: UMA vez por Arduino, sozinha, na
 ## tela de espera; depois, só quando o operador pede (menu).
 func _pedir_permissao(nome: String, chave: String, agora: int) -> void:
-	if bool(_plugin.call("permissao_pendente")) or janela_aberta() or Fotos.janela_aberta():  #G3?
+	if bool(_plugin.call("permissao_pendente")) or janela_aberta() or Fotos.janela_aberta():
 		return   # uma janela do Android por vez
 	if _pedir_agora:
 		_pedir_agora = false
@@ -230,9 +233,19 @@ func _pedir_permissao(nome: String, chave: String, agora: int) -> void:
 	_janela_ate = agora + JANELA_MAX_MS
 	# a janela do Android congela a imagem do jogo: o aviso entra antes
 	emit_signal("janela_android", DICA_USB)
-	get_tree().create_timer(0.6, true, false, true).timeout.connect(func():  #G3?
-		if _plugin != null:
-			_plugin.call("pedir_permissao", nome))  #G3?
+	_timer_real(0.6).connect("timeout", self, "_abrir_janela_usb", [nome])
+
+
+## Godot 3: sem lambda (o timer chama este).
+func _abrir_janela_usb(nome: String) -> void:
+	if _plugin != null:
+		_plugin.call("pedir_permissao", nome)
+
+
+## Um timer de tempo REAL (Godot 3: o SceneTreeTimer anda com o
+## Engine.time_scale da câmera lenta e não tem ignore_time_scale).
+func _timer_real(segundos: float) -> SceneTreeTimer:
+	return get_tree().create_timer(segundos * Engine.time_scale, true)
 
 
 ## O operador pediu (testes do Arduino no menu): a janela pode abrir de novo.
@@ -255,7 +268,7 @@ func _fechou_janela() -> void:
 
 func _notification(what: int) -> void:
 	# o jogo voltou para a frente: a janela do Android fechou
-	if what == NOTIFICATION_APPLICATION_FOCUS_IN or what == NOTIFICATION_APPLICATION_RESUMED:
+	if what == NOTIFICATION_WM_FOCUS_IN or what == NOTIFICATION_APP_RESUMED:
 		_fechou_janela()
 
 
@@ -266,12 +279,12 @@ func _ja_pediu(chave: String) -> bool:
 	if _pedidos_salvos == null:
 		_pedidos_salvos = ConfigFile.new()
 		_pedidos_salvos.load(PERMISSOES)
-	return bool(_pedidos_salvos.get_value("usb", chave, false))  #G3?
+	return bool(_pedidos_salvos.get_value("usb", chave, false))
 
 
 func _marcar_pedido(chave: String) -> void:
 	_ja_pediu(chave)
-	_pedidos_salvos.set_value("usb", chave, true)  #G3?
+	_pedidos_salvos.set_value("usb", chave, true)
 	_pedidos_salvos.save(PERMISSOES)
 
 
@@ -283,13 +296,13 @@ func na_espera(sim := true) -> void:
 
 func _falha(motivo: String) -> void:
 	_falhou[device] = Time.get_ticks_msec()
-	_plugin.call("fechar")  #G3?
+	_plugin.call("fechar")
 	_set_status("Arduino: %s" % motivo)
 	_desconectar()
 
 
 func _perdeu(motivo: String) -> void:
-	_plugin.call("fechar")  #G3?
+	_plugin.call("fechar")
 	_set_status("Arduino desconectado (%s): procurando de novo" % (motivo if motivo != "" else "sem resposta"))
 	_desconectar()
 
@@ -341,7 +354,7 @@ func _receber(linha: String, agora: int) -> void:
 			if linha.begins_with("SENS:"):
 				sensores = linha.substr(5)
 				if bool(Ajustes.valor("arduino", "sensores_invertidos")):
-					sensores = sensores.reverse()  #G3?
+					sensores = _ao_contrario(sensores)
 				emit_signal("mudou")
 			elif linha.begins_with("CAL:"):
 				calibracao = linha
@@ -349,6 +362,14 @@ func _receber(linha: String, agora: int) -> void:
 			elif linha.begins_with("INFO:"):
 				info = linha.substr(5)
 				emit_signal("mudou")
+
+
+## Godot 3: String não tem reverse().
+static func _ao_contrario(s: String) -> String:
+	var r := ""
+	for i in range(s.length() - 1, -1, -1):
+		r += s[i]
+	return r
 
 
 func _conectou(fw: String) -> void:
@@ -377,7 +398,7 @@ func _pulsar(acao: String) -> void:
 	ev.pressed = true
 	ev.set_meta("arduino", true)
 	Input.parse_input_event(ev)
-	get_tree().create_timer(0.06, true, false, true).timeout.connect(_soltar.bind(acao))  #G3?
+	_timer_real(0.06).connect("timeout", self, "_soltar", [acao])
 
 
 func _soltar(acao: String) -> void:
@@ -434,7 +455,7 @@ func relatorio() -> String:
 	if info != "":
 		t += "info: %s\n" % info
 	if _plugin != null:
-		t += str(_plugin.call("relatorio"))  #G3?
+		t += str(_plugin.call("relatorio"))
 	return t
 
 
@@ -446,7 +467,7 @@ func _set_status(message: String) -> void:
 
 func _send(line: String) -> void:
 	if _plugin != null and _fase in ["apresentando", "conectado"]:
-		_plugin.call("escrever", line)  #G3?
+		_plugin.call("escrever", line)
 
 
 func send_led(command: String) -> void:
@@ -461,4 +482,4 @@ func send_led(command: String) -> void:
 func _exit_tree() -> void:
 	Tarefas.esperar_todas()
 	if _plugin != null:
-		_plugin.call("fechar")  #G3?
+		_plugin.call("fechar")

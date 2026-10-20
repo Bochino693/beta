@@ -11,7 +11,19 @@ extends Reference
 const ARQUIVO := "user://classificacao.json"
 const MAXIMO := 10
 
-static var _cache := {}  #G3?
+
+## Godot 3: sem "static var" — o estado da classe fica em Compat.estado:
+## cache (a classificação lida), versao (a última pedida) e, para a linha
+## de trabalho, a trava e a versão já gravada (em "gravacao", que só ela
+## mexe, sempre com a trava).
+static func _estado() -> Dictionary:
+	var e := Compat.estado("classificacao")
+	if not e.has("trava"):
+		e["cache"] = {}
+		e["versao"] = 0
+		e["gravacao"] = {"gravada": 0}
+		e["trava"] = Mutex.new()
+	return e
 
 
 static func hoje() -> String:
@@ -19,8 +31,9 @@ static func hoje() -> String:
 
 
 static func _ler() -> Dictionary:
-	if not _cache.empty():
-		return _cache
+	var e := _estado()
+	if not (e["cache"] as Dictionary).empty():
+		return e["cache"]
 	var d := {}
 	if Compat.existe_arquivo(ARQUIVO):
 		var j = parse_json(Compat.ler_texto(ARQUIVO))
@@ -29,31 +42,33 @@ static func _ler() -> Dictionary:
 	if str(d.get("dia", "")) != hoje():
 		_apagar_fotos(d.get("lista", []))
 		d = {"dia": hoje(), "lista": []}
-	_cache = d
+	e["cache"] = d
 	return d
 
 
 ## Grava numa linha de trabalho separada (no fim da partida, gravar na
 ## hora dava um tranco na TV Box), sempre na ordem certa.
-static var _versao := 0  #G3?
-static var _gravada := 0  #G3?
-static var _trava := Mutex.new()  #G3?
-
-
 static func _gravar(d: Dictionary) -> void:
-	_cache = d
-	_versao += 1
-	var v := _versao
-	var texto := to_json(d, " ")
-	Tarefas.rodar(func():  #G3?
-		_trava.lock()
-		if v > _gravada:
-			var f := FileAccess.open(ARQUIVO, FileAccess.WRITE)  #G3?
-			if f:
+	var e := _estado()
+	e["cache"] = d
+	e["versao"] = int(e["versao"]) + 1
+	var texto := JSON.print(d, " ", true)
+	Tarefas.rodar(_Gravador.new(), "gravar", [texto, int(e["versao"]), e["trava"], e["gravacao"]])
+
+
+## Godot 3: sem lambda — este objeto faz a gravação na linha de trabalho.
+class _Gravador:
+	extends Reference
+
+	func gravar(texto: String, v: int, trava: Mutex, gravacao: Dictionary) -> void:
+		trava.lock()
+		if v > int(gravacao["gravada"]):
+			var f := File.new()
+			if f.open(ARQUIVO, File.WRITE) == OK:
 				f.store_string(texto)
 				f.close()
-				_gravada = v
-		_trava.unlock())
+				gravacao["gravada"] = v
+		trava.unlock()
 
 
 static func _apagar_fotos(lista: Array) -> void:
@@ -84,15 +99,14 @@ static func registrar(entradas: Array) -> Array:
 		todos.append(r)
 	# maior pontuação primeiro; empate: quem fez antes fica na frente
 	var ordem := todos.duplicate()
-	ordem.sort_custom(func(a, b):  #G3?
-		if int(a["pontos"]) != int(b["pontos"]):
-			return int(a["pontos"]) > int(b["pontos"])
-		return todos.find(a) < todos.find(b))
-	var posicoes: Array = []
+	var criterio := _Ordem.new()
+	criterio.todos = todos
+	ordem.sort_custom(criterio, "antes")
+	var posicoes := []
 	for r in novos:
 		posicoes.append(ordem.find(r) + 1)
-	var fica := ordem.slice(0, MAXIMO)  #G3?
-	_apagar_fotos(ordem.slice(MAXIMO))  #G3?
+	var fica := Compat.fatia(ordem, 0, MAXIMO)
+	_apagar_fotos(Compat.fatia(ordem, MAXIMO))
 	for r in novos:
 		if fica.has(r) and str(r["chave_foto"]) != "":
 			r["foto"] = Fotos.gravar(str(r["chave_foto"]), "rank_%s.png" % r["id"])
@@ -100,6 +114,18 @@ static func registrar(entradas: Array) -> Array:
 	d["lista"] = fica
 	_gravar(d)
 	return posicoes
+
+
+## Godot 3: sort_custom pede um objeto (sem lambda); este guarda a lista
+## de todos para o desempate.
+class _Ordem:
+	extends Reference
+	var todos: Array
+
+	func antes(a, b) -> bool:
+		if int(a["pontos"]) != int(b["pontos"]):
+			return int(a["pontos"]) > int(b["pontos"])
+		return todos.find(a) < todos.find(b)
 
 
 static func zerar() -> void:

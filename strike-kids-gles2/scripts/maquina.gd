@@ -49,7 +49,7 @@ func montar(p: Pinos) -> void:
 	mesa = Spatial.new()
 	mesa.name = "mesa"
 	add_child(mesa)
-	mesa.position = Vector3(0, Y_REPOUSO, _z_mesa)
+	mesa.translation = Vector3(0, Y_REPOUSO, _z_mesa)
 	var placa := MeshInstance.new()
 	var bm := CubeMesh.new()
 	bm.size = Vector3(1.28, 0.07, 1.32)
@@ -67,7 +67,7 @@ func montar(p: Pinos) -> void:
 		cm.radial_segments = 16
 		copo.mesh = cm
 		copo.material_override = mat_copo
-		copo.position = Vector3(pos.x, -0.035 - 0.06, pos.z - _z_mesa)
+		copo.translation = Vector3(pos.x, -0.035 - 0.06, pos.z - _z_mesa)
 		mesa.add_child(copo)
 	# colunas que sobem para o teto (o mecanismo)
 	for s in [-1.0, 1.0]:
@@ -78,22 +78,22 @@ func montar(p: Pinos) -> void:
 		cc.height = 1.4
 		col.mesh = cc
 		col.material_override = Materiais.cor_toon(cor_maquina.darkened(0.25), 0.0, {"borda": 0.2})
-		col.position = Vector3(s * 0.55, 0.7, 0)
+		col.translation = Vector3(s * 0.55, 0.7, 0)
 		mesa.add_child(col)
 	# barra varredora (corpo físico que empurra os pinos)
 	barra = KinematicBody.new()
 	barra.name = "barra"
-	barra.sync_to_physics = true
+	barra.set_sync_to_physics(true)
 	barra.collision_layer = Medidas.CAMADA_MUNDO
 	barra.collision_mask = 0
 	var cs := CollisionShape.new()
 	var bs := BoxShape.new()
-	bs.size = Vector3(Medidas.MEIA_LARGURA * 2 + 0.3, 0.17, 0.07)
+	bs.extents = Vector3(Medidas.MEIA_LARGURA * 2 + 0.3, 0.17, 0.07) / 2.0
 	cs.shape = bs
 	barra.add_child(cs)
 	var vis := MeshInstance.new()
 	var bb := CubeMesh.new()
-	bb.size = bs.size
+	bb.size = bs.extents * 2.0
 	vis.mesh = bb
 	vis.material_override = Materiais.cor_toon(cor_detalhe, 0.003, {"borda": 0.3})
 	barra.add_child(vis)
@@ -103,10 +103,10 @@ func montar(p: Pinos) -> void:
 		hb.size = Vector3(0.05, 1.3, 0.05)
 		haste.mesh = hb
 		haste.material_override = Materiais.cor_toon(cor_maquina.darkened(0.25), 0.0, {"borda": 0.2})
-		haste.position = Vector3(s * (Medidas.MEIA_LARGURA + 0.12), 0.65, 0)
+		haste.translation = Vector3(s * (Medidas.MEIA_LARGURA + 0.12), 0.65, 0)
 		barra.add_child(haste)
 	add_child(barra)
-	barra.position = Vector3(0, Y_BARRA_CIMA, _z_barra)
+	barra.translation = Vector3(0, Y_BARRA_CIMA, _z_barra)
 	_montar_alcapao()
 	# mesa, barra e portinhas andam nos passos da física (tweens de física): interpoladas
 	for n in [mesa, barra] + portas:
@@ -127,23 +127,23 @@ func _montar_alcapao() -> void:
 	for s in [-1.0, 1.0]:
 		var porta := KinematicBody.new()
 		porta.name = "alcapao_%d" % int(s)
-		porta.sync_to_physics = true
+		porta.set_sync_to_physics(true)
 		porta.collision_layer = Medidas.CAMADA_MUNDO
 		porta.collision_mask = 0
 		porta.physics_material_override = pm
 		var tam := Vector3(Medidas.ALCAPAO_X - 0.004, 0.04, comp - 0.008)
 		var cs := CollisionShape.new()
 		var bs := BoxShape.new()
-		bs.size = tam
+		bs.extents = tam / 2.0
 		cs.shape = bs
-		cs.position = Vector3(-s * tam.x / 2.0, -tam.y / 2.0, 0)
+		cs.translation = Vector3(-s * tam.x / 2.0, -tam.y / 2.0, 0)
 		porta.add_child(cs)
 		var vis := MeshInstance.new()
 		var bm := CubeMesh.new()
 		bm.size = tam
 		vis.mesh = bm
 		vis.material_override = mat
-		vis.position = cs.position
+		vis.translation = cs.translation
 		vis.cast_shadow = GeometryInstance.SHADOW_CASTING_SETTING_OFF
 		porta.add_child(vis)
 		# faixa amarela na beirada do meio (onde o chão se abre)
@@ -152,7 +152,7 @@ func _montar_alcapao() -> void:
 		fm.size = Vector3(0.045, 0.004, tam.z - 0.05)
 		faixa.mesh = fm
 		faixa.material_override = mat_faixa
-		faixa.position = Vector3(-s * (tam.x - 0.035), 0.002, 0)
+		faixa.translation = Vector3(-s * (tam.x - 0.035), 0.002, 0)
 		faixa.cast_shadow = GeometryInstance.SHADOW_CASTING_SETTING_OFF
 		porta.add_child(faixa)
 		add_child(porta)
@@ -177,7 +177,7 @@ func _alcapao(abrir: bool, dur: float) -> SceneTreeTween:
 	t.set_process_mode(Tween.TWEEN_PROCESS_PHYSICS)
 	t.set_parallel(true)
 	for i in portas.size():
-		var alvo := _portas_lado[i] * ABRE_ALCAPAO if abrir else 0.0
+		var alvo = _portas_lado[i] * ABRE_ALCAPAO if abrir else 0.0
 		t.tween_property(portas[i], "rotation:z", alvo, dur / rapidez).set_trans(Tween.TRANS_QUAD) \
 			.set_ease(Tween.EASE_IN if abrir else Tween.EASE_IN_OUT)
 	_tweens.append(t)
@@ -195,8 +195,8 @@ func _pausa(dur: float) -> SceneTreeTween:
 func _physics_process(_delta: float) -> void:
 	for item in _carregando:
 		var p: Pino = item[0]
-		var off: Vector3 = (item[1] as Vector3).lerp(item[2], _centrar)  #G3?
-		p.global_transform = Transform(Basis(), mesa.global_position + off)
+		var off: Vector3 = (item[1] as Vector3).linear_interpolate(item[2], _centrar)
+		p.colocar_em(mesa.global_translation + off)
 
 
 func _tw(alvo: Object, prop: String, valor, dur: float) -> SceneTreeTween:
@@ -207,7 +207,8 @@ func _tw(alvo: Object, prop: String, valor, dur: float) -> SceneTreeTween:
 	return t
 
 
-## Espera o tween; false se a máquina foi interrompida no meio.
+## Espera o tween; false se a máquina foi interrompida no meio. (Godot 3:
+## quem chama espera com yield(_ok(t, s), "completed").)
 func _ok(t: SceneTreeTween, s: int) -> bool:
 	yield(t, "finished")
 	_tweens.erase(t)
@@ -218,12 +219,16 @@ func _ok(t: SceneTreeTween, s: int) -> bool:
 ## varre os caídos e devolve os em pé no lugar. derrubou: a bola derrubou
 ## algum pino (numa jogada errada o alçapão não abre).
 func reposicionar(derrubou := true) -> void:
-	await _ciclo(true, derrubou)  #G3?
+	var r = _ciclo(true, derrubou)
+	if r is GDScriptFunctionState:
+		yield(r, "completed")
 
 
 ## Rack novo (rodada nova): varre tudo e desce os 10 pinos.
 func rack_novo(derrubou := true) -> void:
-	await _ciclo(false, derrubou)  #G3?
+	var r = _ciclo(false, derrubou)
+	if r is GDScriptFunctionState:
+		yield(r, "completed")
 
 
 ## Pinos caídos lá no fosso (atrás da pista), que o alçapão faria cair.
@@ -232,7 +237,7 @@ func _pinos_no_fosso(levados: Array) -> int:
 	for p in pinos.pinos:
 		if levados.has(p) or p.removido:
 			continue
-		var g := p.global_position
+		var g: Vector3 = p.posicao_base()
 		if g.z < Medidas.Z_FIM_DECK and g.z > Medidas.ALCAPAO_Z1 - 0.1 and abs(g.x) < Medidas.ALCAPAO_X + 0.05 and g.y < 0.0:
 			n += 1
 	return n
@@ -245,7 +250,7 @@ func _ciclo(manter: bool, derrubou := true) -> void:
 	pinos.prender_todos()
 	# 1. barra desce na frente (proteção)
 	emit_signal("som", "barra")
-	if not await _ok(_tw(barra, "position:y", Y_BARRA_BAIXO, 0.55), s):  #G3?
+	if not yield(_ok(_tw(barra, "translation:y", Y_BARRA_BAIXO, 0.55), s), "completed"):
 		return
 	# 2. mesa desce e levanta os pinos em pé (centralizando no lugar certo)
 	_carregando.clear()
@@ -254,17 +259,18 @@ func _ciclo(manter: bool, derrubou := true) -> void:
 		var em_pe := pinos.em_pe()
 		if not em_pe.empty():
 			emit_signal("som", "mesa")
-			if not await _ok(_tw(mesa, "position:y", Y_ENCAIXE + 0.02, 0.7), s):  #G3?
+			if not yield(_ok(_tw(mesa, "translation:y", Y_ENCAIXE + 0.02, 0.7), s), "completed"):
 				return
 			for n in em_pe:
 				var p := pinos.pino(n)
-				var onde := Vector3(p.global_position.x, p.lugar.y, p.global_position.z)
-				p.global_transform = Transform(Basis(), onde)
+				var b := p.posicao_base()
+				var onde := Vector3(b.x, p.lugar.y, b.z)
+				p.colocar_em(onde)
 				p.collision_layer = 0
-				_carregando.append([p, onde - mesa.global_position, p.lugar - mesa.global_position])
-			var t := _tw(mesa, "position:y", Y_LEVANTA, 0.45)
+				_carregando.append([p, onde - mesa.global_translation, p.lugar - mesa.global_translation])
+			var t := _tw(mesa, "translation:y", Y_LEVANTA, 0.45)
 			t.parallel().tween_property(self, "_centrar", 1.0, 0.45 / rapidez)
-			if not await _ok(t, s):  #G3?
+			if not yield(_ok(t, s), "completed"):
 				return
 	# 3. varre os caídos para o fosso (a barra empurra de verdade)
 	var levados := []
@@ -275,26 +281,26 @@ func _ciclo(manter: bool, derrubou := true) -> void:
 			p.soltar()
 			p.sleeping = false
 	emit_signal("som", "varrer")
-	if not await _ok(_tw(barra, "position:z", Medidas.Z_FIM_DECK - 0.15, 0.7), s):  #G3?
+	if not yield(_ok(_tw(barra, "translation:z", Medidas.Z_FIM_DECK - 0.15, 0.7), s), "completed"):
 		return
 	# 3b. o ALÇAPÃO: as portinhas abrem para baixo e os pinos do fosso caem
 	# (com a física) até o fundo do poço — só se a bola derrubou pinos e há
 	# pino caído no fosso (bola na canaleta / jogada errada: fica fechado)
 	if derrubou and _pinos_no_fosso(levados) > 0:
 		emit_signal("alcapao", true)
-		if not await _ok(_pausa(0.25), s):  #G3?
+		if not yield(_ok(_pausa(0.25), s), "completed"):
 			return
 		emit_signal("som", "alcapao")
-		if not await _ok(_alcapao(true, 0.45), s):  #G3?
+		if not yield(_ok(_alcapao(true, 0.45), s), "completed"):
 			return
-		if not await _ok(_pausa(0.85), s):  #G3?
+		if not yield(_ok(_pausa(0.85), s), "completed"):
 			return
 		# a barra volta enquanto o alçapão fecha; os pinos lá embaixo saem do jogo
 		var fecha := _alcapao(false, 0.55)
-		if not await _ok(_tw(barra, "position:z", _z_barra, 0.55), s):  #G3?
+		if not yield(_ok(_tw(barra, "translation:z", _z_barra, 0.55), s), "completed"):
 			return
 		if fecha.is_valid() and fecha.is_running():
-			if not await _ok(fecha, s):  #G3?
+			if not yield(_ok(fecha, s), "completed"):
 				return
 		_fechar_portas()   # no lugar exato (sem acumular sobra de conta)
 		for p in pinos.pinos:
@@ -305,23 +311,23 @@ func _ciclo(manter: bool, derrubou := true) -> void:
 		for p in pinos.pinos:
 			if not levados.has(p):
 				p.tirar()
-		if not await _ok(_tw(barra, "position:z", _z_barra, 0.5), s):  #G3?
+		if not yield(_ok(_tw(barra, "translation:z", _z_barra, 0.5), s), "completed"):
 			return
 	# 4. mesa devolve (ou traz os 10 novos)
 	if not manter:
-		mesa.position.y = Y_REPOUSO
+		mesa.translation.y = Y_REPOUSO
 		_centrar = 1.0
 		for p in pinos.pinos:
 			p.recolocar()
 			p.collision_layer = 0
-			var off := p.lugar - Vector3(0, Y_ENCAIXE, _z_mesa)
+			var off = p.lugar - Vector3(0, Y_ENCAIXE, _z_mesa)
 			_carregando.append([p, off, off])
 			# já na mesa (sem aparecer um quadro na pista)
-			p.global_transform = Transform(Basis(), mesa.global_position + off)
+			p.colocar_em(mesa.global_translation + off)
 			p.reset_physics_interpolation()
 	if not _carregando.empty():
 		emit_signal("som", "mesa")
-		if not await _ok(_tw(mesa, "position:y", Y_ENCAIXE, 0.85 if not manter else 0.75), s):  #G3?
+		if not yield(_ok(_tw(mesa, "translation:y", Y_ENCAIXE, 0.85 if not manter else 0.75), s), "completed"):
 			return
 		for item in _carregando:
 			var p: Pino = item[0]
@@ -329,11 +335,11 @@ func _ciclo(manter: bool, derrubou := true) -> void:
 		_carregando.clear()
 		emit_signal("som", "pousar")
 		pinos.emit_signal("som_pousar")
-		if not await _ok(_tw(mesa, "position:y", Y_REPOUSO, 0.6), s):  #G3?
+		if not yield(_ok(_tw(mesa, "translation:y", Y_REPOUSO, 0.6), s), "completed"):
 			return
 	# 5. barra sobe
 	emit_signal("som", "barra")
-	if not await _ok(_tw(barra, "position:y", Y_BARRA_CIMA, 0.5), s):  #G3?
+	if not yield(_ok(_tw(barra, "translation:y", Y_BARRA_CIMA, 0.5), s), "completed"):
 		return
 	trabalhando = false
 	emit_signal("terminou")
@@ -348,8 +354,8 @@ func instantaneo() -> void:
 	_tweens.clear()
 	_carregando.clear()
 	_centrar = 0.0
-	mesa.position = Vector3(0, Y_REPOUSO, _z_mesa)
-	barra.position = Vector3(0, Y_BARRA_CIMA, _z_barra)
+	mesa.translation = Vector3(0, Y_REPOUSO, _z_mesa)
+	barra.translation = Vector3(0, Y_BARRA_CIMA, _z_barra)
 	mesa.reset_physics_interpolation()
 	barra.reset_physics_interpolation()
 	_fechar_portas()

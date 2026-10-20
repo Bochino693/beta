@@ -91,6 +91,11 @@ var _estampa_padrao := {}
 var _helice: MeshInstance          # hélice do boné (fase do parque): gira sozinha
 var _pedidos: Array = []     # roupas carregando em segundo plano
 var _descartar: Array = []   # carregadas e não usadas: soltar quando acabarem
+# Godot 3: sem ResourceLoader.load_threaded_*: cada roupa pedida carrega numa
+# linha de trabalho (Tarefas) e a cena pronta fica aqui (caminho -> cena),
+# guardada pela trava (as duas linhas mexem no dicionário)
+var _trava := Mutex.new()
+var _carregadas := {}
 
 
 func montar(nome: String) -> void:
@@ -109,7 +114,7 @@ func montar(nome: String) -> void:
 		if no == null:
 			continue
 		juntas[j] = no
-		_pos_repouso[j] = no.position
+		_pos_repouso[j] = no.translation
 		var mi := no.get_node("malha") as MeshInstance
 		var parametros := {"borda": 0.22, "cor_borda": Color(1.0, 0.92, 1.0), "brilho_luz": brilho, "faixa": 0.15, "luz_minima": 0.32}
 		if j == "cabeca":
@@ -122,8 +127,7 @@ func montar(nome: String) -> void:
 			parametros.merge(_parametros_estampa(modelo.get_meta("estampa", {})), true)
 		var m := Materiais.toon(true, 0.0032, parametros)
 		mi.material_override = m
-		# a malha já é leve; de longe ainda simplifica, mas sem sumir orelha
-		mi.lod_bias = 1.5
+		# (Godot 3: sem LOD automático de malha — a malha já é leve)
 		_mats.append(m)
 		if j == "cabeca":
 			_mat_cabeca = m
@@ -139,7 +143,7 @@ func montar(nome: String) -> void:
 	var ante := juntas["antebraco_d"] as Spatial
 	ante.add_child(bola_mao)
 	var mao: Array = modelo.get_meta("mao_d", [-0.034, -0.15, 0.025])
-	bola_mao.position = Vector3(mao[0], mao[1], mao[2]) + Vector3(0.0, -0.118, 0.028)
+	bola_mao.translation = Vector3(mao[0], mao[1], mao[2]) + Vector3(0.0, -0.118, 0.028)
 	bola_mao.visible = false
 	# pernas: comprimentos e altura do tornozelo
 	_torn_y = float(modelo.get_meta("tornozelo_y", 0.078))
@@ -149,20 +153,19 @@ func montar(nome: String) -> void:
 			_l2[lado] = (_pos_repouso["pe_" + lado] as Vector3).length()
 		_pes[lado] = {"preso": false, "pos": Vector3.ZERO, "passo": -1.0, "de": Vector3.ZERO, "para": Vector3.ZERO}
 		var sp := MeshInstance.new()
-		var qp := QuadMesh.new()
+		# Godot 3: o QuadMesh só fica de pé; o PlaneMesh já nasce deitado (virado para +Y)
+		var qp := PlaneMesh.new()
 		qp.size = Vector2(0.17, 0.24)
-		qp.orientation = PlaneMesh.FACE_Y
 		sp.mesh = qp
 		sp.material_override = Materiais.sombra_blob(0.62)
 		sp.cast_shadow = GeometryInstance.SHADOW_CASTING_SETTING_OFF
-		sp.top_level = true
+		sp.set_as_toplevel(true)
 		add_child(sp)
 		_sombras_pe[lado] = sp
 	# sombra redonda
 	_sombra = MeshInstance.new()
-	var q := QuadMesh.new()
+	var q := PlaneMesh.new()
 	q.size = Vector2(0.75, 0.75)
-	q.orientation = PlaneMesh.FACE_Y
 	_sombra.mesh = q
 	_sombra.material_override = Materiais.sombra_blob(0.38)
 	_sombra.cast_shadow = GeometryInstance.SHADOW_CASTING_SETTING_OFF
@@ -194,23 +197,28 @@ func montar(nome: String) -> void:
 	_festa.emission_ring_height = 0.1
 	_festa.direction = Vector3.UP
 	_festa.spread = 25.0
-	_festa.initial_velocity_min = 1.0
-	_festa.initial_velocity_max = 2.2
+	# Godot 3: em vez de mínimo/máximo, valor + "random" (a fração sorteada):
+	# velocidade 1,0 a 2,2 (sorteia entre v·(1 - r) e v)
+	_festa.initial_velocity = 2.2
+	_festa.initial_velocity_random = 1.0 - 1.0 / 2.2
 	_festa.gravity = Vector3(0, -1.5, 0)
-	_festa.angular_velocity_min = -300
-	_festa.angular_velocity_max = 300
-	_festa.scale_amount_min = 0.6
-	_festa.scale_amount_max = 1.2
+	# giro de -300 a 300 graus/s (random 1 = de -v a +v)
+	_festa.angular_velocity = 300.0
+	_festa.angular_velocity_random = 1.0
+	# tamanho 0,6 a 1,2: o Godot 3 sorteia a escala entre scale_amount e 1,
+	# então a estrelinha é 1,2x maior e a escala vai de 0,5 a 1
+	_festa.scale_amount = 0.5
+	_festa.scale_amount_random = 1.0
 	var curva := Curve.new()
 	curva.add_point(Vector2(0, 1.0))
 	curva.add_point(Vector2(1, 0.0))
 	_festa.scale_amount_curve = curva
 	_festa.color_initial_ramp = Bola._arco_iris()
 	var qm := QuadMesh.new()
-	qm.size = Vector2(0.09, 0.09)
+	qm.size = Vector2(0.09, 0.09) * 1.2
 	qm.material = Materiais.particula("estrela", false)
 	_festa.mesh = qm
-	_festa.position = Vector3(0, 0.25, 0)
+	_festa.translation = Vector3(0, 0.25, 0)
 	add_child(_festa)
 	tocar("parado")
 	_piscar_em = rand_range(1.0, 3.0)
@@ -235,7 +243,7 @@ func tocar(nome: String, mistura := 0.22, reiniciar := false) -> void:
 	_eventos_feitos.clear()
 	# o quanto ele andou/girou na animação anterior vira o novo ponto de partida
 	if modelo != null:
-		base = Transform(Basis(Vector3.UP, rotation.y), Vector3(position.x, base.origin.y, position.z))
+		base = Transform(Basis(Vector3.UP, rotation.y), Vector3(translation.x, base.origin.y, translation.z))
 	# (a velocidade continua: depois de soltar a bola ele desliza e para aos poucos)
 	antes["frente"] = 0.0
 	antes["giro"] = 0.0
@@ -456,10 +464,10 @@ func _process(delta: float) -> void:
 	elif _t >= dur:
 		_t = dur
 		if t_antes < dur:
-			animacao_terminou.emit.call_deferred(_nome_clip)
+			call_deferred("emit_signal", "animacao_terminou", _nome_clip)
 			# clipe que emenda em outro (ex.: vitória -> festa, aceno -> parado)
 			if _clip.has("depois"):
-				tocar.call_deferred(str(_clip["depois"]), 0.35)
+				call_deferred("tocar", str(_clip["depois"]), 0.35)
 	_ocioso_passo(delta)
 	_eventos(t_antes, _t, loop and _t < t_antes)
 	var pose := _amostra_clip(_clip, _t)
@@ -497,7 +505,7 @@ func _eventos(de: float, ate: float, deu_volta: bool) -> void:
 			match ev[1]:
 				"soltar":
 					if bola_mao.visible:
-						var p := bola_mao.global_position
+						var p := bola_mao.global_translation
 						bola_mao.visible = false
 						emit_signal("soltou_bola", p)
 				"jatos":
@@ -528,11 +536,11 @@ func _aplicar(pose: Dictionary, delta: float) -> void:
 		if j == "cabeca":
 			r += Vector3(_olhar.y, _olhar.x, 0)
 		# base nova a cada quadro (rotação pura, escala 1: nada acumula)
-		no.basis = Basis(r * (PI / 180.0))
-	(juntas["corpo"] as Spatial).position = _pos_repouso["corpo"] + Vector3(quadril.x, altura, quadril.z)
+		no.transform.basis = Basis(r * (PI / 180.0))
+	(juntas["corpo"] as Spatial).translation = _pos_repouso["corpo"] + Vector3(quadril.x, altura, quadril.z)
 	# deslocamento da corrida (para a frente do personagem) e voo
 	var frente_mundo := base.basis.z.normalized() * frente
-	position = base.origin + frente_mundo + Vector3(0, voo, 0)
+	translation = base.origin + frente_mundo + Vector3(0, voo, 0)
 	rotation.y = base.basis.get_euler().y + deg2rad(giro)
 	if juntas.has("pe_e") and juntas.has("pe_d"):
 		_ik_pernas(delta, voo)
@@ -594,7 +602,7 @@ func _ik_pernas(delta: float, voo: float) -> void:
 	for lado in ["e", "d"]:
 		var pe := juntas["pe_" + lado] as Spatial
 		var st: Dictionary = _pes[lado]
-		var fk := pe.global_position
+		var fk := pe.global_translation
 		var altura_pe := fk.y - ty
 		var livre := Vector3(fk.x, max(fk.y, ty), fk.z)
 		if _modo_ik != "trava" or voo > 0.01:
@@ -606,7 +614,7 @@ func _ik_pernas(delta: float, voo: float) -> void:
 			var u: float = st["passo"]
 			var para := Vector3(fk.x, ty, fk.z)
 			var e := u * u * u * (u * (u * 6.0 - 15.0) + 10.0)
-			st["ancora"] = (st["de"] as Vector3).lerp(para, e) + Vector3(0, PASSO_ALTURA * sin(PI * u), 0)  #G3?
+			st["ancora"] = (st["de"] as Vector3).linear_interpolate(para, e) + Vector3(0, PASSO_ALTURA * sin(PI * u), 0)
 			if u >= 1.0:
 				st["passo"] = -1.0
 				st["preso"] = true
@@ -633,12 +641,12 @@ func _ik_pernas(delta: float, voo: float) -> void:
 		lin = move_toward(lin, quer, delta / TROCA_PE)
 		st["peso_lin"] = lin
 		var w := lin * lin * (3.0 - 2.0 * lin)
-		alvos[lado] = livre.lerp(st.get("ancora", livre), w) if w > 0.0 else livre  #G3?
+		alvos[lado] = livre.linear_interpolate(st.get("ancora", livre), w) if w > 0.0 else livre
 	# o quadril desce (suave) se um pé apoiado não alcançaria o chão
 	var descer := 0.0
 	for lado in ["e", "d"]:
 		var coxa := juntas["coxa_" + lado] as Spatial
-		var q := coxa.global_position
+		var q := coxa.global_translation
 		var alvo: Vector3 = alvos[lado]
 		var lmax: float = (_l1[lado] + _l2[lado]) * 0.985
 		var dv := q.y - alvo.y
@@ -649,7 +657,7 @@ func _ik_pernas(delta: float, voo: float) -> void:
 	var rapidez := 40.0 if descer > _descer else 12.0
 	_descer = lerp(_descer, descer, 1.0 - exp(-delta * rapidez))
 	if _descer > 0.0005:
-		corpo.position.y -= _descer
+		corpo.translation.y -= _descer
 	for lado in ["e", "d"]:
 		_resolver_perna(lado, alvos[lado], float(_pes[lado].get("peso_lin", 0.0)) > 0.5)
 
@@ -660,8 +668,8 @@ func _resolver_perna(lado: String, alvo: Vector3, apoiado: bool) -> void:
 	var pe := juntas["pe_" + lado] as Spatial
 	var l1: float = _l1[lado]
 	var l2: float = _l2[lado]
-	var q := coxa.global_position
-	var j_fk := canela.global_position
+	var q := coxa.global_translation
+	var j_fk := canela.global_translation
 	var v := alvo - q
 	var d := clamp(v.length(), abs(l1 - l2) + 0.001, l1 + l2 - 0.0008)
 	var dir := v.normalized()
@@ -678,20 +686,20 @@ func _resolver_perna(lado: String, alvo: Vector3, apoiado: bool) -> void:
 	var de1 := (j_fk - q).normalized()
 	var para1 := (j - q).normalized()
 	if de1.dot(para1) < 0.99999:
-		_girar_global(coxa, Quat(de1, para1))
-	var a_agora := pe.global_position
+		_girar_global(coxa, _arco(de1, para1))
+	var a_agora := pe.global_translation
 	var de2 := (a_agora - j).normalized()
 	var para2 := (q + dir * d - j).normalized()
 	if de2.dot(para2) < 0.99999:
-		_girar_global(canela, Quat(de2, para2))
+		_girar_global(canela, _arco(de2, para2))
 	# pé de sola chata quando está no chão (ou perto dele)
 	var peso := 1.0 if apoiado else clamp(1.0 - (alvo.y - chao - _torn_y) / 0.08, 0.0, 1.0)
 	if peso > 0.0:
 		var pai := canela.global_transform.basis.orthonormalized()
 		var plano := pai.inverse() * Basis(Vector3.UP, global_rotation.y)
-		var q_fk := pe.basis.orthonormalized().get_rotation_quat()
+		var q_fk := pe.transform.basis.orthonormalized().get_rotation_quat()
 		var q_plano := plano.orthonormalized().get_rotation_quat()
-		pe.basis = Basis(q_fk.slerp(q_plano, peso))
+		pe.transform.basis = Basis(q_fk.slerp(q_plano, peso))
 
 
 ## Gira uma junta por uma rotação dada no espaço do mundo, mexendo só na
@@ -699,12 +707,30 @@ func _resolver_perna(lado: String, alvo: Vector3, apoiado: bool) -> void:
 func _girar_global(no: Spatial, q: Quat) -> void:
 	var pai := (no.get_parent() as Spatial).global_transform.basis.orthonormalized()
 	var local := pai.inverse() * Basis(q) * pai
-	no.basis = Basis(local.orthonormalized().get_rotation_quat()) * no.basis
+	no.transform.basis = Basis(local.orthonormalized().get_rotation_quat()) * no.transform.basis
+
+
+## A rotação mais curta que leva a direção `de` até `para` (Godot 3: o Quat
+## não tem o construtor Quaternion(de, para) do Godot 4; mesma conta).
+static func _arco(de: Vector3, para: Vector3) -> Quat:
+	var n0 := de.normalized()
+	var n1 := para.normalized()
+	var d := n0.dot(n1)
+	if d < -0.99999:
+		# opostas: meia-volta em torno de um eixo qualquer perpendicular
+		var eixo := n0.cross(Vector3.RIGHT)
+		if eixo.length_squared() < 0.000001:
+			eixo = n0.cross(Vector3.UP)
+		eixo = eixo.normalized()
+		return Quat(eixo.x, eixo.y, eixo.z, 0.0)
+	var c := n0.cross(n1)
+	var s := sqrt((1.0 + d) * 2.0)
+	return Quat(c.x / s, c.y / s, c.z / s, s * 0.5)
 
 
 func _sombras(voo: float) -> void:
 	# sombra do corpo: fica no chão, menor quando voa
-	_sombra.global_position = Vector3(global_position.x, chao + 0.006, global_position.z)
+	_sombra.global_translation = Vector3(global_translation.x, chao + 0.006, global_translation.z)
 	_sombra.global_rotation = Vector3.ZERO
 	var esc: float = clamp(1.0 - voo * 0.9, 0.35, 1.0)
 	_sombra.scale = Vector3(esc, 1, esc)
@@ -715,10 +741,10 @@ func _sombras(voo: float) -> void:
 			sp.visible = false
 			continue
 		var pe := juntas["pe_" + lado] as Spatial
-		var p := pe.global_position + pe.global_transform.basis.z.normalized() * 0.025
+		var p := pe.global_translation + pe.global_transform.basis.z.normalized() * 0.025
 		var alto := max(0.0, p.y - chao - _torn_y)
 		var e := clamp(1.0 - alto / 0.25, 0.25, 1.0)
-		sp.global_position = Vector3(p.x, chao + 0.008, p.z)
+		sp.global_translation = Vector3(p.x, chao + 0.008, p.z)
 		sp.global_rotation = Vector3(0, global_rotation.y, 0)
 		sp.scale = Vector3(e, 1, e)
 
@@ -814,10 +840,50 @@ func pedir_roupa(r: String) -> void:
 	if c in _descartar:
 		_descartar.erase(c)
 	elif ResourceLoader.exists(c):
-		ResourceLoader.load_threaded_request(c)  #G3?
+		Tarefas.rodar(self, "_carregar_roupa", [c])
 	else:
 		return
 	_pedidos.append(c)
+
+
+## (Na linha de trabalho.) Carrega a roupinha e deixa a cena pronta para
+## trocar_roupa (ou para ser solta, se o pedido não for mais usado).
+func _carregar_roupa(c: String) -> void:
+	var cena = load(c)
+	_trava.lock()
+	_carregadas[c] = cena
+	cena = null   # quem solta a cena é sempre a linha principal
+	_trava.unlock()
+
+
+## A roupinha `c` já terminou de carregar em segundo plano?
+func _carregou(c: String) -> bool:
+	_trava.lock()
+	var pronta := _carregadas.has(c)
+	_trava.unlock()
+	return pronta
+
+
+## Tira a cena carregada em segundo plano (se ainda não acabou, espera o
+## resto). Godot 3: a linha de trabalho manda as malhas para a placa pela
+## FILA do VisualServer, que só anda quando a linha principal a esvazia
+## (no desenho do quadro):
+##   * esperando parada aqui, cada linha ficaria esperando a outra — o
+##     force_sync esvazia a fila enquanto espera;
+##   * e a fila é esvaziada de novo quando a carga acaba, ANTES de a cena
+##     ser usada ou solta: soltar uma malha com pedidos ainda na fila faz o
+##     VisualServer mexer numa malha apagada (no jogo exportado, sem as
+##     conferências do modo de teste, isso derruba o jogo).
+func _tirar_carregada(c: String) -> PackedScene:
+	while not _carregou(c):
+		VisualServer.force_sync()
+		OS.delay_usec(1000)
+	VisualServer.force_sync()
+	_trava.lock()
+	var cena = _carregadas[c]
+	_carregadas.erase(c)
+	_trava.unlock()
+	return cena as PackedScene
 
 
 ## Veste a roupinha `r` ("" = a de sempre). Se ela não foi pedida antes,
@@ -829,7 +895,7 @@ func trocar_roupa(r: String) -> void:
 	var estampa := _estampa_padrao
 	var helice: Mesh = null
 	var helice_pos := Vector3.ZERO
-	var cena := _pegar_roupa(r) if r != "" else null
+	var cena: PackedScene = _pegar_roupa(r) if r != "" else null
 	if cena != null:
 		var inst := cena.instance()
 		malhas = {}
@@ -840,7 +906,7 @@ func trocar_roupa(r: String) -> void:
 		var h := inst.find_node("helice", true, false) as Spatial
 		if h:
 			helice = (h.get_node("malha") as MeshInstance).mesh
-			helice_pos = h.position
+			helice_pos = h.translation
 		estampa = _parametros_estampa(inst.get_meta("estampa", {}))
 		inst.free()
 	else:
@@ -861,7 +927,7 @@ func trocar_roupa(r: String) -> void:
 		(juntas["cabeca"] as Spatial).add_child(_helice)
 	if _helice:
 		_helice.mesh = helice
-		_helice.position = helice_pos
+		_helice.translation = helice_pos
 		_helice.visible = helice != null
 
 
@@ -871,7 +937,7 @@ func _pegar_roupa(r: String) -> PackedScene:
 		_pedidos.erase(c)
 		_descartar.erase(c)
 		# já carregou em segundo plano (se ainda não acabou, espera o resto)
-		return ResourceLoader.load_threaded_get(c) as PackedScene  #G3?
+		return _tirar_carregada(c)
 	if not ResourceLoader.exists(c):
 		return null
 	return load(c) as PackedScene
@@ -888,8 +954,8 @@ func soltar_pedidos() -> void:
 
 func _soltar_carregadas() -> void:
 	for c in _descartar.duplicate():
-		if ResourceLoader.load_threaded_get_status(c) != ResourceLoader.THREAD_LOAD_IN_PROGRESS:  #G3?
-			ResourceLoader.load_threaded_get(c)  #G3?
+		if _carregou(c):
+			_tirar_carregada(c)
 			_descartar.erase(c)
 
 
@@ -899,7 +965,7 @@ func segurar_bola(sim: bool) -> void:
 
 ## Coloca o personagem num lugar, olhando para `direcao_y` (graus).
 func posicionar(pos: Vector3, direcao_y: float) -> void:
-	position = pos
+	translation = pos
 	chao = pos.y
 	rotation = Vector3(0, deg2rad(direcao_y), 0)
 	base = transform
@@ -918,4 +984,4 @@ func destaque(valor: float) -> void:
 
 ## Onde a mão direita fica no meio do arremesso (para a câmera mirar).
 func posicao_mao() -> Vector3:
-	return bola_mao.global_position
+	return bola_mao.global_translation

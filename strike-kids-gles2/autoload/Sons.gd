@@ -44,22 +44,83 @@ func _ready() -> void:
 
 ## Todos os sons começam a carregar já na abertura, em segundo plano: o
 ## primeiro "STRIKE!" não espera o disco (nada de engasgo).
-var _pendentes := {}
+## Godot 3: sem load_threaded_request — uma linha de trabalho carrega a
+## fila, um som por vez, e guarda cada um (com a trava) até ele ser pedido.
+var _pendentes := {}           # nome -> caminho (ainda não pedido)
+var _fila := []                # [nome, caminho] que a linha ainda vai carregar
+var _prontos := {}             # nome -> AudioStream que a linha já carregou
+var _carregando := ""          # o que a linha está carregando agora
+var _trava := Mutex.new()
 
 
 func _pre_carregar() -> void:
-	for f in ResourceLoader.list_directory(PASTA):
-		if f.get_extension() in ["wav", "ogg"]:
-			var caminho: String = PASTA + f
-			_pendentes[f.get_basename()] = caminho
-			ResourceLoader.load_threaded_request(caminho)  #G3?
+	for f in _arquivos_de_som():
+		var caminho: String = PASTA + f
+		_pendentes[f.get_basename()] = caminho
+		_fila.append([f.get_basename(), caminho])
+	if not _fila.empty():
+		Tarefas.rodar(self, "_carregar_fila")
+
+
+## Os sons da pasta (fora do editor só ficam os .import: o nome vem deles).
+func _arquivos_de_som() -> Array:
+	var r := []
+	for f in Compat.arquivos_em(PASTA):
+		var nome: String = f.trim_suffix(".import")
+		if nome.get_extension() in ["wav", "ogg"] and not nome in r:
+			r.append(nome)
+	return r
+
+
+## (linha de trabalho) Carrega a fila, um som por vez.
+func _carregar_fila() -> void:
+	while true:
+		_trava.lock()
+		if _fila.empty():
+			_trava.unlock()
+			return
+		var item: Array = _fila.pop_front()
+		_carregando = item[0]
+		_trava.unlock()
+		var a = ResourceLoader.load(item[1])
+		_trava.lock()
+		_prontos[item[0]] = a
+		_carregando = ""
+		_trava.unlock()
+
+
+## O som que a linha carregou. Se ela ainda não chegou nele, ele sai da fila
+## (volta null e é carregado agora); se está carregando bem agora, espera —
+## como o load_threaded_get do Godot 4.
+func _pegar_pronto(nome: String) -> AudioStream:
+	_trava.lock()
+	for i in _fila.size():
+		if _fila[i][0] == nome:
+			_fila.remove(i)
+			break
+	while _carregando == nome:
+		_trava.unlock()
+		OS.delay_msec(1)
+		_trava.lock()
+	var a = _prontos.get(nome)
+	_prontos.erase(nome)
+	_trava.unlock()
+	return a as AudioStream
+
+
+func _exit_tree() -> void:
+	# fechando: a linha para depois do som que estiver carregando
+	_trava.lock()
+	_fila.clear()
+	_trava.unlock()
+	Tarefas.esperar_todas()
 
 
 func _carregar(nome: String) -> AudioStream:
 	if _cache.has(nome):
 		return _cache[nome]
 	if _pendentes.has(nome):
-		var a := ResourceLoader.load_threaded_get(_pendentes[nome]) as AudioStream  #G3?
+		var a := _pegar_pronto(nome)
 		_pendentes.erase(nome)
 		if a != null:
 			_cache[nome] = a
@@ -117,7 +178,7 @@ func _livre() -> AudioStreamPlayer:
 		if not p.playing:
 			return p
 	# todos ocupados: reaproveita o que está tocando há mais tempo
-	var mais_velho := _pool[0]
+	var mais_velho: AudioStreamPlayer = _pool[0]
 	for p in _pool:
 		if p.get_playback_position() > mais_velho.get_playback_position():
 			mais_velho = p
@@ -137,14 +198,14 @@ func musica(nome: String, troca := 0.8) -> void:
 		_tween_musica.kill()
 	_tween_musica = create_tween().set_parallel(true)
 	_tween_musica.tween_interval(0.01)
-	var sai := _musica_a if _musica_a.playing else null
-	var entra := _musica_b if sai == _musica_a else _musica_a
+	var sai: AudioStreamPlayer = _musica_a if _musica_a.playing else null
+	var entra: AudioStreamPlayer = _musica_b if sai == _musica_a else _musica_a
 	if sai == null and _musica_b.playing:
 		sai = _musica_b
 		entra = _musica_a
 	if sai != null:
 		_tween_musica.tween_property(sai, "volume_db", -60.0, troca)
-		_tween_musica.chain().tween_callback(sai.stop)  #G3?
+		_tween_musica.chain().tween_callback(sai, "stop")
 	if s != null:
 		if s is AudioStreamOGGVorbis:
 			(s as AudioStreamOGGVorbis).loop = true

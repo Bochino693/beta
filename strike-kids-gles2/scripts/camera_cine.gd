@@ -215,8 +215,8 @@ func _aplicar(delta: float) -> void:
 		_alvo_dest = g + _desl_alvo
 	if delta > 0.0 and _trilho.empty():
 		var k := 1.0 - exp(-_rapidez * delta)
-		_pos = _pos.lerp(_pos_dest, k)  #G3?
-		_alvo = _alvo.lerp(_alvo_dest, k)  #G3?
+		_pos = _pos.linear_interpolate(_pos_dest, k)
+		_alvo = _alvo.linear_interpolate(_alvo_dest, k)
 	var kf := 1.0 - exp(-3.0 * delta) if delta > 0.0 else 1.0
 	_fov_v = lerp(_fov_v, _fov_v_dest, kf)
 	_fov_h = lerp(_fov_h, _fov_h_dest, kf)

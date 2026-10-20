@@ -187,7 +187,7 @@ func _obj(tema: String, nome: String, pos: Vector3, rot_y := 0.0, esc := 1.0, co
 	if ResourceLoader.exists(caminho):
 		mi.mesh = load(caminho)
 	mi.material_override = _mat(contorno, tinta)
-	mi.position = pos
+	mi.translation = pos
 	mi.rotation.y = rot_y
 	mi.scale = Vector3.ONE * esc
 	# sombra só dos que ficam colados na pista (os de longe não precisam)
@@ -216,8 +216,8 @@ func _espalhar(tema: String, tipos: Array, qtd: int, semente: int, escala := {},
 	while colocados < qtd and tentativas < 2000:
 		tentativas += 1
 		var s := -1.0 if rnd.randf() < 0.5 else 1.0
-		var x := s * rnd.rand_range(3.6, 15.0)
-		var z := rnd.rand_range(-34.0, 7.0)
+		var x := s * rnd.randf_range(3.6, 15.0)
+		var z := rnd.randf_range(-34.0, 7.0)
 		if z > -2.0 and abs(x) < 5.0:
 			continue
 		var p := Vector2(x, z)
@@ -230,7 +230,7 @@ func _espalhar(tema: String, tipos: Array, qtd: int, semente: int, escala := {},
 			continue
 		usados.append(p)
 		var tipo: String = tipos[rnd.randi() % tipos.size()]
-		var esc := rnd.rand_range(0.9, 1.35) * float(escala.get(tipo, 1.0))
+		var esc := rnd.randf_range(0.9, 1.35) * float(escala.get(tipo, 1.0))
 		_obj(tema, tipo, Vector3(x, _chao(x, z) - 0.05, z), rnd.randf() * TAU, esc)
 		colocados += 1
 
@@ -272,7 +272,7 @@ func _particulas(tema: String, pos: Vector3, textura: String, qtd: int, vida: fl
 	q.size = Vector2(tam, tam)
 	q.material = Materiais.particula(textura, somar)
 	p.mesh = q
-	p.position = pos
+	p.translation = pos
 	p.emitting = false
 	(grupos[tema] as Spatial).add_child(p)
 	_animar(tema, {"tipo": "nada", "particulas": p})
@@ -287,7 +287,7 @@ func _parque() -> void:
 	var R := 3.0 * 0.95 - 0.42 * 0.95 - 0.08
 	var pontos: Array = []
 	for i in 40:
-		var a := PI * (i + 0.5) / 40.0
+		var a: float = PI * (i + 0.5) / 40.0
 		pontos.append(Vector3(cos(a) * R, sin(a) * R - 0.05, Medidas.Z_FUNDO - 0.5 + 0.38))
 	grupos[T].add_child(mundo.lampadas_em(pontos, 100))
 	_torres(T, "torre")
@@ -298,12 +298,12 @@ func _parque() -> void:
 		["bengala", 0.9], ["bengala", 0.9], ["cogumelo", 0.9], ["donut", 0.85]])
 	# roda-gigante (gira) com as cabines sempre de pé
 	var rg := Spatial.new()
-	rg.position = Vector3(-6.8, _chao(-6.8, -27.0) - 0.05, -27.0)
+	rg.translation = Vector3(-6.8, _chao(-6.8, -27.0) - 0.05, -27.0)
 	rg.rotation.y = 0.35
 	grupos[T].add_child(rg)
 	_obj(T, "roda_base", Vector3.ZERO, 0.0, 1.0, 0.0, Color.white, rg)
 	var eixo := Spatial.new()
-	eixo.position = Vector3(0, 4.6, 0)
+	eixo.translation = Vector3(0, 4.6, 0)
 	rg.add_child(eixo)
 	var roda := _obj(T, "roda", Vector3.ZERO, 0.0, 1.0, 0.0, Color.white, eixo)
 	var cabines := []
@@ -330,10 +330,10 @@ func _nuvens(tema: String, qtd: int, semente: int) -> void:
 		n.material_override = mat
 		n.cast_shadow = GeometryInstance.SHADOW_CASTING_SETTING_OFF
 		var lado := -1.0 if i % 2 == 0 else 1.0
-		n.position = Vector3(lado * rnd.rand_range(4.0, 22.0), rnd.rand_range(6.0, 15.0), rnd.rand_range(-60.0, -8.0))
-		n.scale = Vector3.ONE * rnd.rand_range(1.2, 2.6)
+		n.translation = Vector3(lado * rnd.randf_range(4.0, 22.0), rnd.randf_range(6.0, 15.0), rnd.randf_range(-60.0, -8.0))
+		n.scale = Vector3.ONE * rnd.randf_range(1.2, 2.6)
 		n.rotation.y = rnd.randf() * TAU
-		_animar(tema, {"tipo": "nuvem", "no": n, "vel": rnd.rand_range(0.15, 0.4)})
+		_animar(tema, {"tipo": "nuvem", "no": n, "vel": rnd.randf_range(0.15, 0.4)})
 
 
 func _baloes(tema: String) -> void:
@@ -355,17 +355,17 @@ func _baloes(tema: String) -> void:
 		cm.height = 0.9
 		cm.radial_segments = 4
 		fio.mesh = cm
-		fio.position.y = -0.45
+		fio.translation.y = -0.45
 		fio.material_override = linha_mat
 		b.add_child(fio)
 		var lado := -1.0 if i % 2 == 0 else 1.0
-		var base := Vector3(lado * rnd.rand_range(1.8, 5.5), rnd.rand_range(2.2, 4.8), rnd.rand_range(-19.0, -4.0))
+		var base := Vector3(lado * rnd.randf_range(1.8, 5.5), rnd.randf_range(2.2, 4.8), rnd.randf_range(-19.0, -4.0))
 		if i < 4:
-			base = Vector3(lado * rnd.rand_range(2.0, 2.8), rnd.rand_range(2.6, 3.4), Medidas.Z_FUNDO + rnd.rand_range(0.0, 1.5))
-		b.position = base
-		b.scale = Vector3.ONE * rnd.rand_range(0.8, 1.15)
+			base = Vector3(lado * rnd.randf_range(2.0, 2.8), rnd.randf_range(2.6, 3.4), Medidas.Z_FUNDO + rnd.randf_range(0.0, 1.5))
+		b.translation = base
+		b.scale = Vector3.ONE * rnd.randf_range(0.8, 1.15)
 		grupos[tema].add_child(b)
-		_animar(tema, {"tipo": "boiar", "no": b, "base": base, "fase": rnd.randf() * TAU, "vel": rnd.rand_range(0.6, 1.1),
+		_animar(tema, {"tipo": "boiar", "no": b, "base": base, "fase": rnd.randf() * TAU, "vel": rnd.randf_range(0.6, 1.1),
 			"amp": Vector3(0.12, 0.18, 0.0), "balanco": 0.12})
 
 
@@ -398,18 +398,18 @@ func _espaco() -> void:
 	# planetinhas coloridos no céu
 	for i in _q(8):
 		var lado := -1.0 if i % 2 == 0 else 1.0
-		var pos := Vector3(lado * rnd.rand_range(6.0, 22.0), rnd.rand_range(5.0, 15.0), rnd.rand_range(-58.0, -14.0))
-		var pl := _obj(T, "planeta", pos, rnd.randf() * TAU, rnd.rand_range(1.6, 4.2), 0.0, CORES_BICHOS[i % CORES_BICHOS.size()])
+		var pos := Vector3(lado * rnd.randf_range(6.0, 22.0), rnd.randf_range(5.0, 15.0), rnd.randf_range(-58.0, -14.0))
+		var pl := _obj(T, "planeta", pos, rnd.randf() * TAU, rnd.randf_range(1.6, 4.2), 0.0, CORES_BICHOS[i % CORES_BICHOS.size()])
 		pl.cast_shadow = GeometryInstance.SHADOW_CASTING_SETTING_OFF
-		_animar(T, {"tipo": "girar", "no": pl, "vel": rnd.rand_range(0.05, 0.2)})
+		_animar(T, {"tipo": "girar", "no": pl, "vel": rnd.randf_range(0.05, 0.2)})
 	# estrelas fofas flutuando ao lado da pista
 	for i in _q(6):
 		var lado := -1.0 if i % 2 == 0 else 1.0
-		var base := Vector3(lado * rnd.rand_range(2.1, 3.4), rnd.rand_range(2.2, 3.8), rnd.rand_range(-17.0, -3.0))
-		var e := _obj(T, "estrela_3d", base, 0.0, rnd.rand_range(0.6, 0.9), 0.003)
+		var base := Vector3(lado * rnd.randf_range(2.1, 3.4), rnd.randf_range(2.2, 3.8), rnd.randf_range(-17.0, -3.0))
+		var e := _obj(T, "estrela_3d", base, 0.0, rnd.randf_range(0.6, 0.9), 0.003)
 		# balança de um lado para o outro (girando inteira ela ficava de
 		# perfil, um palitinho amarelo)
-		_animar(T, {"tipo": "boiar", "no": e, "base": base, "fase": rnd.randf() * TAU, "vel": rnd.rand_range(0.7, 1.1),
+		_animar(T, {"tipo": "boiar", "no": e, "base": base, "fase": rnd.randf() * TAU, "vel": rnd.randf_range(0.7, 1.1),
 			"amp": Vector3(0.0, 0.2, 0.0), "olhar": -lado * 0.35, "vira": 0.45})
 	_espalhar(T, ["cristal", "pedra_lua", "cristal", "pedra_lua", "pedra_lua", "foguete"], _q(38), 77,
 		{"cristal": 1.3, "pedra_lua": 1.6, "foguete": 0.8}, foguetes)
@@ -422,8 +422,7 @@ func _espaco() -> void:
 	cad.direction = Vector3(1, -0.35, 0)
 	cad.spread = 5.0
 	cad.gravity = Vector3.ZERO
-	cad.initial_velocity_min = 14.0
-	cad.initial_velocity_max = 18.0
+	Efeitos.faixa(cad, "initial_velocity", 14.0, 18.0)
 	cad.color = Color(1.0, 0.95, 0.8)
 
 
@@ -453,20 +452,20 @@ func _mar() -> void:
 			_animar(T, {"tipo": "alga", "no": g, "fase": rnd.randf() * TAU, "base": (g as Spatial).rotation})
 	# cardumes de peixinhos
 	for c in (3 if leve else 5):
-		var centro := Vector3((-1.0 if c % 2 == 0 else 1.0) * rnd.rand_range(3.0, 7.0), rnd.rand_range(2.6, 5.5), rnd.rand_range(-20.0, -4.0))
+		var centro := Vector3((-1.0 if c % 2 == 0 else 1.0) * rnd.randf_range(3.0, 7.0), rnd.randf_range(2.6, 5.5), rnd.randf_range(-20.0, -4.0))
 		var cor: Color = CORES_BICHOS[c % CORES_BICHOS.size()]
-		var vel := rnd.rand_range(0.25, 0.45) * (1.0 if c % 2 == 0 else -1.0)
+		var vel := rnd.randf_range(0.25, 0.45) * (1.0 if c % 2 == 0 else -1.0)
 		for k in (3 if leve else 5):
-			var p := _obj(T, "peixe", centro, 0.0, rnd.rand_range(0.7, 1.0), 0.003, cor)
-			_animar(T, {"tipo": "peixe", "no": p, "centro": centro + Vector3(rnd.rand_range(-0.4, 0.4), rnd.rand_range(-0.3, 0.3), 0),
-				"raio": Vector2(rnd.rand_range(2.2, 3.0), rnd.rand_range(1.4, 2.0)), "vel": vel, "fase": k * 0.22, "nado": rnd.randf() * TAU})
+			var p := _obj(T, "peixe", centro, 0.0, rnd.randf_range(0.7, 1.0), 0.003, cor)
+			_animar(T, {"tipo": "peixe", "no": p, "centro": centro + Vector3(rnd.randf_range(-0.4, 0.4), rnd.randf_range(-0.3, 0.3), 0),
+				"raio": Vector2(rnd.randf_range(2.2, 3.0), rnd.randf_range(1.4, 2.0)), "vel": vel, "fase": k * 0.22, "nado": rnd.randf() * TAU})
 	# águas-vivas subindo e descendo
 	for i in _q(7):
 		var lado := -1.0 if i % 2 == 0 else 1.0
-		var base := Vector3(lado * rnd.rand_range(2.2, 5.0), rnd.rand_range(2.4, 5.2), rnd.rand_range(-19.0, -2.0))
+		var base := Vector3(lado * rnd.randf_range(2.2, 5.0), rnd.randf_range(2.4, 5.2), rnd.randf_range(-19.0, -2.0))
 		var cor: Color = [Color("#FFB36B"), Color("#9FF0C8"), Color("#8FE9FF")][i % 3]
-		var av := _obj(T, "agua_viva", base, 0.0, rnd.rand_range(0.7, 1.0), 0.003, cor)
-		_animar(T, {"tipo": "agua_viva", "no": av, "base": base, "fase": rnd.randf() * TAU, "vel": rnd.rand_range(0.8, 1.2)})
+		var av := _obj(T, "agua_viva", base, 0.0, rnd.randf_range(0.7, 1.0), 0.003, cor)
+		_animar(T, {"tipo": "agua_viva", "no": av, "base": base, "fase": rnd.randf() * TAU, "vel": rnd.randf_range(0.8, 1.2)})
 	# tartarugas atravessando o mar lá no alto
 	for i in _q(2):
 		var tt := _obj(T, "tartaruga", Vector3(0, 7.5 + i * 2.0, -24.0 - i * 10.0), PI / 2 * (1 if i == 0 else -1), 1.8 + i * 0.4)
@@ -474,15 +473,13 @@ func _mar() -> void:
 	# bolhas subindo
 	for i in (3 if leve else 8):
 		var lado := -1.0 if i % 2 == 0 else 1.0
-		var pos := Vector3(lado * rnd.rand_range(1.8, 6.0), 0.1, rnd.rand_range(-18.0, 1.0))
+		var pos := Vector3(lado * rnd.randf_range(1.8, 6.0), 0.1, rnd.randf_range(-18.0, 1.0))
 		var b := _particulas(T, pos, "bolha", 10, 4.0, 0.16)
 		b.direction = Vector3.UP
 		b.spread = 12.0
 		b.gravity = Vector3(0, 0.25, 0)
-		b.initial_velocity_min = 0.5
-		b.initial_velocity_max = 0.9
-		b.scale_amount_min = 0.4
-		b.scale_amount_max = 1.4
+		Efeitos.faixa(b, "initial_velocity", 0.5, 0.9)
+		Efeitos.faixa_escala(b, 0.4, 1.4)
 		b.emission_shape = CPUParticles.EMISSION_SHAPE_SPHERE
 		b.emission_sphere_radius = 0.25
 		b.color = Color(0.85, 1.0, 1.0, 0.85)
@@ -500,10 +497,8 @@ func _dinos() -> void:
 	fum.direction = Vector3(0.25, 1, 0)
 	fum.spread = 18.0
 	fum.gravity = Vector3(0.15, 0.15, 0)
-	fum.initial_velocity_min = 0.8
-	fum.initial_velocity_max = 1.3
-	fum.scale_amount_min = 0.8
-	fum.scale_amount_max = 1.6
+	Efeitos.faixa(fum, "initial_velocity", 0.8, 1.3)
+	Efeitos.faixa_escala(fum, 0.8, 1.6)
 	var cf := Curve.new()
 	cf.add_point(Vector2(0, 0.4))
 	cf.add_point(Vector2(1, 1.6))
@@ -521,9 +516,9 @@ func _dinos() -> void:
 	_animar(T, {"tipo": "respirar", "no": dino2, "fase": 1.7, "giro": dino2.rotation.y})
 	# pterossauros voando em círculos
 	for i in _q(3):
-		var p := _obj(T, "ptero", Vector3.ZERO, 0.0, rnd.rand_range(0.9, 1.3), 0.003)
-		_animar(T, {"tipo": "voo", "no": p, "centro": Vector3(rnd.rand_range(-3.0, 3.0), rnd.rand_range(6.0, 8.5), rnd.rand_range(-22.0, -9.0)),
-			"raio": rnd.rand_range(4.0, 7.0), "vel": rnd.rand_range(0.25, 0.4) * (1.0 if i % 2 == 0 else -1.0), "fase": rnd.randf() * TAU})
+		var p := _obj(T, "ptero", Vector3.ZERO, 0.0, rnd.randf_range(0.9, 1.3), 0.003)
+		_animar(T, {"tipo": "voo", "no": p, "centro": Vector3(rnd.randf_range(-3.0, 3.0), rnd.randf_range(6.0, 8.5), rnd.randf_range(-22.0, -9.0)),
+			"raio": rnd.randf_range(4.0, 7.0), "vel": rnd.randf_range(0.25, 0.4) * (1.0 if i % 2 == 0 else -1.0), "fase": rnd.randf() * TAU})
 	_espalhar(T, ["palmeira", "samambaia", "pedra", "flor_gigante", "samambaia", "palmeira", "ovo_dino", "pedra"], _q(44), 2027,
 		{"palmeira": 1.0, "samambaia": 1.4, "pedra": 1.3, "flor_gigante": 1.3, "ovo_dino": 1.2})
 	_destaques(T, [["samambaia", 1.0, 0.004], ["flor_gigante", 1.0, 0.004], ["ovo_dino", 1.0, 0.004], ["flor_gigante", 0.9, 0.004],
@@ -542,15 +537,15 @@ func _process(delta: float) -> void:
 				(item["no"] as Spatial).rotate_y(float(item["vel"]) * delta)
 			"nuvem":
 				var no: Spatial = item["no"]
-				no.position.x += float(item["vel"]) * delta
-				if no.position.x > 30.0:
-					no.position.x = -30.0
+				no.translation.x += float(item["vel"]) * delta
+				if no.translation.x > 30.0:
+					no.translation.x = -30.0
 			"boiar":
 				var no: Spatial = item["no"]
 				var f: float = item["fase"]
 				var v: float = item["vel"]
 				var amp: Vector3 = item["amp"]
-				no.position = (item["base"] as Vector3) + Vector3(sin(_t * 0.5 * v + f) * amp.x, sin(_t * 0.9 * v + f * 2.0) * amp.y, 0)
+				no.translation = (item["base"] as Vector3) + Vector3(sin(_t * 0.5 * v + f) * amp.x, sin(_t * 0.9 * v + f * 2.0) * amp.y, 0)
 				if item.has("balanco"):
 					no.rotation.z = sin(_t * 0.7 * v + f) * float(item["balanco"])
 				if item.has("girar"):
@@ -566,22 +561,22 @@ func _process(delta: float) -> void:
 				var no: Spatial = item["no"]
 				var a: float = _t * float(item["vel"])
 				var r: Vector3 = item["raio"]
-				no.position = (item["centro"] as Vector3) + Vector3(sin(a) * r.x, sin(2.0 * a) * r.y, cos(a) * r.z)
+				no.translation = (item["centro"] as Vector3) + Vector3(sin(a) * r.x, sin(2.0 * a) * r.y, cos(a) * r.z)
 				item["ang"] = fposmod(float(item["ang"]) + float(item["girar"]) * delta, TAU)
-				no.basis = Basis(Vector3(0, 0, 1), -cos(a) * 0.2) * Basis(Vector3.UP, float(item["ang"]))
+				no.transform.basis = Basis(Vector3(0, 0, 1), -cos(a) * 0.2) * Basis(Vector3.UP, float(item["ang"]))
 			"roda":
 				var roda: Spatial = item["roda"]
 				roda.rotation.z += float(item["vel"]) * delta
 				var cab: Array = item["cabines"]
 				for i in cab.size():
 					var a: float = roda.rotation.z + TAU * i / cab.size()
-					(cab[i] as Spatial).position = Vector3(cos(a), sin(a), 0) * float(item["raio"])
+					(cab[i] as Spatial).translation = Vector3(cos(a), sin(a), 0) * float(item["raio"])
 					(cab[i] as Spatial).rotation.z = sin(_t * 1.3 + i) * 0.06
 			"orbita":
 				var no: Spatial = item["no"]
 				var a: float = _t * float(item["vel"]) + float(item["fase"])
 				var r: Vector2 = item["raio"]
-				no.position = (item["centro"] as Vector3) + Vector3(cos(a) * r.x, sin(_t * 1.1) * float(item["sobe"]), sin(a) * r.y)
+				no.translation = (item["centro"] as Vector3) + Vector3(cos(a) * r.x, sin(_t * 1.1) * float(item["sobe"]), sin(a) * r.y)
 				no.rotation.y += float(item["girar"]) * delta
 				no.rotation.z = sin(_t * 0.9) * 0.08
 			"alga":
@@ -595,7 +590,7 @@ func _process(delta: float) -> void:
 				var a: float = _t * v - float(item["fase"]) * sign(v)
 				var r: Vector2 = item["raio"]
 				var c: Vector3 = item["centro"]
-				no.position = c + Vector3(cos(a) * r.x, sin(_t * 1.7 + float(item["nado"])) * 0.12, sin(a) * r.y)
+				no.translation = c + Vector3(cos(a) * r.x, sin(_t * 1.7 + float(item["nado"])) * 0.12, sin(a) * r.y)
 				# olha para onde está nadando (+Z do modelo) e rebola o rabinho
 				var dir := Vector3(-sin(a) * r.x, 0, cos(a) * r.y) * sign(v)
 				no.rotation.y = atan2(dir.x, dir.z) + sin(_t * 9.0 + float(item["nado"])) * 0.12
@@ -604,17 +599,17 @@ func _process(delta: float) -> void:
 				var f: float = item["fase"]
 				var v: float = item["vel"]
 				var pulso := sin(_t * 2.2 * v + f)
-				no.position = (item["base"] as Vector3) + Vector3(0, sin(_t * 0.6 * v + f) * 0.5, 0)
+				no.translation = (item["base"] as Vector3) + Vector3(0, sin(_t * 0.6 * v + f) * 0.5, 0)
 				no.scale = Vector3(1.0 + pulso * 0.06, 1.0 - pulso * 0.08, 1.0 + pulso * 0.06) * _escala_base(item)
 			"atravessar":
 				var no: Spatial = item["no"]
-				no.position.x += float(item["vel"]) * delta
+				no.translation.x += float(item["vel"]) * delta
 				var lim: float = item["limite"]
-				if no.position.x > lim:
-					no.position.x = -lim
-				elif no.position.x < -lim:
-					no.position.x = lim
-				no.position.y += sin(_t * 0.8) * 0.003
+				if no.translation.x > lim:
+					no.translation.x = -lim
+				elif no.translation.x < -lim:
+					no.translation.x = lim
+				no.translation.y += sin(_t * 0.8) * 0.003
 			"respirar":
 				var no: Spatial = item["no"]
 				var f: float = item["fase"]
@@ -625,7 +620,7 @@ func _process(delta: float) -> void:
 				var v: float = item["vel"]
 				var a: float = _t * v + float(item["fase"])
 				var r: float = item["raio"]
-				no.position = (item["centro"] as Vector3) + Vector3(cos(a) * r, sin(_t * 1.4 + float(item["fase"])) * 0.4, sin(a) * r)
+				no.translation = (item["centro"] as Vector3) + Vector3(cos(a) * r, sin(_t * 1.4 + float(item["fase"])) * 0.4, sin(a) * r)
 				var dir := Vector3(-sin(a), 0, cos(a)) * sign(v)
 				no.rotation = Vector3(0, atan2(dir.x, dir.z), -sign(v) * 0.35 + sin(_t * 3.0) * 0.05)
 
