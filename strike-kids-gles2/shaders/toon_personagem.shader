@@ -57,15 +57,16 @@ varying vec3 pos_local;
 // do material convertidas para luz linear e o shader convertia de novo
 // (duas vezes: cores mais fechadas e vivas); e a imagem
 // final passava pelo "filmic" (branco 1,6) antes de virar sRGB. As mesmas
-// contas aqui (por vértice; no fragmento, a curva aproximada, erro < 3%).
+// contas aqui, em versões sem potência (baratas na Mali-400/450).
 vec3 s2l(vec3 c) {
-	return mix(c / 12.92, pow((c + 0.055) / 1.055, vec3(2.4)), step(vec3(0.04045), c));
+	// sRGB -> linear sem potência (polinômio, erro ~1%): barato no vértice
+	return c * (c * (c * 0.305306011 + 0.682171111) + 0.012522878);
 }
 
 vec3 tela(vec3 x) {
+	// "filmic" (branco 1,6) + sRGB numa conta só, sem potência (erro < 3%)
 	x = max(x, vec3(0.0));
-	vec3 f = clamp(((x * (0.88 * x + 0.06) + 0.002) / (x * (0.88 * x + 0.6) + 0.06) - 0.033333) / 0.68495, 0.0, 1.0);
-	return mix(f * 12.92, 1.055 * pow(f, vec3(0.416667)) - 0.055, step(vec3(0.0031308), f));
+	return min(sqrt(x) * (1.29 - 0.1 * x) / (1.0 + 0.25 * x), vec3(1.0));
 }
 
 vec3 tela_rapida(vec3 x) {
@@ -116,7 +117,8 @@ void vertex() {
 	vec3 pv = (MODELVIEW_MATRIX * vec4(VERTEX, 1.0)).xyz;
 	vec3 nv = normalize((MODELVIEW_MATRIX * vec4(NORMAL, 0.0)).xyz);
 	vec3 v = normalize(-pv);
-	float rim = pow(1.0 - clamp(dot(nv, v), 0.0, 1.0), 3.0);
+	float r1 = 1.0 - clamp(dot(nv, v), 0.0, 1.0);
+	float rim = r1 * r1 * r1;
 	vec3 soma = s2l(s2l(cor_borda.rgb)) * borda * rim * base + s2l(s2l(emissao.rgb)) + vec3(flash) * base;
 	float brilho = 1.0 - clamp(abs(COLOR.a - 0.5) * 5.0, 0.0, 1.0);
 	soma += base * brilho * brilho_luz;

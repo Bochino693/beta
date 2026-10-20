@@ -15,11 +15,13 @@ uniform float fase = 0.0;
 varying float dobra;
 
 
-// a mesma curva de tela do Godot 4 ("filmic", branco 1,6, + sRGB),
-// aproximada para a meia precisão da Mali-400 (erro < 3%)
-vec3 tela_rapida(vec3 x) {
-	x = max(x, vec3(0.0));
-	return min(sqrt(x) * (1.29 - 0.1 * x) / (1.0 + 0.25 * x), vec3(1.0));
+// a cor CRUA, como o shader do Godot 4 a entregava, até a tela: lá ela
+// ainda passava por sRGB -> linear, "filmic" (branco 1,6) e linear -> sRGB
+// (medido no Godot 4). Aqui numa conta só, sem potência nem divisão
+// (erro < 2%; satura em 1,25, como lá)
+vec3 tela_g4(vec3 x) {
+	x = clamp(x, 0.0, 1.25);
+	return x * (1.2094 - x * (0.015 + 0.25 * x));
 }
 
 float h(vec2 p) {
@@ -48,5 +50,5 @@ void fragment() {
 			+ max(0.0, 1.0 - abs(f.y) * 30.0) * max(0.0, 1.0 - abs(f.x) * 4.0);
 		c += vec3(1.0, 0.97, 0.9) * (est * 1.3 + cruz * 0.7) * pis * (1.0 - halo * 0.7);
 	}
-	ALBEDO = tela_rapida(c * c * dobra);
+	ALBEDO = tela_g4(c * dobra);
 }

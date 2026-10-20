@@ -40,9 +40,20 @@ O QUE MUDOU PARA RODAR NA OPENGL ES 2.0
   * CEU: uma esfera desenhada no infinito; as estrelas do Espaco vem de
     uma textura (tools/assar_estrelas.py) - na Mali-400 o sorteio por
     pixel piscaria.
-  * SEM CONTORNOS 3D, SEM BRILHO (glow) E SEM NEBLINA DO MOTOR (cada um
-    desenharia a cena de novo); a neblina do fundo e feita nos proprios
-    shaders do cenario, por vertice.
+  * CHAO DOS CENARIOS: as florzinhas do parque e da selva, as crateras e
+    a poeira da lua e as conchinhas do mar vem de texturas que se repetem
+    (texturas/chao_0..3.png, feitas por tools/assar_chao.py com as mesmas
+    contas do Godot 4).
+  * CORES IGUAIS AS DO GODOT 4, medidas pixel a pixel: no Godot 4
+    (renderizador de Compatibilidade) a cor que cada shader entrega ainda
+    passa por sRGB -> linear e pela curva "filmic" (branco 1,6) antes de
+    ir para a tela. Os shaders daqui fazem as mesmas contas e terminam
+    numa curva barata (tela_g4) que da o mesmo resultado (erro < 2%).
+  * CONTORNO 3D so nos bichinhos e nos pinos (na decoracao nao; desliga
+    sozinho na qualidade "baixa"). SEM BRILHO (glow) E SEM NEBLINA DO
+    MOTOR (cada um desenharia a cena de novo): a neblina do fundo e feita
+    nos proprios shaders do cenario, por vertice, como no cenario leve do
+    Godot 4 (e ela que deixa o mar verde-agua ao longe).
   * IMAGEM 3D EM 720 px esticada ate a tela, com ANTISSERRILHADO 4x (na
     Mali-400/450 o 4x e o modo da propria placa: quase de graca). Na
     abertura o jogo confere: se com o antisserrilhado a imagem 3D vier
@@ -123,6 +134,9 @@ Diferencas desta edicao:
     versao Godot 4 e traduzido sozinho.
   - No painel de desempenho nao aparece o tempo da placa de video (o
     Godot 3 nao mede) e os triangulos viram "mil vertices".
+  - Os frisos amarelos do fundo dos pinos (moldura da boca da cacapa, beira
+    das paredes e do letreiro) aparecem: no Godot 4 eles sumiam ao juntar
+    as pecas paradas num desenho so (scripts/lote.gd daqui conserta isso).
 
 
 PASTAS
@@ -140,7 +154,8 @@ PASTAS
   modelos/    mascotes, roupinhas, pinos e cenarios 3D (formato Godot 3)
   texturas/ ui/ fontes/ sons/
   tools/      ferramentas (NAO vao no APK):
-              assar_pista.py, assar_estrelas.py, ajustar_importacao.py,
+              assar_pista.py, assar_estrelas.py, assar_chao.py,
+              ajustar_importacao.py,
               exportar_godot4.gd / montar_modelos.gd (modelos do Godot 4),
               carregar_scripts.gd (confere se os scripts compilam),
               testar_shaders.gd, android/ (plugins e montagem do APK),

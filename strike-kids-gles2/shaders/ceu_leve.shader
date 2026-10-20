@@ -26,11 +26,13 @@ varying float nebulosa;
 varying float raio_luz;
 
 
-// a mesma curva de tela do Godot 4 ("filmic", branco 1,6, + sRGB),
-// aproximada para a meia precisão da Mali-400 (erro < 3%)
-vec3 tela_rapida(vec3 x) {
-	x = max(x, vec3(0.0));
-	return min(sqrt(x) * (1.29 - 0.1 * x) / (1.0 + 0.25 * x), vec3(1.0));
+// a cor CRUA, como o shader do Godot 4 a entregava, até a tela: lá ela
+// ainda passava por sRGB -> linear, "filmic" (branco 1,6) e linear -> sRGB
+// (medido no Godot 4, também no céu). Aqui numa conta só, sem potência nem
+// divisão (erro < 2%; satura em 1,25, como lá)
+vec3 tela_g4(vec3 x) {
+	x = clamp(x, 0.0, 1.25);
+	return x * (1.2094 - x * (0.015 + 0.25 * x));
 }
 
 void vertex() {
@@ -56,17 +58,17 @@ void vertex() {
 void fragment() {
 	vec3 d = normalize(dir);
 	float y = d.y;
-	// em luz linear, como no Godot 4 (as cores chegam em sRGB)
+	// as mesmas contas do Godot 4 (cores cruas; a curva de tela no fim)
 	vec3 c;
-	vec3 h = cor_horizonte.rgb * cor_horizonte.rgb;
+	vec3 h = cor_horizonte.rgb;
 	if (y > 0.0) {
-		c = mix(h, cor_meio.rgb * cor_meio.rgb, smoothstep(0.0, 0.18, y));
-		c = mix(c, cor_topo.rgb * cor_topo.rgb, smoothstep(0.18, 0.75, y));
+		c = mix(h, cor_meio.rgb, smoothstep(0.0, 0.18, y));
+		c = mix(c, cor_topo.rgb, smoothstep(0.18, 0.75, y));
 	} else {
-		c = mix(h, cor_chao.rgb * cor_chao.rgb, smoothstep(0.0, -0.08, y));
+		c = mix(h, cor_chao.rgb, smoothstep(0.0, -0.08, y));
 	}
 	if (estrelas > 0.0 && y > -0.02) {
-		c += cor_nebulosa.rgb * cor_nebulosa.rgb * nebulosa;
+		c += cor_nebulosa.rgb * nebulosa;
 		// o mapa de estrelas segue a UV da própria esfera (SphereMesh): a
 		// coordenada vai direto do vértice para a leitura (precisa)
 		c += vec3(0.9, 0.92, 0.95) * texture(mapa_estrelas, UV).r * 2.2 * estrelas;
@@ -78,6 +80,6 @@ void fragment() {
 	float s2 = sol * sol;
 	float s4 = s2 * s2;
 	float s8 = s4 * s4;
-	c += cor_sol.rgb * cor_sol.rgb * (s8 * s4 * 0.25) * forca_sol;
-	ALBEDO = tela_rapida(c);
+	c += cor_sol.rgb * (s8 * s4 * 0.25) * forca_sol;
+	ALBEDO = tela_g4(c);
 }

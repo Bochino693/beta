@@ -2,11 +2,12 @@ shader_type spatial;
 render_mode unshaded, blend_mix, depth_draw_opaque, cull_back;
 
 // CHÃO DOS CENÁRIOS — edição OpenGL ES 2.0: a luz, a neblina e o desenho
-// grande do chão (listras do gramado, crateras, ondinhas da areia, manchas
-// da selva) são feitos por vértice ou com uma conta só por pixel; as
-// florzinhas/conchinhas miúdas (sorteio por pixel) ficam de fora: na
-// Mali-400 a conta de pixel é em meia precisão e o sorteio piscaria.
-// Mesmos nomes de parâmetros do Godot 4 (terreno_leve.gdshader).
+// grande do chão (listras do gramado, ondinhas da areia, manchas da selva)
+// são feitos por vértice ou com uma conta só por pixel. Os detalhes miúdos
+// (florzinhas, crateras e poeira da lua, conchinhas) vêm de uma textura que
+// se repete (`detalhe`, feita por tools/assar_chao.py com as mesmas contas
+// do Godot 4): na Mali-400 a conta de pixel é em meia precisão e o sorteio
+// por pixel piscaria. Mesmos nomes de parâmetros do Godot 4.
 
 uniform int modo = 0;
 uniform vec3 lin_a = vec3(0.14, 0.6, 0.11);   // cores do chão
@@ -21,23 +22,30 @@ uniform vec3 sol_cor = vec3(1.0);
 uniform vec3 ambiente = vec3(0.4);
 uniform vec3 neblina_cor = vec3(0.7, 0.8, 0.95);
 uniform float neblina_densidade = 0.0;
+// R = cor B do chão (fundo da cratera), G = detalhe 1, B = detalhe 2
+uniform sampler2D detalhe : hint_black;
+uniform float detalhe_tile = 25.0;   // metros de um ladrilho da textura
 
 varying vec2 p;
+varying vec2 uv_det;
 varying vec3 luz;
 varying float neblina;
 varying float mancha;
 
 
-// a mesma curva de tela do Godot 4 ("filmic", branco 1,6, + sRGB),
-// aproximada para a meia precisão da Mali-400 (erro < 3%)
-vec3 tela_rapida(vec3 x) {
-	x = max(x, vec3(0.0));
-	return min(sqrt(x) * (1.29 - 0.1 * x) / (1.0 + 0.25 * x), vec3(1.0));
+// a cor CRUA, como o shader do Godot 4 a entregava, até a tela: lá ela
+// ainda passava por sRGB -> linear, "filmic" (branco 1,6) e linear -> sRGB
+// (medido no Godot 4). Aqui numa conta só, sem potência nem divisão
+// (erro < 2%; satura em 1,25, como lá)
+vec3 tela_g4(vec3 x) {
+	x = clamp(x, 0.0, 1.25);
+	return x * (1.2094 - x * (0.015 + 0.25 * x));
 }
 
 void vertex() {
 	vec3 pw = (WORLD_MATRIX * vec4(VERTEX, 1.0)).xyz;
 	p = pw.xz;
+	uv_det = p / detalhe_tile;
 	vec3 n = normalize((WORLD_MATRIX * vec4(NORMAL, 0.0)).xyz);
 	float t = smoothstep(-faixa, faixa, dot(n, sol_dir) - 0.02);
 	float alt = clamp(pw.y / 4.0, 0.0, 1.0);
@@ -60,18 +68,17 @@ void fragment() {
 		float s = fract((p.y + p.x * 0.15) / 4.4) - 0.5;
 		c = mix(lin_a, lin_b, clamp(0.5 - (abs(s) - 0.25) * 30.0, 0.0, 1.0));
 	} else if (modo == 1) {
-		// lua: cinza com manchas largas
-		float m = sin(p.x * 0.7) * sin(p.y * 0.6);
-		c = mix(lin_a, lin_b, smoothstep(0.35, 0.55, m));
+		// lua: cinza (as crateras vêm da textura)
+		c = lin_a;
 	} else if (modo == 2) {
 		c = mix(lin_a, lin_b, smoothstep(0.35, 0.65, mancha));
 	} else {
 		c = mix(lin_b, lin_a, clamp(0.5 + mancha * 8.0, 0.0, 1.0));
 		c = mix(c, lin_d * terra, clamp(0.5 - (1.05 - mancha) * 8.0, 0.0, 1.0));
 	}
-	// as cores chegam LINEARES do Mundo: sai convertida para a tela
-	// (no Godot 4 o chão chegava à tela com a cor convertida mais uma vez:
-	// o verde fechado da selva, o azul da lua...: a potência 1,65 bate com
-	// a imagem do Godot 4, medida pixel a pixel)
-	ALBEDO = tela_rapida(mix(pow(c, vec3(1.65)) * luz, neblina_cor, neblina));
+	// florzinhas, crateras, poeira, conchinhas (pesos de cada cor)
+	vec3 w = texture(detalhe, uv_det).rgb;
+	c += (lin_b - c) * w.r + (lin_c - c) * w.g + (lin_d - c) * w.b;
+	// as mesmas contas do Godot 4 (cores lineares do Mundo)
+	ALBEDO = tela_g4(mix(c * luz, neblina_cor, neblina));
 }

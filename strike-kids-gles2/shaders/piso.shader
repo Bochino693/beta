@@ -16,11 +16,13 @@ uniform float pulso = 0.0;
 varying vec3 pm;
 varying vec3 olhar;
 
-// a mesma curva de tela do Godot 4 ("filmic", branco 1,6, + sRGB),
-// aproximada para a meia precisão da Mali-400 (erro < 3%)
-vec3 tela_rapida(vec3 x) {
-	x = max(x, vec3(0.0));
-	return min(sqrt(x) * (1.29 - 0.1 * x) / (1.0 + 0.25 * x), vec3(1.0));
+// a cor CRUA, como o shader do Godot 4 a entregava, até a tela: lá ela
+// ainda passava por sRGB -> linear, "filmic" (branco 1,6) e linear -> sRGB
+// (medido no Godot 4). Aqui numa conta só, sem potência nem divisão
+// (erro < 2%; satura em 1,25, como lá)
+vec3 tela_g4(vec3 x) {
+	x = clamp(x, 0.0, 1.25);
+	return x * (1.2094 - x * (0.015 + 0.25 * x));
 }
 
 float cobre(float dist) {
@@ -51,9 +53,8 @@ void vertex() {
 }
 
 void fragment() {
-	// em luz linear, como no Godot 4 (textura e tom chegam em sRGB)
-	vec3 m = texture(madeira, UV * escala_uv).rgb * tom.rgb;
-	vec3 c = m * m;
+	// as mesmas contas do Godot 4 (cores cruas; a curva de tela no fim)
+	vec3 c = texture(madeira, UV * escala_uv).rgb * tom.rgb;
 	if (abs(pm.z - 0.55) < 0.1 && abs(pm.x) < 0.62) {
 		float ip = clamp(floor(pm.x / 0.17 + 0.5), -3.0, 3.0);
 		float dd = length(vec2(pm.x - ip * 0.17, pm.z - 0.55)) - 0.032;
@@ -75,5 +76,5 @@ void fragment() {
 	vec3 v = normalize(olhar);
 	float f1 = 1.0 - clamp(v.y, 0.0, 1.0);
 	float f2 = f1 * f1;
-	ALBEDO = tela_rapida(mix(c, cor_ceu.rgb * cor_ceu.rgb, f2 * f2 * verniz));
+	ALBEDO = tela_g4(mix(c, cor_ceu.rgb, f2 * f2 * verniz));
 }

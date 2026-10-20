@@ -18,24 +18,22 @@ uniform float usa_cor_vertice : hint_range(0.0, 1.0) = 0.55;
 
 varying vec3 cor;
 
-// COR COMO NO GODOT 4: lá o motor já entregava a cor do vértice e as cores
-// do material convertidas para luz linear e o shader convertia de novo
-// (duas vezes: cores mais fechadas e vivas); e a imagem
-// final passava pelo "filmic" (branco 1,6) antes de virar sRGB. As mesmas
-// contas aqui (por vértice; no fragmento, a curva aproximada, erro < 3%).
+// COR COMO NO GODOT 4 (medido): o shader de lá convertia as cores para luz
+// linear e a cor que ele entregava ainda passava por sRGB -> linear e pelo
+// "filmic" (branco 1,6) antes de virar sRGB. As mesmas contas aqui, por
+// vértice, em versões sem potência (baratas na Mali-400/450).
 vec3 s2l(vec3 c) {
-	return mix(c / 12.92, pow((c + 0.055) / 1.055, vec3(2.4)), step(vec3(0.04045), c));
+	// sRGB -> linear sem potência (polinômio, erro ~1%): barato no vértice
+	return c * (c * (c * 0.305306011 + 0.682171111) + 0.012522878);
 }
 
-vec3 tela(vec3 x) {
-	x = max(x, vec3(0.0));
-	vec3 f = clamp(((x * (0.88 * x + 0.06) + 0.002) / (x * (0.88 * x + 0.6) + 0.06) - 0.033333) / 0.68495, 0.0, 1.0);
-	return mix(f * 12.92, 1.055 * pow(f, vec3(0.416667)) - 0.055, step(vec3(0.0031308), f));
-}
-
-vec3 tela_rapida(vec3 x) {
-	x = max(x, vec3(0.0));
-	return min(sqrt(x) * (1.29 - 0.1 * x) / (1.0 + 0.25 * x), vec3(1.0));
+// a cor CRUA, como o shader do Godot 4 a entregava, até a tela: lá ela
+// ainda passava por sRGB -> linear, "filmic" (branco 1,6) e linear -> sRGB
+// (medido no Godot 4). Aqui numa conta só, sem potência nem divisão
+// (erro < 2%; satura em 1,25, como lá)
+vec3 tela_g4(vec3 x) {
+	x = clamp(x, 0.0, 1.25);
+	return x * (1.2094 - x * (0.015 + 0.25 * x));
 }
 
 void vertex() {
@@ -44,7 +42,7 @@ void vertex() {
 	vec4 p = MODELVIEW_MATRIX * vec4(VERTEX + NORMAL * espessura * d, 1.0);
 	p.xyz += normalize(p.xyz) * recuo * d;
 	POSITION = PROJECTION_MATRIX * p;
-	cor = tela(mix(s2l(s2l(cor_contorno.rgb)), s2l(s2l(COLOR.rgb)) * 0.28, usa_cor_vertice));
+	cor = tela_g4(mix(s2l(cor_contorno.rgb), s2l(COLOR.rgb) * 0.28, usa_cor_vertice));
 }
 
 void fragment() {

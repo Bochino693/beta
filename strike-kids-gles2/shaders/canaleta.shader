@@ -20,11 +20,13 @@ varying float labio;
 varying float sombra;
 
 
-// a mesma curva de tela do Godot 4 ("filmic", branco 1,6, + sRGB),
-// aproximada para a meia precisão da Mali-400 (erro < 3%)
-vec3 tela_rapida(vec3 x) {
-	x = max(x, vec3(0.0));
-	return min(sqrt(x) * (1.29 - 0.1 * x) / (1.0 + 0.25 * x), vec3(1.0));
+// a cor CRUA, como o shader do Godot 4 a entregava, até a tela: lá ela
+// ainda passava por sRGB -> linear, "filmic" (branco 1,6) e linear -> sRGB
+// (medido no Godot 4). Aqui numa conta só, sem potência nem divisão
+// (erro < 2%; satura em 1,25, como lá)
+vec3 tela_g4(vec3 x) {
+	x = clamp(x, 0.0, 1.25);
+	return x * (1.2094 - x * (0.015 + 0.25 * x));
 }
 
 void vertex() {
@@ -67,6 +69,6 @@ void fragment() {
 		c = mix(c, cor_a.rgb * 0.45, no);
 		c = mix(c, cor_c.rgb, labio);
 	}
-	// cores sRGB x luz linear (como o Godot 4 fazia): conta em linear, sai na tela
-	ALBEDO = tela_rapida(c * c * sombra * sombra * min(luz_cena, vec3(1.3)));
+	// as mesmas contas do Godot 4 (cores cruas x luz da cena)
+	ALBEDO = tela_g4(c * sombra * min(luz_cena, vec3(1.3)));
 }

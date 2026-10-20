@@ -30,10 +30,10 @@ static func _e() -> Dictionary:
 	return e
 
 
-## Contornos (casca invertida, o traço escuro em volta): nos bichinhos,
-## pinos e peças da pista (a decoração do cenário leve não tem). Na
-## qualidade BAIXA ficam desligados (cada peça com contorno é desenhada
-## duas vezes).
+## Contornos (casca invertida, o traço escuro em volta): na edição OpenGL
+## ES 2.0 só nos BICHINHOS e nos PINOS (toon de personagem) — cada peça com
+## contorno é desenhada duas vezes, e na Mali-400/450 o que mais pesa são
+## os vértices. Na qualidade BAIXA ficam desligados.
 static func contornos_ligados() -> bool:
 	return bool(_e()["contornos"])
 
@@ -99,7 +99,7 @@ static func toon(personagem := false, contorno := 0.0035, parametros := {}) -> S
 	m.shader = shader(TOON_PERSONAGEM if personagem else TOON)
 	for k in parametros:
 		m.set_shader_param(k, parametros[k])
-	if contorno > 0.0 and contornos_ligados():
+	if contorno > 0.0 and personagem and contornos_ligados():
 		var c := ShaderMaterial.new()
 		c.shader = shader(CONTORNO)
 		c.set_shader_param("espessura", contorno)

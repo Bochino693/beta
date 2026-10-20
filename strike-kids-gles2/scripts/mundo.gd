@@ -50,6 +50,9 @@ const LARGURA_BOCA = Medidas.LARGURA_BOCA
 const RETORNO = Medidas.RETORNO
 const ALTURA_PODIO = Medidas.ALTURA_PODIO
 const BALAO_POS = Medidas.BALAO_POS
+## metros de um ladrilho da textura de detalhes do chão de cada modo
+## (texturas/chao_<modo>.png, tools/assar_chao.py)
+const LADRILHO_CHAO := [25.2, 22.4, 25.3, 25.0]
 ## Bullet (Godot 3): a margem de colisão de uma forma CONVEXA fica do lado de
 ## FORA dela (tudo ficaria 4 cm mais gordo), e com margem menor que 4 cm o
 ## contato treme (uma bola parada em cima rola e cai). As peças convexas do
@@ -166,6 +169,14 @@ func aplicar_tema(nome: String) -> void:
 	var amb: Color = _vezes(_linear(c["ambiente"]), forca_amb)
 	var luz_sol: Color = _vezes(_linear(c["sol"]), forca_sol * max(para_sol.y, 0.0))
 	var luz_cena := Vector3(amb.r + luz_sol.r, amb.g + luz_sol.g, amb.b + luz_sol.b)
+	# no Godot 4 (Compatibilidade) a cor que esses shaders entregam ainda é
+	# convertida sRGB -> linear antes da curva de tela (medido: cor do
+	# shader, de material, de vértice ou de textura, tudo igual). O piso e
+	# as canaletas fazem as contas cruas como lá (shaders: tela_g4); a pista
+	# faz a conta em linear (textura assada) e recebe a luz convertida —
+	# numa multiplicação é o mesmo. É essa luz que deixa o mar verde-água
+	# e o espaço azulado.
+	var luz_tela := _linear_v(luz_cena)
 	# chão e decoração: a luz da cena vai pronta para o shader (por
 	# vértice no leve, por pixel na decoração do completo)
 	var sol_lin: Color = _vezes(_linear(c["sol"]), forca_sol)
@@ -174,12 +185,11 @@ func aplicar_tema(nome: String) -> void:
 	# a luz do motor (sol + ambiente, lineares e com a força) vai para os
 	# toons, a bola e os para-choques (Materiais)
 	Materiais.definir_luz(para_sol, sol_cor, amb_v)
+	# a neblina do fundo (por vértice, no chão e na decoração, como no
+	# cenário leve do Godot 4: é ela que deixa o mar verde-água ao longe)
 	var nb: Color = _linear(c["neblina"])
 	var neblina := Vector3(nb.r, nb.g, nb.b)
-	# (no Godot 4 a neblina por vértice do cenário leve não chegava a
-	# aparecer — conferido quadro a quadro: com e sem ela, o mesmo pixel.
-	# Aqui ela fica desligada para a imagem sair igual e mais barata)
-	var densidade := 0.0
+	var densidade := float(c.get("neblina_densidade", 0.0045))
 	for m in [mat_terreno]:
 		m.set_shader_param("sol_dir", para_sol)
 		m.set_shader_param("sol_cor", sol_cor)
@@ -187,8 +197,9 @@ func aplicar_tema(nome: String) -> void:
 		m.set_shader_param("neblina_cor", neblina)
 		m.set_shader_param("neblina_densidade", densidade)
 	temas.luz(para_sol, sol_cor, amb_v, neblina, densidade)
+	mat_pista.set_shader_param("luz_cena", luz_tela)
+	mat_piso.set_shader_param("luz_cena", luz_cena)
 	for m in [mat_pista, mat_piso]:
-		m.set_shader_param("luz_cena", luz_cena)
 		m.set_shader_param("cor_ceu", ceu_cores[2])
 	mat_pista.set_shader_param("dir_sol", para_sol)
 	var f: Array = c["fundo"]
@@ -220,24 +231,28 @@ func aplicar_tema(nome: String) -> void:
 	mat_bumper.set_shader_param("cor_a", bp[0])
 	mat_bumper.set_shader_param("cor_b", bp[1])
 	var chao: Array = c["chao"]
-	mat_terreno.set_shader_param("modo", int(c["chao_modo"]))
+	var modo_chao := int(c["chao_modo"])
+	mat_terreno.set_shader_param("modo", modo_chao)
+	# florzinhas, crateras e poeira, conchinhas: textura que se repete
+	# (tools/assar_chao.py), uma por cenário
+	mat_terreno.set_shader_param("detalhe", load("res://texturas/chao_%d.png" % modo_chao))
+	mat_terreno.set_shader_param("detalhe_tile", LADRILHO_CHAO[modo_chao])
 	# cores do chão: lineares (OpenGL ES 2.0: os dois shaders do chão fazem
 	# a conta em linear e convertem para a tela; no Godot 4 o completo
 	# recebia a cor convertida duas vezes por causa da conta do motor)
 	for i in 4:
 		var l: Color = _cor_do_chao(chao[i])
 		mat_terreno.set_shader_param(["lin_a", "lin_b", "lin_c", "lin_d"][i], Vector3(l.r, l.g, l.b))
-	if not leve:
-		# a terra da selva: o detalhe 2 x (0.72, 0.6, 0.45) na cor sRGB
-		var d: Color = chao[3]
-		var terra := _cor_do_chao(Color(d.r * 0.72, d.g * 0.6, d.b * 0.45))
-		var dl := _cor_do_chao(d)
-		mat_terreno.set_shader_param("terra", Vector3(terra.r / max(dl.r, 1e-5), terra.g / max(dl.g, 1e-5), terra.b / max(dl.b, 1e-5)))
+	# a terra da selva: o detalhe 2 x a terra do Godot 4 (cenário leve)
+	mat_terreno.set_shader_param("terra", Vector3(0.45, 0.32, 0.17))
 	_mostrar_marca(nome)
 	_mostrar_astro(nome)
 	temas.mostrar(nome)
 
 
+## Cor do chão para o shader: linear, como no cenário leve do Godot 4 (o
+## shader faz as mesmas contas e, como lá, converte a cor que entrega mais
+## uma vez antes da curva de tela: o verde fechado da selva, o azul da lua).
 func _cor_do_chao(c: Color) -> Color:
 	return _linear(c)
 
@@ -246,6 +261,11 @@ func _cor_do_chao(c: Color) -> Color:
 ## Color do Godot 3 não tem).
 static func _linear(c: Color) -> Color:
 	return Color(_canal_linear(c.r), _canal_linear(c.g), _canal_linear(c.b), c.a)
+
+
+## O mesmo para uma luz (Vector3; vale acima de 1).
+static func _linear_v(v: Vector3) -> Vector3:
+	return Vector3(_canal_linear(v.x), _canal_linear(v.y), _canal_linear(v.z))
 
 
 static func _canal_linear(v: float) -> float:
