@@ -780,9 +780,11 @@ func _vigiar_android(delta: float) -> void:
 
 
 ## Android: Y e UV (4:2:0) do plugin viram duas texturas; a cor sai no shader.
-## Godot 3 (GLES2): não existe textura RG — o par CbCr vira RGB (Cb, Cr, 0)
-## aqui mesmo (o motor faria a mesma conversão, mas reclamando no log a
-## cada quadro); o shader continua lendo .rg.
+## Godot 3 (GLES2): não existe textura RG — o par CbCr vai como LA8
+## (luminância + alfa, os mesmos 2 bytes por ponto, sem conversão nenhuma
+## no processador) e o shader lê .ra (tipo 4). O plugin entrega Y, UV e o
+## tamanho juntos, do MESMO quadro, num Dictionary (no Godot 3 um método
+## do plugin não devolve byte[] sozinho).
 func _quadro_android() -> void:
 	var n := int(_plugin.call("quadros"))
 	if n <= 0 or n == _quadro_visto:
@@ -792,19 +794,21 @@ func _quadro_android() -> void:
 		return
 	_quadro_ms = agora
 	_quadro_visto = n
-	var w := int(_plugin.call("largura"))
-	var h := int(_plugin.call("altura"))
+	var q = _plugin.call("quadro")
+	if not (q is Dictionary):
+		return
+	var w := int(q.get("largura", 0))
+	var h := int(q.get("altura", 0))
 	if w < 2 or h < 2:
 		return
-	var y: PoolByteArray = _plugin.call("plano_y")
-	var uv: PoolByteArray = _plugin.call("plano_uv")
+	var y: PoolByteArray = q.get("y", PoolByteArray())
+	var uv: PoolByteArray = q.get("uv", PoolByteArray())
 	if y.size() != w * h or uv.size() != (w / 2) * (h / 2) * 2:
 		return
 	var iy := Image.new()
 	iy.create_from_data(w, h, false, Image.FORMAT_L8, y)
 	var iuv := Image.new()
-	iuv.create_from_data(w / 2, h / 2, false, Image.FORMAT_RG8, uv)
-	iuv.convert(Image.FORMAT_RGB8)
+	iuv.create_from_data(w / 2, h / 2, false, Image.FORMAT_LA8, uv)
 	if _img_y == null or _img_y.get_size() != iy.get_size():
 		_tex_a = Compat.textura_de_imagem(iy)
 		_tex_b = Compat.textura_de_imagem(iuv)
@@ -815,7 +819,7 @@ func _quadro_android() -> void:
 		(_tex_b as ImageTexture).set_data(iuv)
 	_img_y = iy
 	_img_uv = iuv
-	_ajustar_shader(3, Vector2(w, h))
+	_ajustar_shader(4, Vector2(w, h))
 
 
 # ---------------------------------------------------------------- ffmpeg (PC)

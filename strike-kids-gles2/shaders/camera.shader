@@ -6,7 +6,7 @@ shader_type canvas_item;
 
 uniform sampler2D cam_a;                   // RGB, YCbCr ou só o Y
 uniform sampler2D cam_b;                   // CbCr (quando vem separado)
-uniform int tipo = 1;                      // 1 RGB, 2 YCbCr, 3 YCbCr separado
+uniform int tipo = 1;                      // 1 RGB, 2 YCbCr, 3 YCbCr separado (CbCr em RG), 4 idem com CbCr em LA (Android)
 uniform vec2 escala_uv = vec2(1.0, 1.0);   // recorte do quadrado do meio
 uniform bool espelhar = true;
 uniform int giro = 0;                      // 0, 1, 2, 3 = 0°, 90°, 180°, 270° (câmera montada de lado)
@@ -31,7 +31,9 @@ void fragment() {
 	}
 	uv = q * escala_uv + 0.5;
 	vec3 c;
-	if (tipo == 3) {
+	if (tipo == 4) {
+		c = ycbcr(texture(cam_a, uv).r, texture(cam_b, uv).ra);
+	} else if (tipo == 3) {
 		c = ycbcr(texture(cam_a, uv).r, texture(cam_b, uv).rg);
 	} else if (tipo == 2) {
 		vec3 t = texture(cam_a, uv).rgb;

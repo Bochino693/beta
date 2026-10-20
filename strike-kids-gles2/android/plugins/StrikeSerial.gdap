@@ -1,0 +1,14 @@
+; Plugin Android v1 (Godot 3.6.3) do Arduino no USB da TV Box.
+; Feito por tools/android/StrikeSerial/construir.sh (fonte Java lá).
+
+[config]
+
+name="StrikeSerial"
+binary_type="local"
+binary="StrikeSerial.aar"
+
+[dependencies]
+
+local=[]
+remote=[]
+custom_maven_repos=[]

@@ -68,7 +68,7 @@ func _ready() -> void:
 	for z in zonas:
 		var x0: float = ZONAS[z]
 		for i in 51:
-			var xt := -0.5 + i * 0.02
+			var xt = -0.5 + i * 0.02
 			if abs(xt - x0) > 0.62:
 				continue
 			for v in VELOCIDADES:

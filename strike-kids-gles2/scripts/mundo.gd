@@ -163,8 +163,10 @@ func aplicar_tema(nome: String) -> void:
 	var para_sol := sol.global_transform.basis.z.normalized() if sol.is_inside_tree() else Vector3(0.35, 0.79, 0.5)
 	var forca_amb := float(c.get("ambiente_forca", 0.62))
 	var forca_sol := float(c.get("sol_forca", 1.05))
-	# a luz do motor (sol + ambiente) agora vai para os toons (Materiais)
-	Materiais.definir_luz(para_sol, _vezes(c["sol"], forca_sol), _vezes(c["ambiente"], forca_amb))
+	# a luz do motor (sol + ambiente) agora vai para os toons (Materiais).
+	# O toon passa a cor para luz linear elevando ao quadrado: a força vai
+	# pela raiz (senão ela também sairia ao quadrado)
+	Materiais.definir_luz(para_sol, _vezes(c["sol"], sqrt(forca_sol)), _vezes(c["ambiente"], sqrt(forca_amb)))
 	var amb: Color = _vezes(_linear(c["ambiente"]), forca_amb)
 	var luz_sol: Color = _vezes(_linear(c["sol"]), forca_sol * max(para_sol.y, 0.0))
 	var luz_cena := Vector3(amb.r + luz_sol.r, amb.g + luz_sol.g, amb.b + luz_sol.b)
