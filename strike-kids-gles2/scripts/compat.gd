@@ -201,9 +201,22 @@ static func estilo_rotulo(rot: Label, nome: String, tamanho: int, cor: Color, co
 	rot.set_meta("estilo", [nome, tamanho, cor, contorno, cor_contorno])
 
 
-## Troca só a cor de um Label já estilizado.
+## Troca só a cor de um Label já estilizado (e guarda: uma troca de
+## tamanho depois mantém a cor nova).
 static func cor_rotulo(rot: Label, cor: Color) -> void:
 	rot.add_color_override("font_color", cor)
+	if rot.has_meta("estilo"):
+		var e: Array = rot.get_meta("estilo")
+		e[2] = cor
+		rot.set_meta("estilo", e)
+
+
+## Contorno na medida do Godot 4 (outline_size do LabelSettings) -> na do
+## Godot 3 (DynamicFont.outline_size): o do Godot 4 desenha 1/4 da medida.
+static func contorno_g4(n: float) -> int:
+	if n <= 0.0:
+		return 0
+	return imax(int(round(n * 0.25)), 1)
 
 
 ## Troca só o tamanho de um Label já estilizado.

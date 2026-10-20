@@ -215,9 +215,9 @@ func aplicar_tema(nome: String) -> void:
 	mat_bumper.set_shader_param("cor_b", bp[1])
 	var chao: Array = c["chao"]
 	mat_terreno.set_shader_param("modo", int(c["chao_modo"]))
-	# cores do chão: lineares no leve; no completo, no espaço da conta do
-	# motor (o terreno antigo passava a cor linear e o motor convertia de
-	# novo: convertida duas vezes, fica igual a ele)
+	# cores do chão: lineares (OpenGL ES 2.0: os dois shaders do chão fazem
+	# a conta em linear e convertem para a tela; no Godot 4 o completo
+	# recebia a cor convertida duas vezes por causa da conta do motor)
 	for i in 4:
 		var l: Color = _cor_do_chao(chao[i])
 		mat_terreno.set_shader_param(["lin_a", "lin_b", "lin_c", "lin_d"][i], Vector3(l.r, l.g, l.b))
@@ -233,8 +233,7 @@ func aplicar_tema(nome: String) -> void:
 
 
 func _cor_do_chao(c: Color) -> Color:
-	var l := _linear(c)
-	return l if leve else _linear(l)
+	return _linear(c)
 
 
 ## Cor sRGB -> linear (a mesma conta do srgb_to_linear() do Godot 4, que o
@@ -319,8 +318,9 @@ func _mostrar_astro(nome: String) -> void:
 
 # ================================================================ ambiente
 ## O CÉU E O FUNDO. O Godot 3 (OpenGL ES 2) não tem shader de céu: o céu é
-## uma esfera com o ceu.shader (o mesmo nos dois cenários), que a desenha
-## no infinito, atrás de tudo; o fundo da tela é só a cor do horizonte.
+## uma esfera com o ceu.shader (ceu_leve.shader no cenário leve), que a
+## desenha no infinito, atrás de tudo — as estrelas vêm de uma textura que
+## segue a UV da esfera; o fundo da tela é só a cor do horizonte.
 ## Sem luz ambiente do motor (a cena não tem luz nenhuma: os shaders recebem
 ## a luz do cenário), sem brilho (glow), sem tonemap nem ajuste de cor (cada
 ## um é uma passada a mais na tela inteira) e sem a neblina do motor (ver
@@ -329,14 +329,15 @@ func _ambiente() -> void:
 	var we := WorldEnvironment.new()
 	ambiente = Environment.new()
 	mat_ceu = ShaderMaterial.new()
-	mat_ceu.shader = load("res://shaders/ceu.shader")
+	mat_ceu.shader = load("res://shaders/ceu_leve.shader" if leve else "res://shaders/ceu.shader")
+	mat_ceu.set_shader_param("mapa_estrelas", load("res://texturas/estrelas_ceu.png"))
 	ceu = MeshInstance.new()
 	ceu.name = "ceu"
 	var esfera := SphereMesh.new()
 	esfera.radius = 1.0
 	esfera.height = 2.0
-	esfera.radial_segments = 32
-	esfera.rings = 16
+	esfera.radial_segments = 64
+	esfera.rings = 32
 	ceu.mesh = esfera
 	ceu.material_override = mat_ceu
 	# o shader leva a esfera para longe, em volta da câmera: nunca sai do quadro
@@ -459,9 +460,14 @@ func _pista() -> void:
 	# --- tábuas da pista (com marcações e luzes)
 	mat_pista = ShaderMaterial.new()
 	mat_pista.shader = load("res://shaders/pista.shader")
-	mat_pista.set_shader_param("madeira", Materiais.textura("madeira"))
+	# OpenGL ES 2.0: a decoração parada (madeira, marcações, estrelas
+	# apagadas) vem pronta numa textura (tools/assar_pista.py), do começo
+	# do deck (z = 0,1) até o fim (Z_FIM_DECK)
+	mat_pista.set_shader_param("pista_pronta", load("res://texturas/pista_pronta.png"))
 	mat_pista.set_shader_param("z_pino1", Z_PINO1)
 	mat_pista.set_shader_param("meia_largura", MEIA_LARGURA)
+	mat_pista.set_shader_param("z_inicio", 0.1)
+	mat_pista.set_shader_param("z_fim", Z_FIM_DECK)
 	var comp := 0.1 - Z_FIM_DECK
 	var deck := _caixa(Vector3(MEIA_LARGURA * 2, 0.2, comp), Vector3(0, -0.1, 0.1 - comp / 2), mat_pista, false, false)
 	deck.cast_shadow = GeometryInstance.SHADOW_CASTING_SETTING_OFF
@@ -533,6 +539,8 @@ func _pista() -> void:
 	var mb := _capsula_em_pe(0.07, 1.14, 14, 3)
 	var mat_b := ShaderMaterial.new()
 	mat_b.shader = load("res://shaders/doce_listrado.shader")
+	# a luz do cenário por vértice, como nos toons (Materiais.definir_luz)
+	Materiais.registrar(mat_b)
 	mat_bumper = mat_b
 	if Materiais.contornos_ligados():
 		var contorno_b := ShaderMaterial.new()

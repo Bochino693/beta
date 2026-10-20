@@ -35,6 +35,10 @@ static func posicao_do_pino(n: int) -> Vector3:
 func montar() -> void:
 	var malha: Mesh = load("res://modelos/pino.res")
 	var forma: Shape = load("res://modelos/pino_colisao.res")
+	# Bullet (Godot 3): a forma convexa ENGORDA pela margem (0,04 m de
+	# fábrica = o pino boiando 4 cm acima da pista e batendo antes de
+	# encostar). Margem de 3 mm: do tamanho do desenho.
+	forma.margin = 0.003
 	var rosto := Materiais.textura("rosto_pino")
 	var meta: Dictionary = malha.get_meta("rosto", {})
 	for n in range(1, 11):

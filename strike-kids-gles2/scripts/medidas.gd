@@ -57,3 +57,38 @@ static func na_tela(n: Spatial) -> Transform:
 	if t.origin.distance_squared_to(g.origin) > 1.0:
 		return g
 	return t
+
+
+# ================================================================ física
+## ATRITO E QUIQUE NA BULLET. No Godot 4 (Jolt) o par de corpos usava o
+## MENOR atrito dos dois e a SOMA dos quiques; a Bullet do Godot 3
+## MULTIPLICA os dois valores. Os números de cada corpo são convertidos
+## para que os pares que importam saiam iguais aos de antes:
+##   pino x pino: atrito 0,38, quique 0,76;  bola x pino: 0,12 e 0,5.
+const ATRITO_PINO := 0.6164     # sqrt(0.38)
+const QUIQUE_PINO := 0.8718     # sqrt(0.76)
+const ATRITO_BOLA := 0.1947     # 0.12 / ATRITO_PINO
+const QUIQUE_BOLA := 0.5735     # 0.5 / QUIQUE_PINO
+
+
+## Material de uma superfície parada, com o atrito e o quique que ela tinha
+## no Godot 4. quem = quem encosta nela: "pinos", "bola" ou "todos" (aí
+## fica no meio do caminho entre o certo para os pinos e para a bola).
+static func material(atrito: float, quique: float, quem := "todos") -> PhysicsMaterial:
+	var fp: float = min(atrito, 0.38) / ATRITO_PINO
+	var fb: float = min(atrito, 0.12) / ATRITO_BOLA
+	var rp: float = min(quique + 0.38, 1.0) / QUIQUE_PINO
+	var rb: float = min(quique + 0.12, 1.0) / QUIQUE_BOLA
+	var pm := PhysicsMaterial.new()
+	if quem == "pinos":
+		pm.friction = fp
+		pm.bounce = rp
+	elif quem == "bola":
+		pm.friction = fb
+		pm.bounce = rb
+	else:
+		pm.friction = (fp + fb) * 0.5
+		pm.bounce = (rp + rb) * 0.5
+	# nenhum par passa de quique 1 (não ganha energia)
+	pm.bounce = min(pm.bounce, 1.0 / QUIQUE_PINO)
+	return pm

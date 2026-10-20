@@ -110,7 +110,10 @@ func _escrever(cfg: ConfigFile, v: int) -> void:
 ## Fechando o jogo: grava na hora o que estiver pendente.
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_WM_QUIT_REQUEST or what == NOTIFICATION_PREDELETE or what == NOTIFICATION_EXIT_TREE:
-		Tarefas.esperar_todas()
+		# (no PREDELETE as linhas já foram esperadas na saída da árvore, e a
+		# Tela já limpou o estado do Compat: não mexe nele de novo)
+		if what != NOTIFICATION_PREDELETE:
+			Tarefas.esperar_todas()
 		if _salvar_pendente:
 			_salvar_pendente = false
 			_versao += 1

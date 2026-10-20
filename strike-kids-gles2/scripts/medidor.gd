@@ -55,7 +55,7 @@ func _ready() -> void:
 	_painel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_painel)
 	_texto = Label.new()
-	Compat.estilo_rotulo(_texto, "fredoka_600", 28, Color.white, 4, Color(0.0, 0.03, 0.1))
+	Compat.estilo_rotulo(_texto, "fredoka_600", 28, Color.white, Compat.contorno_g4(4), Color(0.0, 0.03, 0.1))
 	_painel.add_child(_texto)
 	mostrar(bool(Ajustes.valor("video", "medidor")))
 
@@ -228,7 +228,7 @@ func _cartaz(texto: String) -> Label:
 	fundo.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(fundo)
 	var l := Label.new()
-	Compat.estilo_rotulo(l, "fredoka_700", 34, Color.white, 6, Color("#0B1F45"))
+	Compat.estilo_rotulo(l, "fredoka_700", 34, Color.white, Compat.contorno_g4(6), Color("#0B1F45"))
 	l.align = Label.ALIGN_CENTER
 	l.valign = Label.VALIGN_CENTER
 	l.autowrap = true

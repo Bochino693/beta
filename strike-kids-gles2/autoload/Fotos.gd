@@ -22,12 +22,13 @@ extends Node
 ##     direta e também é pedida uma vez só (marque "Usar por padrão").
 ##     Depois disso o jogo nunca mais pede sozinho: só o operador, no TESTE
 ##     DA CÂMERA do menu (guardado em user://fotos/camera.cfg);
-##   * PC com Windows: ffmpeg (o Godot 4.6 não tem câmera no Windows).
+##   * PC com Windows: ffmpeg (o Godot 3 não tem câmera no Windows).
 ##     Coloque o ffmpeg.exe na pasta do jogo (ou instale no PATH);
-##   * Linux / Mac / teste: CameraServer do Godot.
+##   * Linux / Mac / teste: CameraServer do Godot (no Godot 3 ele só acha
+##     câmera de verdade no Mac; no Linux vale a câmera de teste).
 ## Sem câmera, o jogo segue normalmente com os mascotes no lugar das fotos.
 ##
-## A imagem da câmera passa por shaders/camera.gdshader (converte YUV/RGB,
+## A imagem da câmera passa por shaders/camera.shader (converte YUV/RGB,
 ## recorta o quadrado do meio, espelha e gira se a câmera estiver de lado)
 ## numa telinha de 384x384 — que é a foto.
 ##
@@ -65,6 +66,9 @@ var _ligada := false               # a câmera está aberta
 var _vendo := false                # alguém vendo (prévia/foto): os quadros viram imagem
 var _desligar_em := -1.0
 var _recordes := {}
+## Godot 3: o CameraServer não tem monitoring_feeds — isto diz se o
+## caminho do CameraServer foi ligado
+var _vigiando := false
 # câmera de teste (PC)
 var _falsa: CameraFeed
 var _falsa_base: Image
@@ -95,20 +99,19 @@ var _img_uv: Image
 var _ffmpeg := ""
 var _ff_dispositivo := ""
 var _ff_pid := -1
-var _ff_linha: Thread  #G3?
+var _ff_linha: Thread
 var _ff_trava := Mutex.new()
 var _ff_quadro := PoolByteArray()
 var _ff_novo := false
 var _ff_rodando := false
+var _ff_servidor: TCP_Server
 var _img_rgb: Image
 
 
+## A câmera de teste (Godot 3: o CameraFeed liga e desliga sozinho, sem
+## _activate_feed / _deactivate_feed).
 class FeedFalso extends CameraFeed:
-	func _activate_feed() -> bool:
-		return true
-
-	func _deactivate_feed() -> void:
-		pass
+	pass
 
 
 func _ready() -> void:
@@ -118,24 +121,34 @@ func _ready() -> void:
 	_vp.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
 	_vp.size = Vector2(LADO, LADO)
 	_vp.disable_3d = true
+	_vp.usage = Viewport.USAGE_2D
+	_vp.hdr = false
+	# Godot 3: sem isto a telinha sai de cabeça para baixo (na prévia, que
+	# usa ao_vivo(), e na foto)
+	_vp.render_target_v_flip = true
 	_vp.transparent_bg = false
 	_vp.render_target_update_mode = Viewport.UPDATE_DISABLED
 	add_child(_vp)
 	var tela := ColorRect.new()
-	tela.size = Vector2(LADO, LADO)
+	tela.rect_size = Vector2(LADO, LADO)
 	_mat = ShaderMaterial.new()
 	_mat.shader = load("res://shaders/camera.shader")
 	tela.material = _mat
 	_vp.add_child(tela)
-	CameraServer.camera_feed_added.connect(func(_id): _procurar_servidor.call_deferred())  #G3?
-	CameraServer.camera_feed_removed.connect(func(_id): _procurar_servidor.call_deferred())  #G3?
+	CameraServer.connect("camera_feed_added", self, "_feed_mudou")
+	CameraServer.connect("camera_feed_removed", self, "_feed_mudou")
 	if "--camera-falsa" in OS.get_cmdline_args() or OS.has_environment("STRIKE_CAMERA_FALSA"):
 		_criar_falsa()
 	# a câmera é procurada (e a permissão pedida) logo depois da abertura
 	# começar; no Android ela acorda e fica ligada 15 s depois
-	get_tree().create_timer(1.0).timeout.connect(iniciar)  #G3?
-	get_tree().create_timer(despertar_s).timeout.connect(_acordar)  #G3?
+	get_tree().create_timer(1.0).connect("timeout", self, "iniciar")
+	get_tree().create_timer(despertar_s).connect("timeout", self, "_acordar")
 	_ler_fotos_guardadas()
+
+
+## Uma câmera chegou ou saiu do CameraServer (Godot 3: sem lambda).
+func _feed_mudou(_id: int) -> void:
+	call_deferred("_procurar_servidor")
 
 
 ## As fotos do recorde e da classificação (user://fotos/) são lidas do
@@ -148,21 +161,25 @@ func _ler_fotos_guardadas() -> void:
 			caminhos.append(PASTA + f)
 	if caminhos.empty():
 		return
-	var lidas_chegaram := _fotos_lidas
-	Tarefas.rodar(func():  #G3?
-		var lidas := {}
-		for c in caminhos:
-			var img := Image.load_from_file(c)  #G3?
-			if img != null and not img.empty():
-				img.generate_mipmaps()
-				lidas[c] = img
-		lidas_chegaram.call_deferred(lidas))
+	Tarefas.rodar(self, "_ler_fotos", [caminhos])
+
+
+## (linha de trabalho) Lê e prepara as fotos; elas voltam para o quadro do
+## jogo em _fotos_lidas.
+func _ler_fotos(caminhos: Array) -> void:
+	var lidas := {}
+	for c in caminhos:
+		var img := Image.new()
+		if img.load(c) == OK and not img.is_empty():
+			img.generate_mipmaps()
+			lidas[c] = img
+	call_deferred("_fotos_lidas", lidas)
 
 
 func _fotos_lidas(lidas: Dictionary) -> void:
 	for c in lidas:
 		if not _recordes.has(c):
-			_recordes[c] = Compat.textura_de_imagem(lidas[c])
+			_recordes[c] = Compat.textura_de_imagem(lidas[c], true, true)
 
 
 func pronta() -> bool:
@@ -173,7 +190,7 @@ func texto_status() -> String:
 	match status:
 		"pronta":
 			if fonte == "android" and _plugin != null and _ligada:
-				return "OK (%s) - %s" % [nome_camera, str(_plugin.call("estado"))]  #G3?
+				return "OK (%s) - %s" % [nome_camera, str(_plugin.call("estado"))]
 			return "OK (%s)" % nome_camera
 		"desligada":
 			return "desligada no menu"
@@ -197,8 +214,8 @@ func iniciar() -> void:
 		_mudar("procurando")
 	if _falsa != null:
 		fonte = "servidor"
-		CameraServer.monitoring_feeds = true
-		_procurar_servidor.call_deferred()  #G3?
+		_vigiando = true
+		call_deferred("_procurar_servidor")
 		return
 	if OS.get_name() == "Android":
 		if not OS.get_granted_permissions().has(PERMISSAO):
@@ -216,8 +233,8 @@ func iniciar() -> void:
 		_procurar_ffmpeg()
 		return
 	fonte = "servidor"
-	CameraServer.monitoring_feeds = true
-	_procurar_servidor.call_deferred()  #G3?
+	_vigiando = true
+	call_deferred("_procurar_servidor")
 
 
 ## Procura de novo agora (o jogo chama ao começar a escolha dos jogadores:
@@ -240,12 +257,23 @@ func _pedir_permissao() -> void:
 	elif _lembrado("permissao_pedida"):
 		return
 	_lembrar("permissao_pedida")
-	if not get_tree().on_request_permissions_result.is_connected(_permissao):
-		get_tree().on_request_permissions_result.connect(_permissao)  #G3?
+	if not get_tree().is_connected("on_request_permissions_result", self, "_permissao"):
+		get_tree().connect("on_request_permissions_result", self, "_permissao")
 	_janela_ate = Time.get_ticks_msec() + JANELA_MAX_MS
 	# a janela do Android congela a imagem do jogo: o aviso entra antes
 	emit_signal("janela_android", DICA_CAMERA)
-	get_tree().create_timer(0.6, true, false, true).timeout.connect(func(): OS.request_permission(PERMISSAO))  #G3?
+	_timer_real(0.6).connect("timeout", self, "_abrir_janela_android")
+
+
+## Godot 3: sem lambda (o timer chama este).
+func _abrir_janela_android() -> void:
+	OS.request_permission(PERMISSAO)
+
+
+## Um timer de tempo REAL (Godot 3: o SceneTreeTimer anda com o
+## Engine.time_scale da câmera lenta e não tem ignore_time_scale).
+func _timer_real(segundos: float) -> SceneTreeTimer:
+	return get_tree().create_timer(segundos * Engine.time_scale, true)
 
 
 ## O operador pediu (TESTE DA CÂMERA, ou ligou a foto no menu): a janela
@@ -275,7 +303,7 @@ func _fechou_janela() -> void:
 
 func _notification(what: int) -> void:
 	# o jogo voltou para a frente: a janela do Android fechou
-	if what == NOTIFICATION_APPLICATION_FOCUS_IN or what == NOTIFICATION_APPLICATION_RESUMED:
+	if what == NOTIFICATION_WM_FOCUS_IN or what == NOTIFICATION_APP_RESUMED:
 		_fechou_janela()
 
 
@@ -297,13 +325,13 @@ func _procurar_android(lista := "") -> void:
 	if _busca_desde_ms < 0:
 		_busca_desde_ms = Time.get_ticks_msec()
 	if lista == "":
-		lista = str(_plugin.call("listar"))  #G3?
+		lista = str(_plugin.call("listar"))
 	var melhor := ""
 	var usb_sem_permissao := false
 	for linha in lista.split("\n", false):
 		if linha.begins_with("#"):
 			continue
-		var p := linha.split("|")
+		var p: PoolStringArray = linha.split("|")
 		if p.size() < 3:
 			continue
 		if p[2] == "uvc":
@@ -314,7 +342,7 @@ func _procurar_android(lista := "") -> void:
 			if melhor == "":
 				melhor = "webcam USB"
 			continue
-		var nome := "câmera USB" if p[1] == "externa" else "câmera %s" % p[1]
+		var nome: String = "câmera USB" if p[1] == "externa" else "câmera %s" % p[1]
 		_sistema_visto = true
 		if melhor == "" or p[1] == "externa":
 			melhor = nome
@@ -338,11 +366,14 @@ func _procurar_android_sem_parar() -> void:
 	if _procurando or _plugin == null:
 		return
 	_procurando = true
-	var plugin := _plugin
-	var chegou := _lista_chegou
-	Tarefas.rodar(func():  #G3?
-		var lista := str(plugin.call("listar"))  #G3?
-		chegou.call_deferred(lista))
+	Tarefas.rodar(self, "_listar_android", [_plugin])
+
+
+## (linha de trabalho) A lista do Android; ela volta para o quadro do jogo
+## em _lista_chegou. Godot 3: sem lambda.
+func _listar_android(plugin: Object) -> void:
+	var lista := str(plugin.call("listar"))
+	call_deferred("_lista_chegou", lista)
 
 
 func _lista_chegou(lista: String) -> void:
@@ -400,7 +431,7 @@ func _pedir_usb(agora: int) -> void:
 		return   # já pediu uma vez: nunca mais sozinho
 	_pedir_agora = false
 	_lembrar("usb_pedida")
-	_plugin.call("pedir_usb")  #G3?
+	_plugin.call("pedir_usb")
 
 
 ## Ligada e sem imagem há 30 s: reabre do zero. Raro e só na tela de
@@ -413,7 +444,7 @@ func _reabrir_se_muda(agora: int) -> void:
 		return
 	_reaberturas += 1
 	_reaberta_ms = agora
-	_plugin.call("fechar")  #G3?
+	_plugin.call("fechar")
 	_abrir_android()
 
 
@@ -427,13 +458,13 @@ func _lembrado(chave: String) -> bool:
 	if _lembrancas == null:
 		_lembrancas = ConfigFile.new()
 		_lembrancas.load(PASTA + "camera.cfg")
-	return bool(_lembrancas.get_value("camera", chave, false))  #G3?
+	return bool(_lembrancas.get_value("camera", chave, false))
 
 
 func _lembrar(chave: String) -> void:
 	if _lembrado(chave):
 		return
-	_lembrancas.set_value("camera", chave, true)  #G3?
+	_lembrancas.set_value("camera", chave, true)
 	_lembrancas.save(PASTA + "camera.cfg")
 
 
@@ -488,8 +519,8 @@ func _manter_ligada() -> void:
 
 
 func _abrir_android() -> void:
-	_plugin.call("ver", _vendo)  #G3?
-	_plugin.call("abrir", "auto", W_FF, H_FF)  #G3?
+	_plugin.call("ver", _vendo)
+	_plugin.call("abrir", "auto", W_FF, H_FF)
 	_ligada = true
 	_quadro_visto = -1
 	_ultimo_n = -1
@@ -499,13 +530,13 @@ func _abrir_android() -> void:
 ## O que o Android enxerga (para o teste da câmera no menu do operador).
 func relatorio() -> String:
 	if fonte == "android" and _plugin != null:
-		return str(_plugin.call("relatorio"))  #G3?
+		return str(_plugin.call("relatorio"))
 	return texto_status()
 
 
 ## No PC a busca roda numa linha de execução separada (o ffmpeg demora um
 ## pouco para listar as câmeras e o jogo não pode travar).
-var _ff_busca: Thread  #G3?
+var _ff_busca: Thread
 
 
 func _procurar_ffmpeg() -> void:
@@ -513,34 +544,36 @@ func _procurar_ffmpeg() -> void:
 		if _ff_busca.is_alive():
 			return
 		_ff_busca.wait_to_finish()
-	_ff_busca = Thread.new()  #G3?
-	_ff_busca.start(_buscar_ffmpeg)
+	_ff_busca = Thread.new()
+	_ff_busca.start(self, "_buscar_ffmpeg")
 
 
-func _buscar_ffmpeg() -> void:
+func _buscar_ffmpeg(_dado = null) -> void:
 	var exe := _ffmpeg if _ffmpeg != "" else _achar_ffmpeg()
-	var achados: Array = []
+	var achados := []
 	if exe != "":
 		var saida := []
-		OS.execute(exe, ["-hide_banner", "-list_devices", "true", "-f", "dshow", "-i", "dummy"], saida, true)
-		var texto := "\n".join(saida)
-		var re := RegEx.create_from_string("\"([^\"]+)\"\\s*\\(video\\)")
+		OS.execute(exe, ["-hide_banner", "-list_devices", "true", "-f", "dshow", "-i", "dummy"], true, saida, true)
+		var texto := PoolStringArray(saida).join("\n")
+		var re := RegEx.new()
+		re.compile("\"([^\"]+)\"\\s*\\(video\\)")
 		for m in re.search_all(texto):
 			achados.append(m.get_string(1))
 		if achados.empty():
 			# ffmpeg antigo: nomes depois de "DirectShow video devices"
 			var em_video := false
-			var re2 := RegEx.create_from_string("\\]\\s+\"([^\"]+)\"")
+			var re2 := RegEx.new()
+			re2.compile("\\]\\s+\"([^\"]+)\"")
 			for linha in texto.split("\n"):
 				if "video devices" in linha:
 					em_video = true
 				elif "audio devices" in linha:
 					em_video = false
 				elif em_video and not "Alternative name" in linha:
-					var m := re2.search(linha)
+					var m = re2.search(linha)
 					if m:
 						achados.append(m.get_string(1))
-	_ffmpeg_achado.call_deferred(exe, achados)
+	call_deferred("_ffmpeg_achado", exe, achados)
 
 
 func _ffmpeg_achado(exe: String, achados: Array) -> void:
@@ -550,7 +583,7 @@ func _ffmpeg_achado(exe: String, achados: Array) -> void:
 		return
 	_ff_dispositivo = achados[0]
 	for a in achados:
-		var n := a.to_lower()
+		var n: String = a.to_lower()
 		if "usb" in n or "sigma" in n or "uvc" in n:
 			_ff_dispositivo = a
 			break
@@ -560,12 +593,12 @@ func _ffmpeg_achado(exe: String, achados: Array) -> void:
 
 func _achar_ffmpeg() -> String:
 	var pasta := OS.get_executable_path().get_base_dir()
-	for c in [pasta.path_join("ffmpeg.exe"), pasta.path_join("ffmpeg/bin/ffmpeg.exe"), pasta.path_join("ffmpeg/ffmpeg.exe")]:
+	for c in [pasta.plus_file("ffmpeg.exe"), pasta.plus_file("ffmpeg/bin/ffmpeg.exe"), pasta.plus_file("ffmpeg/ffmpeg.exe")]:
 		if Compat.existe_arquivo(c):
 			return c
 	var saida := []
-	if OS.execute("where", ["ffmpeg"], saida) == 0 and not saida.empty():
-		var primeiro := str(saida[0]).split("\n")[0].strip_edges()
+	if OS.execute("where", ["ffmpeg"], true, saida) == 0 and not saida.empty():
+		var primeiro: String = str(saida[0]).split("\n")[0].strip_edges()
 		if primeiro != "" and Compat.existe_arquivo(primeiro):
 			return primeiro
 	return ""
@@ -573,11 +606,11 @@ func _achar_ffmpeg() -> String:
 
 ## CameraServer: a de teste, senão a webcam USB (externa), senão a primeira.
 func _procurar_servidor() -> void:
-	if fonte != "servidor" or status == "desligada" or not CameraServer.monitoring_feeds:
+	if fonte != "servidor" or status == "desligada" or not _vigiando:
 		return
 	var escolhida: CameraFeed = null
 	var nota := -1
-	for f: CameraFeed in CameraServer.feeds():
+	for f in CameraServer.feeds():
 		var n := 0
 		var nome: String = f.get_name().to_lower()
 		if f == _falsa:
@@ -599,7 +632,8 @@ func _procurar_servidor() -> void:
 			_ligada = false
 		feed = escolhida
 		nome_camera = feed.get_name()
-		_escolher_formato()
+		# (Godot 3: o CameraFeed não lista nem escolhe a resolução — vale a
+		# que a câmera manda)
 		var a := CameraTexture.new()
 		a.camera_feed_id = feed.get_id()
 		a.which_feed = CameraServer.FEED_RGBA_IMAGE
@@ -609,28 +643,6 @@ func _procurar_servidor() -> void:
 		_tex_a = a
 		_tex_b = b
 	_mudar("pronta")
-
-
-## A resolução mais perto de 640x480 (leve para a TV Box e boa para a foto).
-func _escolher_formato() -> void:
-	var formatos: Array = feed.get_formats()
-	if formatos.empty():
-		return
-	var melhor := 0
-	var nota := INF
-	for i in formatos.size():
-		var f: Dictionary = formatos[i]
-		var w := int(f.get("width", 0))
-		var h := int(f.get("height", 0))
-		if w <= 0 or h <= 0:
-			continue
-		var n := abs(float(w * h - 640 * 480))
-		if "jp" in str(f.get("format", "")).to_lower():
-			n += 50000.0   # JPEG custa processador para abrir: só se não tiver outro
-		if n < nota:
-			nota = n
-			melhor = i
-	feed.set_format(melhor, {})
 
 
 # ================================================================ ligar / desligar
@@ -644,7 +656,7 @@ func ligar() -> bool:
 		# a foto só com quadro NOVO (nunca o da partida anterior)
 		_quadro_visto = -1
 		if fonte == "android" and _ligada:
-			_plugin.call("ver", true)  #G3?
+			_plugin.call("ver", true)
 	if not _ligada:
 		match fonte:
 			"android":
@@ -671,7 +683,7 @@ func _soltar() -> void:
 	_vendo = false
 	_vp.render_target_update_mode = Viewport.UPDATE_DISABLED
 	if fonte == "android" and _sempre and _ligada and bool(Ajustes.valor("jogo", "foto")):
-		_plugin.call("ver", false)  #G3?
+		_plugin.call("ver", false)
 		return
 	_parar()
 
@@ -682,7 +694,7 @@ func _parar() -> void:
 		return
 	match fonte:
 		"android":
-			_plugin.call("fechar")  #G3?
+			_plugin.call("fechar")
 		"ffmpeg":
 			_parar_ffmpeg()
 		_:
@@ -728,12 +740,11 @@ func _process(delta: float) -> void:
 			_quadro_ffmpeg()
 		_:
 			if feed != null:
+				# Godot 3: o CameraFeed não diz o tipo da imagem; com a textura
+				# CbCr preenchida ela vem em Y + CbCr separados
 				var tipo := 1
-				match feed.get_datatype():
-					CameraFeed.FEED_YCBCR:
-						tipo = 2
-					CameraFeed.FEED_YCBCR_SEP:
-						tipo = 3
+				if _tex_b != null and VisualServer.texture_get_width(_tex_b.get_rid()) > 0:
+					tipo = 3
 				_ajustar_shader(tipo, _tex_a.get_size())
 
 
@@ -756,21 +767,24 @@ func _vigiar_android(delta: float) -> void:
 		return
 	_vigia_t = 0.0
 	# a TV Box pausou o app (o plugin solta a câmera): liga de novo
-	if str(_plugin.call("estado")) == "parada":  #G3?
+	if str(_plugin.call("estado")) == "parada":
 		_abrir_android()
 		return
-	var n := int(_plugin.call("quadros"))  #G3?
+	var n := int(_plugin.call("quadros"))
 	if n > 0 and n != _ultimo_n:
 		_ultimo_n = n
 		_vivo_ms = Time.get_ticks_msec()
 		_reaberturas = 0
-		if not _sistema_lembrado() and str(_plugin.call("fonte")) in ["sistema", "camera2"]:  #G3?
+		if not _sistema_lembrado() and str(_plugin.call("fonte")) in ["sistema", "camera2"]:
 			_lembrar_sistema()
 
 
 ## Android: Y e UV (4:2:0) do plugin viram duas texturas; a cor sai no shader.
+## Godot 3 (GLES2): não existe textura RG — o par CbCr vira RGB (Cb, Cr, 0)
+## aqui mesmo (o motor faria a mesma conversão, mas reclamando no log a
+## cada quadro); o shader continua lendo .rg.
 func _quadro_android() -> void:
-	var n := int(_plugin.call("quadros"))  #G3?
+	var n := int(_plugin.call("quadros"))
 	if n <= 0 or n == _quadro_visto:
 		return
 	var agora := Time.get_ticks_msec()
@@ -778,24 +792,27 @@ func _quadro_android() -> void:
 		return
 	_quadro_ms = agora
 	_quadro_visto = n
-	var w := int(_plugin.call("largura"))  #G3?
-	var h := int(_plugin.call("altura"))  #G3?
+	var w := int(_plugin.call("largura"))
+	var h := int(_plugin.call("altura"))
 	if w < 2 or h < 2:
 		return
-	var y: PoolByteArray = _plugin.call("plano_y")  #G3?
-	var uv: PoolByteArray = _plugin.call("plano_uv")  #G3?
+	var y: PoolByteArray = _plugin.call("plano_y")
+	var uv: PoolByteArray = _plugin.call("plano_uv")
 	if y.size() != w * h or uv.size() != (w / 2) * (h / 2) * 2:
 		return
-	var iy := Image.create_from_data(w, h, false, Image.FORMAT_L8, y)  #G3?
-	var iuv := Image.create_from_data(w / 2, h / 2, false, Image.FORMAT_RG8, uv)  #G3?
+	var iy := Image.new()
+	iy.create_from_data(w, h, false, Image.FORMAT_L8, y)
+	var iuv := Image.new()
+	iuv.create_from_data(w / 2, h / 2, false, Image.FORMAT_RG8, uv)
+	iuv.convert(Image.FORMAT_RGB8)
 	if _img_y == null or _img_y.get_size() != iy.get_size():
 		_tex_a = Compat.textura_de_imagem(iy)
 		_tex_b = Compat.textura_de_imagem(iuv)
 		_mat.set_shader_param("cam_a", _tex_a)
 		_mat.set_shader_param("cam_b", _tex_b)
 	else:
-		(_tex_a as ImageTexture).update(iy)
-		(_tex_b as ImageTexture).update(iuv)
+		(_tex_a as ImageTexture).set_data(iy)
+		(_tex_b as ImageTexture).set_data(iuv)
 	_img_y = iy
 	_img_uv = iuv
 	_ajustar_shader(3, Vector2(w, h))
@@ -804,43 +821,75 @@ func _quadro_android() -> void:
 # ---------------------------------------------------------------- ffmpeg (PC)
 ## ffmpeg manda quadros RGB crus (640x480) por um "cano"; uma linha de
 ## execução separada lê e guarda o último quadro.
+## Godot 3: não tem execute_with_pipe — o "cano" é uma conexão TCP local:
+## o jogo escuta em 127.0.0.1 e o ffmpeg manda o vídeo para lá.
+const PORTA_FF := 47410
+
+
 func _iniciar_ffmpeg() -> void:
 	_parar_ffmpeg()
-	var args := PoolStringArray(["-hide_banner", "-loglevel", "error", "-f", "dshow", "-rtbufsize", "64M",
-		"-i", "video=" + _ff_dispositivo,
-		"-vf", "scale=%d:%d:force_original_aspect_ratio=increase,crop=%d:%d" % [W_FF, H_FF, W_FF, H_FF],
-		"-r", "15", "-pix_fmt", "rgb24", "-f", "rawvideo", "-"])
-	var r := OS.execute_with_pipe(_ffmpeg, args, true)
-	if r.empty():
+	_ff_servidor = TCP_Server.new()
+	var porta := -1
+	for p in range(PORTA_FF, PORTA_FF + 20):
+		if _ff_servidor.listen(p, "127.0.0.1") == OK:
+			porta = p
+			break
+	if porta < 0:
+		_ff_servidor = null
 		_mudar("sem_camera")
 		return
-	_ff_pid = int(r["pid"])
+	var args := PoolStringArray(["-hide_banner", "-nostdin", "-loglevel", "error", "-f", "dshow", "-rtbufsize", "64M",
+		"-i", "video=" + _ff_dispositivo,
+		"-vf", "scale=%d:%d:force_original_aspect_ratio=increase,crop=%d:%d" % [W_FF, H_FF, W_FF, H_FF],
+		"-r", "15", "-pix_fmt", "rgb24", "-f", "rawvideo", "tcp://127.0.0.1:%d" % porta])
+	var pid := OS.execute(_ffmpeg, args, false)
+	if pid <= 0:
+		_ff_servidor.stop()
+		_ff_servidor = null
+		_mudar("sem_camera")
+		return
+	_ff_pid = pid
 	_ff_rodando = true
-	_ff_linha = Thread.new()  #G3?
-	_ff_linha.start(_ler_ffmpeg.bind(r["stdio"]))  #G3?
+	_ff_linha = Thread.new()
+	_ff_linha.start(self, "_ler_ffmpeg", _ff_servidor)
 
 
-func _ler_ffmpeg(cano: FileAccess) -> void:  #G3?
+## (linha de execução) Espera o ffmpeg conectar e lê os quadros.
+func _ler_ffmpeg(servidor: TCP_Server) -> void:
 	var tam := W_FF * H_FF * 3
+	var cano: StreamPeerTCP = null
 	var acumulado := PoolByteArray()
-	var vazios := 0
+	var espera := 0
 	while _ff_rodando:
-		var pedaco := cano.get_buffer(tam - acumulado.size())
-		if pedaco.empty():
-			vazios += 1
-			if vazios > 50:
-				break
-			OS.delay_msec(20)
+		if cano == null:
+			# o ffmpeg ainda está abrindo a câmera (pode levar uns segundos);
+			# 15 s sem conectar: ele não abriu a câmera
+			if servidor.is_connection_available():
+				cano = servidor.take_connection()
+			else:
+				espera += 1
+				if espera > 750:
+					break
+				OS.delay_msec(20)
 			continue
-		vazios = 0
-		acumulado.append_array(pedaco)
+		var n := cano.get_available_bytes()
+		if n <= 0:
+			if cano.get_status() != StreamPeerTCP.STATUS_CONNECTED:
+				break   # o ffmpeg fechou (ou caiu)
+			OS.delay_msec(2)
+			continue
+		var r: Array = cano.get_partial_data(Compat.imin(n, tam - acumulado.size()))
+		if int(r[0]) != OK:
+			break
+		acumulado.append_array(r[1])
 		if acumulado.size() >= tam:
 			_ff_trava.lock()
 			_ff_quadro = acumulado
 			_ff_novo = true
 			_ff_trava.unlock()
 			acumulado = PoolByteArray()
-	cano.close()
+	if cano != null:
+		cano.disconnect_from_host()
 
 
 func _quadro_ffmpeg() -> void:
@@ -851,12 +900,13 @@ func _quadro_ffmpeg() -> void:
 	_ff_trava.unlock()
 	if not novo:
 		return
-	var img := Image.create_from_data(W_FF, H_FF, false, Image.FORMAT_RGB8, dados)  #G3?
+	var img := Image.new()
+	img.create_from_data(W_FF, H_FF, false, Image.FORMAT_RGB8, dados)
 	if _img_rgb == null:
 		_tex_a = Compat.textura_de_imagem(img)
 		_mat.set_shader_param("cam_a", _tex_a)
 	else:
-		(_tex_a as ImageTexture).update(img)
+		(_tex_a as ImageTexture).set_data(img)
 	_img_rgb = img
 	_ajustar_shader(1, Vector2(W_FF, H_FF))
 
@@ -869,6 +919,9 @@ func _parar_ffmpeg() -> void:
 	if _ff_linha != null:
 		_ff_linha.wait_to_finish()
 		_ff_linha = null
+	if _ff_servidor != null:
+		_ff_servidor.stop()
+		_ff_servidor = null
 	_img_rgb = null
 
 
@@ -878,7 +931,7 @@ func _exit_tree() -> void:
 	if _ff_busca != null:
 		_ff_busca.wait_to_finish()
 	if _plugin != null:
-		_plugin.call("fechar")  #G3?
+		_plugin.call("fechar")
 	# a câmera de teste (feita em GDScript) sai do CameraServer antes do
 	# motor desligar (senão ele a apaga depois dos scripts e o jogo cai ao sair)
 	if _falsa != null:
@@ -893,6 +946,9 @@ func _exit_tree() -> void:
 ## Tira a foto, igual ao jogo de soco: espera um quadro BOM (até 4 s) —
 ## com imagem, nem escuro nem chapado (tampa na lente). A foto não se perde
 ## porque a câmera demorou um pouco ou mandou um quadro ruim.
+## Godot 3: é uma corrotina (yield) — quem chama faz
+## `var r = Fotos.tirar(k)` e, se r for GDScriptFunctionState,
+## `r = yield(r, "completed")`.
 func tirar(chave: String) -> ImageTexture:
 	if not _ligada:
 		return null
@@ -901,16 +957,17 @@ func tirar(chave: String) -> ImageTexture:
 	while Time.get_ticks_msec() < limite:
 		if tem_imagem():
 			yield(VisualServer, "frame_post_draw")
-			var i := _vp.get_texture().get_image()
-			if i != null and not i.empty() and not _escura(i) and _contraste(i) >= 0.04:
+			# (com render_target_v_flip a imagem já vem de pé)
+			var i := _vp.get_texture().get_data()
+			if i != null and not i.is_empty() and not _escura(i) and _contraste(i) >= 0.04:
 				img = i
 				break
 		yield(get_tree(), "idle_frame")
 	if img == null:
 		return null
-	img.convert(Image.FORMAT_RGB8)  #G3?
+	img.convert(Image.FORMAT_RGB8)
 	img.generate_mipmaps()
-	var t := Compat.textura_de_imagem(img)
+	var t := Compat.textura_de_imagem(img, true, true)
 	fotos[chave] = t
 	_imagens[chave] = img
 	if _falsa != null and _falsas.size() > 1:
@@ -924,20 +981,24 @@ func tirar(chave: String) -> ImageTexture:
 func _contraste(img: Image) -> float:
 	var claro := 0.0
 	var escuro := 1.0
+	img.lock()
 	for gx in 8:
 		for gy in 6:
 			var c := img.get_pixel(int((gx + 0.5) / 8.0 * img.get_width()), int((gy + 0.5) / 6.0 * img.get_height()))
 			var v := 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b
 			claro = max(claro, v)
 			escuro = min(escuro, v)
+	img.unlock()
 	return claro - escuro
 
 
 func _escura(img: Image) -> bool:
 	var soma := 0.0
+	img.lock()
 	for i in 64:
 		var c := img.get_pixel((i * 37) % img.get_width(), (i * 53) % img.get_height())
 		soma += c.r + c.g + c.b
+	img.unlock()
 	return soma / (64.0 * 3.0) < 0.03
 
 
@@ -960,10 +1021,10 @@ func gravar(chave: String, nome_arquivo: String) -> String:
 		return ""
 	var img: Image = _imagens.get(chave)
 	if img == null:
-		img = t.get_image()
+		img = t.get_data()
 	var caminho := PASTA + nome_arquivo
 	_recordes[caminho] = t
-	Tarefas.rodar(func(): img.save_png(caminho))  #G3?
+	Tarefas.rodar(img, "save_png", [caminho])
 	return caminho
 
 
@@ -975,10 +1036,10 @@ func carregar(caminho: String) -> Texture:
 		return _recordes[caminho]
 	var t: Texture = null
 	if Compat.existe_arquivo(caminho):
-		var img := Image.load_from_file(caminho)  #G3?
-		if img != null and not img.empty():
+		var img := Image.new()
+		if img.load(caminho) == OK and not img.is_empty():
 			img.generate_mipmaps()
-			t = Compat.textura_de_imagem(img)
+			t = Compat.textura_de_imagem(img, true, true)
 	_recordes[caminho] = t
 	return t
 
@@ -1002,22 +1063,23 @@ func apagar_recordes() -> void:
 # ---------------------------------------------------------------- câmera de teste (PC)
 func _criar_falsa() -> void:
 	_falsa = FeedFalso.new()
-	_falsa.set_name("Câmera de teste")
+	_falsa._set_name("Câmera de teste")
 	for c in ["res://tools/testes/foto_teste.png", "res://tools/testes/foto_teste_2.png"]:
 		var cam := ProjectSettings.globalize_path(c)
 		if Compat.existe_arquivo(cam):
-			var im := Image.load_from_file(cam)  #G3?
-			if im != null and not im.empty():
-				im.convert(Image.FORMAT_RGB8)  #G3?
+			var im := Image.new()
+			if im.load(cam) == OK and not im.is_empty():
+				im.convert(Image.FORMAT_RGB8)
 				_falsas.append(im)
 	if not _falsas.empty():
 		_falsa_base = _falsas[0]
-	if _falsa_base == null or _falsa_base.empty():
-		_falsa_base = Image.create(640, 480, false, Image.FORMAT_RGB8)  #G3?
+	if _falsa_base == null or _falsa_base.is_empty():
+		_falsa_base = Compat.nova_imagem(640, 480, false, Image.FORMAT_RGB8)
 		_falsa_base.fill(Color(0.3, 0.6, 0.9))
 		_falsa_base.fill_rect(Rect2(220, 120, 200, 240), Color(1.0, 0.8, 0.65))
-	_falsa_base.convert(Image.FORMAT_RGB8)  #G3?
-	_falsa.set_rgb_image(_falsa_base)
+	_falsa_base.convert(Image.FORMAT_RGB8)
+	# (Godot 3: a imagem só entra com a câmera ligada — _atualizar_falsa)
+	_falsa._set_RGB_img(_falsa_base)
 	CameraServer.add_feed(_falsa)
 
 
@@ -1027,4 +1089,4 @@ func _atualizar_falsa() -> void:
 	var dx := int(sin(_falsa_t * 2.0) * 6.0)
 	if dx != 0:
 		img.blit_rect(_falsa_base, Rect2(Compat.imax(0, -dx), 0, img.get_width() - Compat.iabs(dx), img.get_height()), Vector2(Compat.imax(0, dx), 0))
-	_falsa.set_rgb_image(img)
+	_falsa._set_RGB_img(img)

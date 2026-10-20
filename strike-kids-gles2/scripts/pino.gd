@@ -46,9 +46,10 @@ func montar(n: int, pos: Vector3, malha_pino: Mesh, forma: Shape, rosto: Texture
 	contacts_reported = 4
 	collision_layer = Medidas.CAMADA_PINOS
 	collision_mask = Medidas.CAMADA_MUNDO | Medidas.CAMADA_PINOS | Medidas.CAMADA_BOLA | Medidas.CAMADA_PISO_PINOS | Medidas.CAMADA_SO_PINOS
+	# atrito 0,38 e quique 0,38 do Godot 4, na conta da Bullet (Medidas)
 	var pm := PhysicsMaterial.new()
-	pm.friction = 0.38
-	pm.bounce = 0.38
+	pm.friction = Medidas.ATRITO_PINO
+	pm.bounce = Medidas.QUIQUE_PINO
 	physics_material_override = pm
 	var cs := CollisionShape.new()
 	cs.shape = forma

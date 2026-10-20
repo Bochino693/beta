@@ -45,9 +45,10 @@ func _init() -> void:
 	can_sleep = false
 	collision_layer = Medidas.CAMADA_BOLA
 	collision_mask = Medidas.CAMADA_MUNDO | Medidas.CAMADA_PINOS | Medidas.CAMADA_PISO_BOLA
+	# atrito 0,12 e quique 0,12 do Godot 4, na conta da Bullet (Medidas)
 	var pm := PhysicsMaterial.new()
-	pm.friction = 0.12
-	pm.bounce = 0.12
+	pm.friction = Medidas.ATRITO_BOLA
+	pm.bounce = Medidas.QUIQUE_BOLA
 	physics_material_override = pm
 	var cs := CollisionShape.new()
 	var sh := SphereShape.new()

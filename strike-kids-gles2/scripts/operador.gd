@@ -153,7 +153,7 @@ func _rotulo(texto: String, pos: Vector2, tam: float, cor: Color) -> Label:
 	l.rect_size = Vector2(Tela.tamanho().x, tam * 1.5)
 	l.align = Label.ALIGN_CENTER
 	l.valign = Label.VALIGN_CENTER
-	Compat.estilo_rotulo(l, FONTE, int(tam), cor, int(tam * 0.18), Color("#0B1F45"))
+	Compat.estilo_rotulo(l, FONTE, int(tam), cor, Compat.contorno_g4(int(tam * 0.18)), Color("#0B1F45"))
 	add_child(l)
 	return l
 

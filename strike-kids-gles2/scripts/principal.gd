@@ -1753,7 +1753,7 @@ func _aviso_remontar() -> void:
 	l.text = "APLICANDO OS AJUSTES...\naguarde um instante"
 	l.align = Label.ALIGN_CENTER
 	l.valign = Label.VALIGN_CENTER
-	Compat.estilo_rotulo(l, "fredoka_700", 54, Color("#FFD43B"), 10, Color("#0B1F45"))
+	Compat.estilo_rotulo(l, "fredoka_700", 54, Color("#FFD43B"), Compat.contorno_g4(10), Color("#0B1F45"))
 	fundo.add_child(l)
 
 

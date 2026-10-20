@@ -86,6 +86,10 @@ func montar(p: Pinos) -> void:
 	barra.set_sync_to_physics(true)
 	barra.collision_layer = Medidas.CAMADA_MUNDO
 	barra.collision_mask = 0
+	# o atrito e o quique de fábrica do Godot 4 (1 e 0), na conta da Bullet
+	var pm_barra := Medidas.material(1.0, 0.0, "pinos")
+	PhysicsServer.body_set_param(barra.get_rid(), PhysicsServer.BODY_PARAM_FRICTION, pm_barra.friction)
+	PhysicsServer.body_set_param(barra.get_rid(), PhysicsServer.BODY_PARAM_BOUNCE, pm_barra.bounce)
 	var cs := CollisionShape.new()
 	var bs := BoxShape.new()
 	bs.extents = Vector3(Medidas.MEIA_LARGURA * 2 + 0.3, 0.17, 0.07) / 2.0
@@ -121,16 +125,17 @@ func _montar_alcapao() -> void:
 	var comp := Medidas.ALCAPAO_Z0 - Medidas.ALCAPAO_Z1
 	var mat := Materiais.cor_toon(Color("#1D4290"), 0.0, {"borda": 0.3})
 	var mat_faixa := Materiais.cor_toon(Color("#FFD23F"), 0.0, {"borda": 0.25})
-	var pm := PhysicsMaterial.new()
-	pm.friction = 0.9
-	pm.bounce = 0.05
+	var pm := Medidas.material(0.9, 0.05, "pinos")
 	for s in [-1.0, 1.0]:
 		var porta := KinematicBody.new()
 		porta.name = "alcapao_%d" % int(s)
 		porta.set_sync_to_physics(true)
 		porta.collision_layer = Medidas.CAMADA_MUNDO
 		porta.collision_mask = 0
-		porta.physics_material_override = pm
+		# (Godot 3: o KinematicBody não tem material; atrito e quique vão
+		# direto para o servidor de física)
+		PhysicsServer.body_set_param(porta.get_rid(), PhysicsServer.BODY_PARAM_FRICTION, pm.friction)
+		PhysicsServer.body_set_param(porta.get_rid(), PhysicsServer.BODY_PARAM_BOUNCE, pm.bounce)
 		var tam := Vector3(Medidas.ALCAPAO_X - 0.004, 0.04, comp - 0.008)
 		var cs := CollisionShape.new()
 		var bs := BoxShape.new()

@@ -282,13 +282,14 @@ func _caber(l: Label, tam: float, largura: float) -> void:
 ## Textos ENORMES (o "1"/"2" dos cartões, a contagem da foto). Godot 3: uma
 ## letra de 280 px ficaria numa página de 4096 x 4096 (32 MB, mais a do
 ## contorno, mandada de novo à placa de vídeo a cada letra nova). A letra é
-## desenhada em até FONTE_MAX px (x u) e esticada (rect_scale) até `area`.
+## desenhada em até FONTE_MAX px (x u) e esticada (rect_scale) até `area`
+## (o canto de cima fica em area.position, como o rótulo do Godot 4).
 func _rotulo_grande(l: Label, tam: float, contorno: float, area: Rect2) -> void:
 	var k: float = max(tam / (FONTE_MAX * max(u, 1.0)), 1.0)
 	_tamanho_rotulo(l, tam / k, contorno / k)
 	l.rect_size = area.size / k
-	l.rect_position = area.position + (area.size - l.rect_size) / 2
 	l.rect_pivot_offset = l.rect_size / 2
+	l.rect_position = area.position + l.rect_size * (k - 1.0) / 2
 	l.rect_scale = Vector2.ONE * k
 	l.set_meta("escala", k)
 

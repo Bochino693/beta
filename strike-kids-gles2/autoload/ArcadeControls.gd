@@ -127,6 +127,9 @@ func _completar_mapa(aparelho: int) -> void:
 func _carregar() -> void:
 	var cfg := ConfigFile.new()
 	if cfg.load(ARQUIVO) != OK:
+		# (Godot 3: o R2 entra também sem mapeamento gravado — o Input Map do
+		# projeto pode não ter o número dele no Godot 3)
+		_garantir_r2({})
 		return
 	var do_godot4 := not cfg.has_section_key("formato", "godot")
 	var botoes := {}
