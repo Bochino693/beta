@@ -4,11 +4,15 @@ extends Node
 ## vários instantes de cada clipe (para achar braço quebrado, cotovelo
 ## aberto, mão entrando no corpo...).
 ##   godot --path . --fixed-fps 30 res://tools/testes/bracos.tscn -- --janela=1200x900 saida.png bob pronto,acenar 0.3,0.8,1.3
+## Com roupinha de fase: bob:pirata, mia:dino, bob:astronauta, mia:parque...
+## --perto: a cabeça de perto (rosto, chapéu, capuz). --costas: de costas
+## (como na hora do arremesso).
 
 const LARG := 340
 const ALT := 430
 var saida := "user://bracos.png"
 var quem := "bob"
+var roupa := ""
 var clipes: Array = ["pronto"]
 var tempos: Array = [0.3, 0.8, 1.3]
 var bicho: Personagem
@@ -28,6 +32,9 @@ func _ready() -> void:
 		saida = a[0]
 	if a.size() > 1:
 		quem = a[1]
+		if ":" in quem:
+			roupa = quem.get_slice(":", 1)
+			quem = quem.get_slice(":", 0)
 	if a.size() > 2:
 		clipes = Array(a[2].split(","))
 	if a.size() > 3:
@@ -51,6 +58,7 @@ func _ready() -> void:
 	bicho = Personagem.new()
 	raiz.add_child(bicho)
 	bicho.montar(quem)
+	bicho.trocar_roupa(roupa)
 	bicho.posicionar(Vector3.ZERO, 0)
 	cf = Camera3D.new()
 	cf.fov = 30
@@ -83,8 +91,13 @@ func _comecar() -> void:
 ## As câmeras acompanham o bichinho (corrida do arremesso, pulos).
 func _seguir() -> void:
 	var c := bicho.global_position
-	cf.look_at_from_position(c + Vector3(0, 0.95, 2.6), c + Vector3(0, 0.62, 0))
-	cl.look_at_from_position(c + Vector3(2.0, 1.0, 1.7), c + Vector3(0, 0.62, 0))
+	if OS.get_cmdline_user_args().has("--perto"):
+		cf.look_at_from_position(c + Vector3(0, 1.0, 1.25), c + Vector3(0, 0.9, 0))
+		cl.look_at_from_position(c + Vector3(0.95, 1.05, 0.8), c + Vector3(0, 0.9, 0))
+		return
+	var z := -1.0 if OS.get_cmdline_user_args().has("--costas") else 1.0
+	cf.look_at_from_position(c + Vector3(0, 0.95, 2.6 * z), c + Vector3(0, 0.62, 0))
+	cl.look_at_from_position(c + Vector3(2.0, 1.0, 1.7 * z), c + Vector3(0, 0.62, 0))
 
 
 func _process(delta: float) -> void:

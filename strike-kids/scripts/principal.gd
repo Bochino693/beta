@@ -77,8 +77,11 @@ var _demo_t := 0.0
 var _camera_t := 0.0
 var _demo_vez := 0
 var _ultimo_som_pino := 0
-var _tema_base := 0           # a 1ª rodada é sempre nos dinos; as outras giram de partida em partida
-var _tema_partida := 0
+## as fases (cenários) de cada rodada desta partida, sorteadas no START
+var _temas_partida: Array[String] = []
+var _temas_prontos := false
+## a roupinha do Bob e da Mia em cada fase (tools/modelos/roupas.py)
+const ROUPA_DO_TEMA := {"mar": "pirata", "dinos": "dino", "espaco": "astronauta", "parque": "parque"}
 var _qualidade := "media"
 ## resolução da imagem 3D: fator (70% a 100%) sobre o LADO_3D — automático
 ## (desce se a máquina não segura 60 quadros e VOLTA A SUBIR quando sobra
@@ -286,7 +289,7 @@ func _input(event: InputEvent) -> void:
 		_mouse_parado = 0.0
 		if Input.mouse_mode != Input.MOUSE_MODE_VISIBLE:
 			Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
-	if ArcadeControls.eh_config(event):
+	if ArcadeControls.eh_config(event) or _tecla_menu(event):
 		get_viewport().set_input_as_handled()
 		abrir_menu.call_deferred(CENA_OPERADOR)
 		return
@@ -484,6 +487,7 @@ func _atracao() -> void:
 	Sons.atualizar_volume()
 	_novo_seq()
 	_limpar()
+	_roupa_de_sempre()
 	hud.marca(false, true)
 	hud.tela_fim(false)
 	hud.jogadores(false)
@@ -559,6 +563,12 @@ func _escolher_jogadores() -> void:
 	ArduinoBridge.send_led("MENU")
 	bola.guardar()
 	_parar_lenta()
+	# escolha e fotos com a roupa de sempre; as fases já saem no sorteio e a
+	# roupinha da 1ª vai carregando em segundo plano enquanto escolhem
+	_roupa_de_sempre()
+	_sortear_temas(Ajustes.rodadas())
+	_temas_prontos = true
+	_pedir_roupas(_temas_partida[0])
 
 
 func _confirmar_jogadores() -> void:
@@ -644,8 +654,10 @@ func _comecar(lista: Array) -> void:
 	placar.comecar(lista, Ajustes.rodadas(), Ajustes.tentativas())
 	mundo.definir_protecao(Ajustes.protecao_canaleta())
 	maquina.instantaneo()
-	_tema_partida = _tema_base
-	_tema_base = (_tema_base + maxi(Ajustes.rodadas() - 1, 1)) % (Temas.ORDEM.size() - 1)
+	if not _temas_prontos or _temas_partida.size() != maxi(Ajustes.rodadas(), 1):
+		_sortear_temas(Ajustes.rodadas())
+		_pedir_roupas(_temas_partida[0])
+	_temas_prontos = false
 	Fotos.limpar_partida()
 	# uma foto por jogador (1 jogador = 1 foto, 2 jogadores = 2 fotos)
 	if Fotos.pode_fotografar():
@@ -705,13 +717,64 @@ func _sessao_de_fotos(lista: Array) -> bool:
 	return true
 
 
-## 1ª rodada: Selva dos Dinos, sempre. Da 2ª em diante, os outros cenários
-## em roda — cada partida continua de onde a anterior parou.
+## A fase (cenário) da rodada atual, do sorteio da partida.
 func _tema_da_rodada() -> String:
-	if placar.rodada_atual == 0:
-		return Temas.ORDEM[0]
-	var outros := Temas.ORDEM.size() - 1
-	return Temas.ORDEM[1 + (_tema_partida + placar.rodada_atual - 1) % outros]
+	if _temas_partida.is_empty():
+		return mundo.tema
+	return _temas_partida[clampi(placar.rodada_atual, 0, _temas_partida.size() - 1)]
+
+
+## FASES SORTEADAS: a fase de cada rodada sai num sorteio — todas aparecem
+## antes de alguma se repetir, e nunca a mesma duas rodadas seguidas.
+func _sortear_temas(n: int) -> void:
+	_temas_partida.clear()
+	var antes := ""
+	var usados := {}
+	for i in maxi(n, 1):
+		var opcoes: Array[String] = []
+		for t in Temas.ORDEM:
+			if t != antes and not usados.has(t):
+				opcoes.append(t)
+		if opcoes.is_empty():
+			usados.clear()
+			for t in Temas.ORDEM:
+				if t != antes:
+					opcoes.append(t)
+		var t: String = opcoes.pick_random()
+		_temas_partida.append(t)
+		usados[t] = true
+		antes = t
+
+
+# ================================================================ roupinhas das fases
+## Bob e Mia com a roupinha da fase (pirata no mar, dinossaurinho na selva,
+## astronauta no espaço, boné de hélice no parque). "" = a roupa de sempre.
+func _vestir(tema: String) -> void:
+	var r: String = ROUPA_DO_TEMA.get(tema, "")
+	for nome in personagens:
+		(personagens[nome] as Personagem).trocar_roupa(r)
+
+
+## Começa a carregar (em segundo plano) a roupinha de uma fase que vem aí.
+func _pedir_roupas(tema: String) -> void:
+	var r: String = ROUPA_DO_TEMA.get(tema, "")
+	for nome in personagens:
+		(personagens[nome] as Personagem).pedir_roupa(r)
+
+
+## Roupa de sempre (tela de início, escolha, fotos): se alguém ainda está de
+## roupinha, troca escondido num clarão; o que ficou carregado sem uso sai
+## da memória.
+func _roupa_de_sempre() -> void:
+	var trocar := false
+	for nome in personagens:
+		var p: Personagem = personagens[nome]
+		p.soltar_pedidos()
+		if p.roupa != "":
+			trocar = true
+	if trocar:
+		hud.flash(Color.WHITE, 0.6, 0.35)
+		_vestir("")
 
 
 ## Começo da vez de um jogador (ou da próxima bola dele).
@@ -751,6 +814,10 @@ func _vez(nova_rodada: bool) -> void:
 		var tema := _tema_da_rodada()
 		hud.flash(Color.WHITE, 0.95, 0.6)
 		mundo.aplicar_tema(tema)
+		_vestir(tema)
+		# a roupinha da próxima fase já vai carregando durante esta rodada
+		if placar.rodada_atual + 1 < _temas_partida.size():
+			_pedir_roupas(_temas_partida[placar.rodada_atual + 1])
 		_no_clarao()
 		Sons.tocar("brilho")
 		Sons.tocar("whoosh", 0.6)
@@ -1585,6 +1652,23 @@ func _aviso_remontar() -> void:
 
 
 # ================================================================ utilidades
+## Tecla MENU do controle remoto da TV Box: abre o menu do operador.
+func _tecla_menu(event: InputEvent) -> bool:
+	return event is InputEventKey and event.is_pressed() and not event.is_echo() \
+		and (event as InputEventKey).keycode == KEY_MENU
+
+
+## VOLTAR do controle remoto da TV Box: o Android pede para voltar (o jogo
+## NÃO fecha — application/config/quit_on_go_back = false). No menu do
+## operador ou na configuração dos botões, volta/sai; no jogo, nada.
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_WM_GO_BACK_REQUEST and _menu != null:
+		if _menu.has_method("comando"):
+			_menu.comando("sair")
+		elif _menu.has_method("cancelar"):
+			_menu.cancelar()
+
+
 ## Faz `f` no começo do próximo quadro (espalha o trabalho de um momento
 ## pesado por dois quadros: na TV Box tudo junto passava do tempo do quadro).
 func _no_proximo_quadro(f: Callable) -> void:

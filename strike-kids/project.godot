@@ -19,6 +19,7 @@ boot_splash/bg_color=Color(0.024, 0.078, 0.188, 1)
 boot_splash/image="res://ui/splash.png"
 config/icon="res://ui/icone_256.png"
 boot_splash/image.android="res://ui/splash_giro_1.png"
+config/quit_on_go_back=false
 
 [autoload]
 

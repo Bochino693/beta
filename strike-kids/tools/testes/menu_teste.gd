@@ -95,5 +95,53 @@ func _rodar() -> void:
 		_medindo = false
 		checar(extra_abrir < 25.0 and extra_fechar < 25.0, "vez %d: abre e fecha sem travar (extra %.0f / %.0f ms)" % [vez + 1, extra_abrir, extra_fechar])
 		await esperar(2.0)
+	await _controle_remoto(p)
 	print("MENU_TESTE %s" % ("OK" if falhas == 0 else "FALHOU"))
 	get_tree().quit(0 if falhas == 0 else 1)
+
+
+## O CONTROLE REMOTO DA TV BOX no menu: MENU abre, setas andam e mudam o
+## valor, OK entra num teste, VOLTAR sai do teste e depois do menu (no
+## Android o VOLTAR chega como NOTIFICATION_WM_GO_BACK_REQUEST).
+func _tecla(k: Key) -> void:
+	for apertada in [true, false]:
+		var ev := InputEventKey.new()
+		ev.keycode = k
+		ev.physical_keycode = k
+		ev.pressed = apertada
+		Input.parse_input_event(ev)
+		await get_tree().process_frame
+	await esperar(0.15)
+
+
+func _controle_remoto(p: Node) -> void:
+	print("== controle remoto da TV Box")
+	await _tecla(KEY_MENU)
+	await esperar(0.6)
+	checar(p.menu_aberto(), "MENU do controle abre o menu")
+	if not p.menu_aberto():
+		return
+	var menu: Node = p._menu
+	await _tecla(KEY_DOWN)
+	checar(menu._sel == 1, "seta para baixo anda na lista")
+	await _tecla(KEY_UP)
+	checar(menu._sel == 0, "seta para cima volta")
+	var antes := int(Ajustes.valor("jogo", "rodadas"))
+	await _tecla(KEY_RIGHT if antes < 10 else KEY_LEFT)
+	var depois := int(Ajustes.valor("jogo", "rodadas"))
+	checar(depois != antes, "seta para o lado muda o valor (rodadas %d -> %d)" % [antes, depois])
+	await _tecla(KEY_LEFT if antes < 10 else KEY_RIGHT)
+	checar(int(Ajustes.valor("jogo", "rodadas")) == antes, "e a outra seta volta o valor")
+	# OK entra no teste dos sensores; VOLTAR sai do teste (o menu continua)
+	for i in menu.ITENS.size():
+		if menu.ITENS[i][2] == "teste":
+			menu._sel = i
+	await _tecla(KEY_ENTER)
+	checar(menu._teste, "OK entra no teste dos sensores")
+	p.notification(NOTIFICATION_WM_GO_BACK_REQUEST)
+	await esperar(0.3)
+	checar(not menu._teste and p.menu_aberto(), "VOLTAR sai do teste e fica no menu")
+	p.notification(NOTIFICATION_WM_GO_BACK_REQUEST)
+	await esperar(0.8)
+	checar(not p.menu_aberto(), "VOLTAR de novo volta ao jogo")
+	checar(p.E.keys()[p.estado] == "ATRACAO", "o jogo continua (tela de espera), sem fechar")

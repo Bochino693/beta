@@ -8,7 +8,8 @@ extends Control
 ##   X (meio-esquerda) = sobe        V (meio-direita) = desce
 ##   Z (esquerda)      = diminui     B (direita)      = aumenta
 ##   C (centro) ou START = escolher  Configuração     = voltar ao jogo
-## No PC também valem as setas, Enter e Esc.
+## Pelo CONTROLE REMOTO da TV Box: setas (cima/baixo andam, esquerda/direita
+## mudam o valor), OK escolhe, VOLTAR (ou MENU) sai. No PC: setas, Enter e Esc.
 ##
 ## O menu abre POR CIMA do jogo pausado (Principal.abrir_menu): nada do
 ## jogo é desmontado, e sair dele é na hora.
@@ -195,8 +196,18 @@ func _atualizar() -> void:
 	if _visiveis < ITENS.size():
 		rolar = "   (%d de %d)" % [_sel + 1, ITENS.size()]
 	_info.text = "X sobe · V desce · Z diminui · B aumenta · C/START escolhe · CONFIGURAÇÃO volta%s\n" % rolar + \
-		"Partidas: %d   ·   Strikes: %d   ·   Moedas: %d\n%s\nCâmera: %s" % [Ajustes.contador("partidas"),
-		Ajustes.contador("strikes"), Ajustes.contador("moedas"), ArduinoBridge.status, Fotos.texto_status()]
+		"Controle da TV Box: setas andam e mudam · OK escolhe · VOLTAR sai\n" + \
+		"Partidas: %d   ·   Strikes: %d   ·   Moedas: %d\n%s\nCâmera: %s\n%s" % [Ajustes.contador("partidas"),
+		Ajustes.contador("strikes"), Ajustes.contador("moedas"), ArduinoBridge.status, Fotos.texto_status(),
+		texto_aparelho()]
+
+
+## Qual é o aparelho (para saber qual TV Box é — a TX9, por exemplo, sai
+## com chips diferentes): modelo, sistema, placa de vídeo, núcleos e memória.
+static func texto_aparelho() -> String:
+	var gb := float(OS.get_memory_info().get("physical", 0)) / 1073741824.0
+	return "Aparelho: %s · %s %s · %s · %d núcleos%s" % [OS.get_model_name(), OS.get_name(), OS.get_version(),
+		RenderingServer.get_video_adapter_name(), OS.get_processor_count(), " · %.1f GB" % gb if gb > 0.0 else ""]
 
 
 func _arduino_mudou() -> void:
@@ -229,9 +240,18 @@ func _input(event: InputEvent) -> void:
 			_mostrar_teste(z)
 			return
 	if cmd == "" and event is InputEventKey:
-		cmd = {KEY_UP: "sobe", KEY_DOWN: "desce", KEY_LEFT: "menos", KEY_RIGHT: "mais", KEY_ENTER: "ok", KEY_ESCAPE: "sair"}.get((event as InputEventKey).keycode, "")
-	if cmd == "":
-		return
+		# teclado do PC e CONTROLE REMOTO da TV Box (no Android: setas = D-pad,
+		# OK = Enter, VOLTAR = Back, e a tecla MENU)
+		cmd = {KEY_UP: "sobe", KEY_DOWN: "desce", KEY_LEFT: "menos", KEY_RIGHT: "mais",
+			KEY_ENTER: "ok", KEY_KP_ENTER: "ok", KEY_ESCAPE: "sair", KEY_BACK: "sair",
+			KEY_MENU: "sair"}.get((event as InputEventKey).keycode, "")
+	if cmd != "":
+		comando(cmd)
+
+
+## Um comando do menu (dos botões da máquina, do teclado ou do controle
+## remoto da TV Box — o VOLTAR do Android chega pelo Principal).
+func comando(cmd: String) -> void:
 	if _camera and (cmd == "menos" or cmd == "mais"):
 		# no teste da câmera, Z / B giram a imagem (câmera montada de lado)
 		var g := (int(Ajustes.valor("jogo", "camera_giro")) + (90 if cmd == "mais" else 270)) % 360

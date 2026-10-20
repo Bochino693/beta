@@ -41,6 +41,10 @@ ORCAMENTO = {
     "cenario": (0.10, 500, 4000, 0.02),
     "temas": (0.10, 500, 4000, 0.02),
 }
+# as roupinhas das fases (roupas.py): o mesmo orçamento do personagem
+for _quem in ("bob", "mia"):
+    for _roupa in ("pirata", "dino", "astronauta", "parque"):
+        ORCAMENTO["%s_%s" % (_quem, _roupa)] = ORCAMENTO[_quem]
 
 # peças repetidas centenas de vezes (lâmpadas): orçamento próprio
 POR_PECA = {"lampada": 48, "balao": 400, "nuvem": 500, "cabine": 1200}

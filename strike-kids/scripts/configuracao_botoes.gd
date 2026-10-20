@@ -115,6 +115,9 @@ func _input(event: InputEvent) -> void:
 	get_viewport().set_input_as_handled()
 	if _terminado or event.is_echo():
 		return
+	if event is InputEventKey and event.is_pressed() and (event as InputEventKey).keycode in [KEY_BACK, KEY_ESCAPE]:
+		cancelar()   # VOLTAR do controle remoto (ou Esc): sai sem mudar nada
+		return
 	var codigo := ArcadeControls.codigo_do_evento(event)
 	if codigo == "":
 		return
@@ -145,6 +148,14 @@ func _concluir() -> void:
 	_pedido.text = "PRONTO!"
 	_dica.text = "GRAVADO. PARA REFAZER: BOTÃO DE CONFIGURAÇÃO, OU SEGURE UM BOTÃO 10 s NA TELA INICIAL"
 	await get_tree().create_timer(1.6).timeout
+	_voltar()
+
+
+## Sai sem gravar nada (VOLTAR do controle remoto da TV Box ou Esc).
+func cancelar() -> void:
+	if _terminado:
+		return
+	_terminado = true
 	_voltar()
 
 

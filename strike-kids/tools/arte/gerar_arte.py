@@ -996,6 +996,132 @@ def icone():
     print("  ícone ok")
 
 
+# =====================================================================
+# SOL E LUA COM ROSTINHO (no céu dos cenários: Mundo._astro)
+# =====================================================================
+# Pequenos de propósito (no céu eles ocupam poucos pixels): rosto em 2
+# quadros lado a lado (olhos abertos | piscando) e os raios do sol num
+# desenho à parte (o shader astro.gdshader gira os raios e faz piscar).
+CEU = os.path.join(UI, "ceu")
+
+
+def _disco(d, img, c, raio, centro_cor, borda_cor, contorno, larg):
+    """Disco com degradê radial (centro -> borda) e contorno."""
+    elipse(d, c, c, raio + larg, raio + larg, fill=cor(contorno))
+    camada = Image.new("RGBA", img.size, (0, 0, 0, 0))
+    px = camada.load()
+    a, b = cor(centro_cor), cor(borda_cor)
+    r2 = raio * raio
+    for y in range(int(c - raio), int(c + raio) + 1):
+        for x in range(int(c - raio), int(c + raio) + 1):
+            dd = (x - c) ** 2 + (y - c) ** 2
+            if dd <= r2:
+                t = (dd / r2) ** 0.8
+                px[x, y] = tuple(int(a[i] + (b[i] - a[i]) * t) for i in range(3)) + (255,)
+    img.alpha_composite(camada)
+
+
+def _boca_aberta(d, R):
+    """Sorriso aberto LISO: só a boquinha (meia-lua) com a linguinha — sem
+    dentes e sem a linha em cima (de longe aquilo parecia um bigode)."""
+    cx, cy = R.P(0.5, R.by)
+    L = R.L(R.bl)
+    w = max(2, int(R.L(0.022)))
+    bb = [cx - L * 0.5, cy - L * 0.42, cx + L * 0.5, cy + L * 0.5]
+    d.chord(bb, 0, 180, fill=cor(R.boca_borda))
+    bb2 = [bb[0] + w, bb[1] + w, bb[2] - w, bb[3] - w]
+    d.chord(bb2, 0, 180, fill=cor("#7A1E33"))
+    # linguinha: elipse no fundo da boca, recortada pelo lado de dentro
+    img = d._image
+    dentro = Image.new("L", img.size, 0)
+    ImageDraw.Draw(dentro).chord(bb2, 0, 180, fill=255)
+    lingua = Image.new("RGBA", img.size, (0, 0, 0, 0))
+    elipse(ImageDraw.Draw(lingua), cx, bb2[3] - L * 0.02, L * 0.25, L * 0.17, fill=cor("#FF7A8C"))
+    lingua.putalpha(ImageChops.multiply(lingua.getchannel("A"), dentro))
+    img.alpha_composite(lingua)
+
+
+def _rosto_astro(T, cx, cy, escala, iris, piscando, bochecha="#FF8FA6", boca_tipo="aberta"):
+    """Olhos, bochechas e boca (os mesmos dos personagens) numa camada."""
+    cel = int(T * escala)
+    R = Rosto(cel, iris, None, boca_borda="#7A2E12", bochecha=bochecha, olho_x=0.2, olho_y=0.43,
+              olho_rx=0.115, olho_ry=0.155, boca_y=0.68, boca_l=0.28, bochecha_x=0.35, bochecha_y=0.62)
+    camada = Image.new("RGBA", (cel, cel), (0, 0, 0, 0))
+    d = ImageDraw.Draw(camada)
+    d._image = camada
+    bochechas(d, R, 1.2)
+    for lado, ux in ((1, 0.5 + R.ox), (-1, 0.5 - R.ox)):
+        x, y = R.P(ux, R.oy)
+        desenhar_olho(d, R, x, y, "fechado_baixo" if piscando else "aberto", lado)
+    if boca_tipo == "aberta":
+        _boca_aberta(d, R)
+    else:
+        boca(d, R, boca_tipo)
+    saida = Image.new("RGBA", (T, T), (0, 0, 0, 0))
+    saida.alpha_composite(camada, (int(cx - cel / 2), int(cy - cel / 2)))
+    return saida
+
+
+def _quadros(desenhar, T):
+    """Os dois quadros (olhos abertos | piscando) lado a lado."""
+    atlas = Image.new("RGBA", (T * 2, T), (0, 0, 0, 0))
+    for k in range(2):
+        atlas.alpha_composite(desenhar(k == 1), (k * T, 0))
+    return atlas
+
+
+def astros():
+    os.makedirs(CEU, exist_ok=True)
+    T = 256 * SS
+    c = T / 2
+    # ---- sol: disco amarelo com contorno laranja; raios num desenho à parte
+    r_sol = T * 0.30
+
+    def sol(piscando):
+        img = Image.new("RGBA", (T, T), (0, 0, 0, 0))
+        d = ImageDraw.Draw(img)
+        _disco(d, img, c, r_sol, "#FFF27A", "#FFB52E", "#C2570C", T * 0.014)
+        img.alpha_composite(_rosto_astro(T, c, c + r_sol * 0.06, 0.6, "#6B3A12", piscando))
+        return img
+
+    _quadros(sol, T).resize((512, 256), Image.LANCZOS).save(os.path.join(CEU, "sol.png"))
+    raios = Image.new("RGBA", (T, T), (0, 0, 0, 0))
+    d = ImageDraw.Draw(raios)
+    n = 12
+    for k in range(n):
+        a = k / n * math.tau
+        longo = k % 2 == 0
+        r1 = r_sol * 0.92
+        r2 = T * (0.49 if longo else 0.43)
+        meia = math.tau / n * (0.34 if longo else 0.3)
+        pts = [(c + math.cos(a - meia) * r1, c + math.sin(a - meia) * r1),
+               (c + math.cos(a) * r2, c + math.sin(a) * r2),
+               (c + math.cos(a + meia) * r1, c + math.sin(a + meia) * r1)]
+        d.polygon(pts, fill=cor("#C2570C"))
+        # o miolo do raio (deixa o contorno em volta)
+        enc = 0.86
+        pts2 = [(c + (x - c) * enc + math.cos(a) * T * 0.012, c + (y - c) * enc + math.sin(a) * T * 0.012) for x, y in pts]
+        d.polygon(pts2, fill=cor("#FFC93C" if longo else "#FF9A1F"))
+    raios.resize((256, 256), Image.LANCZOS).save(os.path.join(CEU, "sol_raios.png"))
+    # ---- lua cheia com crateras e rostinho
+    r_lua = T * 0.44
+
+    def lua(piscando):
+        img = Image.new("RGBA", (T, T), (0, 0, 0, 0))
+        d = ImageDraw.Draw(img)
+        _disco(d, img, c, r_lua, "#FFF9DC", "#F2D98A", "#A07A2C", T * 0.014)
+        # crateras (longe do rosto)
+        for fx, fy, fr in ((0.42, -0.5, 0.17), (-0.6, -0.28, 0.11), (0.62, 0.2, 0.09), (-0.45, 0.55, 0.13), (0.15, -0.72, 0.07)):
+            x, y, rr = c + fx * r_lua, c + fy * r_lua, fr * r_lua
+            elipse(d, x, y, rr, rr, fill=cor("#E8CB72"))
+            elipse(d, x + rr * 0.12, y + rr * 0.14, rr * 0.82, rr * 0.82, fill=cor("#F3DC93"))
+        img.alpha_composite(_rosto_astro(T, c, c + r_lua * 0.08, 0.72, "#2B3F8C", piscando, "#FF9AB0", "sorriso"))
+        return img
+
+    _quadros(lua, T).resize((512, 256), Image.LANCZOS).save(os.path.join(CEU, "lua.png"))
+    print("  sol e lua ok")
+
+
 if __name__ == "__main__":
     partes = sys.argv[1:] or ["rostos", "texturas", "ui"]
     if "rostos" in partes:
@@ -1006,3 +1132,5 @@ if __name__ == "__main__":
         globals()["ui"]()
     if "icone" in partes or "ui" in partes:
         icone()
+    if "astros" in partes:
+        astros()

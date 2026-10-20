@@ -3,6 +3,8 @@ shader_type sky;
 // CÉU de cada cenário: degradê topo -> meio -> horizonte, brilho do sol, e
 // dois extras opcionais: ESTRELAS + nebulosa (espaço) e RAIOS de luz
 // vindos de cima (fundo do mar). Sem TIME e sem texturas: barato.
+// Contas baratas para placa fraca: sorteio sem seno, potências feitas com
+// multiplicações e o disco do sol com um degrau suave (em vez de pow 400).
 
 uniform vec3 cor_topo : source_color = vec3(0.20, 0.52, 1.0);
 uniform vec3 cor_meio : source_color = vec3(0.45, 0.75, 1.0);
@@ -15,12 +17,15 @@ uniform float estrelas = 0.0;
 uniform vec3 cor_nebulosa : source_color = vec3(0.9, 0.4, 1.0);
 uniform float raios = 0.0;
 
+// sorteio sem seno ("hash without sine", Dave Hoskins)
 float h3(vec3 p) {
-	return fract(sin(dot(p, vec3(12.9898, 78.233, 37.719))) * 43758.5453);
+	p = fract(p * 0.1031);
+	p += dot(p, p.zyx + 31.32);
+	return fract((p.x + p.y) * p.z);
 }
 
 void sky() {
-	vec3 d = normalize(EYEDIR);
+	vec3 d = EYEDIR;
 	float y = d.y;
 	vec3 c;
 	if (y > 0.0) {
@@ -50,11 +55,21 @@ void sky() {
 		}
 	}
 	if (raios > 0.0 && y > 0.0) {
-		float r1 = pow(max(0.0, sin(d.x * 21.0 + d.z * 9.0) * 0.5 + 0.5), 10.0);
-		float r2 = pow(max(0.0, sin(d.x * 13.0 - d.z * 15.0 + 1.7) * 0.5 + 0.5), 14.0);
+		float a = max(0.0, sin(d.x * 21.0 + d.z * 9.0) * 0.5 + 0.5);
+		float b = max(0.0, sin(d.x * 13.0 - d.z * 15.0 + 1.7) * 0.5 + 0.5);
+		float a2 = a * a;
+		float a8 = a2 * a2;
+		a8 *= a8;
+		float b2 = b * b;
+		float b4 = b2 * b2;
+		float r1 = a8 * a2;          // a^10
+		float r2 = b4 * b4 * b4 * b2; // b^14
 		c += vec3(0.75, 1.0, 0.95) * (r1 + r2 * 0.7) * smoothstep(0.05, 0.7, y) * 0.35 * raios;
 	}
 	float sol = max(dot(d, normalize(dir_sol)), 0.0);
-	c += cor_sol * (pow(sol, 400.0) * 3.0 + pow(sol, 12.0) * 0.25) * forca_sol;
+	float s2 = sol * sol;
+	float s4 = s2 * s2;
+	float s8 = s4 * s4;
+	c += cor_sol * (smoothstep(0.9992, 0.9997, sol) * 2.0 + s8 * s4 * 0.25) * forca_sol;
 	COLOR = c;
 }

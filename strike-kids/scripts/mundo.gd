@@ -98,6 +98,7 @@ func construir() -> void:
 	leve = Ajustes.cenario_leve()
 	_ambiente()
 	_sol()
+	_astro_no_ceu()
 	_terreno()
 	_pista()
 	_fundo_dos_pinos()
@@ -146,21 +147,21 @@ func aplicar_tema(nome: String) -> void:
 	var amb: Color = (c["ambiente"] as Color).srgb_to_linear() * float(c.get("ambiente_forca", 0.62))
 	var luz_sol: Color = (c["sol"] as Color).srgb_to_linear() * float(c.get("sol_forca", 1.05)) * maxf(para_sol.y, 0.0)
 	var luz_cena := Vector3(amb.r + luz_sol.r, amb.g + luz_sol.g, amb.b + luz_sol.b)
-	if leve:
-		# chão e decoração do cenário leve: a luz vai pronta para o vértice
-		var sol_lin: Color = (c["sol"] as Color).srgb_to_linear() * float(c.get("sol_forca", 1.05))
-		var sol_cor := Vector3(sol_lin.r, sol_lin.g, sol_lin.b)
-		var amb_v := Vector3(amb.r, amb.g, amb.b)
-		var nb: Color = (c["neblina"] as Color).srgb_to_linear()
-		var neblina := Vector3(nb.r, nb.g, nb.b)
-		var densidade := float(c.get("neblina_densidade", 0.0045))
-		for m in [mat_terreno]:
-			m.set_shader_parameter("sol_dir", para_sol)
-			m.set_shader_parameter("sol_cor", sol_cor)
-			m.set_shader_parameter("ambiente", amb_v)
-			m.set_shader_parameter("neblina_cor", neblina)
-			m.set_shader_parameter("neblina_densidade", densidade)
-		temas.luz(para_sol, sol_cor, amb_v, neblina, densidade)
+	# chão e decoração: a luz da cena vai pronta para o shader (por
+	# vértice no leve, por pixel na decoração do completo)
+	var sol_lin: Color = (c["sol"] as Color).srgb_to_linear() * float(c.get("sol_forca", 1.05))
+	var sol_cor := Vector3(sol_lin.r, sol_lin.g, sol_lin.b)
+	var amb_v := Vector3(amb.r, amb.g, amb.b)
+	var nb: Color = (c["neblina"] as Color).srgb_to_linear()
+	var neblina := Vector3(nb.r, nb.g, nb.b)
+	var densidade := float(c.get("neblina_densidade", 0.0045))
+	for m in [mat_terreno]:
+		m.set_shader_parameter("sol_dir", para_sol)
+		m.set_shader_parameter("sol_cor", sol_cor)
+		m.set_shader_parameter("ambiente", amb_v)
+		m.set_shader_parameter("neblina_cor", neblina)
+		m.set_shader_parameter("neblina_densidade", densidade)
+	temas.luz(para_sol, sol_cor, amb_v, neblina, densidade)
 	for m in [mat_pista, mat_piso]:
 		m.set_shader_parameter("luz_cena", luz_cena)
 		m.set_shader_parameter("cor_ceu", ceu[2])
@@ -187,14 +188,71 @@ func aplicar_tema(nome: String) -> void:
 		m.set_shader_parameter("tinta", c["canaleta"])
 	var chao: Array = c["chao"]
 	mat_terreno.set_shader_parameter("modo", int(c["chao_modo"]))
+	# cores do chão: lineares no leve; no completo, no espaço da conta do
+	# motor (o terreno antigo passava a cor linear e o motor convertia de
+	# novo: convertida duas vezes, fica igual a ele)
 	for i in 4:
-		if leve:
-			var l: Color = (chao[i] as Color).srgb_to_linear()
-			mat_terreno.set_shader_parameter(["lin_a", "lin_b", "lin_c", "lin_d"][i], Vector3(l.r, l.g, l.b))
-		else:
-			mat_terreno.set_shader_parameter(["cor_a", "cor_b", "cor_c", "cor_d"][i], chao[i])
+		var l: Color = _cor_do_chao(chao[i])
+		mat_terreno.set_shader_parameter(["lin_a", "lin_b", "lin_c", "lin_d"][i], Vector3(l.r, l.g, l.b))
+	if not leve:
+		# a terra da selva: o detalhe 2 x (0.72, 0.6, 0.45) na cor sRGB
+		var d: Color = chao[3]
+		var terra := _cor_do_chao(Color(d.r * 0.72, d.g * 0.6, d.b * 0.45))
+		var dl := _cor_do_chao(d)
+		mat_terreno.set_shader_parameter("terra", Vector3(terra.r / maxf(dl.r, 1e-5), terra.g / maxf(dl.g, 1e-5), terra.b / maxf(dl.b, 1e-5)))
 	_mostrar_marca(nome)
+	_mostrar_astro(nome)
 	temas.mostrar(nome)
+
+
+func _cor_do_chao(c: Color) -> Color:
+	var l := c.srgb_to_linear()
+	return l if leve else l.srgb_to_linear()
+
+
+# ================================================================ sol e lua
+## SOL E LUA COM ROSTINHO no céu: sol no Parque, nos Dinos e no Mar (visto
+## de dentro d'água, mais azulado) e a lua no Espaço. Um quadradinho bem
+## longe, sempre de frente para a câmera; os raios giram e o rosto pisca no
+## próprio shader (astro.gdshader). Só a imagem do cenário atual fica na
+## memória. O brilho do sol do céu vai para trás dele.
+## [imagem, posição, tamanho (m), tinta]
+const ASTROS := {
+	"parque": ["sol", Vector3(9.8, 25.2, -59.4), 8.5, Color(1, 1, 1, 1)],
+	"dinos": ["sol", Vector3(9.8, 25.2, -59.4), 8.5, Color(1, 1, 1, 1)],
+	"mar": ["sol", Vector3(9.8, 25.2, -59.4), 8.0, Color(0.86, 1.0, 1.0, 0.82)],
+	"espaco": ["lua", Vector3(-1.1, 26.3, -59.7), 7.2, Color(1, 1, 1, 1)],
+}
+var _astro: MeshInstance3D
+var _mat_astro: ShaderMaterial
+
+
+func _astro_no_ceu() -> void:
+	_mat_astro = ShaderMaterial.new()
+	_mat_astro.shader = load("res://shaders/astro.gdshader")
+	_astro = MeshInstance3D.new()
+	_astro.name = "astro"
+	var q := QuadMesh.new()
+	q.size = Vector2.ONE
+	_astro.mesh = q
+	_astro.material_override = _mat_astro
+	_astro.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	# o quadrado gira para a câmera no shader: folga para não sumir da tela
+	_astro.extra_cull_margin = 8.0
+	add_child(_astro)
+
+
+func _mostrar_astro(nome: String) -> void:
+	var a: Array = ASTROS.get(nome, ASTROS["parque"])
+	var sol: bool = a[0] == "sol"
+	_mat_astro.set_shader_parameter("rosto", load("res://ui/ceu/%s.png" % a[0]))
+	_mat_astro.set_shader_parameter("raios", load("res://ui/ceu/sol_raios.png") if sol else null)
+	_mat_astro.set_shader_parameter("usa_raios", 1.0 if sol else 0.0)
+	_mat_astro.set_shader_parameter("tinta", a[3])
+	_astro.position = a[1]
+	_astro.scale = Vector3.ONE * float(a[2])
+	# o brilho do sol desenhado no céu fica atrás dele (de onde se joga)
+	mat_ceu.set_shader_parameter("dir_sol", ((a[1] as Vector3) - Vector3(0.0, 1.2, 2.4)).normalized())
 
 
 # ================================================================ ambiente
@@ -250,7 +308,9 @@ func _sol() -> void:
 ##   alta  (PC): brilho (glow), neblina e ajuste de cor;
 ##   media (TV Box): neblina e ajuste de cor;
 ##   baixa (TV Box fraca): o mínimo.
-## No cenário LEVE não tem neblina (é uma conta a mais em cada pixel).
+## O chão e a decoração fazem a própria neblina, por vértice (mesma cor e
+## densidade): a do motor (por pixel) só pinta o resto — pista, portal,
+## bichinhos — e só no cenário completo (no leve ela fica desligada).
 func aplicar_qualidade(q: String) -> void:
 	sol.shadow_enabled = false
 	ambiente.glow_enabled = q == "alta"
@@ -260,6 +320,9 @@ func aplicar_qualidade(q: String) -> void:
 # ================================================================ terreno
 func _terreno() -> void:
 	# um relevo só; o desenho do chão de cada cenário sai do shader (nítido)
+	# o desenho do chão é o mesmo nas duas versões, feito do jeito barato
+	# (terreno_desenho.gdshaderinc: 1 sorteio por pixel); no leve a luz é
+	# por vértice e mais simples, no completo é a mesma conta do motor
 	mat_terreno = ShaderMaterial.new()
 	mat_terreno.shader = load("res://shaders/terreno_leve.gdshader" if leve else "res://shaders/terreno.gdshader")
 	var t := MeshInstance3D.new()

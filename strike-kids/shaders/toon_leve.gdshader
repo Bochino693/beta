@@ -1,5 +1,5 @@
 shader_type spatial;
-render_mode unshaded, blend_mix, depth_draw_opaque, cull_back, shadows_disabled;
+render_mode unshaded, blend_mix, depth_draw_opaque, cull_back, shadows_disabled, fog_disabled;
 
 // TOON LEVE (decoração do cenário LEVE, o padrão na TV Box): a mesma cara
 // do toon.gdshader — cor do vértice x tinta, luz do sol em duas faixas,

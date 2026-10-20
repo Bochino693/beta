@@ -32,10 +32,24 @@ meio-direita, direita) vira a jogada na tela, em 3D:
     pe e devolve cada um no lugar; na rodada nova a mesa desce com os 10
     pinos novinhos. Os para-choques acabam antes da maquina (como num
     boliche de verdade): a barra desce e varre sem encostar neles.
-  * 4 CENARIOS, um por rodada. A 1a rodada e SEMPRE na SELVA DOS DINOS;
-    as outras passam por Parque de Diversoes, Viagem ao Espaco e Fundo do
-    Mar (cada partida continua de onde a anterior parou). A tela inicial
-    tambem comeca nos dinos.
+  * 4 CENARIOS SORTEADOS: cada rodada cai numa fase sorteada (Parque de
+    Diversoes, Viagem ao Espaco, Fundo do Mar, Selva dos Dinos) - todas
+    aparecem antes de alguma se repetir, e nunca a mesma em duas rodadas
+    seguidas. A tela inicial vai mostrando as 4.
+  * ROUPINHA DE CADA FASE (pecas 3D de verdade, com volume): no Fundo do
+    Mar o Bob e a Mia viram PIRATAS (chapeu com caveirinha / bandana de
+    bolinhas, camiseta listrada, cinto com fivela, botas de cano dobrado);
+    na Selva dos Dinos vestem DINOSSAURINHO (capuz com dentinhos, olhinhos
+    e espinhos, barriga em relevo, garrinhas e rabo de dino); no Espaco
+    sao ASTRONAUTAS (capacete com antena que brilha, mochila, painel no
+    peito, luvas e botas); no Parque usam BONE DE HELICE (a helice gira).
+    O rostinho fica SEMPRE de fora (capuz e capacete so emolduram o rosto).
+    Na tela inicial, na escolha e na foto: a roupa de sempre. Cada roupinha
+    carrega em segundo plano antes da fase e sai da memoria depois - a
+    troca acontece escondida no clarao da fase nova, sem travar.
+  * SOL E LUA COM ROSTINHO no ceu (sol no Parque, na Selva e no Mar; lua
+    no Espaco): sorrindo e piscando, e os raios do sol girando devagar.
+    Custo quase zero (um quadradinho desenhado de uma vez).
   * FISICA SEM SOBREPOSICAO: nada atravessa nada. A canaleta colide com a
     propria meia-cana do desenho (a bola corre dentro da calha, apoiada
     nas bordas, e os pinos param la dentro); as divisorias e as paredes do
@@ -357,6 +371,10 @@ MENU DO OPERADOR (botao de configuracao)
 ----------------------------------------
 Navega com os proprios sensores: X sobe, V desce, Z diminui, B aumenta,
 C ou START escolhe, CONFIGURACAO volta ao jogo.
+Ou com o CONTROLE REMOTO da TV Box: setas para cima/baixo andam, setas
+para os lados mudam o valor, OK escolhe e VOLTAR sai (de um teste, ou do
+menu de volta ao jogo). A tecla MENU do controle tambem abre o menu. No
+jogo, o VOLTAR do controle nao fecha o jogo sem querer.
 O menu abre POR CIMA do jogo pausado: entrar e sair e instantaneo (o jogo
 volta para a tela de espera). So tres ajustes precisam montar o jogo de
 novo ao sair (aparece "APLICANDO OS AJUSTES..." por um instante): o
@@ -377,15 +395,21 @@ tela de em pe para deitada (giro 0).
   Foto das criancas (camera) - Teste da camera
   Zerar recordes - Restaurar padrao de fabrica
   Contadores: partidas, strikes, moedas, estado do Arduino e da camera
+  Aparelho: modelo, versao do Android, placa de video, nucleos e memoria
+    (para saber qual TV Box e - ver "TV BOX TX9" abaixo)
 
-DUAS VERSOES: LEVE (esta, no GitHub) e ALTA (pacote em zip)
------------------------------------------------------------
+DUAS VERSOES: LEVE (esta, no GitHub "beta") e ALTA (GitHub "beta-advanced")
+---------------------------------------------------------------------------
 O jogo e o mesmo nas duas (mesmas regras, pista, pinos, bichinhos, fisica
 e correcoes de fluidez). Muda so o CENARIO (o fundo):
   COMPLETO (versao ALTA): chao e ceu desenhados pixel a pixel (gramado com
     florzinhas, crateras, conchinhas, estrelas, raios de luz), toda a
     decoracao (arvores, baloes, nuvens, peixinhos, bolhas, fumaca),
     contornos e neblina de profundidade da placa de video.
+    AGORA RAPIDA: o chao completo usa o mesmo desenho do leve (uma conta
+    por pixel em vez de 9 sorteios - era o que deixava a ALTA lenta) com a
+    luz e a neblina EXATAS do motor (a cor nao mudou); o ceu e os
+    contornos tambem ficaram mais baratos. Mesmo visual, bem mais leve.
   LEVE (padrao desta versao, para a TV Box SmartPro / Mali-G31): o mesmo
     desenho do chao feito com contas ate 4x mais baratas, a luz do chao e
     da decoracao calculada por vertice (nao por pixel), metade da
@@ -395,6 +419,24 @@ e correcoes de fluidez). Muda so o CENARIO (o fundo):
 Da para trocar no menu do operador ("Cenario (fundo)") sem gerar outro
 APK - vale ao voltar ao jogo. O padrao de cada versao fica no
 project.godot (strike/video/cenario = "leve" ou "completo").
+
+TV BOX TX9 (para a versao ALTA)
+  "TX9" e o nome de varias TV Boxes com chips DIFERENTES. O APK serve em
+  todas que conseguem rodar o jogo:
+  * vem com as duas versoes do programa (32 e 64 bits): instala tambem nas
+    TV Boxes com Android de 32 bits (comum na TX9 com Amlogic S912);
+  * pede Android 7.0 ou mais novo (a TX9 Pro/TX9S com S912 vem com 7.1);
+  * precisa de placa de video com OpenGL ES 3: RODA na Mali-T820 (Amlogic
+    S912 - TX9 Pro / TX9S), Mali-T720 (Allwinner H6), Mali-G31 (Allwinner
+    H313 / H616 / H618, Amlogic S905X2/X3/X4) e Mali-G52. NAO RODA nas de
+    Mali-400/450 (Rockchip RK3228A/RK3229/RK3318/RK3328, Amlogic S905W/
+    S905X), que so tem OpenGL ES 2 - nelas o jogo nem abre.
+  Para ver qual e a sua: menu do operador, linha "Aparelho" (placa de
+  video). Se o jogo nao abrir, instale o app CPU-Z: a aba SOC mostra o
+  chip e a GPU.
+  Na primeira vez, deixe a "Qualidade grafica" em AUTOMATICA e rode o
+  TESTE DE DESEMPENHO (menu do operador): ele mede a TV Box e ja deixa a
+  qualidade certa; a nitidez automatica cuida do resto.
 
 RODANDO LISO (PC e TV Box):
   * FISICA NUMA LINHA PROPRIA: o motor de fisica (Jolt) roda numa linha de

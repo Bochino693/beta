@@ -18,7 +18,7 @@ do Dragon Bowling), física **Jolt**, câmera USB (Sigma) pelo plugin StrikeCame
 | Sem personagem | Bob e Mia jogam de verdade (passada, balanço, soltura na linha do sensor) e reagem a cada jogada |
 | Resultado mostrado | Pinos caindo com física real, um derrubando o outro; REPLAY do strike: a mesma jogada (cada passo da física gravado) em câmera lenta lisa |
 | Pinos somem | Máquina de pinos de verdade: barra varredora e mesa que desce com os pinos |
-| Um tema | 4 cenários, um por rodada: Parque de Diversões, Espaço, Fundo do Mar, Selva dos Dinos |
+| Um tema | 4 cenários sorteados (um por rodada) — Parque de Diversões, Espaço, Fundo do Mar, Selva dos Dinos — e uma roupinha 3D dos mascotes para cada um |
 
 Público: crianças de 3 a 10 anos, meninos e meninas. Partida curta (padrão
 3 rodadas de até 3 bolas por jogador, igual ao Dragon Bowling), sempre
@@ -301,13 +301,46 @@ shader dos bonecos (`usa_rosto`), sem fundo.
 
 Cada cenário troca céu (shader com estrelas/raios), luz, neblina, terreno,
 cores da pista (divisórias, faixas, canaletas), fundo dos pinos e letreiro.
-A **1ª rodada é sempre na Selva dos Dinos** (e a atração começa nela); da
-2ª em diante os outros três em roda — cada partida continua de onde a
-anterior parou (`Temas.ORDEM`, `_tema_da_rodada`).
+**Fases sorteadas**: no START sai o sorteio das fases da partida
+(`Principal._sortear_temas`) — todas aparecem antes de alguma se repetir e
+nunca a mesma em duas rodadas seguidas; a atração vai mostrando as 4.
+
+**Sol e lua com rostinho** (`Mundo._astro_no_ceu`, `shaders/astro.gdshader`,
+desenhos em `ui/ceu/` feitos por `tools/arte/gerar_arte.py astros`): sol no
+Parque, na Selva e no Mar (no Mar, mais clarinho, visto "de dentro da
+água"), lua no Espaço. Um quadradinho virado para a câmera, desenhado de
+uma vez: os raios giram e o rosto pisca no próprio shader (nada no
+processador por quadro). Rostinho simples e feliz (olhos grandes,
+bochechas, sorriso), sem nenhum traço que pareça bigode.
+
+**Roupinhas das fases** (`tools/modelos/roupas.py`, `Personagem.trocar_roupa`):
+
+| Fase | Bob | Mia |
+| --- | --- | --- |
+| Fundo do Mar | pirata: chapéu bicorne com caveirinha e friso dourado, camiseta listrada (desenhada no shader), lenço, cinto com fivela, calça com barra, botas de cano dobrado | pirata: bandana de bolinhas com nó, blusinha listrada, saia vermelha, cinto, botas |
+| Selva dos Dinos | dinossaurinho verde: capuz com dentinhos, olhinhos e espinhos, forro amarelo, barriga em relevo, espinhos nas costas, rabo, garrinhas | igual, lilás com forro e barriga rosa |
+| Espaço | astronauta azul: capacete aberto com anel, protetores de orelha e antena que brilha, mochila, painel com botões, luvas e botas com punho | astronauta rosa |
+| Parque | boné de hélice (vermelho/amarelo/azul; a hélice gira mais rápido quando ele está feliz), camisa de bolinhas, lenço, bermuda | boné de hélice (rosa/lilás/amarelo, orelhas para fora), vestido de bolinhas com golinha |
+
+Peças 3D de verdade (volume, contorno, luz), com as **mesmas juntas** do
+mascote: a troca só substitui a malha de cada junta — animações, IK das
+pernas, rosto e piscadas continuam iguais, e nenhum shader novo é
+compilado. O **rosto nunca é coberto**: capuz e capacete são uma casca
+aberta por um plano quase em pé que passa pela testa e por trás das
+bochechas, emoldurando o rosto (a face do corte ganha a cor do forro); as
+pinturas de cada peça ficam só nela (as listrinhas da testa da Mia e o rosa
+de dentro das orelhas não vão para o boné/bandana). Na atração, na escolha
+e na foto: a roupa de sempre. Memória: a roupa da 1ª fase começa a
+carregar em segundo plano no START (`ResourceLoader.load_threaded_request`),
+a da fase seguinte durante a rodada; a troca acontece escondida no clarão
+da fase nova; ao voltar para a roupa de sempre ninguém mais segura as
+malhas da roupinha e elas saem da memória (pedidos que sobraram são
+soltos assim que terminam de carregar).
 
 **Cenário LEVE x COMPLETO** (`Ajustes.cenario()`, menu do operador
 "Cenário (fundo)"; padrão em `strike/video/cenario` no `project.godot`:
-"leve" nesta versão, "completo" no pacote da versão ALTA). O leve, feito
+"leve" nesta versão — GitHub `beta` —, "completo" na versão ALTA — GitHub
+`beta-advanced`, feita para a TV Box TX9). O leve, feito
 para a TV Box (Mali-G31), muda só o fundo:
 - chão: `terreno_leve.gdshader` — o mesmo desenho, mas cada florzinha/
   concha/poeira cabe na sua casinha (1 sorteio por pixel em vez de 9),
@@ -320,6 +353,14 @@ para a TV Box (Mali-G31), muda só o fundo:
 - céu: `ceu_leve.gdshader` (uma camada de estrelas, um leque de raios,
   sol sem potências caras) e sem a neblina do motor (que pesava em todo
   pixel da tela).
+
+O **completo** ficou rápido sem mudar o visual: o desenho do chão é o
+mesmo do leve (`shaders/terreno_desenho.gdshaderinc`, incluído pelos dois
+shaders de terreno), e o `terreno.gdshader` refaz por pixel a mesma conta
+de luz e de neblina do motor (a cor bate com a de antes) — o antigo
+sorteava 9 casinhas por pixel com seno e era 4 a 6 vezes mais caro. No céu,
+sorteio sem seno e potências por multiplicação; no contorno, a cor sai por
+vértice.
 
 ## 8. Arte e técnica
 
@@ -433,6 +474,9 @@ para a TV Box (Mali-G31), muda só o fundo:
 | --- | --- |
 | `python3 tools/modelos/modelos.py` | gera as malhas (Bob, Mia, pino, cenário base, terrenos) |
 | `python3 tools/modelos/temas.py` | gera os objetos dos 4 cenários |
+| `python3 tools/modelos/modelos.py roupas` | gera as roupinhas das fases (`roupas.py`); depois `simplificar.py` e o assador com `-- roupas` (saem em `modelos/roupas/`) |
+| `godot --path . res://tools/testes/bracos.tscn -- saida.png bob:pirata parado 0.5 [--perto] [--costas]` | o mascote (com ou sem roupinha) de frente e de três-quartos; `--perto` = a cabeça de perto, `--costas` = de costas |
+| `godot --headless --path . res://tools/testes/roupas_memoria.tscn` | roupinhas: carga em segundo plano, tempo da troca e a memória voltando ao que era |
 | `godot --headless --path . --script res://tools/modelos/assar_modelos.gd` | converte para recursos do Godot com LOD (`-- temas` só os cenários) |
 | `python3 tools/arte/gerar_arte.py` | rostos, texturas, letreiros, logo, ícones |
 | `python3 tools/arte/diagrama_arduino.py` | desenho da ligação do Arduino com o passo a passo do START (`docs/ligacao_arduino.svg/.png/.pdf`) |
@@ -510,6 +554,13 @@ para a TV Box (Mali-G31), muda só o fundo:
   jogo volta à tela de espera. Só o cenário (fundo), a qualidade BAIXA
   (contornos) e virar a tela de pé/deitada montam o jogo de novo ("APLICANDO
   OS AJUSTES..."). A configuração dos botões também abre por cima.
+  **Controle remoto da TV Box**: setas (D-pad) andam e mudam o valor, OK
+  escolhe, VOLTAR sai do teste/do menu (`Operador.comando`), a tecla MENU
+  abre o menu; `application/config/quit_on_go_back=false` (o VOLTAR nunca
+  fecha o jogo). Linha "Aparelho" (`Operador.texto_aparelho`): modelo,
+  Android, placa de vídeo, núcleos e memória — para saber qual TV Box é
+  (a "TX9" sai com chips diferentes; o jogo precisa de OpenGL ES 3:
+  Mali-T720/T820, Mali-G31/G52 sim; Mali-400/450 não).
   Teste dos sensores (ao vivo, com contagem),
   calibrar sensores, teste da porta (com a confirmação do Arduino), teste
   da câmera; sem o Arduino, mostram o relatório (USB, chip, permissão).

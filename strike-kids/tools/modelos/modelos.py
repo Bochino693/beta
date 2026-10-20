@@ -343,6 +343,11 @@ if __name__ == "__main__":
         personagens.gerar_personagem("bob", personagens.bob, SAIDA)
     if "mia" in alvo:
         personagens.gerar_personagem("mia", personagens.mia, SAIDA)
+    if "roupas" in alvo:   # as roupinhas de cada fase (roupas.py)
+        import roupas
+        for nome in ("bob", "mia"):
+            for roupa in roupas.ROUPAS:
+                roupas.gerar_fantasia(nome, roupa, SAIDA)
     if "pino" in alvo:
         gerar_pino()
     if "cenario" in alvo:

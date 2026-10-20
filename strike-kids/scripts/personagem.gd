@@ -80,6 +80,18 @@ var _fase_rabo := 0.0
 var _alegria_suave := 0.5
 var brilho := 1.4
 
+## ROUPINHA DA FASE ("pirata", "dino", "astronauta", "parque"; "" = a de
+## sempre): ver trocar_roupa.
+const PECAS := ["corpo", "cabeca", "rabo", "braco_e", "antebraco_e", "braco_d", "antebraco_d",
+	"coxa_e", "canela_e", "pe_e", "coxa_d", "canela_d", "pe_d"]
+var roupa := ""
+var _pecas := {}                     # junta -> MeshInstance3D dela
+var _malhas_padrao := {}             # junta -> malha da roupa de sempre
+var _estampa_padrao := {}
+var _helice: MeshInstance3D          # hélice do boné (fase do parque): gira sozinha
+var _pedidos: Array[String] = []     # roupas carregando em segundo plano
+var _descartar: Array[String] = []   # carregadas e não usadas: soltar quando acabarem
+
 
 func montar(nome: String) -> void:
 	# as curvas de todas as animações são calculadas já aqui (na abertura):
@@ -162,6 +174,13 @@ func montar(nome: String) -> void:
 		var m2 := Materiais.toon(true, 0.0032, {"borda": 0.22, "faixa": 0.15, "luz_minima": 0.32})
 		mr.material_override = m2
 		_mats.append(m2)
+	# a roupa de sempre (para voltar depois das roupinhas das fases)
+	for j in PECAS:
+		var no := modelo.find_child(j, true, false)
+		if no:
+			_pecas[j] = no.get_node("malha") as MeshInstance3D
+			_malhas_padrao[j] = (_pecas[j] as MeshInstance3D).mesh
+	_estampa_padrao = _parametros_estampa(modelo.get_meta("estampa", {}))
 	# brilhos de festa (estrelinhas e faíscas subindo em volta) para as comemorações
 	_festa = CPUParticles3D.new()
 	_festa.amount = 36
@@ -461,6 +480,10 @@ func _process(delta: float) -> void:
 	_ultima_pose = pose
 	_aplicar(pose, delta)
 	_rosto(delta)
+	if _helice and _helice.visible:
+		_helice.rotate_y(delta * (7.0 + 9.0 * _alegria_suave))
+	if not _descartar.is_empty():
+		_soltar_carregadas()
 
 
 func _eventos(de: float, ate: float, deu_volta: bool) -> void:
@@ -746,6 +769,12 @@ func _parametros_estampa(e: Dictionary) -> Dictionary:
 		p["estampa"] = 1
 		p["estampa_centro"] = Vector2(e["centro"][0], e["centro"][1])
 		p["estampa_dentro"] = float(e["dentro"])
+	elif e["tipo"] == "listras":
+		# listras de marinheiro (pirata): faixas de 2 x raio a cada "periodo"
+		p["estampa"] = 3
+		p["bolinhas_y0"] = float(e["y0"])
+		p["bolinhas_dy"] = float(e["periodo"])
+		p["bolinhas_y_max"] = float(e["y_max"])
 	else:
 		p["estampa"] = 2
 		p["bolinhas_y0"] = float(e["y0"])
@@ -754,6 +783,114 @@ func _parametros_estampa(e: Dictionary) -> Dictionary:
 		p["bolinhas_n0"] = int(e["n0"])
 		p["bolinhas_y_max"] = float(e["y_max"])
 	return p
+
+
+func _aplicar_estampa(p: Dictionary) -> void:
+	var m := (_pecas["corpo"] as MeshInstance3D).material_override as ShaderMaterial
+	m.set_shader_parameter("estampa", int(p.get("estampa", 0)))
+	for k in p:
+		m.set_shader_parameter(k, p[k])
+
+
+# ---------------------------------------------------------------- roupinhas das fases
+## A roupinha (modelos/roupas/<nome>_<roupa>.scn, feita pelo
+## tools/modelos/roupas.py) tem as MESMAS juntas do bichinho: só a malha de
+## cada junta troca — animações, IK das pernas, rosto e piscadas valem
+## igual, e nenhum shader novo é preciso (nada de engasgo na troca).
+## A roupa é carregada em segundo plano ANTES (pedir_roupa) e sai da memória
+## sozinha quando ele volta para a roupa de sempre (ninguém mais segura as
+## malhas dela).
+func _caminho_roupa(r: String) -> String:
+	return "res://modelos/roupas/%s_%s.scn" % [nome_modelo, r]
+
+
+## Começa a carregar uma roupinha em segundo plano (o jogo não para).
+func pedir_roupa(r: String) -> void:
+	if r == "" or r == roupa:
+		return
+	var c := _caminho_roupa(r)
+	if c in _pedidos:
+		return
+	if c in _descartar:
+		_descartar.erase(c)
+	elif ResourceLoader.exists(c):
+		ResourceLoader.load_threaded_request(c)
+	else:
+		return
+	_pedidos.append(c)
+
+
+## Veste a roupinha `r` ("" = a de sempre). Se ela não foi pedida antes,
+## carrega agora mesmo.
+func trocar_roupa(r: String) -> void:
+	if r == roupa:
+		return
+	var malhas := _malhas_padrao
+	var estampa := _estampa_padrao
+	var helice: Mesh = null
+	var helice_pos := Vector3.ZERO
+	var cena := _pegar_roupa(r) if r != "" else null
+	if cena != null:
+		var inst := cena.instantiate()
+		malhas = {}
+		for j in PECAS:
+			var no := inst.find_child(j, true, false)
+			if no:
+				malhas[j] = (no.get_node("malha") as MeshInstance3D).mesh
+		var h := inst.find_child("helice", true, false) as Node3D
+		if h:
+			helice = (h.get_node("malha") as MeshInstance3D).mesh
+			helice_pos = h.position
+		estampa = _parametros_estampa(inst.get_meta("estampa", {}))
+		inst.free()
+	else:
+		r = ""   # sem o pacote da roupa: a de sempre
+	if r == roupa:
+		return
+	roupa = r
+	for j in malhas:
+		if _pecas.has(j):
+			(_pecas[j] as MeshInstance3D).mesh = malhas[j]
+	_aplicar_estampa(estampa)
+	if helice != null and _helice == null:
+		_helice = MeshInstance3D.new()
+		_helice.name = "helice"
+		var m := Materiais.toon(true, 0.0032, {"borda": 0.22, "faixa": 0.15, "luz_minima": 0.32})
+		_helice.material_override = m
+		_mats.append(m)
+		(juntas["cabeca"] as Node3D).add_child(_helice)
+	if _helice:
+		_helice.mesh = helice
+		_helice.position = helice_pos
+		_helice.visible = helice != null
+
+
+func _pegar_roupa(r: String) -> PackedScene:
+	var c := _caminho_roupa(r)
+	if c in _pedidos or c in _descartar:
+		_pedidos.erase(c)
+		_descartar.erase(c)
+		# já carregou em segundo plano (se ainda não acabou, espera o resto)
+		return ResourceLoader.load_threaded_get(c) as PackedScene
+	if not ResourceLoader.exists(c):
+		return null
+	return load(c) as PackedScene
+
+
+## Roupinhas pedidas que não vão mais ser usadas (a partida acabou antes):
+## soltas da memória assim que terminam de carregar.
+func soltar_pedidos() -> void:
+	for c in _pedidos:
+		if not c in _descartar:
+			_descartar.append(c)
+	_pedidos.clear()
+
+
+func _soltar_carregadas() -> void:
+	for c in _descartar.duplicate():
+		if ResourceLoader.load_threaded_get_status(c) != ResourceLoader.THREAD_LOAD_IN_PROGRESS:
+			ResourceLoader.load_threaded_get(c)
+			_descartar.erase(c)
 
 
 func segurar_bola(sim: bool) -> void:
