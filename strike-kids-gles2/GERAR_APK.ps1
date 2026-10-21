@@ -53,6 +53,15 @@ $ShaAssinador = "e1299fd6fcf4da527dd53735b56127e8ea922a321128123b9c32d619bba1d83
 $NomePreset = "Android TV Box"
 $Pacote = "com.lazersport.strikekids.gles2"
 $NomeApk = "StrikeKids_GLES2.apk"
+# Mensagens que NAO sao problema: nao aparecem na tela (continuam nos logs).
+# - Godot, na 1a importacao: antes de criar cada som ele procura as
+#   dependencias do arquivo importado, que ainda nao existe ("Cannot open
+#   file 'res://.import/...'"); o som e importado logo em seguida.
+$OcultarGodot = "Cannot open file 'res://\.import/|at: get_dependencies \(core/io/resource_format_binary\.cpp"
+# - assinador: "25 warnings" sao avisos da assinatura v1 sobre os arquivos
+#   META-INF/*.version do modelo oficial do Godot (androidx/kotlin); o APK
+#   sai assinado em v1 + v2 + v3 e e conferido depois (Conferir-Apk).
+$OcultarAssinador = "^\s*\d+ warnings?$"
 
 $PastaLogs = Join-Path $Projeto "build\android"
 $LogGeral = Join-Path $PastaLogs "GERACAO-COMPLETA.log"
@@ -94,8 +103,9 @@ function Juntar-Argumentos([string[]]$Lista) {
     return ($partes -join ' ')
 }
 
-# Mostra na tela o que o programa escreveu no log desde a ultima leitura.
-function Mostrar-Novo([string]$Arquivo, [long]$Posicao, [bool]$Tudo) {
+# Mostra na tela o que o programa escreveu no log desde a ultima leitura
+# (menos as linhas que batem com $Ocultar).
+function Mostrar-Novo([string]$Arquivo, [long]$Posicao, [bool]$Tudo, [string]$Ocultar = "") {
     if (-not (Test-Path -LiteralPath $Arquivo)) { return $Posicao }
     try {
         $fs = New-Object IO.FileStream($Arquivo, [IO.FileMode]::Open, [IO.FileAccess]::Read, ([IO.FileShare]::ReadWrite -bor [IO.FileShare]::Delete))
@@ -120,6 +130,7 @@ function Mostrar-Novo([string]$Arquivo, [long]$Posicao, [bool]$Tudo) {
         foreach ($linha in ($texto -split "`r`n|`n|`r")) {
             $l = $linha.TrimEnd()
             if (-not $l) { continue }
+            if ($Ocultar -and $l -match $Ocultar) { continue }
             # barras de progresso (sdkmanager): no maximo uma a cada 3 s
             if ($l -match '^\s*\[[=> ]*\]\s*\d+%' -or $l -match '^\s*\d+%') {
                 if (((Get-Date) - $script:UltimoProgresso).TotalSeconds -lt 3) { continue }
@@ -144,6 +155,7 @@ function Executar {
         [string]$Rotulo = "",
         [string]$Entrada = "",
         [string]$Diretorio = "",
+        [string]$Ocultar = "",
         [switch]$Quieto
     )
     $exe = $Programa
@@ -176,7 +188,7 @@ function Executar {
     while (-not $p.HasExited) {
         Start-Sleep -Milliseconds 700
         if (-not $Quieto) {
-            foreach ($f in @($Log, $logErros)) { $pos[$f] = Mostrar-Novo $f $pos[$f] $false }
+            foreach ($f in @($Log, $logErros)) { $pos[$f] = Mostrar-Novo $f $pos[$f] $false $Ocultar }
         }
         $agora = Get-Date
         $min = ($agora - $comeco).TotalMinutes
@@ -195,7 +207,7 @@ function Executar {
     }
     try { $p.WaitForExit(60000) | Out-Null } catch { }
     if (-not $Quieto) {
-        foreach ($f in @($Log, $logErros)) { $pos[$f] = Mostrar-Novo $f $pos[$f] $true }
+        foreach ($f in @($Log, $logErros)) { $pos[$f] = Mostrar-Novo $f $pos[$f] $true $Ocultar }
     }
     if ($estourou) { return -999 }
     return [int]$p.ExitCode
@@ -864,8 +876,11 @@ function Exportar {
     Get-ChildItem -LiteralPath $saida -Force | Remove-Item -Recurse -Force
     $apk = Join-Path $saida "sem_assinatura.apk"
     $log = Join-Path $script:Logs "exportar.log"
+    # --audio-driver Dummy: exportar nao toca som; sem isso o Godot tenta abrir
+    # a saida de som do PC (WASAPI) e, num PC sem caixa de som ou com o som
+    # ocupado/desligado, escreve "ERROR: WASAPI: init_render_device error"
     for ($tentativa = 1; $tentativa -le 2; $tentativa++) {
-        $cod = Executar $script:Godot @("--no-window", "--path", $script:Copia, "--export", $NomePreset, $apk) -Log $log -LimiteMin 40 -Rotulo "Godot" -Diretorio $script:Copia
+        $cod = Executar $script:Godot @("--no-window", "--audio-driver", "Dummy", "--path", $script:Copia, "--export", $NomePreset, $apk) -Log $log -LimiteMin 40 -Rotulo "Godot" -Diretorio $script:Copia -Ocultar $OcultarGodot
         if (Zip-Valido $apk 5MB) { return $apk }
         $texto = Ler-Log $log
         if ($texto -match 'SCRIPT ERROR: Parse Error|Failed to load script|Failed to create an autoload') {
@@ -896,7 +911,7 @@ function Assinar([string]$Apk) {
     foreach ($extra in @(@(), @("--skipZipAlign"))) {
         Apagar $pasta
         [void](Pasta $pasta)
-        $cod = Executar $script:Java ($base + $extra) -Log (Join-Path $script:Logs "assinar.log") -LimiteMin 10 -Rotulo "assinador"
+        $cod = Executar $script:Java ($base + $extra) -Log (Join-Path $script:Logs "assinar.log") -LimiteMin 10 -Rotulo "assinador" -Ocultar $OcultarAssinador
         $assinado = Get-ChildItem -LiteralPath $pasta -File -Filter "*-signed.apk" | Select-Object -First 1
         if ($cod -eq 0 -and $assinado) {
             Ok "APK assinado com a chave do Strike Kids"
