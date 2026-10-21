@@ -112,6 +112,17 @@ O QUE TRAVAVA DE VERDADE (medido peca por peca, versao 5.7):
     contornos).
   * IMAGEM NITIDA: veja "IMAGEM 3D NITIDA" acima (o 3D deixou de ficar
     preso em 720 px).
+  * A BOLA NO FOSSO SEM QUICAR (versao 5.8): passou do fim da pista, a
+    bola vai sozinha ate a cacapa - cai ate o chao do fosso como a
+    gravidade faria (sem voltar a subir) e rola, girando, pela faixa com
+    mais espaco entre os pinos caidos ate a boca da cacapa, sem bater em
+    mais nada. Antes, solta na fisica, ela quicava nos pinos caidos (ate
+    80 cm), voltava e ficava presa no fosso em 1 de cada 4 jogadas.
+    Medido em 1.000 jogadas (tools/testes/bola_fosso.gd): quicou 0, presa
+    0, do fim da pista ate a cacapa 0,66 s (antes 2,2 s). Na pista nada
+    mudou; o planejador continua acertando (82%). O alcapao continua
+    igual: depois da varrida, com pinos no fosso, ele abre e os pinos caem
+    no poco.
   Medido no PC (o desenho por software do PC so serve para comparar):
   desenho da apresentacao 30 -> 15 ms por quadro; fisica na batida
   0,81 -> 0,49 ms por passo. NA TX9 NAO FOI TESTADO AQUI: veja os quadros
@@ -222,7 +233,7 @@ pasta, junto do project.godot). Ele faz tudo sozinho e mostra cada passo:
   Se der erro, envie o arquivo build\android\GERACAO-COMPLETA.log.
 
 NO LINUX (o jeito usado para o APK pronto):
-     bash tools/android/montar_apk.sh StrikeKids_GLES2.apk 5.7-gles2
+     bash tools/android/montar_apk.sh StrikeKids_GLES2.apk 5.8-gles2
   Os mesmos passos do GERAR_APK.bat. As ferramentas (Godot 3.6.3
   headless, uber-apk-signer e, para conferir, um python com o androguard)
   ficam em ~/strikekids_ferramentas (variavel FERRAMENTAS; veja o comeco
@@ -284,7 +295,9 @@ PASTAS
               importar - veja o comeco dos dois arquivos),
               testes/ (calibrar, roteiro, instantes, medir_desenho,
               desempenho: tempo de cada quadro; bola_volta: confere a
-              bola no fosso e na canaleta; custo_fisica e
+              bola no fosso e na canaleta; bola_fosso: a bola do fim da
+              pista ate a cacapa (pulos, pinos, tempo); filme_fosso:
+              fotos da bola atravessando o fosso; custo_fisica e
               fisica_experimento: custo da fisica (rode com o Godot 3
               "server", sem placa de video); orcamento: vertices por
               fase e por parte; vitrine: fotos fixas para comparar o
