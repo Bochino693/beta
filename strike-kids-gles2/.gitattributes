@@ -16,5 +16,6 @@ LEIA-ME*.txt text eol=crlf
 *.dex binary
 *.jar binary
 *.apk binary
+*.zip binary
 *.pdf binary
 *.keystore binary
