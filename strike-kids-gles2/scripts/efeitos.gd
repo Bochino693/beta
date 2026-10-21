@@ -72,6 +72,14 @@ func _novo(qtd: int, vida: float, mat: Material, tam: float) -> CPUParticles:
 	return p
 
 
+## Apaga na hora todos os efeitos que ainda estão no ar (fim do ensaio
+## geral da preparação).
+func limpar() -> void:
+	for c in get_children():
+		if c is CPUParticles:
+			c.queue_free()
+
+
 ## FAIXAS SORTEADAS: no Godot 4 cada parâmetro das partículas tinha mínimo e
 ## máximo; no Godot 3 tem um valor e uma variação, com contas diferentes
 ## para cada tipo. Estas funções acham o valor e a variação que sorteiam

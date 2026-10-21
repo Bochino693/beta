@@ -27,6 +27,12 @@ var rolando := false
 ## no replay a bola só é "posta" nos lugares gravados (sem física)
 var em_replay := false
 var _mat: ShaderMaterial
+## segundos no fosso (presa atrás dos pinos caídos, ela é recolhida assim mesmo)
+var _no_fosso := 0.0
+## caiu na canaleta nesta jogada (dali ela não volta para a pista)
+var _na_canaleta := false
+## já chegou nos pinos nesta jogada (dali ela não volta para quem joga)
+var _nos_pinos := false
 
 
 static func material(nome: String) -> ShaderMaterial:
@@ -179,6 +185,9 @@ func lancar(origem: Vector3, velocidade: Vector3, efeito := 0.0) -> void:
 	curva = efeito
 	rolando = true
 	em_replay = false
+	_no_fosso = 0.0
+	_na_canaleta = false
+	_nos_pinos = false
 	physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_ON
 	reset_physics_interpolation()
 	_pontos.clear()
@@ -190,6 +199,9 @@ func lancar(origem: Vector3, velocidade: Vector3, efeito := 0.0) -> void:
 func guardar() -> void:
 	rolando = false
 	em_replay = false
+	_no_fosso = 0.0
+	_na_canaleta = false
+	_nos_pinos = false
 	mode = RigidBody.MODE_STATIC
 	visible = false
 	linear_velocity = Vector3.ZERO
@@ -200,6 +212,20 @@ func guardar() -> void:
 	_rastro.clear()
 	_brilhos.emitting = false
 	_chamas.emitting = false
+
+
+## ENSAIO GERAL da preparação (principal.ensaio): a bola parada em `pos`,
+## com o rastro, os brilhinhos e as chamas — só para a placa de vídeo
+## preparar esses desenhos. guardar() desfaz.
+func ensaio(pos: Vector3) -> void:
+	visible = true
+	global_translation = pos
+	reset_physics_interpolation()
+	_pontos.clear()
+	for i in 6:
+		marcar_rastro(pos + Vector3(0, 0, 0.25 * i))
+	_brilhos.emitting = true
+	_chamas.emitting = _fogo
 
 
 ## Bola de fogo (sequência de strikes): rastro de fogo e chamas.
@@ -218,11 +244,48 @@ func _physics_process(delta: float) -> void:
 	# passo (o apply_central_force do Godot 4) é um impulso de força x passo
 	if curva != 0.0 and p.z > Medidas.Z_PINO1 + 1.4 and p.y > -0.02:
 		apply_central_impulse(Vector3(curva * mass, 0, 0) * delta)
-	# no fosso: o chão "puxa" a bola para a caçapa (como a esteira de verdade)
-	if p.z < Medidas.Z_FIM_DECK and p.y < 0.0 and linear_velocity.z > -1.6:
-		apply_central_impulse(Vector3(-p.x * 3.0, 0, -4.0) * mass * delta)
-	# entrou no túnel da caçapa: some (e volta no retorno de bolas)
-	if p.z < Medidas.Z_FUNDO - 0.35:
+	# NA CANALETA a bola fica na canaleta. Ela é mais larga que a calha
+	# (raio 0,14 x 0,125) e corre apoiada nos dois lábios: um empurrãozinho de
+	# lado (a quina da parede do fundo, um pino caído) a jogava de volta na
+	# pista — bola de canaleta derrubando pinos. Caiu na canaleta, o lado da
+	# pista fica fechado para ela; e devagar (encostada em pinos caídos) a
+	# calha a leva até o fosso, como a de verdade.
+	var lado: float = abs(p.x)
+	if not _na_canaleta and p.z > Medidas.Z_FIM_DECK and lado > Medidas.MEIA_LARGURA + 0.03 and p.y < RAIO * 0.8:
+		_na_canaleta = true
+	if _na_canaleta and p.z > Medidas.Z_FIM_DECK - 0.05:
+		var meio := Medidas.MEIA_LARGURA + Medidas.CANALETA * 0.5
+		if lado < meio and linear_velocity.x * sign(p.x) < 0.0:
+			apply_central_impulse(Vector3(-linear_velocity.x * mass, 0, 0))
+		if linear_velocity.z > -1.2:
+			apply_central_impulse(Vector3(0, 0, -2.5) * mass * delta)
+	# NO FIM DA PISTA (depois do pino 1), parando no meio dos pinos caídos:
+	# a bola é levada até o fosso (num boliche ela quase nunca para ali;
+	# parada, a máquina de pinos teria que trabalhar com ela na mesa).
+	elif p.z < Medidas.Z_PINO1 - 0.3 and p.z > Medidas.Z_FIM_DECK and p.y > -0.02 and linear_velocity.length() < 0.8:
+		apply_central_impulse(Vector3(0, 0, -3.0) * mass * delta)
+	# DEPOIS DE CHEGAR NOS PINOS a bola não volta na direção de quem joga: a
+	# pista é lisa para ela (óleo) e um pino voltando da parede a empurrava
+	# metros para trás — derrubando pinos na volta.
+	if not _nos_pinos and p.z < Medidas.Z_PINO1 + 0.2:
+		_nos_pinos = true
+	if _nos_pinos and linear_velocity.z > 0.0:
+		apply_central_impulse(Vector3(0, 0, -linear_velocity.z * mass))
+	# NO FOSSO (passou do fim da pista): o chão "puxa" a bola para a caçapa,
+	# como a esteira de verdade, e ela não volta (acima: já passou dos pinos)
+	# — o fundo é acolchoado: batendo nos pinos caídos, na moldura da boca
+	# ou nas paredes, ela perde o que tinha para trás. (A bola tem raio 0,14
+	# e o fosso 0,14 de fundura: no chão dele o centro fica na altura da
+	# pista. A conta antiga, "centro abaixo de 0", quase nunca puxava: a bola
+	# parava nos pinos caídos e voltava — às vezes até a pista, derrubando
+	# pinos.)
+	if p.z < Medidas.Z_FIM_DECK - 0.05:
+		if p.y < RAIO * 0.75 and linear_velocity.z > -1.6:
+			apply_central_impulse(Vector3(-p.x * 3.0, 0, -4.0) * mass * delta)
+		_no_fosso += delta
+	# entrou no túnel da caçapa (ou ficou presa no fosso): some e volta no
+	# retorno de bolas
+	if p.z < Medidas.Z_FUNDO - 0.35 or _no_fosso > 3.0:
 		rolando = false
 		_brilhos.emitting = false
 		_chamas.emitting = false

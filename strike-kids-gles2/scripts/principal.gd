@@ -129,6 +129,23 @@ var _msaa_quebrado := false
 var _camada_menu: CanvasLayer
 var _antes_menu := {}
 var _medidor_antes := false
+## preparando os desenhos por trás da capa de carregamento (aquecer.gd): a
+## abertura e os controles esperam
+var _preparando := true
+## FÔLEGO DA FÍSICA (máquina fraca): quando a jogada pesa e os quadros
+## demoram, o Godot faz cada vez mais passos de física por quadro (até 8)
+## para alcançar o relógio — e cada quadro demora ainda mais: a jogada
+## engasga. Nas jogadas, se a física está tomando boa parte do quadro, os
+## passos ficam em no máximo PASSOS_MAX por quadro: numa máquina que não dá
+## conta a jogada anda um pouquinho mais devagar, mas lisa; com folga, volta
+## sozinho ao normal (no PC e numa TV Box que segura 60 quadros, nada muda).
+## O passo da física continua o mesmo (o da tabela de jogadas).
+const PASSOS_MAX := 4.0
+var _folego := 1.0
+var _quadro_us := 0
+var _quadro_med := 1.0 / 60.0
+var _fis_ini_us := 0
+var _fis_med := 0.0
 
 ## Lado menor da IMAGEM 3D, em pixels, em cada qualidade (nunca maior que a
 ## própria tela). Edição OpenGL ES 2.0 (Mali-400/450): na TV Box o 3D sai em
@@ -158,10 +175,20 @@ func _ready() -> void:
 	# (testes) roda o TESTE DE DESEMPENHO do menu do operador logo depois da abertura
 	if OS.get_cmdline_args().has("--teste-desempenho"):
 		Ajustes.definir("video", "testar", true)
-	# prepara os shaders de tudo enquanto a marca cobre a tela
+	# prepara os desenhos de tudo por trás de uma capa igual à imagem de
+	# abertura da TV Box; a abertura começa quando terminar
 	var aq := Aquecer.new()
 	add_child(aq)
-	aq.preparar(vp, hud, efeitos.materiais())
+	aq.preparar(vp, hud, efeitos.materiais(), self)
+	aq.connect("pronto", self, "_preparado", [], CONNECT_ONESHOT)
+	# a tela do jogo (3D e interface) fica parada e escondida enquanto as
+	# amostras compilam aos poucos (desenhada já no 1º quadro, compilava
+	# tudo de uma vez); volta no ensaio geral
+	vp.render_target_update_mode = Viewport.UPDATE_DISABLED
+	hud.visible = false
+	# a tabela de jogadas (quase 4 mil linhas): lida agora, com a imagem de
+	# abertura na tela, e não na primeira bola
+	Jogada.preparar()
 	hud.connect("toque_sensor", self, "_jogada_recebida")
 	# o aviso "marque Sempre abrir / toque em Permitir" antes das janelas do Android
 	ArduinoBridge.connect("janela_android", hud, "aviso_android")
@@ -174,7 +201,57 @@ func _ready() -> void:
 	_camada_menu.pause_mode = Node.PAUSE_MODE_PROCESS
 	add_child(_camada_menu)
 	_ligar_roteiro_de_teste()
+
+
+func _preparado() -> void:
+	_preparando = false
 	_abertura()
+
+
+## ENSAIO GERAL da preparação (aquecer.gd), por baixo da capa: a tela do
+## jogo volta a ser desenhada e aparece, de verdade e por um instante, tudo
+## o que tem desenho próprio e só viria depois — os 4 cenários, a bola de
+## fogo com o rastro, estrelas, confete, poeira, fogos, pinos tontos, os
+## jatos dos bichinhos e a logo (hud). Fase 0 começa, 1 metade, 2 limpa (a
+## abertura arruma o resto).
+func ensaio(fase: int) -> void:
+	hud.ensaio(fase)
+	match fase:
+		0:
+			vp.render_target_update_mode = Viewport.UPDATE_ALWAYS
+			hud.visible = true
+			var alvo := Vector3(0.0, 0.3, -1.2)
+			cam.corte(Vector3(0.0, 1.1, 1.8), alvo, 50, 50)
+			bola.vestir("bob")
+			bola.fogo(true)
+			bola.ensaio(Vector3(0.1, Bola.RAIO, -0.8))
+			efeitos.estrelas(alvo, 8)
+			efeitos.poeira(alvo, 0.6)
+			efeitos.puf(alvo)
+			efeitos.confete(alvo + Vector3(0, 0.6, 0), 0.8, 16)
+			efeitos.fogos(alvo + Vector3(0, 0.8, 0), 1)
+			pinos.pino(1).ficar_tonto()
+			for nome in personagens:
+				(personagens[nome] as Personagem).jatos(true)
+			_ensaiar_cenarios()
+		2:
+			bola.fogo(false)
+			bola.guardar()
+			efeitos.limpar()
+			pinos.repor_todos()
+			for nome in personagens:
+				(personagens[nome] as Personagem).jatos(false)
+
+
+## Cada cenário aparece por dois quadros (as partículas e o céu de cada um).
+func _ensaiar_cenarios() -> void:
+	for t in Temas.ORDEM:
+		mundo.aplicar_tema(t)
+		for i in 2:
+			yield(get_tree(), "idle_frame")
+		if not _preparando:
+			return
+	mundo.aplicar_tema(Temas.ORDEM[0])
 
 
 ## Qualidade gráfica valendo: a do operador (ou STRIKE_QUALIDADE nos
@@ -316,7 +393,7 @@ func _qualidade_viewport() -> void:
 ## inteira PRETA? Então o MSAA não funciona nesta placa — desliga (o jogo
 ## segue com a imagem certa, só sem o antisserrilhado).
 func _conferir_msaa() -> void:
-	if _quadros_3d < 0 or _parado_3d or _menu != null or vp.msaa == Viewport.MSAA_DISABLED:
+	if _preparando or _quadros_3d < 0 or _parado_3d or _menu != null or vp.msaa == Viewport.MSAA_DISABLED:
 		return
 	_quadros_3d += 1
 	if _quadros_3d < 12:
@@ -360,6 +437,8 @@ func _tela_mudou(_t: Vector2) -> void:
 
 # ================================================================ entrada
 func _input(event: InputEvent) -> void:
+	if _preparando:
+		return
 	if event is InputEventKey and event.is_pressed() and not event.is_echo() and (event as InputEventKey).scancode == KEY_F3:
 		medidor.alternar()
 		return
@@ -420,6 +499,8 @@ func _start() -> void:
 
 
 func _jogada_recebida(zona: String) -> void:
+	if _preparando:
+		return
 	_inativo = 0.0
 	if _modal_inativo > 0.0:
 		_fechar_inatividade()
@@ -1044,6 +1125,7 @@ func _bola_no_retorno(nome: String) -> void:
 
 func _process(delta: float) -> void:
 	_medir_fps(delta)
+	_folego_da_fisica()
 	_andar_lenta()
 	_conferir_msaa()
 	# as contagens da tela andam em segundos de verdade
@@ -1170,7 +1252,7 @@ func _andar_lenta() -> void:
 ## câmera lenta dá MENOS (0,4 = 62 por segundo) e a interpolação deixa a
 ## imagem lisa.
 func _ritmo(v: float) -> void:
-	var normal := float(_passos_fisica) * _velocidade
+	var normal := float(_passos_fisica) * _velocidade * _folego
 	var passos := Compat.iclamp(int(round(normal * v)), 12, int(round(normal)))
 	Engine.iterations_per_second = passos
 	Engine.time_scale = float(passos) / float(_passos_fisica)
@@ -1181,11 +1263,39 @@ func _parar_lenta() -> void:
 	_ritmo(1.0)
 
 
+## A cada quadro: quanto o quadro e a física dele levaram (média) e, nas
+## jogadas, quantos passos por quadro a máquina aguenta (ver PASSOS_MAX).
+func _folego_da_fisica() -> void:
+	var agora := Time.get_ticks_usec()
+	var dt := 1.0 / 60.0
+	if _quadro_us > 0:
+		dt = clamp(float(agora - _quadro_us) / 1000000.0, 0.001, 0.25)
+	_quadro_us = agora
+	var fis := 0.0
+	if _fis_ini_us > 0:
+		fis = clamp(float(agora - _fis_ini_us) / 1000000.0, 0.0, dt)
+	_fis_ini_us = 0
+	_quadro_med = lerp(_quadro_med, dt, 0.15)
+	_fis_med = lerp(_fis_med, fis, 0.15)
+	var alvo := 1.0
+	if not _preparando and estado in [E.ABERTURA, E.ARREMESSO, E.ROLANDO, E.RESULTADO]:
+		var por_quadro := float(_passos_fisica) * _velocidade * _quadro_med
+		if por_quadro > PASSOS_MAX and _fis_med > 0.4 * _quadro_med:
+			alvo = clamp(PASSOS_MAX / por_quadro, 0.6, 1.0)
+	var novo := move_toward(_folego, alvo, 0.5 * dt)
+	if abs(novo - _folego) > 0.0001:
+		_folego = novo
+		if _lenta_t0 < 0 and _menu == null:
+			_ritmo(1.0)
+
+
 ## O relógio da jogada anda junto com a FÍSICA (120 passos por segundo, já
 ## com a câmera lenta aplicada): cada quadro gravado tem o seu próprio
 ## instante. (Se o relógio fosse o da tela, a 60 QPS dois passos de física
 ## ficavam com o mesmo horário e o replay saía picotado.)
 func _physics_process(delta: float) -> void:
+	if _fis_ini_us == 0:
+		_fis_ini_us = Time.get_ticks_usec()   # 1º passo de física do quadro
 	if estado == E.ROLANDO:
 		_t_jogada += delta
 	if _gravando:
@@ -1853,7 +1963,7 @@ func _limpar() -> void:
 
 ## Segurar um botão 10 s abre a configuração dos botões — só na atração.
 func pode_configurar() -> bool:
-	return estado == E.ATRACAO or estado == E.ABERTURA
+	return not _preparando and (estado == E.ATRACAO or estado == E.ABERTURA)
 
 
 ## Modal por cima do jogo ("QUANTOS VÃO JOGAR?"): a imagem 3D de trás

@@ -73,6 +73,44 @@ O QUE MUDOU PARA RODAR NA OPENGL ES 2.0
     Godot 4 (nao substitui).
 
 
+LISO NA TV BOX (TX9 e parecidas)
+--------------------------------
+Medido quadro a quadro no PC (tools/testes/desempenho.gd) e corrigido:
+  * PREPARACAO POR TRAS DA CAPA: ao abrir, uma tela igual a imagem de
+    abertura da TV Box (com uma barrinha) cobre o jogo enquanto ele
+    prepara TODOS os desenhos (shaders), as letras de cada fonte e faz um
+    ensaio geral escondido (cenarios, bola de fogo, confete, logo...). So
+    entao a abertura comeca. Antes, ~70 desenhos eram preparados no meio
+    da abertura e da primeira partida (travadas de segundos na Mali-450);
+    agora nenhum (conferido numa partida inteira de 2 jogadores).
+  * FISICA 3x MAIS LEVE: a colisao da canaleta tinha 72 gomos do
+    comprimento da pista (a fisica testava ~100 triangulos por pino a cada
+    passo) e agora tem 20 (diferenca abaixo de 1 mm); a forma do pino
+    perdeu 100 pontos que ficavam DENTRO dele (mesma forma: jogadas
+    identicas). A tabela de jogadas foi calibrada de novo e o planejador
+    acerta igual ou melhor que antes.
+  * FOLEGO DA FISICA: se a TV Box nao der conta numa jogada, a fisica faz
+    no maximo 4 passos por quadro (o Godot faria ate 8, travando cada vez
+    mais): a jogada fica um pouquinho mais lenta, mas lisa.
+  * NADA LIDO DO DISCO NO MEIO DO JOGO: a tabela de jogadas (antes lida
+    na 1a bola da abertura) e as texturas do chao dos 4 cenarios (antes
+    lidas a cada troca de cenario) carregam na abertura.
+  * O QUE NAO APARECE NAO TRABALHA: bichinhos escondidos ou fora da camera
+    nao recalculam a pose; sombras dos pinos parados nao sao refeitas.
+  * A BOLA NAO VOLTA: no fosso ela era puxada para a cacapa so com o
+    centro abaixo de 0 - com raio 0,14 isso quase nunca acontecia, ela
+    parava nos pinos caidos e voltava (em 166 de 300 jogadas simuladas; as
+    vezes ate a pista, derrubando pinos). Agora o fosso puxa de verdade;
+    depois de chegar nos pinos a bola nunca anda de volta para quem joga
+    (a pista e lisa para ela e um pino voltando da parede a empurrava
+    metros para tras); na canaleta ela fica na canaleta (a parede do fundo
+    foi afastada 3 cm: a bola raspava na quina e pulava de volta para a
+    pista) e bola de canaleta nunca derruba pino; quase parada no fim da
+    pista, ela e levada ao fosso. Conferido com e sem para-choques
+    (tools/testes/bola_volta.gd). A tabela de jogadas foi calibrada nesta
+    fisica, com a maquina de pinos (alcapao fechado) como no jogo.
+
+
 APK PRONTO PARA A TV BOX
 ------------------------
 StrikeKids_GLES2.apk - copie para um pendrive e instale pelo gerenciador
@@ -82,8 +120,15 @@ gerar de novo no Windows: GERAR_APK.bat (veja "COMO GERAR O APK").
     TV Boxes com Android de 32 bits, comum nas com Mali-450).
   - Aparece no inicio da TV Box (icone de TV) e no menu de apps.
   - Ja vem com o ARDUINO (StrikeSerial) e com a CAMERA (StrikeCamera:
-    camera do sistema e Camera2). Na 1a vez o Android pergunta da CAMERA
-    (Permitir) e do Arduino no USB (marque "Usar por padrao" e OK).
+    camera do sistema e Camera2). PERMISSOES UMA VEZ SO: na 1a vez o
+    Android pergunta da CAMERA (Permitir) e do Arduino no USB (marque
+    "Usar por padrao" e OK). O jogo pede cada uma so uma vez, so na tela
+    de espera e uma janela de cada vez; a da camera o Android guarda para
+    sempre e a do Arduino tambem, com "Usar por padrao" marcado. (A webcam
+    entra pela camera do sistema: nao pede permissao de USB.)
+    Se a versao Godot 4 tambem estiver instalada, o Android pode perguntar
+    qual app abre o Arduino: escolha o Strike Kids (OpenGL ES 2.0) e
+    marque "Usar por padrao" (ou desinstale a outra versao).
   - Assinado com a chave do projeto (tools/android/strikekids.keystore).
   - Na primeira vez, no menu do operador, rode o TESTE DE DESEMPENHO: ele
     mede a TV Box e escolhe a qualidade. "Mostrar desempenho na tela"
@@ -188,5 +233,8 @@ PASTAS
               carregar_scripts.gd (confere se os scripts compilam),
               testar_shaders.gd, android/ (plugins e montagem do APK
               no Linux: montar_apk.sh),
-              testes/ (calibrar, roteiro, instantes, medir_desenho...)
+              limpar_forma_pino.gd (forma do pino sem pontos de dentro),
+              testes/ (calibrar, roteiro, instantes, medir_desenho,
+              desempenho: tempo de cada quadro; bola_volta: confere a
+              bola no fosso e na canaleta; custo_fisica...)
   docs/       ligacao do Arduino

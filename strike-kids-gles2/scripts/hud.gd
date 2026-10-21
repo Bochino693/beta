@@ -1817,6 +1817,25 @@ func _brilho_marca(v: float, m: ShaderMaterial) -> void:
 	m.set_shader_param("pos", v)
 
 
+## ENSAIO GERAL (aquecer.gd, por baixo da capa de carregamento): a logo
+## sobre o 3D, com o brilho e as estrelinhas, aparecendo (fase 0) e sumindo
+## aos poucos (fase 1) do jeito da abertura — a placa de vídeo prepara
+## esses desenhos agora, e não no meio da abertura. No fim (fase 2) some
+## tudo na hora (inclusive estrelinhas que ainda voam).
+func ensaio(fase: int) -> void:
+	match fase:
+		0:
+			marca(true, false, true)
+			_estrelas_2d(rect_size * 0.5, 6)
+		1:
+			marca(false)
+		_:
+			marca(false, true)
+			for c in _centro.get_children():
+				if c is CPUParticles2D:
+					c.queue_free()
+
+
 # ================================================================ layout responsivo
 func layout() -> void:
 	var T: Vector2 = Tela.tamanho()
