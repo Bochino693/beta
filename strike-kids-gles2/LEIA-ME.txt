@@ -111,15 +111,17 @@ NO WINDOWS (o jeito mais facil): de dois cliques no GERAR_APK.bat (nesta
 pasta, junto do project.godot). Ele faz tudo sozinho e mostra cada passo:
   - acha ou BAIXA o que faltar: Godot 3.6.3, Java (JDK 17), o adb do
     Android (platform-tools, ~10 MB), o modelo Android do Godot 3.6.3 (so
-    o android_release.apk, ~50 MB, nao o pacote inteiro), o apktool e o
-    assinador. NAO precisa de Android Studio, Gradle nem do SDK inteiro
-    (se o GERAR_APK.bat da versao Godot 4 ja rodou neste PC, ele aproveita
-    o Java e o adb que aquele baixou);
+    o android_release.apk, ~50 MB, nao o pacote inteiro) e o assinador.
+    NAO precisa de Android Studio, Gradle nem do SDK inteiro (se o
+    GERAR_APK.bat da versao Godot 4 ja rodou neste PC, ele aproveita o
+    Java e o adb que aquele baixou);
   - trabalha numa COPIA do projeto em C:\StrikeKidsGLES2 (o projeto nao e
     alterado);
-  - exporta o jogo, poe os plugins da CAMERA e do ARDUINO, o banner da TV
-    e a imagem de abertura girada como a tela, assina com a chave do
-    projeto e confere o APK.
+  - monta o MODELO Android do Strike Kids: o oficial + o que esta em
+    android\modelo_android\extras.zip (os plugins da CAMERA e do ARDUINO,
+    a permissao da camera, os filtros USB e o banner da TV);
+  - exporta o jogo com o Godot (o APK ja sai com a camera e o Arduino),
+    assina com a chave do projeto e confere o APK.
   1a vez: de 5 a 20 min (downloads). Depois: 2 a 4 min.
   O APK sai em APK-Pronto\StrikeKids_GLES2.apk.
   Opcoes (no Prompt de Comando, dentro desta pasta):
@@ -127,21 +129,21 @@ pasta, junto do project.godot). Ele faz tudo sozinho e mostra cada passo:
      GERAR_APK.bat -Giro 0           TV deitada, sem giro
      GERAR_APK.bat -Instalar         ja instala na TV Box pelo adb
                                      (depuracao USB/rede ligada na TV Box)
-     GERAR_APK.bat -SemCamera        sem a camera (o Arduino continua)
      GERAR_APK.bat -Versao 5.7-gles2 muda o nome da versao
   Se der erro, envie o arquivo build\android\GERACAO-COMPLETA.log.
 
 NO LINUX (o jeito usado para o APK pronto):
      bash tools/android/montar_apk.sh StrikeKids_GLES2.apk 5.6-gles2
-  Os mesmos passos do GERAR_APK.bat; as ferramentas (Godot 3.6.3
-  headless, apktool, dx, uber-apk-signer e, para conferir, um python com
-  o androguard) ficam em ~/strikekids_ferramentas (variavel FERRAMENTAS;
-  veja o comeco do script) e os modelos do Godot 3.6.3 em
+  Os mesmos passos do GERAR_APK.bat. As ferramentas (Godot 3.6.3
+  headless, uber-apk-signer e, para conferir, um python com o androguard)
+  ficam em ~/strikekids_ferramentas (variavel FERRAMENTAS; veja o comeco
+  do script) e os modelos do Godot 3.6.3 em
   ~/.local/share/godot/templates/3.6.3.stable.
-  Os plugins sao compilados por tools/android/StrikeCamera/construir.sh e
-  tools/android/StrikeSerial/construir.sh (saem em android/plugins/, com
-  o classes2.dex pronto que o GERAR_APK.bat usa:
-  tools/android/dex_dos_plugins.sh).
+  Se mudar o Java dos plugins, o manifesto deles, os filtros USB ou o
+  banner: tools/android/StrikeCamera/construir.sh e StrikeSerial/
+  construir.sh (refazem os .aar e o android/plugins/classes2.dex) e
+     python3 -I tools/android/modelo_android.py <android_release.apk> <apktool.jar>
+  (refaz o android/modelo_android/extras.zip, com o apktool 2.10).
 
 CAMERA, ARDUINO, ZERO DELAY E MENU DO OPERADOR
 ----------------------------------------------
@@ -171,7 +173,9 @@ PASTAS
   autoload/   Tela, Ajustes, Sons, ArcadeControls, ArduinoBridge, Fotos
   shaders/    shaders da OpenGL ES 2.0 (luz linear, saida em tela)
   android/    plugins/ (StrikeCamera e StrikeSerial: .aar + .gdap e o
-              classes2.dex pronto que o GERAR_APK.bat poe no APK)
+              classes2.dex) e modelo_android/extras.zip (o que o modelo
+              Android do Godot ganha: plugins, permissao da camera,
+              filtros USB, banner da TV)
   GERAR_APK.bat / GERAR_APK.ps1   gera o APK no Windows (veja acima)
   arduino/    firmware do Arduino da maquina
   dados/      tabela de jogadas calibrada na fisica Bullet (vai no APK)

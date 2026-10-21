@@ -3,10 +3,6 @@
     [ValidateSet(1, -1, 0)][int]$Giro = 1,
     # Instala na TV Box pelo adb depois de gerar (TV Box ligada no adb)
     [switch]$Instalar,
-    # Gera o APK sem o plugin da camera (o Arduino continua)
-    [switch]$SemCamera,
-    # Sem o lancador da Android TV (so o lancador comum de apps)
-    [switch]$SemTv,
     # Nome da versao (ex.: 5.7-gles2); sem ele vale o do export_presets.cfg
     [string]$Versao = "",
     # Caminho do Godot 3.6.3 (opcional: se nao achar, o script baixa)
@@ -23,12 +19,14 @@
 #    (C:\StrikeKidsGLES2): o projeto original nao e alterado;
 #  - acha ou BAIXA o que faltar: Godot 3.6.3, Java, o "platform-tools" do
 #    Android (o adb: o Godot 3 exige), o modelo Android do Godot 3.6.3 (so
-#    o android_release.apk, ~50 MB, nao o pacote inteiro), o apktool e o
-#    assinador (uber-apk-signer). NAO precisa de Gradle nem do SDK inteiro;
-#  - exporta o jogo com o Godot 3.6.3 (APK sem assinar), abre o APK com o
-#    apktool e poe os plugins (camera StrikeCamera e Arduino StrikeSerial:
-#    android\plugins\classes2.dex e o manifesto), os filtros USB e o banner
-#    da TV; remonta, assina com a chave do projeto e confere;
+#    o android_release.apk, ~50 MB, nao o pacote inteiro) e o assinador
+#    (uber-apk-signer). NAO precisa de Gradle nem do SDK inteiro;
+#  - monta o MODELO do Strike Kids: o oficial + android\modelo_android\
+#    extras.zip (os plugins da camera StrikeCamera e do Arduino StrikeSerial
+#    no manifesto, as classes deles, a permissao da camera, os filtros USB e
+#    o banner da TV - feito no Linux por tools\android\modelo_android.py);
+#  - exporta o jogo com o Godot 3.6.3 (ja sai com os plugins), assina com a
+#    chave do projeto e confere;
 #  - nenhum passo fica parado para sempre: cada programa tem tempo-limite.
 # 1a vez: de 5 a 20 min (downloads). Depois: 2 a 4 min.
 # Historico completo: build\android\GERACAO-COMPLETA.log (envie se falhar).
@@ -49,10 +47,7 @@ $UrlGodot = "$UrlBase/Godot_v3.6.3-stable_win64.exe.zip"
 $UrlTemplates = "$UrlBase/Godot_v3.6.3-stable_export_templates.tpz"
 $NomeTpz = "Godot_v3.6.3-stable_export_templates.tpz"
 $UrlPlatformTools = "https://dl.google.com/android/repository/platform-tools-latest-windows.zip"
-# apktool e assinador: versoes fixas, conferidas pelo SHA-256 (os mesmos do
-# APK pronto feito pelo montar_apk.sh)
-$UrlApktool = "https://github.com/iBotPeaches/Apktool/releases/download/v2.10.0/apktool_2.10.0.jar"
-$ShaApktool = "c0350abbab5314248dfe2ee0c907def4edd14f6faef1f5d372d3d4abd28f0431"
+# assinador: versao fixa, conferida pelo SHA-256 (o mesmo do montar_apk.sh)
 $UrlAssinador = "https://github.com/patrickfav/uber-apk-signer/releases/download/v1.3.0/uber-apk-signer-1.3.0.jar"
 $ShaAssinador = "e1299fd6fcf4da527dd53735b56127e8ea922a321128123b9c32d619bba1d835"
 $NomePreset = "Android TV Box"
@@ -62,7 +57,7 @@ $NomeApk = "StrikeKids_GLES2.apk"
 $PastaLogs = Join-Path $Projeto "build\android"
 $LogGeral = Join-Path $PastaLogs "GERACAO-COMPLETA.log"
 $script:Etapa = 0
-$script:TotalEtapas = 10
+$script:TotalEtapas = 9
 $script:Inicio = Get-Date
 
 # ------------------------------------------------------------------ tela
@@ -501,7 +496,7 @@ function Escolher-Trabalho {
     if ($env:SystemDrive) { $opcoes += (Join-Path $env:SystemDrive "StrikeKidsGLES2") }
     if ($env:PUBLIC) { $opcoes += (Join-Path $env:PUBLIC "StrikeKidsGLES2") }
     if ($env:LOCALAPPDATA) { $opcoes += (Join-Path $env:LOCALAPPDATA "StrikeKidsGLES2") }
-    # de preferencia sem espacos nem acentos (o Java e o apktool gostam)
+    # de preferencia sem espacos nem acentos (o Java e o Godot gostam)
     foreach ($c in $opcoes) {
         if ($c -match '^[A-Za-z0-9:\\/._-]+$' -and (Gravavel $c)) { return $c.TrimEnd('\') }
     }
@@ -624,7 +619,7 @@ function Garantir-Java {
     $versao = 0
     foreach ($c in ($candidatos | Select-Object -Unique)) {
         $v = Versao-Java $c
-        # o apktool e o assinador rodam do Java 11 em diante (17 e o recomendado)
+        # o remendo do modelo e o assinador rodam do Java 11 em diante (17 e o recomendado)
         if ($v -ge 11 -and $v -le 25) {
             if ($v -eq 17) { $escolhido = $c; $versao = 17; break }
             if (-not $escolhido) { $escolhido = $c; $versao = $v }
@@ -705,12 +700,11 @@ function Garantir-Adb {
 # -------------------------------------------------- modelo Android do Godot
 
 function Garantir-Modelo {
-    # (o Godot 3, autocontido, procura os modelos em editor_data\templates)
-    $pasta = Pasta (Join-Path $script:DadosGodot "templates\$IdGodot")
-    [IO.File]::WriteAllText((Join-Path $pasta "version.txt"), "$IdGodot`n")
-    $alvo = Join-Path $pasta "android_release.apk"
-    $script:Modelo = $alvo
-    if (Zip-Valido $alvo 10MB) { Ok "modelo Android $IdGodot pronto"; return }
+    # o modelo OFICIAL fica guardado aqui; o do Strike Kids (Montar-Modelo)
+    # vai para onde o Godot procura
+    $alvo = Join-Path (Pasta (Join-Path $script:Trabalho "modelo")) "android_release_oficial.apk"
+    $script:ModeloOficial = $alvo
+    if (Zip-Valido $alvo 10MB) { Ok "modelo Android oficial $IdGodot pronto"; return }
     # 1) ja instalado pelo Godot 3.6.3 deste PC
     $origens = @()
     if ($env:APPDATA) { $origens += (Join-Path $env:APPDATA "Godot\templates\$IdGodot\android_release.apk") }
@@ -742,7 +736,22 @@ function Garantir-Modelo {
     Ok "modelo Android pronto"
 }
 
-# ----------------------------------------------- apktool e o assinador
+# Junta o modelo oficial com os extras do Strike Kids (plugins da camera e do
+# Arduino, permissao da camera, filtros USB, banner) e poe o resultado onde o
+# Godot (autocontido) procura: editor_data\templates\3.6.3.stable.
+function Montar-Modelo {
+    $pasta = Pasta (Join-Path $script:DadosGodot "templates\$IdGodot")
+    [IO.File]::WriteAllText((Join-Path $pasta "version.txt"), "$IdGodot`n")
+    $alvo = Join-Path $pasta "android_release.apk"
+    $remendo = Join-Path $Projeto "tools\android\remendo_apk.jar"
+    $extras = Join-Path $Projeto "android\modelo_android\extras.zip"
+    Apagar $alvo
+    $cod = Executar $script:Java @("-jar", $remendo, $script:ModeloOficial, $extras, $alvo) -Log (Join-Path $script:Logs "modelo-strike.log") -LimiteMin 5 -Rotulo "modelo"
+    if ($cod -ne 0 -or -not (Zip-Valido $alvo 10MB)) { throw "nao consegui montar o modelo Android do Strike Kids (veja modelo-strike.log)." }
+    Ok "modelo Android do Strike Kids (com a camera e o Arduino) pronto"
+}
+
+# ------------------------------------------------------------- assinador
 
 function Sha256([string]$Arquivo) {
     return (Get-FileHash -Algorithm SHA256 -LiteralPath $Arquivo).Hash.ToLower()
@@ -763,8 +772,6 @@ function Garantir-Jar([string]$Url, [string]$Sha, [string]$Nome) {
 }
 
 function Garantir-Ferramentas {
-    $script:Apktool = Garantir-Jar $UrlApktool $ShaApktool "apktool 2.10.0"
-    Ok "apktool: $($script:Apktool)"
     $script:Assinador = Garantir-Jar $UrlAssinador $ShaAssinador "uber-apk-signer 1.3.0"
     Ok "assinador: $($script:Assinador)"
 }
@@ -787,7 +794,7 @@ function Copiar-Projeto {
 }
 
 # Na COPIA: o preset sai sem Gradle, sem assinar e sem plugins ligados (os
-# plugins entram depois, pelo apktool), a versao (se pedida), o giro da
+# plugins vem no modelo do Strike Kids), a versao (se pedida), o giro da
 # tela e a imagem de abertura ja girada como a tela do jogo.
 function Preparar-Copia {
     $utf8 = New-Object Text.UTF8Encoding($false)
@@ -803,6 +810,8 @@ function Preparar-Copia {
     $b = [Regex]::Replace($b, '(?m)^custom_build/use_custom_build=[^\r\n]*', 'custom_build/use_custom_build=false')
     $b = [Regex]::Replace($b, '(?m)^package/signed=[^\r\n]*', 'package/signed=false')
     $b = [Regex]::Replace($b, '(?m)^(plugins/[A-Za-z0-9_]+)=[^\r\n]*', '$1=false')
+    # a permissao da camera ja vem no modelo do Strike Kids
+    $b = [Regex]::Replace($b, '(?m)^permissions/camera=[^\r\n]*', 'permissions/camera=false')
     if ($Versao) {
         $b = [Regex]::Replace($b, '(?m)^version/name=[^\r\n]*', ('version/name="' + $Versao.Replace('"', '').Replace('$', '$$') + '"'))
     }
@@ -878,127 +887,24 @@ function Mostrar-Motivo([string]$Log) {
     foreach ($l in $trecho) { if ($l.Trim()) { Write-Host "      $l" -ForegroundColor Yellow } }
 }
 
-# --------------------------------------------------- plugins no manifesto
-
-# Troca um trecho que aparece UMA vez so (senao para: o manifesto mudou).
-function Trocar-Uma([string]$Texto, [string]$Velho, [string]$Novo, [string]$Nome) {
-    $i = $Texto.IndexOf($Velho, [StringComparison]::Ordinal)
-    if ($i -lt 0 -or $Texto.IndexOf($Velho, $i + 1, [StringComparison]::Ordinal) -ge 0) {
-        throw "manifesto inesperado ($Nome); avise o desenvolvedor."
-    }
-    return $Texto.Substring(0, $i) + $Novo + $Texto.Substring($i + $Velho.Length)
-}
-
-# Poe no manifesto decodificado (apktool) o que os plugins StrikeCamera e
-# StrikeSerial pedem (meta-data dos plugins v1 do Godot 3 e a atividade de
-# encaixe do Arduino) e o lancador da TV. As mesmas contas do
-# tools\android\manifesto.py (usado pelo montar_apk.sh).
-function Ajustar-Manifesto([string]$Pasta, [bool]$Camera, [bool]$Tv) {
-    $arq = Join-Path $Pasta "AndroidManifest.xml"
-    $s = [IO.File]::ReadAllText($arq)
-    $nl = "`n"
-    if ($s.Contains("`r`n")) { $nl = "`r`n" }
-    if ($s.Contains('org.godotengine.plugin.v1.Strike')) { throw "manifesto ja injetado (decodifique de novo)." }
-
-    # As <uses-permission> que o Godot 3.6.3 acrescenta saem com o prefixo
-    # "android" no lugar da URI; o apktool decodifica como
-    # <uses-permission xmlns:n1="android" n1:name="..."/> e o aapt2
-    # recompilaria SEM o android:name (a permissao da camera sumiria).
-    $script:ContaNs = 0
-    $avaliador = [Text.RegularExpressions.MatchEvaluator] {
-        param($m)
-        $script:ContaNs++
-        $prefixo = [Regex]::Escape($m.Groups[2].Value)
-        $atributos = [Regex]::Replace($m.Groups[3].Value, '(?<=\s)' + $prefixo + ':', 'android:')
-        return '<' + $m.Groups[1].Value + $atributos + $m.Groups[4].Value + '>'
-    }
-    $s = [Regex]::Replace($s, '<([\w.-]+) xmlns:(\w+)="android"((?:\s+[\w:.-]+="[^"]*")*)\s*(/?)>', $avaliador)
-    $ini = $s.IndexOf('<manifest', [StringComparison]::Ordinal)
-    $fimTag = $s.IndexOf('>', $ini)
-    if ($s.Substring($fimTag + 1).Contains('xmlns:')) { throw "namespace estranho que sobrou no manifesto." }
-    if (-not $s.Contains('<uses-permission android:name="android.permission.CAMERA"/>')) { throw "falta a permissao da camera no manifesto (permissions/camera no preset)." }
-    Info "permissoes com o namespace consertado: $($script:ContaNs)"
-
-    # camera e USB: nada obrigatorio (a TV Box nao tem camera propria) - e,
-    # para a TV, nem tela de toque nem o modo leanback
-    $gl = [Regex]::Matches($s, '<uses-feature android:glEsVersion="0x000[23]0000" android:required="true"/>')
-    if ($gl.Count -ne 1) { throw "manifesto inesperado (glEsVersion)." }
-    $recursos = $nl + '    <uses-feature android:name="android.hardware.camera" android:required="false"/>' +
-        $nl + '    <uses-feature android:name="android.hardware.camera.any" android:required="false"/>' +
-        $nl + '    <uses-feature android:name="android.hardware.camera.external" android:required="false"/>' +
-        $nl + '    <uses-feature android:name="android.hardware.usb.host" android:required="false"/>'
-    if ($Tv) {
-        $recursos += $nl + '    <uses-feature android:name="android.hardware.touchscreen" android:required="false"/>' +
-            $nl + '    <uses-feature android:name="android.software.leanback" android:required="false"/>'
-    }
-    $s = Trocar-Uma $s $gl[0].Value ($gl[0].Value + $recursos) "glEsVersion"
-
-    # os plugins v1 (o Godot 3.6.3 procura "org.godotengine.plugin.v1.<Nome>"
-    # no manifesto) e a atividade de encaixe do Arduino ("Usar por padrao")
-    $plugins = ""
-    if ($Camera) {
-        $plugins += '        <meta-data android:name="org.godotengine.plugin.v1.StrikeCamera" android:value="com.lazersport.strikecamera.StrikeCamera"/>' + $nl
-    }
-    $plugins += '        <activity android:excludeFromRecents="true" android:exported="true" android:name="com.lazersport.strikeserial.StrikeArduinoAtivo" android:noHistory="true" android:theme="@android:style/Theme.Translucent.NoTitleBar">' + $nl +
-        '            <intent-filter>' + $nl +
-        '                <action android:name="android.hardware.usb.action.USB_DEVICE_ATTACHED"/>' + $nl +
-        '            </intent-filter>' + $nl +
-        '            <meta-data android:name="android.hardware.usb.action.USB_DEVICE_ATTACHED" android:resource="@xml/strike_usb_arduino"/>' + $nl +
-        '        </activity>' + $nl +
-        '        <meta-data android:name="org.godotengine.plugin.v1.StrikeSerial" android:value="com.lazersport.strikeserial.StrikeSerial"/>' + $nl
-    $s = Trocar-Uma $s '    </application>' ($plugins + '    </application>') "fim do application"
-
-    # lancador da TV (Android TV / Google TV): o jogo aparece tambem na
-    # fileira de apps, com o banner (res\drawable-xhdpi\strike_banner.png)
-    if ($Tv) {
-        $a = '<category android:name="android.intent.category.LAUNCHER"/>'
-        $s = Trocar-Uma $s $a ($a + $nl + '                <category android:name="android.intent.category.LEANBACK_LAUNCHER"/>') "categoria LAUNCHER"
-        if ($s.Contains('android:banner=')) { throw "o manifesto ja tem banner." }
-        $s = Trocar-Uma $s '<application ' '<application android:banner="@drawable/strike_banner" ' "application"
-    }
-    [IO.File]::WriteAllText($arq, $s, (New-Object Text.UTF8Encoding($false)))
-    $c = "nao"; if ($Camera) { $c = "sim" }
-    $v = "nao"; if ($Tv) { $v = "sim" }
-    Ok "manifesto: Arduino sim, camera $c, lancador da TV $v"
-}
-
-# Abre o APK do Godot (apktool), poe os plugins (classes2.dex + manifesto),
-# os filtros USB e o banner, e remonta. Devolve o APK remontado (sem assinar).
-function Injetar-Plugins([string]$ApkSem) {
-    $dec = Join-Path $script:Trabalho "decodificado"
-    $fw = Pasta (Join-Path $script:Trabalho "apktool-framework")
-    Apagar $dec
-    $cod = Executar $script:Java @("-jar", $script:Apktool, "d", "-s", "-f", "-p", $fw, "-o", $dec, $ApkSem) -Log (Join-Path $script:Logs "apktool-abrir.log") -LimiteMin 15 -Rotulo "apktool"
-    if ($cod -ne 0 -or -not (Test-Path -LiteralPath (Join-Path $dec "AndroidManifest.xml"))) { throw "o apktool nao abriu o APK (veja apktool-abrir.log)." }
-    Ajustar-Manifesto $dec (-not $SemCamera) (-not $SemTv)
-    $xml = Pasta (Join-Path $dec "res\xml")
-    Copy-Item -LiteralPath (Join-Path $Projeto "tools\android\StrikeSerial\res\xml\strike_usb_arduino.xml") -Destination $xml -Force
-    Copy-Item -LiteralPath (Join-Path $Projeto "tools\android\StrikeCamera\res\xml\strike_usb_webcam.xml") -Destination $xml -Force
-    if (-not $SemTv) {
-        $draw = Pasta (Join-Path $dec "res\drawable-xhdpi")
-        Copy-Item -LiteralPath (Join-Path $Projeto "tools\android\tv\strike_banner.png") -Destination $draw -Force
-    }
-    # as classes dos dois plugins (feito pelo tools\android\dex_dos_plugins.sh)
-    Copy-Item -LiteralPath (Join-Path $Projeto "android\plugins\classes2.dex") -Destination $dec -Force
-    $montado = Join-Path $script:Trabalho "montado.apk"
-    Apagar $montado
-    $cod = Executar $script:Java @("-jar", $script:Apktool, "b", "-p", $fw, $dec, "-o", $montado) -Log (Join-Path $script:Logs "apktool-montar.log") -LimiteMin 15 -Rotulo "apktool"
-    if ($cod -ne 0 -or -not (Zip-Valido $montado 5MB)) { throw "o apktool nao remontou o APK (veja apktool-montar.log)." }
-    Ok "plugins da camera e do Arduino no APK"
-    return $montado
-}
-
 # ------------------------------------------------------ assinar e conferir
 
-function Assinar([string]$Montado) {
+function Assinar([string]$Apk) {
     $pasta = Join-Path $script:Trabalho "assinado"
-    Apagar $pasta
-    [void](Pasta $pasta)
-    $cod = Executar $script:Java @("-jar", $script:Assinador, "-a", $Montado, "-o", $pasta, "--ks", $script:Chave, "--ksAlias", "strikekids", "--ksPass", "strikekids", "--ksKeyPass", "strikekids") -Log (Join-Path $script:Logs "assinar.log") -LimiteMin 10 -Rotulo "assinador"
-    $apk = Get-ChildItem -LiteralPath $pasta -File -Filter "*-aligned-signed.apk" | Select-Object -First 1
-    if ($cod -ne 0 -or -not $apk) { throw "nao consegui assinar o APK (veja assinar.log)." }
-    Ok "APK assinado com a chave do Strike Kids"
-    return $apk.FullName
+    $base = @("-jar", $script:Assinador, "-a", $Apk, "-o", $pasta, "--ks", $script:Chave, "--ksAlias", "strikekids", "--ksPass", "strikekids", "--ksKeyPass", "strikekids")
+    # 2a tentativa sem o zipalign do assinador (o APK do Godot ja sai alinhado)
+    foreach ($extra in @(@(), @("--skipZipAlign"))) {
+        Apagar $pasta
+        [void](Pasta $pasta)
+        $cod = Executar $script:Java ($base + $extra) -Log (Join-Path $script:Logs "assinar.log") -LimiteMin 10 -Rotulo "assinador"
+        $assinado = Get-ChildItem -LiteralPath $pasta -File -Filter "*-signed.apk" | Select-Object -First 1
+        if ($cod -eq 0 -and $assinado) {
+            Ok "APK assinado com a chave do Strike Kids"
+            return $assinado.FullName
+        }
+        if ($extra.Count -eq 0) { Aviso "o assinador falhou (codigo $cod); tentando sem o zipalign..." }
+    }
+    throw "nao consegui assinar o APK (veja assinar.log)."
 }
 
 function Conferir-Apk([string]$Apk) {
@@ -1008,8 +914,8 @@ function Conferir-Apk([string]$Apk) {
         foreach ($e in $z.Entries) { $nomes[$e.FullName] = $e.Length }
     } finally { $z.Dispose() }
     $precisa = @("AndroidManifest.xml", "classes.dex", "classes2.dex", "resources.arsc", "assets/project.binary",
-        "lib/armeabi-v7a/libgodot_android.so", "lib/arm64-v8a/libgodot_android.so", "res/xml/strike_usb_arduino.xml")
-    if (-not $SemTv) { $precisa += "res/drawable-xhdpi/strike_banner.png" }
+        "lib/armeabi-v7a/libgodot_android.so", "lib/arm64-v8a/libgodot_android.so", "res/xml/strike_usb_arduino.xml",
+        "res/drawable-xhdpi/strike_banner.png")
     foreach ($n in $precisa) {
         if (-not $nomes.ContainsKey($n)) { throw "o APK ficou sem $n." }
     }
@@ -1036,11 +942,11 @@ function Principal {
     if (-not (Test-Path -LiteralPath (Join-Path $Projeto "project.godot"))) {
         throw "project.godot nao encontrado. Extraia o ZIP inteiro e rode o GERAR_APK.bat de dentro da pasta strike-kids-gles2."
     }
-    foreach ($f in @("android\plugins\classes2.dex", "tools\android\strikekids.keystore", "tools\android\StrikeSerial\res\xml\strike_usb_arduino.xml")) {
+    foreach ($f in @("android\modelo_android\extras.zip", "tools\android\remendo_apk.jar", "tools\android\strikekids.keystore")) {
         if (-not (Test-Path -LiteralPath (Join-Path $Projeto $f))) { throw "falta $f no projeto (extraia o ZIP inteiro)." }
     }
     if (-not [Environment]::Is64BitOperatingSystem) { throw "este gerador precisa do Windows 64 bits." }
-    if ($Instalar) { $script:TotalEtapas = 11 }
+    if ($Instalar) { $script:TotalEtapas = 10 }
 
     Titulo "Pasta de trabalho"
     $script:Trabalho = Escolher-Trabalho
@@ -1065,10 +971,11 @@ function Principal {
     Titulo "Android: adb (o Godot 3 exige)"
     Garantir-Adb
 
-    Titulo "Modelo Android do Godot 3.6.3"
+    Titulo "Modelo Android (o do Godot 3.6.3 + camera e Arduino)"
     Garantir-Modelo
+    Montar-Modelo
 
-    Titulo "apktool e assinador"
+    Titulo "Assinador"
     Garantir-Ferramentas
 
     Titulo "Copia do projeto e exportacao (Godot)"
@@ -1079,13 +986,10 @@ function Principal {
     Info "Exportando com o Godot 3.6.3. Na 1a vez ele ainda importa as imagens"
     Info "e os sons (alguns minutos, as vezes sem escrever nada): e normal."
     $semAssinatura = Exportar
-    Ok ("APK do Godot: {0:N1} MB" -f ((Get-Item -LiteralPath $semAssinatura).Length / 1MB))
-
-    Titulo "Plugins da camera e do Arduino"
-    $montado = Injetar-Plugins $semAssinatura
+    Ok ("APK do Godot: {0:N1} MB (ja com a camera e o Arduino)" -f ((Get-Item -LiteralPath $semAssinatura).Length / 1MB))
 
     Titulo "Assinando e conferindo"
-    $assinado = Assinar $montado
+    $assinado = Assinar $semAssinatura
     Conferir-Apk $assinado
 
     Titulo "Entregando o APK"
@@ -1104,11 +1008,7 @@ function Principal {
     Write-Host "  SHA256:  $hash"
     Write-Host "  Arduino (5 sensores, porta das bolas, botao de configuracao, LEDs): INCLUIDO." -ForegroundColor Green
     Write-Host "  Na 1a vez a TV Box pergunta sobre o Arduino no USB: marque 'Usar por padrao' e OK."
-    if ($SemCamera) {
-        Write-Host "  Camera: NAO incluida (pedido -SemCamera): o jogo usa os mascotes no lugar das fotos." -ForegroundColor Yellow
-    } else {
-        Write-Host "  Camera: INCLUIDA (camera do sistema e Camera2). Na 1a vez permita a CAMERA." -ForegroundColor Green
-    }
+    Write-Host "  Camera: INCLUIDA (camera do sistema e Camera2). Na 1a vez permita a CAMERA." -ForegroundColor Green
     Write-Host "  Instala AO LADO da versao Godot 4 (pacote diferente): nao substitui."
     Write-Host "  Instale este APK na TV Box (pendrive + gerenciador de arquivos, ou adb)."
 

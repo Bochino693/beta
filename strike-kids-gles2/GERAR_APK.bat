@@ -8,7 +8,6 @@ rem build\android\GERACAO-COMPLETA.log. Opcoes (opcionais):
 rem   GERAR_APK.bat -Giro -1         (topo do jogo na direita do HDMI)
 rem   GERAR_APK.bat -Giro 0          (TV deitada, sem giro)
 rem   GERAR_APK.bat -Instalar        (instala na TV Box pelo adb)
-rem   GERAR_APK.bat -SemCamera       (APK sem a camera; o Arduino continua)
 rem   GERAR_APK.bat -Versao 5.7-gles2
 if exist "%~dp0project.godot" goto projeto_ok
 echo.

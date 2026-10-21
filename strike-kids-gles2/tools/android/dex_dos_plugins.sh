@@ -1,9 +1,9 @@
 #!/bin/bash
 # Refaz android/plugins/classes2.dex: as classes dos plugins StrikeCamera e
 # StrikeSerial (tiradas dos .aar) num dex só, para o APK legado do Godot 3.
-# O GERAR_APK.bat (Windows) usa este arquivo pronto - lá não há o dx -, e o
-# montar_apk.sh faz o mesmo dex a cada vez. Os construir.sh dos plugins
-# chamam este script no fim (o dex acompanha os .aar).
+# O tools/android/modelo_android.py põe este dex no extras.zip do modelo
+# Android (o GERAR_APK.bat e o montar_apk.sh usam o extras.zip pronto). Os
+# construir.sh dos plugins chamam este script no fim (o dex acompanha os .aar).
 #   bash tools/android/dex_dos_plugins.sh
 # DX_JAR: dalvik-dx 9.0.0_r3 (Maven Central), por padrão em FERRAMENTAS
 # (~/strikekids_ferramentas), como no montar_apk.sh.
