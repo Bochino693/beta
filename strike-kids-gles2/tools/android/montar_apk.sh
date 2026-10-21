@@ -75,6 +75,16 @@ b = re.sub(r'(?m)^(plugins/[A-Za-z0-9_]+)=.*$', r'\1=false', b)
 if os.environ['NOME_VERSAO']:
     b = re.sub(r'(?m)^version/name=.*$', 'version/name="%s"' % os.environ['NOME_VERSAO'], b)
 open(p, 'w', encoding='utf-8').write(s[:i] + b + s[j:])
+# imagem de abertura já girada como a tela do jogo (strike/tela/giro), como
+# no APK do Godot 4 e no GERAR_APK.bat
+p = 'project.godot'
+s = open(p, encoding='utf-8').read()
+m = re.search(r'(?m)^tela/giro=(-?\d+)', s)
+giro = {'1': '1', '-1': 'm1', '0': '0'}.get(m.group(1) if m else '1', '1')
+if os.path.exists('ui/splash_giro_%s.png' % giro):
+    s, n = re.subn(r'(?m)^boot_splash/image=.*$', 'boot_splash/image="res://ui/splash_giro_%s.png"' % giro, s)
+    assert n == 1, 'boot_splash/image'
+    open(p, 'w', encoding='utf-8').write(s)
 if os.environ['CENARIO']:
     p = 'project.godot'
     s = open(p, encoding='utf-8').read()

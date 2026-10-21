@@ -2,8 +2,10 @@
 
 > **Edição OpenGL ES 2.0** (TV Box com placa de vídeo Mali-400/450, como a
 > TX9 "comum"): [`strike-kids-gles2/`](strike-kids-gles2/) — o mesmo jogo
-> refeito no **Godot 3.6.3** (renderizador GLES2, física Bullet). Como testar
-> e gerar o APK: [`strike-kids-gles2/LEIA-ME.txt`](strike-kids-gles2/LEIA-ME.txt).
+> refeito no **Godot 3.6.3** (renderizador GLES2, física Bullet). Para gerar o
+> APK no Windows: dois cliques em `strike-kids-gles2/GERAR_APK.bat` (baixa
+> sozinho o que faltar). Como testar e gerar o APK:
+> [`strike-kids-gles2/LEIA-ME.txt`](strike-kids-gles2/LEIA-ME.txt).
 > A versão principal (Godot 4, OpenGL ES 3) continua no repositório
 > **beta-advanced**.
 

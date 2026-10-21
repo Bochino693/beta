@@ -1,0 +1,20 @@
+# Windows: o .bat e o .ps1 (e o LEIA-ME) saem com fim de linha do Windows
+# (o cmd.exe se perde em .bat com fim de linha do Linux)
+* text=auto eol=lf
+*.bat text eol=crlf
+*.ps1 text eol=crlf
+LEIA-ME*.txt text eol=crlf
+*.png binary
+*.jpg binary
+*.wav binary
+*.ogg binary
+*.ttf binary
+*.otf binary
+*.res binary
+*.scn binary
+*.aar binary
+*.dex binary
+*.jar binary
+*.apk binary
+*.pdf binary
+*.keystore binary
