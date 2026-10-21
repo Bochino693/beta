@@ -134,10 +134,12 @@ export/android/shutdown_adb_on_exit = false
 TRES
 cd "$TRAB/projeto"
 XDG_CONFIG_HOME="$CASA/config" XDG_DATA_HOME="$CASA/data" XDG_CACHE_HOME="$CASA/cache" \
-  timeout 2400 "$GODOT3" --no-window --path . --export "Android TV Box" "$TRAB/saida/sem_assinatura.apk" \
+  timeout 2400 "$GODOT3" --no-window --audio-driver Dummy --path . --export "Android TV Box" "$TRAB/saida/sem_assinatura.apk" \
   > "$TRAB/export.log" 2>&1 || true
-# (o "free a NULL RID" é do Godot sem tela: inofensivo)
-grep -E "ERROR|WARNING|export:" "$TRAB/export.log" | grep -v "free a NULL RID" | tail -15 || true
+# (inofensivos: o "free a NULL RID" é do Godot sem tela; o "Cannot open file
+# 'res://.import/..." é da 1a importação, quando o Godot procura as
+# dependências de cada som antes de criá-lo)
+grep -E "ERROR|WARNING|export:" "$TRAB/export.log" | grep -v -e "free a NULL RID" -e "Cannot open file 'res://.import/" | tail -15 || true
 if [ ! -s "$TRAB/saida/sem_assinatura.apk" ]; then
   echo "a exportação falhou (log: $TRAB/export.log)" >&2
   tail -40 "$TRAB/export.log" >&2
