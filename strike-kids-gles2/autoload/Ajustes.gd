@@ -41,7 +41,9 @@ const PADRAO := {
 		"qualidade": "auto",
 		"cenario": "",             # fundo: "leve" ou "completo" ("" = o padrão desta versão, strike/video/cenario)
 		"nitidez": "auto",         # resolução do 3D: auto (sobe e desce sozinha) ou 100%/90%/80%/70% fixa
-		"fator": 1.0,              # o último fator automático bom (começa dele ao ligar)
+		# o último fator automático bom (começa dele ao ligar), sobre 1080 px;
+		# 0 = esta máquina ainda não mediu (o "fator" antigo era sobre 720)
+		"fator_1080": 0.0,
 		"medidor": false,          # painel de desempenho na tela (F3 no PC)
 		"qualidade_auto": "",      # o que o TESTE DE DESEMPENHO recomendou
 		"testar": false,           # pedido do menu: rodar o teste ao voltar

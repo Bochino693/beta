@@ -368,8 +368,11 @@ func _ambiente() -> void:
 	var esfera := SphereMesh.new()
 	esfera.radius = 1.0
 	esfera.height = 2.0
-	esfera.radial_segments = 64
-	esfera.rings = 32
+	# (o degradê é por pixel; por vértice só a nebulosa e os raios do mar,
+	# que mudam devagar: 48 x 24 basta — na Mali-400/450 o que pesa são os
+	# vértices)
+	esfera.radial_segments = 48
+	esfera.rings = 24
 	ceu.mesh = esfera
 	ceu.material_override = mat_ceu
 	# o shader leva a esfera para longe, em volta da câmera: nunca sai do quadro
@@ -558,7 +561,7 @@ func _pista() -> void:
 
 	# --- para-choques (bumpers) listrados de doce
 	# cápsula simples + listras pelo shader (nítidas em 4K e levinhas)
-	var mb := _capsula_em_pe(0.07, 1.14, 14, 3)
+	var mb := _capsula_em_pe(0.07, 1.14, 10, 2)
 	var mat_b := ShaderMaterial.new()
 	mat_b.shader = load("res://shaders/doce_listrado.shader")
 	# a luz do cenário por vértice, como nos toons (Materiais.definir_luz)
@@ -942,8 +945,8 @@ func retorno_bola(mat: Material) -> void:
 		var sm := SphereMesh.new()
 		sm.radius = Bola.RAIO
 		sm.height = Bola.RAIO * 2.0
-		sm.radial_segments = 24
-		sm.rings = 12
+		sm.radial_segments = 20
+		sm.rings = 10
 		_bola_volta.mesh = sm
 		_bola_volta.cast_shadow = GeometryInstance.SHADOW_CASTING_SETTING_OFF
 		add_child(_bola_volta)
@@ -1069,7 +1072,7 @@ func _mat_logo(tinta: Color, largura: float, centro := Vector2.ZERO, esticar_y :
 	return Materiais.toon(true, 0.004, p)
 
 
-func _esfera(raio := 1.0, gomos := 32) -> SphereMesh:
+func _esfera(raio := 1.0, gomos := 24) -> SphereMesh:
 	var sm := SphereMesh.new()
 	sm.radius = raio
 	sm.height = raio * 2.0
@@ -1256,8 +1259,8 @@ func _area_dos_jogadores() -> void:
 		var sm := SphereMesh.new()
 		sm.radius = 0.13
 		sm.height = 0.26
-		sm.radial_segments = 24
-		sm.rings = 12
+		sm.radial_segments = 16
+		sm.rings = 8
 		b.mesh = sm
 		b.material_override = Materiais.cor_toon(cores[i], 0.003, {"borda": 0.4, "especular": 0.8})
 		b.translation = Vector3(0, 0.69, -0.62 + i * 0.29)
@@ -1329,8 +1332,9 @@ static func _malha_lampada() -> SphereMesh:
 		var l := SphereMesh.new()
 		l.radius = 0.07
 		l.height = 0.14
-		l.radial_segments = 8
-		l.rings = 4
+		# (227 lâmpadas: 36 triângulos cada — de longe ninguém vê a diferença)
+		l.radial_segments = 6
+		l.rings = 2
 		e["lampada"] = l
 	return e["lampada"]
 

@@ -117,6 +117,11 @@ func montar(nome: String) -> void:
 	add_child(modelo)
 	var meta: Dictionary = modelo.get_meta("rosto", {})
 	var rosto := Materiais.textura("rosto_" + nome)
+	# braços, antebraços, coxas, canelas e pés têm os MESMOS parâmetros: um
+	# material só para todos (na OpenGL ES 2.0 cada troca de material manda
+	# de novo todos os parâmetros para a placa — eram 13 por bichinho, mais
+	# os 13 dos contornos)
+	var mat_membros: ShaderMaterial = null
 	for j in JUNTAS:
 		var no := modelo.find_node(j, true, false) as Spatial
 		if no == null:
@@ -124,6 +129,9 @@ func montar(nome: String) -> void:
 		juntas[j] = no
 		_pos_repouso[j] = no.translation
 		var mi := no.get_node("malha") as MeshInstance
+		if j != "cabeca" and j != "corpo" and mat_membros != null:
+			mi.material_override = mat_membros
+			continue
 		var parametros := {"borda": 0.22, "cor_borda": Color(1.0, 0.92, 1.0), "brilho_luz": brilho, "faixa": 0.15, "luz_minima": 0.32}
 		if j == "cabeca":
 			parametros["usa_rosto"] = true
@@ -139,6 +147,8 @@ func montar(nome: String) -> void:
 		_mats.append(m)
 		if j == "cabeca":
 			_mat_cabeca = m
+		elif j != "corpo":
+			mat_membros = m
 	# bola na mão direita
 	bola_mao = MeshInstance.new()
 	var esfera := SphereMesh.new()

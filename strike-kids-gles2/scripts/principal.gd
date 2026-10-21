@@ -90,7 +90,7 @@ var _temas_prontos := false
 ## a roupinha do Bob e da Mia em cada fase (tools/modelos/roupas.py)
 const ROUPA_DO_TEMA := {"mar": "pirata", "dinos": "dino", "espaco": "astronauta", "parque": "parque"}
 var _qualidade := "media"
-## resolução da imagem 3D: fator (70% a 100%) sobre o LADO_3D — automático
+## resolução da imagem 3D: fator (2/3 a 100%) sobre o LADO_3D — automático
 ## (desce se a máquina não segura 60 quadros e VOLTA A SUBIR quando sobra
 ## folga) ou travado pelo operador ("Nitidez do 3D" no menu)
 var _fator := 1.0
@@ -148,11 +148,15 @@ var _fis_ini_us := 0
 var _fis_med := 0.0
 
 ## Lado menor da IMAGEM 3D, em pixels, em cada qualidade (nunca maior que a
-## própria tela). Edição OpenGL ES 2.0 (Mali-400/450): na TV Box o 3D sai em
-## 720 px com antisserrilhado 4x (que nessa placa é quase de graça) e é
-## esticado até a tela; no PC, até 1080.
-const LADO_3D := {"alta": 1080, "media": 720, "baixa": 540}
-const FATOR_MIN := 0.7
+## própria tela), vezes o fator automático (de 2/3 a 1). Edição OpenGL ES
+## 2.0 (Mali-400/450): na TV Box o 3D vai de 720 px (o mínimo) até a
+## resolução da tela, 1080, com antisserrilhado 4x (quase de graça nessa
+## placa): o fator sobe sozinho enquanto a placa segura 60 quadros e
+## desce se não segurar. Esticar 720 até 1080 deixava a imagem fosca.
+const LADO_3D := {"alta": 1080, "media": 1080, "baixa": 720}
+const FATOR_MIN := 0.667
+## a primeira vez numa TV Box (antes de medir): começa no meio (864 px)
+const FATOR_INICIAL_TV := 0.8
 
 
 func _ready() -> void:
@@ -293,7 +297,10 @@ func _ler_nitidez() -> void:
 	var nitidez := str(Ajustes.valor("video", "nitidez"))
 	_adaptar = nitidez == "auto"
 	if _adaptar:
-		_fator = clamp(float(Ajustes.valor("video", "fator")), FATOR_MIN, 1.0)
+		var guardado := float(Ajustes.valor("video", "fator_1080"))
+		if guardado <= 0.0:
+			guardado = FATOR_INICIAL_TV if OS.get_name() == "Android" else 1.0
+		_fator = clamp(guardado, FATOR_MIN, 1.0)
 	else:
 		_fator = clamp(float(nitidez.trim_suffix("%")) / 100.0, FATOR_MIN, 1.0)
 	for a in OS.get_cmdline_args():
@@ -642,7 +649,7 @@ func _atracao() -> void:
 			Ajustes.definir("video", "qualidade_auto", _qualidade)
 	if _fator_salvar:
 		_fator_salvar = false
-		Ajustes.definir("video", "fator", stepify(_fator, 0.01))
+		Ajustes.definir("video", "fator_1080", stepify(_fator, 0.01))
 	# a porta das bolas fica FECHADA na espera; o Arduino pode pedir a
 	# permissão USB aqui (janela do Android só na espera)
 	ArduinoBridge.porta(false)
