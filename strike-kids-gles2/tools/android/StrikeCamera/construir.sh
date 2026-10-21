@@ -48,3 +48,5 @@ custom_maven_repos=[]
 GDAP
 rm -rf "$T"
 echo "ok: android/plugins/StrikeCamera.aar e StrikeCamera.gdap"
+# o dex pronto dos dois plugins (o GERAR_APK.bat do Windows usa)
+bash "$AQUI/../dex_dos_plugins.sh" || echo "aviso: rode tools/android/dex_dos_plugins.sh (android/plugins/classes2.dex)"
