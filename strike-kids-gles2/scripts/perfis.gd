@@ -26,22 +26,22 @@ static func retangulo(largura: float, altura: float, raio: float, centro := Vect
 
 ## Canaleta em meia-cana: calha de raio `r` cujos lábios arredondados ficam
 ## no nível da pista (y = 0); paredes retas por fora e fundo reto embaixo.
-static func canaleta(r: float, borda := 0.018, fundo := 0.05, segs := 56) -> PoolVector2Array:
+static func canaleta(r: float, borda := 0.018, fundo := 0.05, segs := 56, segs_borda := 16) -> PoolVector2Array:
 	var p := PoolVector2Array()
 	var yc := -borda                 # centro da calha e dos lábios
 	var xe := r + 2.0 * borda
 	p.append(Vector2(xe, yc - r - fundo))
 	# lábio direito: de fora (ângulo 0) por cima até dentro (ângulo PI)
-	for i in 17:
-		var a := PI * float(i) / 16.0
+	for i in segs_borda + 1:
+		var a := PI * float(i) / float(segs_borda)
 		p.append(Vector2(r + borda + cos(a) * borda, yc + sin(a) * borda))
 	# a calha, descendo pela direita, passando pelo fundo e subindo
 	for i in range(1, segs):
 		var a := -PI * float(i) / float(segs)
 		p.append(Vector2(cos(a) * r, yc + sin(a) * r))
 	# lábio esquerdo: de dentro (ângulo 0) por cima até fora (ângulo PI)
-	for i in 17:
-		var a := PI * float(i) / 16.0
+	for i in segs_borda + 1:
+		var a := PI * float(i) / float(segs_borda)
 		p.append(Vector2(-r - borda + cos(a) * borda, yc + sin(a) * borda))
 	p.append(Vector2(-xe, yc - r - fundo))
 	return p

@@ -44,6 +44,7 @@ const PASTA := "user://fotos/"
 const LADO := 384                  # foto quadrada, em pixels
 const PERMISSAO := "android.permission.CAMERA"
 const DICA_CAMERA := "A FOTO DAS CRIANÇAS USA A CÂMERA: NA JANELA DO ANDROID, TOQUE EM \"PERMITIR\"\nela só aparece desta vez"
+const DICA_WEBCAM := "WEBCAM NO USB: NA JANELA DO ANDROID, MARQUE \"USAR POR PADRÃO\" E TOQUE EM OK\nassim ela nunca mais aparece"
 const JANELA_MAX_MS := 25000
 const W_FF := 640
 const H_FF := 480
@@ -381,9 +382,9 @@ func _lista_chegou(lista: String) -> void:
 	if _plugin == null or status == "desligada":
 		return
 	_procurar_android(lista if lista != "" else "#vazia")
-	if status == "sem_permissao_usb":
-		_pedir_usb(Time.get_ticks_msec())
-	elif status == "pronta":
+	# (sem permissão USB: a janela fica para a tela de espera, na_espera —
+	# a busca pode ter começado no START e a lista chegar no meio da escolha)
+	if status == "pronta":
 		_manter_ligada()
 
 
@@ -429,9 +430,22 @@ func _pedir_usb(agora: int) -> void:
 		return
 	if _lembrado("usb_pedida") and not _pedir_agora:
 		return   # já pediu uma vez: nunca mais sozinho
+	# uma janela do Android por vez (duas juntas, uma se perdia — e, marcada
+	# como pedida, nunca mais aparecia)
+	if janela_aberta() or ArduinoBridge.janela_aberta():
+		return
 	_pedir_agora = false
 	_lembrar("usb_pedida")
-	_plugin.call("pedir_usb")
+	_janela_ate = agora + JANELA_MAX_MS
+	# a janela do Android congela a imagem do jogo: o aviso entra antes
+	emit_signal("janela_android", DICA_WEBCAM)
+	_timer_real(0.6).connect("timeout", self, "_abrir_janela_usb")
+
+
+## Godot 3: sem lambda (o timer chama este).
+func _abrir_janela_usb() -> void:
+	if _plugin != null:
+		_plugin.call("pedir_usb")
 
 
 ## Ligada e sem imagem há 30 s: reabre do zero. Raro e só na tela de

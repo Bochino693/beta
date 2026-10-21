@@ -105,6 +105,9 @@ var _tiras: MultiMeshInstance
 var _abertura_tiras: PoolRealArray = PoolRealArray()
 var _bola_volta: MeshInstance
 var mat_boca_luz: ShaderMaterial
+## o detalhe do chão de cada cenário (texturas/chao_0..3.png), carregado ao
+## montar e guardado: trocar de cenário não lê nada do disco
+var _texturas_chao: Array = []
 ## CENÁRIO LEVE (o padrão; menu do operador > "Cenário (fundo)"): o fundo
 ## mais barato para a TV Box rodar lisa — chão e decoração com a luz feita
 ## por vértice, metade da decoração, céu simples e sem neblina. A pista,
@@ -119,6 +122,8 @@ static func na_tela(n: Spatial) -> Transform:
 
 func construir() -> void:
 	leve = Ajustes.cenario_leve()
+	for i in LADRILHO_CHAO.size():
+		_texturas_chao.append(load("res://texturas/chao_%d.png" % i))
 	_ambiente()
 	_sol()
 	_astro_no_ceu()
@@ -234,8 +239,9 @@ func aplicar_tema(nome: String) -> void:
 	var modo_chao := int(c["chao_modo"])
 	mat_terreno.set_shader_param("modo", modo_chao)
 	# florzinhas, crateras e poeira, conchinhas: textura que se repete
-	# (tools/assar_chao.py), uma por cenário
-	mat_terreno.set_shader_param("detalhe", load("res://texturas/chao_%d.png" % modo_chao))
+	# (tools/assar_chao.py), uma por cenário — as 4 já carregadas (ler do
+	# disco e mandar para a placa de vídeo na troca de cenário travava)
+	mat_terreno.set_shader_param("detalhe", _texturas_chao[modo_chao])
 	mat_terreno.set_shader_param("detalhe_tile", LADRILHO_CHAO[modo_chao])
 	# cores do chão: lineares (OpenGL ES 2.0: os dois shaders do chão fazem
 	# a conta em linear e convertem para a tela; no Godot 4 o completo
@@ -508,9 +514,14 @@ func _pista() -> void:
 	# mais escura no fundo da calha, clara nos lábios: lê-se a curva de longe
 	# (Godot 3: sem Vector4 — Perfis.extrudar recebe os 4 números num Quat)
 	var malha_c := Perfis.extrudar(perfil_c, Z_FIM_DECK, 0.1, true, true, 50.0, Quat(-0.15, -0.005, 0.5, 1.05))
-	# a colisão é a MESMA meia-cana do desenho: bola e pinos rolam e param
-	# dentro da calha, encostados na parede curva — nada atravessa nada
-	var forma_c := malha_c.create_trimesh_shape()
+	# a colisão é a mesma meia-cana do desenho (bola e pinos rolam e param
+	# dentro da calha, encostados na parede curva), com menos gomos: 14 na
+	# curva e 6 em cada lábio (a diferença para o desenho fica abaixo de
+	# 1 mm). Cada gomo vira triângulos do comprimento da pista inteira e a
+	# física testa todos os que encostam no pino ou na bola, a cada passo:
+	# com os 56 + 16 do desenho era a maior parte do custo da física — na TV
+	# Box a jogada travava.
+	var forma_c := Perfis.extrudar(Perfis.canaleta(CANALETA / 2.0, 0.018, 0.05, 14, 6), Z_FIM_DECK, 0.1).create_trimesh_shape()
 	for s in [-1, 1]:
 		var x: float = s * (MEIA_LARGURA + CANALETA / 2)
 		# o desenho de cada cenário (shaders/canaleta.shader; Temas.CONFIG)
@@ -676,9 +687,12 @@ func _peca_solida(largura: float, altura: float, raio: float, centro: Vector2, z
 ## A forma convexa de colisão de uma peça Perfis.retangulo(...) de z0 a z1,
 ## do tamanho da peça desenhada: encolhida pela margem, que a devolve ao
 ## tamanho certo (ver MARGEM_CONVEXA; peça fina usa a margem que couber).
+## Quinas com 3 gomos (o desenho tem 10): a forma fica com 32 pontos em vez
+## de 88 — a física procura o ponto mais longe a cada teste — e a margem
+## arredonda o resto.
 static func _forma_retangulo(largura: float, altura: float, raio: float, centro: Vector2, z0: float, z1: float) -> Shape:
 	var m: float = min(MARGEM_CONVEXA, min(raio, min(largura, altura) * 0.45))
-	var malha := Perfis.extrudar(Perfis.retangulo(largura - 2.0 * m, altura - 2.0 * m, raio - m, centro), z0 + m, z1 - m)
+	var malha := Perfis.extrudar(Perfis.retangulo(largura - 2.0 * m, altura - 2.0 * m, raio - m, centro, 3), z0 + m, z1 - m)
 	var forma := malha.create_convex_shape()
 	forma.margin = m
 	return forma
@@ -729,9 +743,13 @@ func _fundo_dos_pinos() -> void:
 	mat_friso = Materiais.cor_toon(Color("#FFB627"), 0.0, {"borda": 0.25, "especular": 0.5})
 	mat_gabinete = Materiais.cor_toon(Color("#E8384F"), 0.004, {"borda": 0.35, "especular": 0.12, "luz_minima": 0.3})
 	var z_frente := Z_PINO1 + 0.9
-	# paredes laterais (kickbacks): visual arredondado + a mesma colisão de antes
+	# paredes laterais (kickbacks): visual arredondado + a mesma colisão de antes.
+	# A face de dentro fica a 0,955 do meio: a bola (raio 0,14) corre na
+	# canaleta apoiada nos lábios, com o centro em 0,8, e passa sem raspar —
+	# a 0,925 ela batia na quina da frente da parede e voltava para a pista
+	# (ou saía voando por cima da divisória)
 	for s in [-1, 1]:
-		var x: float = s * (MEIA_LARGURA + CANALETA + 0.06)
+		var x: float = s * (MEIA_LARGURA + CANALETA + 0.09)
 		# colisão = o próprio desenho (o friso de cima também segura os pinos)
 		_peca_solida(0.12, 1.0, 0.05, Vector2(x, 0.35), Z_FUNDO, z_frente, mat_parede, 0.3, 0.35, "parede_%d" % s)
 		_peca_solida(0.17, 0.07, 0.034, Vector2(x, 0.875), Z_FUNDO, z_frente + 0.02, mat_friso, 0.3, 0.35)

@@ -127,6 +127,23 @@ static func _canaleta(j, linha: float) -> void:
 
 
 # ---------------------------------------------------------------- 1ª bola
+## Lê a tabela e já deixa pronta a escolha de cada pedido (zona, pinos,
+## para-choques): chamado na preparação (por trás da capa de carregamento).
+## Ler e organizar as quase 4 mil jogadas na primeira bola (a da abertura)
+## dava um tranco de quase um segundo na TV Box; escolher a linha na hora
+## de cada arremesso, outro menor.
+static func preparar() -> void:
+	_carregar()
+
+
+## zona|pinos|para-choques -> as linhas que melhor rendem aquilo
+static func _melhores() -> Dictionary:
+	var e := Compat.estado("jogada")
+	if not e.has("melhores"):
+		e["melhores"] = {}
+	return e["melhores"]
+
+
 static func _carregar() -> void:
 	var grupos := _grupos()
 	if not grupos.empty():
@@ -159,6 +176,38 @@ static func _carregar() -> void:
 			if idx.has(viz):
 				amostra.append_array(idx[viz]["resultados"])
 		g["amostra"] = amostra
+	# a nota de cada linha para cada pedido de pinos: acertar conta 1, errar
+	# por um pino conta 0,35 (contagem de quantas vezes deu cada número)
+	for z in grupos:
+		for g in grupos[z]:
+			var conta := []
+			conta.resize(12)
+			for i in 12:
+				conta[i] = 0
+			for r in g["amostra"]:
+				conta[Compat.iclamp(int(r), 0, 10)] += 1
+			var notas := PoolRealArray()
+			var tam := float(max((g["amostra"] as Array).size(), 1))
+			for n in 11:
+				var vizinhos: int = conta[n + 1] + (conta[n - 1] if n > 0 else 0)
+				notas.append((float(conta[n]) + 0.35 * float(vizinhos)) / tam)
+			g["notas"] = notas
+	var melhores := _melhores()
+	for z in grupos:
+		for n in 11:
+			for protecao in [true, false]:
+				var melhor := -1.0
+				var opcoes := []
+				for g in grupos[z]:
+					if not protecao and (abs(float(g["entrada"])) > 0.5 or abs(float(g["xt"])) > 0.5):
+						continue  # essa linha encostava no para-choque
+					var nota: float = g["notas"][n]
+					if nota > melhor + 0.001:
+						melhor = nota
+						opcoes = [g]
+					elif abs(nota - melhor) <= 0.001:
+						opcoes.append(g)
+				melhores["%s|%d|%d" % [z, n, int(protecao)]] = opcoes
 
 
 static func _chave(z: String, xt: float, v: float, e: float) -> String:
@@ -169,25 +218,7 @@ static func _chave(z: String, xt: float, v: float, e: float) -> String:
 ## "garantida", contando as vizinhas).
 static func _da_tabela(j, z: String, n: int, protecao: bool) -> bool:
 	_carregar()
-	var lista: Array = _grupos().get(z, [])
-	if lista.empty():
-		return false
-	var melhor := -1.0
-	var opcoes := []
-	for g in lista:
-		if not protecao and (abs(float(g["entrada"])) > 0.5 or abs(float(g["xt"])) > 0.5):
-			continue  # essa linha encostava no para-choque
-		var amostra: Array = g["amostra"]
-		var nota := 0.0
-		for r in amostra:
-			var dif := Compat.iabs(int(r) - n)
-			nota += 1.0 if dif == 0 else (0.35 if dif == 1 else 0.0)
-		nota /= float(amostra.size())
-		if nota > melhor + 0.001:
-			melhor = nota
-			opcoes = [g]
-		elif abs(nota - melhor) <= 0.001:
-			opcoes.append(g)
+	var opcoes: Array = _melhores().get("%s|%d|%d" % [z, Compat.iclamp(n, 0, 10), int(protecao)], [])
 	if opcoes.empty():
 		return false
 	var g: Dictionary = opcoes[randi() % opcoes.size()]

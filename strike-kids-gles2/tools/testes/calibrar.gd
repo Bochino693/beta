@@ -15,6 +15,7 @@ const SAIDAS := [0.35, 0.29]
 
 var mundo: Mundo
 var pinos: Pinos
+var maquina: Maquina
 var bola: Bola
 var fila := []
 var atual = null
@@ -49,6 +50,11 @@ func _ready() -> void:
 	pinos = Pinos.new()
 	add_child(pinos)
 	pinos.montar()
+	# a máquina de pinos, como no jogo: o alçapão do fosso fica fechado na
+	# jogada (a bola rola até a caçapa; os pinos ficam no chão do fosso)
+	maquina = Maquina.new()
+	add_child(maquina)
+	maquina.montar(pinos)
 	bola = Bola.new()
 	add_child(bola)
 	bola.vestir("bob")
@@ -86,6 +92,7 @@ func _physics_process(delta: float) -> void:
 			set_physics_process(false)
 			return
 		atual = fila.pop_front()
+		maquina.instantaneo()
 		pinos.repor_todos()
 		pinos.soltar_todos()
 		bola.guardar()

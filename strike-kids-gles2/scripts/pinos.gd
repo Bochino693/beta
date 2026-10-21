@@ -19,6 +19,9 @@ var pinos: Array = []
 ## sombrinhas pintadas no chão embaixo de cada pino (deitam junto com ele).
 ## Uma MultiMesh só para os 10 pinos = um desenho.
 var _sombras: MultiMeshInstance
+## por pino: [onde apareceu, removido, visível] da última sombra desenhada —
+## pino parado (a maior parte do tempo) não refaz a conta nem a MultiMesh
+var _ultimas: Array = []
 
 
 static func posicao_do_pino(n: int) -> Vector3:
@@ -67,11 +70,17 @@ func _pino_bateu(pino: Pino, f: float) -> void:
 
 func _process(_d: float) -> void:
 	var mm := _sombras.multimesh
+	if _ultimas.size() != pinos.size():
+		_ultimas.resize(pinos.size())
 	for i in pinos.size():
 		var p: Pino = pinos[i]
 		# onde o pino APARECE neste quadro (interpolado entre passos da física);
 		# a sombra é da BASE do pino (a origem do corpo é o centro de massa)
 		var tp := Medidas.na_tela(p)
+		var u = _ultimas[i]
+		if u != null and u[0] == tp and u[1] == p.removido and u[2] == p.visible:
+			continue
+		_ultimas[i] = [tp, p.removido, p.visible]
 		var g = tp.xform(-Pino.COM)
 		# pino levantado pela máquina ou longe do chão: a sombra some
 		var f := 0.0 if p.removido or not p.visible or g.y < -0.1 else clamp(1.0 - g.y * 2.2, 0.0, 1.0)

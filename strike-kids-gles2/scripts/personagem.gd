@@ -96,6 +96,14 @@ var _descartar: Array = []   # carregadas e não usadas: soltar quando acabarem
 # guardada pela trava (as duas linhas mexem no dicionário)
 var _trava := Mutex.new()
 var _carregadas := {}
+## FORA DO QUADRO da câmera (a bola descendo a pista, os pinos de perto):
+## a animação continua contando (eventos, fim do clipe, a pose da vez para
+## as transições), mas as juntas, as pernas, o olhar e o rosto só mexem
+## quando ele aparece — é justamente a hora em que a física mais pesa.
+## Segurando a bola (o arremesso sai da mão dele) ou logo depois de mudar
+## de lugar ou de animação, atualiza sempre.
+var _tela: VisibilityNotifier
+var _forcar := 0
 
 
 func montar(nome: String) -> void:
@@ -220,6 +228,10 @@ func montar(nome: String) -> void:
 	_festa.mesh = qm
 	_festa.translation = Vector3(0, 0.25, 0)
 	add_child(_festa)
+	# a caixa que ele pode ocupar (com braços, pulos e voo de comemoração)
+	_tela = VisibilityNotifier.new()
+	_tela.aabb = AABB(Vector3(-1.0, -0.3, -1.0), Vector3(2.0, 3.0, 2.0))
+	add_child(_tela)
 	tocar("parado")
 	_piscar_em = rand_range(1.0, 3.0)
 
@@ -229,6 +241,7 @@ func montar(nome: String) -> void:
 func tocar(nome: String, mistura := 0.22, reiniciar := false) -> void:
 	if nome == _nome_clip and not reiniciar:
 		return
+	_forcar = 3
 	# o que está na tela agora e para onde estava indo (velocidade)
 	var antes := _ultima_pose.duplicate()
 	var vel := {}
@@ -453,7 +466,9 @@ func _amostra_clip(clip: Dictionary, t: float) -> Dictionary:
 
 
 func _process(delta: float) -> void:
-	if modelo == null:
+	# escondido (a abertura, por exemplo): não anima à toa — a pose de cada
+	# quadro (curvas, pernas, olhar, rosto) é a parte mais cara dos scripts
+	if modelo == null or not visible:
 		return
 	var dur: float = _clip.get("dur", 1.0)
 	var t_antes := _t
@@ -486,12 +501,16 @@ func _process(delta: float) -> void:
 	_pose_ant = _ultima_pose
 	_dt_ant = delta
 	_ultima_pose = pose
+	if not _descartar.empty():
+		_soltar_carregadas()
+	if _forcar > 0:
+		_forcar -= 1
+	elif not bola_mao.visible and _tela != null and not _tela.is_on_screen():
+		return
 	_aplicar(pose, delta)
 	_rosto(delta)
 	if _helice and _helice.visible:
 		_helice.rotate_y(delta * (7.0 + 9.0 * _alegria_suave))
-	if not _descartar.empty():
-		_soltar_carregadas()
 
 
 func _eventos(de: float, ate: float, deu_volta: bool) -> void:
@@ -965,6 +984,7 @@ func segurar_bola(sim: bool) -> void:
 
 ## Coloca o personagem num lugar, olhando para `direcao_y` (graus).
 func posicionar(pos: Vector3, direcao_y: float) -> void:
+	_forcar = 3
 	translation = pos
 	chao = pos.y
 	rotation = Vector3(0, deg2rad(direcao_y), 0)
