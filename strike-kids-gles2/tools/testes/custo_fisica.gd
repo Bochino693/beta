@@ -19,7 +19,7 @@ var _max := {}
 func _physics_process(_delta: float) -> void:
 	var agora := OS.get_ticks_usec()
 	if _t_ant > 0 and atual != null:
-		var k := ["antes da bola", "bola rolando", "depois da batida"][Compat.iclamp(fase, 0, 2)]
+		var k: String = ["antes da bola", "bola rolando", "depois da batida"][Compat.iclamp(fase, 0, 2)]
 		var d := agora - _t_ant
 		_soma[k] = _soma.get(k, 0) + d
 		_n[k] = _n.get(k, 0) + 1

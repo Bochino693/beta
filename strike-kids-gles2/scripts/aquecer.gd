@@ -47,6 +47,8 @@ const MINUSCULAS := "abcdefghijklmnopqrstuvwxyzáéíóúâêôãõç"
 const NUMEROS := "0123456789 +!"
 const FONTES_POR_QUADRO := 3
 const SAIDA_S := 0.3
+## amostras apagadas por quadro no fim (por trás da capa)
+const APAGAR_POR_QUADRO := 24
 ## Imagens que só aparecem mais tarde (letreiros do resultado, cartões dos
 ## cenários, fim de jogo, a bola de cada bichinho): carregadas já aqui —
 ## ler e mandar para a placa de vídeo na primeira vez que aparecessem dava
@@ -62,7 +64,7 @@ var _lado := 1
 var _postas := 0
 var _interface: Node
 var _ensaio: Object        # quem faz o ensaio geral (principal.ensaio(fase))
-var _etapa := 0            # 0 amostras, 1 letras, 2 ensaio geral, 3 saindo
+var _etapa := 0            # 0 amostras, 1 letras, 2 ensaio geral, 3 limpando, 4 saindo
 var _fontes := []
 var _meio := false
 var _t := 0.0
@@ -146,16 +148,32 @@ func _process(delta: float) -> void:
 			if _t >= ENSAIO_S and _quadros >= ENSAIO_QUADROS:
 				_fase_ensaio(2)
 				_etapa = 3
+				render_target_update_mode = Viewport.UPDATE_DISABLED
+		3:
+			# as amostras saem da memória AOS POUCOS, ainda por trás da capa:
+			# apagar as ~270 de uma vez travava o primeiro quadro da
+			# abertura (22 ms no PC, uns 150 ms na TV Box)
+			var apagar := []
+			for c in get_children():
+				if c is Camera:
+					continue
+				apagar.append(c)
+				if apagar.size() >= APAGAR_POR_QUADRO:
+					break
+			for c in apagar:
+				remove_child(c)
+				c.free()
+			if apagar.empty():
+				_etapa = 4
 				_progresso(1.0)
 				print("Aquecer: pronto em %d ms" % (OS.get_ticks_msec() - _inicio_ms))
 				# a capa some num instante e o jogo começa
 				var tw := _capa.create_tween()
 				tw.tween_property(_fundo, "modulate:a", 0.0, SAIDA_S)
 				tw.tween_callback(_capa, "queue_free")
-				render_target_update_mode = Viewport.UPDATE_DISABLED
 				emit_signal("pronto")
-		3:
-			# a telinha e as amostras saem da memória
+		4:
+			# a telinha (já vazia) sai da memória
 			queue_free()
 
 

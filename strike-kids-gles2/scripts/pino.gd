@@ -40,6 +40,8 @@ func montar(n: int, pos: Vector3, malha_pino: Mesh, forma: Shape, rosto: Texture
 	numero = n
 	lugar = pos
 	name = "Pino%d" % n
+	# (a bola, no fosso, procura os pinos para passar entre eles)
+	add_to_group("pinos")
 	mass = MASSA
 	can_sleep = true
 	contact_monitor = true

@@ -54,11 +54,14 @@ O QUE MUDOU PARA RODAR NA OPENGL ES 2.0
     MOTOR (cada um desenharia a cena de novo): a neblina do fundo e feita
     nos proprios shaders do cenario, por vertice, como no cenario leve do
     Godot 4 (e ela que deixa o mar verde-agua ao longe).
-  * IMAGEM 3D EM 720 px esticada ate a tela, com ANTISSERRILHADO 4x (na
-    Mali-400/450 o 4x e o modo da propria placa: quase de graca). Na
-    abertura o jogo confere: se com o antisserrilhado a imagem 3D vier
-    preta (acontece em alguns PCs), ele desliga sozinho. A nitidez
-    automatica continua (70% a 100%).
+  * IMAGEM 3D NITIDA: de 720 px ate a resolucao da tela (1080), com
+    ANTISSERRILHADO 4x (na Mali-400/450 o 4x e o modo da propria placa:
+    quase de graca). A nitidez automatica sobe enquanto a TV Box segura 60
+    quadros por segundo e desce se nao segurar (nunca abaixo de 720 px);
+    na 1a vez a TV Box comeca no meio (864 px) e a escolha fica guardada.
+    Antes o 3D ficava preso em 720 px esticado ate 1080: a imagem ficava
+    fosca. Na abertura o jogo confere: se com o antisserrilhado a imagem
+    3D vier preta (acontece em alguns PCs), ele desliga sozinho.
   * TEXTURAS menores e comprimidas (ETC1) onde nao tem transparencia: o
     jogo cabe numa TV Box de 1 GB.
   * FISICA BULLET (a do Godot 3) no lugar da Jolt: atrito e quique foram
@@ -75,7 +78,59 @@ O QUE MUDOU PARA RODAR NA OPENGL ES 2.0
 
 LISO NA TV BOX (TX9 e parecidas)
 --------------------------------
-Medido quadro a quadro no PC (tools/testes/desempenho.gd) e corrigido:
+O QUE TRAVAVA DE VERDADE (medido peca por peca, versao 5.7):
+  * MODELOS PESADOS DEMAIS PARA A MALI-450: os modelos vieram da versao
+    Godot 4 (feita para placas mais fortes). A apresentacao mandava a
+    placa desenhar ~1 milhao de vertices por quadro - de 4 a 5 vezes o
+    que a Mali-400/450 desenha a 60 quadros: cada bichinho tinha de 27 a
+    37 mil triangulos (so a cabeca, 11 a 12 mil), cada pino 2.400, o
+    cenario de cada fase 90 a 140 mil, o chao 20 mil. Agora cada peca foi
+    simplificada pelo meshoptimizer olhando a forma, a normal e a COR de
+    cada vertice (as bordas das roupas, listras e a mascara do rosto
+    ficam no lugar): bichinho ~7 mil triangulos, pino 646, chao 6 mil,
+    cenario 3 a 5 vezes mais leve, e a placa so calcula os vertices
+    usados. Lampadas (227), ceu, para-choques, bolinhas do retorno e
+    baloes da marca tambem ficaram mais leves. Resultado: a vista mais
+    pesada de cada fase caiu de ~1 milhao para ~290 mil (3,4 vezes menos)
+    e as fotos de antes e depois ficaram praticamente iguais
+    (tools/testes/vitrine.gd; conta por fase: tools/testes/orcamento.gd).
+  * FISICA DA BATIDA ~40% MAIS LEVE: a forma de colisao do pino tinha 140
+    pontos e cada teste de batida passa por todos; agora 71 (a forma muda
+    no maximo 2,5 mm). A tabela de jogadas foi calibrada de novo nesta
+    fisica (3.834 jogadas) e o planejador acerta como antes ou melhor
+    (dentro de 1 pino: 80,6% contra 79,8%).
+  * TRANCO NO COMECO DA ABERTURA: as ~270 amostras da preparacao eram
+    apagadas todas no mesmo quadro (22 ms no PC, uns 150 ms na TV Box).
+    Agora saem aos poucos, ainda por tras da capa.
+  * PLACAS REFEITAS A CADA QUADRO: no Godot 3 mudar a escala de um botao
+    o redesenha, e o "APERTE START" pulsa a escala - a placa inteira (7
+    caixas arredondadas com sombra) era refeita 60 vezes por segundo, e o
+    brilho amarelo do escolhido tambem. Agora a placa e o brilho sao
+    camadas desenhadas uma vez; a pulsacao so muda escala e transparencia.
+  * MENOS TROCAS DE MATERIAL: bracos, antebracos, coxas, canelas e pes de
+    cada bichinho dividem um material (eram 13 por bichinho, mais os dos
+    contornos).
+  * IMAGEM NITIDA: veja "IMAGEM 3D NITIDA" acima (o 3D deixou de ficar
+    preso em 720 px).
+  * A BOLA NO FOSSO SEM QUICAR (versao 5.8): passou do fim da pista, a
+    bola vai sozinha ate a cacapa - cai ate o chao do fosso como a
+    gravidade faria (sem voltar a subir) e rola, girando, pela faixa com
+    mais espaco entre os pinos caidos ate a boca da cacapa, sem bater em
+    mais nada. Antes, solta na fisica, ela quicava nos pinos caidos (ate
+    80 cm), voltava e ficava presa no fosso em 1 de cada 4 jogadas.
+    Medido em 1.000 jogadas (tools/testes/bola_fosso.gd): quicou 0, presa
+    0, do fim da pista ate a cacapa 0,66 s (antes 2,2 s). Na pista nada
+    mudou; o planejador continua acertando (82%). O alcapao continua
+    igual: depois da varrida, com pinos no fosso, ele abre e os pinos caem
+    no poco.
+  Medido no PC (o desenho por software do PC so serve para comparar):
+  desenho da apresentacao 30 -> 15 ms por quadro; fisica na batida
+  0,81 -> 0,49 ms por passo. NA TX9 NAO FOI TESTADO AQUI: veja os quadros
+  por segundo de verdade em "Mostrar desempenho na tela" (menu do
+  operador) ou F3 no PC.
+
+Antes disso (versao 5.6), tambem medido quadro a quadro no PC
+(tools/testes/desempenho.gd) e corrigido:
   * PREPARACAO POR TRAS DA CAPA: ao abrir, uma tela igual a imagem de
     abertura da TV Box (com uma barrinha) cobre o jogo enquanto ele
     prepara TODOS os desenhos (shaders), as letras de cada fonte e faz um
@@ -178,7 +233,7 @@ pasta, junto do project.godot). Ele faz tudo sozinho e mostra cada passo:
   Se der erro, envie o arquivo build\android\GERACAO-COMPLETA.log.
 
 NO LINUX (o jeito usado para o APK pronto):
-     bash tools/android/montar_apk.sh StrikeKids_GLES2.apk 5.6-gles2
+     bash tools/android/montar_apk.sh StrikeKids_GLES2.apk 5.8-gles2
   Os mesmos passos do GERAR_APK.bat. As ferramentas (Godot 3.6.3
   headless, uber-apk-signer e, para conferir, um python com o androguard)
   ficam em ~/strikekids_ferramentas (variavel FERRAMENTAS; veja o comeco
@@ -234,7 +289,19 @@ PASTAS
               testar_shaders.gd, android/ (plugins e montagem do APK
               no Linux: montar_apk.sh),
               limpar_forma_pino.gd (forma do pino sem pontos de dentro),
+              forma_pino_leve.gd (a forma do pino com 71 pontos),
+              malhas_leves.gd + malhas_leves.py (simplifica as malhas de
+              modelos/ para a Mali-400/450: exportar, simplificar e
+              importar - veja o comeco dos dois arquivos),
               testes/ (calibrar, roteiro, instantes, medir_desenho,
               desempenho: tempo de cada quadro; bola_volta: confere a
-              bola no fosso e na canaleta; custo_fisica...)
+              bola no fosso e na canaleta; bola_fosso: a bola do fim da
+              pista ate a cacapa (pulos, pinos, tempo); filme_fosso:
+              fotos da bola atravessando o fosso; custo_fisica e
+              fisica_experimento: custo da fisica (rode com o Godot 3
+              "server", sem placa de video); orcamento: vertices por
+              fase e por parte; vitrine: fotos fixas para comparar o
+              visual; listar_mundo: as pecas do mundo e o peso de cada
+              uma; perfil_remoto.py: tempo de cada funcao de script em
+              cada quadro, pelo "remote debug" do Godot...)
   docs/       ligacao do Arduino

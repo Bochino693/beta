@@ -11,6 +11,12 @@ signal recolhida
 
 const RAIO := 0.14
 const MASSA := 6.5
+## NO FOSSO (_comecar_fosso): a velocidade até a caçapa e onde o caminho
+## termina (já dentro do túnel)
+const VEL_FOSSO_MIN := 3.2
+const VEL_FOSSO_MAX := 7.0
+const Z_DENTRO := Medidas.Z_FUNDO - 0.4
+const GRAVIDADE := 9.8
 const FOGO := [Color("#FFF3B0"), Color("#FFD43B"), Color("#FF9F2E"), Color("#FF5A1E"), Color("#E0301E")]
 
 var malha: MeshInstance
@@ -27,8 +33,14 @@ var rolando := false
 ## no replay a bola só é "posta" nos lugares gravados (sem física)
 var em_replay := false
 var _mat: ShaderMaterial
-## segundos no fosso (presa atrás dos pinos caídos, ela é recolhida assim mesmo)
-var _no_fosso := 0.0
+## no fosso a bola segue um caminho até a caçapa (_comecar_fosso): desde
+## quando (s), de onde, a faixa (x) entre os pinos caídos e a velocidade
+var _guiada := false
+var _g_t := 0.0
+var _g_de := Vector3.ZERO
+var _g_x := 0.0
+var _g_vel := 0.0
+var _g_vy := 0.0
 ## caiu na canaleta nesta jogada (dali ela não volta para a pista)
 var _na_canaleta := false
 ## já chegou nos pinos nesta jogada (dali ela não volta para quem joga)
@@ -176,6 +188,8 @@ func vestir(nome: String) -> void:
 
 
 func lancar(origem: Vector3, velocidade: Vector3, efeito := 0.0) -> void:
+	_guiada = false
+	_colidir(true)
 	mode = RigidBody.MODE_RIGID
 	visible = true
 	global_translation = origem
@@ -185,7 +199,6 @@ func lancar(origem: Vector3, velocidade: Vector3, efeito := 0.0) -> void:
 	curva = efeito
 	rolando = true
 	em_replay = false
-	_no_fosso = 0.0
 	_na_canaleta = false
 	_nos_pinos = false
 	physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_ON
@@ -199,7 +212,8 @@ func lancar(origem: Vector3, velocidade: Vector3, efeito := 0.0) -> void:
 func guardar() -> void:
 	rolando = false
 	em_replay = false
-	_no_fosso = 0.0
+	_guiada = false
+	_colidir(true)
 	_na_canaleta = false
 	_nos_pinos = false
 	mode = RigidBody.MODE_STATIC
@@ -237,7 +251,10 @@ func fogo(ligar: bool) -> void:
 
 
 func _physics_process(delta: float) -> void:
-	if not rolando:
+	if not rolando or em_replay:
+		return
+	if _guiada:
+		_andar_no_fosso(delta)
 		return
 	var p := global_translation
 	# Godot 3: add_central_force fica valendo para sempre; a força de UM
@@ -271,27 +288,96 @@ func _physics_process(delta: float) -> void:
 		_nos_pinos = true
 	if _nos_pinos and linear_velocity.z > 0.0:
 		apply_central_impulse(Vector3(0, 0, -linear_velocity.z * mass))
-	# NO FOSSO (passou do fim da pista): o chão "puxa" a bola para a caçapa,
-	# como a esteira de verdade, e ela não volta (acima: já passou dos pinos)
-	# — o fundo é acolchoado: batendo nos pinos caídos, na moldura da boca
-	# ou nas paredes, ela perde o que tinha para trás. (A bola tem raio 0,14
-	# e o fosso 0,14 de fundura: no chão dele o centro fica na altura da
-	# pista. A conta antiga, "centro abaixo de 0", quase nunca puxava: a bola
-	# parava nos pinos caídos e voltava — às vezes até a pista, derrubando
-	# pinos.)
-	if p.z < Medidas.Z_FIM_DECK - 0.05:
-		if p.y < RAIO * 0.75 and linear_velocity.z > -1.6:
-			apply_central_impulse(Vector3(-p.x * 3.0, 0, -4.0) * mass * delta)
-		_no_fosso += delta
-	# entrou no túnel da caçapa (ou ficou presa no fosso): some e volta no
-	# retorno de bolas
-	if p.z < Medidas.Z_FUNDO - 0.35 or _no_fosso > 3.0:
+	# PASSOU DO FIM DA PISTA: daqui ela vai sozinha para a caçapa
+	if p.z < Medidas.Z_FIM_DECK:
+		_comecar_fosso(p)
+
+
+## NO FOSSO a bola vai direto para a caçapa, SEM QUICAR: cai até o chão do
+## fosso como a gravidade faria (sem voltar a subir) e rola por uma faixa
+## entre os pinos caídos — a que tem mais espaço —, girando como quem rola,
+## até entrar na boca da caçapa. Ali ela não bate em mais nada: no fosso a
+## jogada já acabou (os pinos da pista não são mais alcançados) e, solta na
+## física, ela quicava nos pinos caídos (até 80 cm), voltava e ficava presa
+## no fosso em 1 de cada 4 jogadas (tools/testes/bola_fosso.gd). O replay
+## repete o mesmo caminho (é gravado a cada passo, como o resto).
+func _comecar_fosso(p: Vector3) -> void:
+	_guiada = true
+	_g_t = 0.0
+	_g_de = p
+	_g_vel = clamp(-linear_velocity.z, VEL_FOSSO_MIN, VEL_FOSSO_MAX)
+	_g_vy = clamp(linear_velocity.y, -1.0, 1.5)
+	_g_x = _faixa_livre(p)
+	_colidir(false)
+	mode = RigidBody.MODE_KINEMATIC
+
+
+func _andar_no_fosso(delta: float) -> void:
+	_g_t += delta
+	var z := _g_de.z - _g_vel * _g_t
+	var curso: float = max(_g_de.z - Z_DENTRO, 0.01)
+	var s: float = clamp((_g_de.z - z) / curso, 0.0, 1.0)
+	var x: float = lerp(_g_de.x, _g_x, smoothstep(0.0, 0.75, s))
+	var y: float = max(_g_de.y + _g_vy * _g_t - 0.5 * GRAVIDADE * _g_t * _g_t, Medidas.Y_CHAO_FOSSO + RAIO)
+	var novo := Vector3(x, y, z)
+	var t := global_transform
+	var chao := Vector3(novo.x - t.origin.x, 0.0, novo.z - t.origin.z)
+	if chao.length() > 0.00001:
+		# rola: gira em volta do eixo deitado, de lado para o caminho
+		t.basis = (Basis(Vector3.UP.cross(chao.normalized()), chao.length() / RAIO) * t.basis).orthonormalized()
+	t.origin = novo
+	global_transform = t
+	# entrou no túnel da caçapa: some e volta no retorno de bolas
+	if z < Medidas.Z_FUNDO - 0.35:
 		rolando = false
+		_guiada = false
 		_brilhos.emitting = false
 		_chamas.emitting = false
 		visible = false
 		call_deferred("set_mode", RigidBody.MODE_STATIC)
 		emit_signal("recolhida")
+
+
+## A faixa (x na boca da caçapa) com mais espaço entre os pinos que estão no
+## fosso ou chegando nele; no empate, a que menos desvia do caminho da bola.
+func _faixa_livre(p: Vector3) -> float:
+	var limite := Medidas.LARGURA_BOCA * 0.5 - RAIO - 0.06
+	var reto: float = clamp(p.x, -limite, limite)
+	var pontos := []
+	for n in get_tree().get_nodes_in_group("pinos"):
+		var pino := n as Spatial
+		if pino == null or not pino.is_visible_in_tree():
+			continue
+		# 3 pontos ao longo do pino (base, meio, cabeça): deitado, ele é comprido
+		var base: Vector3 = pino.global_transform.xform(Vector3(0, -0.17, 0))
+		var eixo: Vector3 = pino.global_transform.basis.y.normalized()
+		for k in 3:
+			var q: Vector3 = base + eixo * (0.06 + 0.14 * k)
+			if q.z < Medidas.Z_FIM_DECK + 0.3 and q.z > Medidas.Z_FUNDO - 0.1 and q.y < 0.7:
+				pontos.append(q)
+	if pontos.empty():
+		return reto
+	var curso: float = max(p.z - Z_DENTRO, 0.01)
+	var melhor := reto
+	var nota_melhor := -1000.0
+	for i in 11:
+		var xt: float = lerp(-limite, limite, i / 10.0)
+		var folga := 1.0
+		for q in pontos:
+			var s: float = clamp((p.z - (q as Vector3).z) / curso, 0.0, 1.0)
+			var xc: float = lerp(p.x, xt, smoothstep(0.0, 0.75, s))
+			folga = min(folga, abs((q as Vector3).x - xc))
+		var nota: float = min(folga, 0.5) - 0.12 * abs(xt - reto)
+		if nota > nota_melhor:
+			nota_melhor = nota
+			melhor = xt
+	return melhor
+
+
+## Liga ou desliga as batidas da bola (no caminho do fosso ela não bate em nada).
+func _colidir(sim: bool) -> void:
+	collision_layer = Medidas.CAMADA_BOLA if sim else 0
+	collision_mask = (Medidas.CAMADA_MUNDO | Medidas.CAMADA_PINOS | Medidas.CAMADA_PISO_BOLA) if sim else 0
 
 
 func _process(_delta: float) -> void:
@@ -381,7 +467,9 @@ func _desenhar_rastro() -> void:
 
 
 func velocidade() -> float:
-	return linear_velocity.length() if rolando else 0.0
+	if not rolando:
+		return 0.0
+	return _g_vel if _guiada else linear_velocity.length()
 
 
 func _ao_bater(corpo: Node) -> void:
