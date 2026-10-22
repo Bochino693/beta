@@ -39,7 +39,9 @@ const ITENS := [
 	["Som na demonstração", "som", "som_na_demo", "bool", []],
 	["Qualidade gráfica", "video", "qualidade", "lista", ["auto", "alta", "media", "baixa"]],
 	["Cenário (fundo)", "video", "cenario", "lista", ["leve", "completo"]],
-	["Nitidez do 3D (resolução)", "video", "nitidez", "lista", ["auto", "100%", "90%", "80%", "70%"]],
+	["Desenho da tela", "video", "desenho", "lista", ["auto", "direto", "imagem"]],
+	["Antisserrilhado da tela (ao reabrir)", "video", "antisserrilhado", "bool", []],
+	["Nitidez do 3D (só no desenho imagem)", "video", "nitidez", "lista", ["auto", "100%", "90%", "80%", "70%"]],
 	["Mostrar desempenho na tela (QPS)", "video", "medidor", "bool", []],
 	["> TESTE DE DESEMPENHO (20 s)", "", "desempenho", "acao", []],
 	["Giro da tela", "tela", "giro", "lista", [1, -1, 0]],
@@ -55,7 +57,8 @@ const ITENS := [
 	["> VOLTAR AO JOGO", "", "voltar", "acao", []],
 ]
 const NOMES := {"facil": "FÁCIL", "normal": "NORMAL", "dificil": "DIFÍCIL", "auto": "AUTOMÁTICA", "alta": "ALTA",
-	"media": "MÉDIA", "baixa": "BAIXA", "leve": "LEVE (TV Box)", "completo": "COMPLETO", 1: "1 (topo à esquerda)", -1: "-1 (topo à direita)", 0: "0 (sem giro)",
+	"media": "MÉDIA", "baixa": "BAIXA", "leve": "LEVE (TV Box)", "completo": "COMPLETO",
+	"direto": "DIRETO NA TELA (rápido)", "imagem": "IMAGEM 3D (compatível)", 1: "1 (topo à esquerda)", -1: "-1 (topo à direita)", 0: "0 (sem giro)",
 	90: "90°", 180: "180°", 270: "270°", 100: "100% (tempo real)", 115: "115%", 130: "130% (padrão)", 145: "145%",
 	160: "160%"}
 

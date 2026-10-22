@@ -12,9 +12,12 @@ com placa de vídeo **Mali-400/450** (como a TX9 "comum"):
 - Como testar, gerar o APK e operar a máquina:
   [`strike-kids-gles2/LEIA-ME.txt`](strike-kids-gles2/LEIA-ME.txt).
 
-- **Divulgação:** adesivos prontos para a gráfica (cartelas A4, redondos,
-  letreiro, lateral e COMO JOGAR da máquina) e o comercial narrado com voz
-  brasileira — [`strike-kids-gles2/divulgacao/`](strike-kids-gles2/divulgacao/)
+- **Divulgação:** o gabinete da máquina em **7 temas de adesivagem** (Branco,
+  Vermelho, Azul, Espaço, Fundo do Mar, Selva dos Dinos e Parque de Diversões:
+  catálogo para os clientes com as fotos 3D, planta com as medidas e os 12
+  adesivos de cada tema para a gráfica), adesivos avulsos (cartelas, redondos,
+  placas) e o comercial narrado com voz brasileira —
+  [`strike-kids-gles2/divulgacao/`](strike-kids-gles2/divulgacao/)
   ([LEIA-ME](strike-kids-gles2/divulgacao/LEIA-ME.txt)); essa pasta não entra no APK.
 
 Jogo de boliche infantil para máquina arcade de **5 sensores** (placa Zero

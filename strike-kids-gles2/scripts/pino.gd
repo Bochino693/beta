@@ -34,6 +34,10 @@ var _base_pulo := Transform()
 var _pulando := false
 var _raiva: SceneTreeTween
 var _escuro := 1.0      # 1 = normal; menor = caindo no poço do alçapão
+## caiu no FOSSO (atrás do fim da pista, abaixo dela): dali não volta para a
+## pista (Pinos segura) e assenta logo, sem ficar pulando
+var no_fosso := false
+const GIRO_AMORTECE := 0.35
 
 
 func montar(n: int, pos: Vector3, malha_pino: Mesh, forma: Shape, rosto: Texture, meta: Dictionary) -> void:
@@ -43,6 +47,9 @@ func montar(n: int, pos: Vector3, malha_pino: Mesh, forma: Shape, rosto: Texture
 	# (a bola, no fosso, procura os pinos para passar entre eles)
 	add_to_group("pinos")
 	mass = MASSA
+	# pino de madeira: cai firme (mais gravidade só nele) e não fica rodando
+	gravity_scale = Medidas.GRAVIDADE_PINO
+	angular_damp = GIRO_AMORTECE
 	can_sleep = true
 	contact_monitor = true
 	contacts_reported = 4
@@ -115,6 +122,7 @@ func recolocar() -> void:
 	parar_pulo()
 	mode = RigidBody.MODE_KINEMATIC
 	removido = false
+	_sair_do_fosso()
 	visible = true
 	colocar_em(lugar)
 	linear_velocity = Vector3.ZERO
@@ -142,6 +150,19 @@ func soltar() -> void:
 
 func prender() -> void:
 	mode = RigidBody.MODE_KINEMATIC
+
+
+## Caiu no fosso: assenta rápido (amortece) — Pinos não deixa voltar.
+func entrou_no_fosso() -> void:
+	no_fosso = true
+	linear_damp = 0.9
+	angular_damp = 1.6
+
+
+func _sair_do_fosso() -> void:
+	no_fosso = false
+	linear_damp = -1.0
+	angular_damp = GIRO_AMORTECE
 
 
 func esta_caido() -> bool:

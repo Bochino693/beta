@@ -1,17 +1,15 @@
 shader_type canvas_item;
 
-// A IMAGEM 3D NA TELA: esticada até a tela inteira (quando a imagem 3D é
-// desenhada menor que a tela) e, de quebra, o ajuste de cor (mais vivo e
-// com um pouco mais de contraste) — de graça, na mesma passada que já
-// existe. Sem o pós-processamento do motor (que custaria uma imagem a mais).
+// A IMAGEM 3D NA TELA (modo "imagem" — o compatível; no modo direto, o
+// normal, o 3D é desenhado direto na tela e isto nem existe): esticada até
+// a tela inteira quando a imagem 3D é desenhada menor que a tela. A cor
+// viva já vem pronta de cada desenho 3D (viva() nos shaders).
 //
 // NITIDEZ (só no PC, só quando a imagem 3D está menor que a tela): realce
 // de bordas adaptativo (como o "CAS" da AMD): devolve a definição que o
 // esticar tira, sem criar halos. Na TV Box fica desligado (custaria 5
 // leituras por pixel).
 
-uniform float saturacao = 1.12;
-uniform float contraste = 1.04;
 uniform float nitidez = 0.0;      // 0 = desligado; 0,3..0,6 = realce
 
 void fragment() {
@@ -29,8 +27,5 @@ void fragment() {
 		vec3 w = -amp * nitidez * 0.2;
 		c = clamp((c + (n + s + l + r) * w) / (1.0 + 4.0 * w), 0.0, 1.0);
 	}
-	float lum = dot(c, vec3(0.299, 0.587, 0.114));
-	c = mix(vec3(lum), c, saturacao);
-	c = (c - 0.5) * contraste + 0.5;
 	COLOR = vec4(c, 1.0);
 }

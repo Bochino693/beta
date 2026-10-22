@@ -37,6 +37,11 @@ var _trilho_t := 0.0
 var _trilho_tempos := PoolRealArray()
 var _trilho_vp: Array = []
 var _trilho_va: Array = []
+## DESENHO DIRETO NA TELA com a TV de pé ligada no HDMI deitado (Tela.giro
+## 1 ou -1): a tela que o 3D enxerga é a deitada; a câmera gira a imagem
+## 90° (como a interface, girada pelo Tela.gd) e a abertura passa a valer
+## no lado comprido da tela deitada — que é a altura do jogo em pé.
+var giro_tela := 0 setget _set_giro_tela
 
 
 func _ready() -> void:
@@ -230,6 +235,8 @@ func _aplicar(delta: float) -> void:
 	var p := _pos + tremor
 	if p.distance_to(_alvo) > 0.001:
 		look_at_from_position(p, _alvo + tremor * 0.5, Vector3.UP)
+		if giro_tela != 0:
+			rotate_object_local(Vector3.BACK, -giro_tela * PI * 0.5)
 	fov = _fov_responsivo() - _soco
 
 
@@ -238,6 +245,8 @@ func _aplicar(delta: float) -> void:
 func _fov_responsivo() -> float:
 	var vp := get_viewport()
 	var tam := Vector2(vp.size) if vp else Vector2(1080, 1920)
+	if giro_tela != 0:
+		tam = Vector2(tam.y, tam.x)   # o jogo em pé, numa tela deitada
 	var aspecto: float = tam.x / max(tam.y, 1.0)
 	var v_pela_h := rad2deg(2.0 * atan(tan(deg2rad(_fov_h) * 0.5) / max(aspecto, 0.01)))
 	return clamp(max(_fov_v, v_pela_h), 10.0, 110.0)
@@ -245,3 +254,9 @@ func _fov_responsivo() -> float:
 
 func alvo_atual() -> Vector3:
 	return _alvo
+
+
+func _set_giro_tela(g: int) -> void:
+	giro_tela = g
+	keep_aspect = Camera.KEEP_WIDTH if g != 0 else Camera.KEEP_HEIGHT
+	_aplicar(0.0)

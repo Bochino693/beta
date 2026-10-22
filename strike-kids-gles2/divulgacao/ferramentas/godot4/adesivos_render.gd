@@ -18,6 +18,15 @@ const ITENS := [
 	["mia_parque", [["mia", "parque", "acenar", 0.3, "empolgado", 0.0, 0.0, false]], -0.35, 0.68, 3.5, 30, 0.64],
 	["dupla_acenando", [["bob", "", "acenar", 0.3, "empolgado", -0.42, 10.0, false], ["mia", "", "acenar", 0.9, "empolgado", 0.42, -10.0, false]], 0.0, 0.62, 4.2, 30, 0.58],
 	["dupla_festa", [["bob", "", "festa", 0.0, "risada", -0.42, 12.0, false], ["mia", "", "festa", 1.0, "empolgado", 0.42, -12.0, false]], 0.0, 0.66, 4.3, 30, 0.62],
+	# roupas que faltavam (cada tema do gabinete com o Bob e a Mia na roupa do cenário)
+	["mia_astronauta", [["mia", "astronauta", "festa", 0.0, "empolgado", 0.0, 0.0, false]], -0.35, 0.65, 3.4, 30, 0.61],
+	["bob_pirata", [["bob", "pirata", "acenar", 0.3, "empolgado", 0.0, 0.0, false]], 0.35, 0.65, 3.4, 30, 0.61],
+	["mia_dino", [["mia", "dino", "acenar", 0.3, "risada", 0.0, 0.0, false]], -0.35, 0.65, 3.4, 30, 0.61],
+	["bob_parque", [["bob", "parque", "festa", 0.0, "empolgado", 0.0, 0.0, false]], 0.35, 0.68, 3.5, 30, 0.64],
+	["dupla_astronauta", [["bob", "astronauta", "festa", 0.0, "risada", -0.42, 12.0, false], ["mia", "astronauta", "festa", 1.0, "empolgado", 0.42, -12.0, false]], 0.0, 0.66, 4.3, 30, 0.62],
+	["dupla_pirata", [["bob", "pirata", "acenar", 0.3, "empolgado", -0.42, 10.0, false], ["mia", "pirata", "acenar", 0.9, "piscadinha", 0.42, -10.0, false]], 0.0, 0.62, 4.2, 30, 0.58],
+	["dupla_dino", [["bob", "dino", "festa", 0.0, "risada", -0.42, 12.0, false], ["mia", "dino", "festa", 1.0, "empolgado", 0.42, -12.0, false]], 0.0, 0.66, 4.3, 30, 0.62],
+	["dupla_parque", [["bob", "parque", "acenar", 0.3, "empolgado", -0.42, 10.0, false], ["mia", "parque", "acenar", 0.9, "empolgado", 0.42, -10.0, false]], 0.0, 0.62, 4.2, 30, 0.58],
 	["bob_busto", [["bob", "", "parado", 0.0, "empolgado", 0.0, 0.0, false]], 0.33, 0.93, 2.15, 30, 0.8],
 	["mia_busto", [["mia", "", "parado", 0.0, "empolgado", 0.0, 0.0, false]], -0.33, 0.93, 2.15, 30, 0.8],
 ]

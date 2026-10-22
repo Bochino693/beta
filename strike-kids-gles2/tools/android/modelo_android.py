@@ -11,7 +11,9 @@ Com o modelo assim, o próprio Godot exporta o APK já com os plugins: o
 GERAR_APK.bat (Windows) e o montar_apk.sh (Linux) só juntam o oficial com
 os extras (tools/android/remendo_apk.jar), exportam e assinam - sem
 apktool nem aapt2 na hora de gerar. Rode de novo quando mudar o manifesto
-dos plugins, os filtros USB, o banner ou o classes2.dex.
+dos plugins, os filtros USB, o banner ou o classes2.dex - e depois o
+tools/android/TelaNitida/construir.sh (põe nos extras o classes.dex com a
+tela de antisserrilhado 4x da placa).
 """
 import os
 import re

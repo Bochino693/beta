@@ -126,6 +126,8 @@ func montar(textura_3d: Texture) -> void:
 	m3d.shader = load("res://shaders/tela3d.shader")
 	tela3d.material = m3d
 	tela3d.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# sem imagem 3D: o 3D é desenhado direto na tela, por baixo da interface
+	tela3d.visible = textura_3d != null
 	add_child(tela3d)
 	_montar_placar()
 	_montar_mapa()

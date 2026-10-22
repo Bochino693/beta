@@ -172,24 +172,29 @@ func aplicar_tema(nome: String) -> void:
 	var forca_amb := float(c.get("ambiente_forca", 0.62))
 	var forca_sol := float(c.get("sol_forca", 1.05))
 	var amb: Color = _vezes(_linear(c["ambiente"]), forca_amb)
-	var luz_sol: Color = _vezes(_linear(c["sol"]), forca_sol * max(para_sol.y, 0.0))
-	var luz_cena := Vector3(amb.r + luz_sol.r, amb.g + luz_sol.g, amb.b + luz_sol.b)
-	# no Godot 4 (Compatibilidade) a cor que esses shaders entregam ainda é
-	# convertida sRGB -> linear antes da curva de tela (medido: cor do
-	# shader, de material, de vértice ou de textura, tudo igual). O piso e
-	# as canaletas fazem as contas cruas como lá (shaders: tela_g4); a pista
-	# faz a conta em linear (textura assada) e recebe a luz convertida —
-	# numa multiplicação é o mesmo. É essa luz que deixa o mar verde-água
-	# e o espaço azulado.
+	# LUZ DE PALCO: a pista, o piso, as canaletas, os pinos, a bola e os
+	# bichinhos ficam sob uma luz quase branca e quente em todo cenário (só
+	# um toque da cor dele): a madeira continua madeira e o Bob continua
+	# laranja. A cor de cada cenário (o verde-água do mar, o azul do
+	# espaço) fica no céu, no chão e na decoração em volta — com a luz do
+	# cenário inteira na pista, a madeira do mar saía verde-limão.
+	var k_palco := float(c.get("palco_tinta", PALCO_TINTA))
+	var amb_p := _misturar(_vezes(_linear(PALCO_AMB), PALCO_AMB_FORCA), amb, k_palco)
+	var sol_p := _misturar(_vezes(_linear(PALCO_SOL), PALCO_SOL_FORCA), _vezes(_linear(c["sol"]), forca_sol), k_palco)
+	var sobe := max(para_sol.y, 0.0)
+	var luz_cena := Vector3(amb_p.r + sol_p.r * sobe, amb_p.g + sol_p.g * sobe, amb_p.b + sol_p.b * sobe)
+	# a pista faz a conta em luz linear (textura assada) e recebe a luz
+	# convertida; o piso e as canaletas fazem as contas cruas (tela_g4)
 	var luz_tela := _linear_v(luz_cena)
 	# chão e decoração: a luz da cena vai pronta para o shader (por
 	# vértice no leve, por pixel na decoração do completo)
 	var sol_lin: Color = _vezes(_linear(c["sol"]), forca_sol)
 	var sol_cor := Vector3(sol_lin.r, sol_lin.g, sol_lin.b)
 	var amb_v := Vector3(amb.r, amb.g, amb.b)
-	# a luz do motor (sol + ambiente, lineares e com a força) vai para os
-	# toons, a bola e os para-choques (Materiais)
-	Materiais.definir_luz(para_sol, sol_cor, amb_v)
+	# a luz de PALCO (sol + ambiente, lineares e com a força) vai para os
+	# toons, a bola e os para-choques (Materiais): pinos, bichinhos, bola,
+	# gabinete; a decoração do cenário recebe a luz do cenário (temas.luz)
+	Materiais.definir_luz(para_sol, Vector3(sol_p.r, sol_p.g, sol_p.b), Vector3(amb_p.r, amb_p.g, amb_p.b))
 	# a neblina do fundo (por vértice, no chão e na decoração, como no
 	# cenário leve do Godot 4: é ela que deixa o mar verde-água ao longe)
 	var nb: Color = _linear(c["neblina"])
@@ -204,8 +209,10 @@ func aplicar_tema(nome: String) -> void:
 	temas.luz(para_sol, sol_cor, amb_v, neblina, densidade)
 	mat_pista.set_shader_param("luz_cena", luz_tela)
 	mat_piso.set_shader_param("luz_cena", luz_cena)
+	# o verniz reflete o céu entre o horizonte e o meio (só o horizonte, bem
+	# claro, desbotava a madeira lá no fundo)
 	for m in [mat_pista, mat_piso]:
-		m.set_shader_param("cor_ceu", ceu_cores[2])
+		m.set_shader_param("cor_ceu", (ceu_cores[1] as Color).linear_interpolate(ceu_cores[2], 0.55))
 	mat_pista.set_shader_param("dir_sol", para_sol)
 	var f: Array = c["fundo"]
 	mat_fundo.set_shader_param("cor_a", f[0])
@@ -254,6 +261,21 @@ func aplicar_tema(nome: String) -> void:
 	_mostrar_marca(nome)
 	_mostrar_astro(nome)
 	temas.mostrar(nome)
+
+
+## A luz de palco (pista, pinos, bola, bichinhos): branca e quente em todo
+## cenário, com PALCO_TINTA da luz do cenário misturada (cada cenário pode
+## ter "palco_tinta" no Temas.CONFIG).
+const PALCO_SOL := Color(1.0, 0.96, 0.9)
+const PALCO_SOL_FORCA := 1.05
+const PALCO_AMB := Color(0.66, 0.72, 0.86)
+const PALCO_AMB_FORCA := 0.62
+const PALCO_TINTA := 0.2
+
+
+## a + (b - a) * k, nas três cores (alfa 1).
+static func _misturar(a: Color, b: Color, k: float) -> Color:
+	return Color(lerp(a.r, b.r, k), lerp(a.g, b.g, k), lerp(a.b, b.b, k), 1.0)
 
 
 ## Cor do chão para o shader: linear, como no cenário leve do Godot 4 (o
@@ -754,17 +776,18 @@ func _fundo_dos_pinos() -> void:
 	for s in [-1, 1]:
 		var x: float = s * (MEIA_LARGURA + CANALETA + 0.09)
 		# colisão = o próprio desenho (o friso de cima também segura os pinos)
-		_peca_solida(0.12, 1.0, 0.05, Vector2(x, 0.35), Z_FUNDO, z_frente, mat_parede, 0.3, 0.35, "parede_%d" % s)
-		_peca_solida(0.17, 0.07, 0.034, Vector2(x, 0.875), Z_FUNDO, z_frente + 0.02, mat_friso, 0.3, 0.35)
+		# (acolchoadas: o pino bate e volta para a pista, mas sem pular)
+		_peca_solida(0.12, 1.0, 0.05, Vector2(x, 0.35), Z_FUNDO, z_frente, mat_parede, 0.3, 0.2, "parede_%d" % s)
+		_peca_solida(0.17, 0.07, 0.034, Vector2(x, 0.875), Z_FUNDO, z_frente + 0.02, mat_friso, 0.3, 0.2)
 	# fosso: o chão EM VOLTA do alçapão (frente, fundo e beiradas; as
 	# portinhas são da máquina de pinos) e o poço escuro embaixo delas
 	var y_f := Y_CHAO_FOSSO - 0.1
 	var meio_z := (ALCAPAO_Z0 + ALCAPAO_Z1) / 2.0
 	var comp := ALCAPAO_Z0 - ALCAPAO_Z1
-	_caixa(Vector3(2.0, 0.2, Z_FIM_DECK - ALCAPAO_Z0), Vector3(0, y_f, (Z_FIM_DECK + ALCAPAO_Z0) / 2), fosso, true, false, 0.9, 0.05)
-	_caixa(Vector3(2.0, 0.2, ALCAPAO_Z1 - Z_FUNDO), Vector3(0, y_f, (ALCAPAO_Z1 + Z_FUNDO) / 2), fosso, true, false, 0.9, 0.05)
+	_caixa(Vector3(2.0, 0.2, Z_FIM_DECK - ALCAPAO_Z0), Vector3(0, y_f, (Z_FIM_DECK + ALCAPAO_Z0) / 2), fosso, true, false, 0.9, 0.0)
+	_caixa(Vector3(2.0, 0.2, ALCAPAO_Z1 - Z_FUNDO), Vector3(0, y_f, (ALCAPAO_Z1 + Z_FUNDO) / 2), fosso, true, false, 0.9, 0.0)
 	for s in [-1, 1]:
-		_caixa(Vector3(1.0 - ALCAPAO_X, 0.2, comp), Vector3(s * (1.0 + ALCAPAO_X) / 2.0, y_f, meio_z), fosso, true, false, 0.9, 0.05)
+		_caixa(Vector3(1.0 - ALCAPAO_X, 0.2, comp), Vector3(s * (1.0 + ALCAPAO_X) / 2.0, y_f, meio_z), fosso, true, false, 0.9, 0.0)
 	_poco_do_alcapao()
 	_cacapa_das_bolas()
 	# cortina pregueada (estrelinhas + halo atrás dos pinos) em cima da boca
@@ -793,7 +816,7 @@ func _fundo_dos_pinos() -> void:
 	var z_masc := Z_PINO1 + 0.68
 	for s in [-1, 1]:
 		# um pino que voa por cima da parede bate no gabinete (não atravessa)
-		_peca_solida(0.34, 3.7, 0.12, Vector2(s * 1.23, 1.55), z_tras + 0.3, z_masc, mat_gabinete, 0.4, 0.3, "gabinete_lado_%d" % s, "pinos")
+		_peca_solida(0.34, 3.7, 0.12, Vector2(s * 1.23, 1.55), z_tras + 0.3, z_masc, mat_gabinete, 0.4, 0.1, "gabinete_lado_%d" % s, "pinos")
 	_peca(Perfis.retangulo(2.8, 0.32, 0.1, Vector2(0, 3.24)), z_tras + 0.3, z_masc, mat_gabinete, "gabinete_teto")
 	_peca(Perfis.retangulo(2.9, 3.75, 0.22, Vector2(0, 1.53)), z_tras, Z_FUNDO - 0.02, mat_gabinete, "gabinete_fundo")
 	_peca(Perfis.retangulo(2.96, 0.09, 0.04, Vector2(0, 3.42)), z_tras - 0.03, z_masc, mat_friso)

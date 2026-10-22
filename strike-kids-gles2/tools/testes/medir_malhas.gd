@@ -67,7 +67,7 @@ func _idle(_d: float) -> bool:
 	n += 1
 	if n == 300:
 		var soma := {}
-		_contar(p.vp, soma, "")
+		_contar(p.raiz_3d, soma, "")
 		var lista := []
 		for k in soma:
 			lista.append([soma[k][0], k, soma[k][1], soma[k][2]])

@@ -130,7 +130,7 @@ func _idle(_d: float) -> bool:
 			_vista += 1
 			if _vista >= _vistas.size():
 				var soma := {}
-				_contar(p.vp, soma, "")
+				_contar(p.raiz_3d, soma, "")
 				var chaves := soma.keys()
 				chaves.sort()
 				var total := 0

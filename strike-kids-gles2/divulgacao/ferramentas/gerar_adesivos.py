@@ -591,7 +591,7 @@ def redondo_peca(img, dpi, diametro_mm, sangria_mm):
 # PDF, PNG E PRÉVIAS
 # =====================================================================
 
-def salvar_pdf(caminho, img, dpi, final_mm, sangria_mm, cortes=(), circulos=(), marcas=True, titulo=""):
+def salvar_pdf(caminho, img, dpi, final_mm, sangria_mm, cortes=(), circulos=(), marcas=True, titulo="", qualidade=95):
     """PDF para a gráfica. 'img' cobre o tamanho final + sangria. 'cortes':
     polígonos em mm a partir do canto de cima à esquerda do tamanho FINAL;
     'circulos': (cx, cy, raio) em mm. A linha de corte vai na cor especial
@@ -609,7 +609,7 @@ def salvar_pdf(caminho, img, dpi, final_mm, sangria_mm, cortes=(), circulos=(), 
         branco.alpha_composite(img)
         img = branco
     buf = io.BytesIO()
-    img.convert("RGB").save(buf, "JPEG", quality=95, subsampling=0, dpi=(dpi, dpi))
+    img.convert("RGB").save(buf, "JPEG", quality=qualidade, subsampling=0, dpi=(dpi, dpi))
     buf.seek(0)
     c.drawImage(ImageReader(buf), mg * PT, mg * PT, width=(fw + 2 * sangria_mm) * PT, height=(fh + 2 * sangria_mm) * PT)
     x0, y0 = (mg + sangria_mm) * PT, (mg + sangria_mm) * PT

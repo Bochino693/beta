@@ -68,6 +68,36 @@ func _pino_bateu(pino: Pino, f: float) -> void:
 	emit_signal("batida", pino.global_translation, f)
 
 
+## O FOSSO SEGURA OS PINOS: o pino que caiu lá atrás (abaixo da pista) não
+## volta mais para ela — perto da beirada, indo para a frente, ele é
+## rebatido de leve para o fundo; e lá embaixo não pula alto. (Antes um
+## pino batia na parede do fundo e voltava pulando para a pista.)
+const BEIRADA_FOSSO := 0.3
+const PULO_MAX_FOSSO := 0.9
+
+
+func _physics_process(_d: float) -> void:
+	for p in pinos:
+		var pino: Pino = p
+		if pino.removido or pino.mode != RigidBody.MODE_RIGID:
+			continue
+		var o: Vector3 = pino.global_transform.origin
+		if not pino.no_fosso:
+			if o.z < Medidas.Z_FIM_DECK - 0.04 and o.y < 0.02:
+				pino.entrou_no_fosso()
+			continue
+		var v: Vector3 = pino.linear_velocity
+		var mudou := false
+		if o.z > Medidas.Z_FIM_DECK - BEIRADA_FOSSO and v.z > 0.0:
+			v.z = -v.z * 0.2
+			mudou = true
+		if v.y > PULO_MAX_FOSSO:
+			v.y = PULO_MAX_FOSSO
+			mudou = true
+		if mudou:
+			pino.linear_velocity = v
+
+
 func _process(_d: float) -> void:
 	var mm := _sombras.multimesh
 	if _ultimas.size() != pinos.size():

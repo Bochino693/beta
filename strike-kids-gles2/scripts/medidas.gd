@@ -63,12 +63,19 @@ static func na_tela(n: Spatial) -> Transform:
 ## ATRITO E QUIQUE NA BULLET. No Godot 4 (Jolt) o par de corpos usava o
 ## MENOR atrito dos dois e a SOMA dos quiques; a Bullet do Godot 3
 ## MULTIPLICA os dois valores. Os números de cada corpo são convertidos
-## para que os pares que importam saiam iguais aos de antes:
-##   pino x pino: atrito 0,38, quique 0,76;  bola x pino: 0,12 e 0,5.
+## para que os pares que importam saiam como pedidos:
+##   pino x pino: atrito 0,38, quique 0,5;  bola x pino: 0,12 e 0,45.
+## PINO DE MADEIRA, PESADO: o quique de 0,76 (o do Godot 4) fazia os pinos
+## parecerem de plástico — pulavam como bolinhas e voltavam do fosso. Com
+## 0,5 eles batem, tombam e rolam como pino de boliche de verdade.
+const QUIQUE_PINO_SOMA := 0.25  # a parte de cada pino na soma (0,25 + 0,25)
 const ATRITO_PINO := 0.6164     # sqrt(0.38)
-const QUIQUE_PINO := 0.8718     # sqrt(0.76)
+const QUIQUE_PINO := 0.7071     # sqrt(0.5)
 const ATRITO_BOLA := 0.1947     # 0.12 / ATRITO_PINO
-const QUIQUE_BOLA := 0.5735     # 0.5 / QUIQUE_PINO
+const QUIQUE_BOLA := 0.6364     # 0.45 / QUIQUE_PINO
+## a gravidade nos pinos (x 1): o pino que voa desce logo e o que tomba cai
+## firme, sem flutuar — parece pesado (a bola não muda)
+const GRAVIDADE_PINO := 1.3
 
 
 ## Material de uma superfície parada, com o atrito e o quique que ela tinha
@@ -77,7 +84,7 @@ const QUIQUE_BOLA := 0.5735     # 0.5 / QUIQUE_PINO
 static func material(atrito: float, quique: float, quem := "todos") -> PhysicsMaterial:
 	var fp: float = min(atrito, 0.38) / ATRITO_PINO
 	var fb: float = min(atrito, 0.12) / ATRITO_BOLA
-	var rp: float = min(quique + 0.38, 1.0) / QUIQUE_PINO
+	var rp: float = min(quique + QUIQUE_PINO_SOMA, 1.0) / QUIQUE_PINO
 	var rb: float = min(quique + 0.12, 1.0) / QUIQUE_BOLA
 	var pm := PhysicsMaterial.new()
 	if quem == "pinos":

@@ -151,6 +151,9 @@ d1 = DEX(a.get_file('classes.dex'))
 nomes1 = {c.get_name() for c in d1.get_classes()}
 for k in ['Lorg/godotengine/godot/plugin/GodotPlugin;', USED, 'Lorg/godotengine/godot/Dictionary;', 'Lorg/godotengine/godot/Godot;']:
     checar(k in nomes1, 'classes.dex tem ' + k)
+# a escolha da tela com o antisserrilhado 4x da placa (tools/android/TelaNitida)
+checar(any('tela com antisserrilhado' in str(x) for x in d1.get_strings()),
+       'classes.dex com a tela de antisserrilhado da placa (TelaNitida)')
 checar('classes2.dex' in arquivos, 'classes2.dex no APK')
 d2 = DEX(a.get_file('classes2.dex'))
 cm = d2.CM
