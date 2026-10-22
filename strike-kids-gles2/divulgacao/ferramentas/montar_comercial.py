@@ -41,30 +41,38 @@ TAXA = 44100
 FPS = 30
 
 # --------------------------------------------------------------- roteiro
-# (nome, gravacao, ancora (som, ocorrencia), de, ate, transicao, musica)
-# 'de' e 'ate' em quadros a partir do quadro da ancora.
+# (nome, vertical, horizontal, transicao, musica)
+#   vertical/horizontal: (gravacao, ancora (som, ocorrencia), de, ate), "="
+#   (o mesmo do vertical) ou None (sem esta tomada). 'de' e 'ate' em quadros
+#   a partir do quadro da ancora. "promo" = a partida de 1 jogador gravada no
+#   formato do video; "dupla" = a de 2 jogadores (gravada em pe: no video
+#   deitado ela entra no meio, com o fundo desfocado).
 TOMADAS = [
-    ("abertura", "promo", ("whoosh", 0), 9, 54, "corte", "menu"),            # bola rolando para os pinos
-    ("logo", "promo", ("brilho", 1), 6, 111, "flash", "menu"),              # logo + Bob e Mia (parque, espaco)
-    ("escolha", "promo", ("escolha", 0), -28, 34, "flash", "menu"),         # ESCOLHA SEU AMIGO!
-    ("sorria", "promo", ("tique", 0), -47, 93, "corte", "menu"),            # SORRIA! 3, 2, 1, foto
-    ("jogar", "promo", ("strike", 1), -132, 28, "flash", "jogo"),           # vez do Bob, bola, STRIKE!
-    ("replay", "promo", ("rolando:on", 2), 1, 108, "corte", "jogo"),        # REPLAY em camera lenta
-    ("espaco", "promo", ("musica:musica_jogo", 0), 8, 70, "flash", "jogo"),  # VIAGEM AO ESPACO!
-    ("mar", "promo", ("brilho", 4), 14, 46, "corte", "jogo"),               # FUNDO DO MAR!
-    ("dinos", "promo", ("brilho", 6), 11, 43, "corte", "jogo"),             # SELVA DOS DINOS!
-    ("parque", "dupla", ("musica:musica_jogo", 0), 8, 46, "corte", "jogo"),  # PARQUE DE DIVERSOES!
-    ("modal", "promo", ("start", 0), 20, 80, "flash", "jogo"),              # QUANTOS VAO JOGAR?
-    ("dupla", "dupla", ("strike", 0), -100, 10, "corte", "jogo"),           # Bob x Mia
-    ("fogo1", "promo", ("strike", 2), 3, 49, "flash", "jogo"),              # STRIKE! PEGANDO FOGO!
-    ("fogo2", "promo", ("rolando:on", 4), 4, 44, "corte", "jogo"),          # a bola com o rastro de fogo
-    ("fogo3", "promo", ("strike", 3), 0, 52, "corte", "jogo"),              # 3 STRIKES SEGUIDOS!
-    ("fim", "promo", ("fim", 0), 18, 106, "flash", "fim"),                  # FIM DE JOGO + classificacao
+    ("abertura", ("promo", ("whoosh", 0), 9, 54), "=", "corte", "menu"),            # bola rolando para os pinos
+    ("logo", ("promo", ("brilho", 1), 6, 111), "=", "flash", "menu"),              # logo + Bob e Mia (parque, espaco)
+    ("escolha", ("promo", ("escolha", 0), -28, 34), "=", "flash", "menu"),         # ESCOLHA SEU AMIGO!
+    ("sorria", ("dupla", ("tique", 0), -43, 113), ("promo", ("tique", 0), -47, 93), "corte", "menu"),  # SORRIA! 3, 2, 1
+    ("jogar", ("promo", ("strike", 1), -132, 28), "=", "flash", "jogo"),           # vez do Bob, bola, STRIKE!
+    ("replay", ("promo", ("rolando:on", 2), 1, 108), "=", "corte", "jogo"),        # REPLAY em camera lenta
+    ("espaco", ("promo", ("musica:musica_jogo", 0), 8, 70), "=", "flash", "jogo"),  # VIAGEM AO ESPACO!
+    ("mar", ("promo", ("brilho", 4), 14, 46), "=", "corte", "jogo"),               # FUNDO DO MAR!
+    ("dinos", ("promo", ("brilho", 6), 11, 43), "=", "corte", "jogo"),             # SELVA DOS DINOS!
+    ("parque", ("dupla", ("musica:musica_jogo", 0), 8, 48), "=", "corte", "jogo"),  # PARQUE DE DIVERSOES!
+    ("modal", ("dupla", ("start", 1), -13, 32), ("promo", ("start", 0), 20, 80), "flash", "jogo"),  # 1 OU 2 JOGADORES
+    ("dupla", ("dupla", ("vez", 2), 45, 80), "=", "corte", "jogo"),                # a vez da Mia (2 jogadores)
+    ("festa", ("dupla", ("strike", 0), 49, 82), "=", "corte", "jogo"),             # a Mia comemora o strike
+    ("fogo1", ("promo", ("strike", 2), 3, 49), "=", "flash", "jogo"),              # STRIKE! PEGANDO FOGO!
+    ("fogo2", ("promo", ("rolando:on", 4), 4, 44), "=", "corte", "jogo"),          # a bola com o rastro de fogo
+    ("fogo3", ("promo", ("strike", 3), 0, 52), "=", "corte", "jogo"),              # 3 STRIKES SEGUIDOS!
+    ("fim", ("promo", ("fim", 0), 18, 106), "=", "flash", "fim"),                  # FIM DE JOGO + classificacao
 ]
-# sem a gravacao de 2 jogadores: estas no lugar (parque da atracao)
+# sem a gravacao de 2 jogadores: estas no lugar (None = sem a tomada)
 TROCAS_SEM_DUPLA = {
-    "parque": ("abertura2", "promo", ("brilho", 1), -36, 2, "corte", "jogo"),
+    "sorria": ("promo", ("tique", 0), -47, 93),
+    "parque": ("promo", ("brilho", 1), -36, 2),
+    "modal": ("promo", ("start", 0), 20, 80),
     "dupla": None,
+    "festa": None,
 }
 # (frase, tomada, quando): segundos depois do comeco da tomada, ou
 # ("termina_em", som, ocorrencia, folga) = a frase acaba 'folga' s depois do som
@@ -84,7 +92,8 @@ FALAS = [
 CARTAO_MIN = 5.6
 # altura da legenda (fração da tela) onde o jogo tem botão/quadro no lugar de sempre
 LEGENDA_Y = {"v": 0.73, "h": 0.86}
-LEGENDA_Y_TOMADA = {"v": {"logo": 0.875, "modal": 0.875}, "h": {}}
+LEGENDA_Y_TOMADA = {"v": {"logo": 0.875, "modal": 0.875},
+                    "h": {"sorria": 0.94, "modal": 0.115, "fim": 0.79}}
 
 
 # ------------------------------------------------------------------ util
@@ -320,12 +329,14 @@ def main():
     for x in linhas.values():
         x["arquivo"] = os.path.join(opc["--narracao"], os.path.basename(x["arquivo"]))
     tomadas = []
-    for tm in TOMADAS:
-        if tm[1] not in grav:
-            tm = TROCAS_SEM_DUPLA.get(tm[0])
-            if tm is None:
-                continue
-        tomadas.append(tm)
+    for nome, fv, fh, trans, mus in TOMADAS:
+        fonte = fv if (formato == "v" or fh == "=") else fh
+        if fonte is not None and fonte[0] not in grav:
+            fonte = TROCAS_SEM_DUPLA.get(nome)
+        if fonte is None:
+            continue
+        g, anc, de, ate = fonte
+        tomadas.append((nome, g, anc, de, ate, trans, mus))
     # linha do tempo
     tl, t = [], 0.0
     for nome, g, (ev, n), de, ate, trans, mus in tomadas:
@@ -366,7 +377,8 @@ def main():
              "abertura2": "o Bob e a Mia no parque", "escolha": "ESCOLHA SEU AMIGO!", "sorria": "SORRIA! (3, 2, 1, foto)",
              "jogar": "vez do Bob: bola, pinos, STRIKE!", "replay": "REPLAY em camera lenta", "espaco": "VIAGEM AO ESPACO!",
              "mar": "FUNDO DO MAR!", "dinos": "SELVA DOS DINOS!", "parque": "PARQUE DE DIVERSOES!",
-             "modal": "QUANTOS VAO JOGAR? (1 ou 2)", "dupla": "2 jogadores: Bob x Mia", "fogo1": "STRIKE! PEGANDO FOGO!",
+             "modal": "QUANTOS VAO JOGAR? (1 ou 2)", "dupla": "2 jogadores: a vez da Mia", "festa": "a Mia comemora",
+             "fogo1": "STRIKE! PEGANDO FOGO!",
              "fogo2": "a bola com rastro de fogo", "fogo3": "3 STRIKES SEGUIDOS!", "fim": "FIM DE JOGO + classificacao de hoje"}
     for x in tl:
         roteiro.append("  %5.1f - %5.1f s  %s" % (x["t0"], x["t0"] + x["n"] / FPS, descr.get(x["nome"], x["nome"])))

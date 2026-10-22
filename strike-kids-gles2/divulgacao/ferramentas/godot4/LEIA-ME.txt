@@ -26,3 +26,19 @@ adesivos_render.gd/.tscn - o Bob e a Mia de corpo inteiro com fundo
             transparente, para os adesivos (pasta ../../artes):
               godot --path . res://tools/testes/adesivos_render.tscn -- \
                     --saida=PASTA --tam=4800 [--so=bob_acenando,mia_festa]
+
+gabinete_render.gd/.tscn - a MAQUETE 3D do gabinete com os adesivos de um
+            tema (as texturas que o gerar_gabinete.py --maquete grava em
+            adesivos/gabinete/_maquete/<tema>) e um quadro do jogo na tela.
+            Fundo de estudio (o chao some no horizonte). Uma maquina:
+              godot --path . res://tools/testes/gabinete_render.tscn -- \
+                    --texturas=_maquete/vermelho --tela=QUADRO.jpg --saida=PASTA
+              (fotos frente_esquerda, frente, lateral e tras_direita)
+            A fila com as 7, lado a lado (pastas e telas na mesma ordem):
+              ... -- --texturas=_maquete/branco,_maquete/vermelho,... \
+                     --tela=q1.jpg,q2.jpg,... --saida=PASTA/fila
+              (fotos fila e fila_lado + fila.json, onde fica cada maquina
+               na foto, para os nomes na capa do catalogo)
+            Depois: python3 ../gerar_gabinete.py --catalogo PASTA
+            (PASTA/<tema>/*.png e PASTA/fila/). Leva ~1 min por tema num PC
+            sem placa de video (xvfb-run).

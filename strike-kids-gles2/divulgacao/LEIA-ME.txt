@@ -1,21 +1,69 @@
-STRIKE KIDS - KIT DE DIVULGACAO: ADESIVOS E COMERCIAL NARRADO
-==============================================================
+STRIKE KIDS - KIT DE DIVULGACAO: GABINETE EM 7 TEMAS, ADESIVOS E COMERCIAL
+==========================================================================
 
 Tudo aqui sai das artes do proprio jogo: o Bob e a Mia renderizados pelo
-jogo (pasta artes, 4800 px, fundo transparente), os letreiros e o logo no
-mesmo desenho do jogo e a marca Lazer & Sport (ui/marca). Esta pasta NAO
-entra no APK (tem .gdignore: o Godot nem olha para ela).
+jogo (pasta artes, 4800 px, fundo transparente, com as roupas de cada
+cenario), os letreiros e o logo no mesmo desenho do jogo e a marca
+Lazer & Sport (ui/marca). Esta pasta NAO entra no APK (tem .gdignore: o
+Godot nem olha para ela).
 
-ADESIVOS (pasta adesivos) - PRONTOS PARA A GRAFICA
---------------------------------------------------
-Cada peca em PDF no tamanho final + sangria. Imagem em 300 DPI (as pecas
-grandes da maquina em 150 DPI, o normal da impressao em grande formato).
-Onde ha recorte, o PDF traz a linha de corte em vetor na cor especial
-"CutContour" (magenta 100 %, 0,25 pt, sobreimpressao): a plotter de
-recorte (Roland, Mimaki, Summa, Graphtec...) corta por ela e ela NAO e
-impressa. Pecas retangulares levam marcas de corte. Cores em RGB: a
-grafica converte para CMYK (laranjas e azuis muito vivos podem sair um
-pouco mais apagados no papel).
+GABINETE DA MAQUINA EM 7 TEMAS (pasta adesivos/gabinete)
+--------------------------------------------------------
+O mesmo gabinete de boliche infantil adesivado em 7 temas, alternando as
+cores e as artes do jogo - para mostrar aos clientes e mandar para a
+grafica:
+
+  1 Branco     2 Vermelho     3 Azul     4 Espaco     5 Fundo do Mar
+  6 Selva dos Dinos     7 Parque de Diversoes
+
+catalogo_temas.pdf   o catalogo para os clientes (A4 deitado): capa com as
+                     7 maquinas lado a lado, a fila em perspectiva e uma
+                     pagina por tema (foto 3D, de frente, de lado e de tras).
+catalogo/*.jpg       as mesmas paginas em imagem (para mandar no WhatsApp).
+fotos/*.jpg          as fotos 3D de cada maquina e da fila com as 7.
+planta_do_gabinete_A3.pdf  o gabinete proposto, em 2 folhas A3:
+                     1) vista lateral e de cima (1:20) com a tabela dos
+                        adesivos e o material sugerido;
+                     2) vista de frente (1:10) com a posicao de cada furo
+                        (tela, camera, som, START, moedeiro, retorno das
+                        bolas e entrada da bola).
+<tema>/folha_dos_adesivos.jpg  os 12 adesivos do tema numa imagem so.
+
+Medidas do gabinete (mm): pista 2600 x 800 (laterais com 520 de altura,
+piso a 450 do chao), torre 600 de fundo e 2000 de altura, letreiro
+luminoso 800 x 380 x 300 em cima da torre (altura total 2380), TV 43" em
+pe atras de uma janela de 535 x 950. E uma PROPOSTA: se o seu gabinete
+tiver outras medidas, mude o GABINETE no comeco de
+ferramentas/gerar_gabinete.py e gere de novo (os adesivos, a planta e a
+maquete acompanham).
+
+OS 12 ADESIVOS DE CADA TEMA (arquivos <tema>/NN_peca_LxAcm.pdf)
+  01 letreiro_frente            80 x 38 cm   (lona/vinil translucido, luminoso)
+  02 letreiro_lateral esq./dir. 30 x 38 cm
+  02 letreiro_traseira          80 x 38 cm   (opcional)
+  03 torre_frente               80 x 148 cm  furos: tela, camera, som, bola
+  04 torre_lateral esq./dir.    60 x 200 cm
+  05 torre_traseira             80 x 200 cm  (opcional)
+  06 pista_lateral esq./dir.    260 x 52 cm
+  07 pista_frente               80 x 52 cm   furos: START, ficha, bolas
+  08 pista_piso                 70 x 260 cm  (opcional, vinil de piso)
+  PDF no tamanho final + 10 mm de sangria, marcas de corte, imagem em 100
+  a 150 DPI (o normal da impressao em grande formato). Os furos vao com a
+  linha de corte em vetor na cor especial "CutContour" (magenta 100 %,
+  0,25 pt, sobreimpressao): a plotter de recorte corta por ela e ela NAO e
+  impressa. O desenho continua por baixo dos furos (se o furo do gabinete
+  ficar um pouco fora do lugar, nao aparece branco). Cores em RGB: a
+  grafica converte para CMYK. Sugestao: vinil branco impresso (eco-solvente
+  ou latex) com laminacao - aguenta as maozinhas e a limpeza.
+  Os PDFs de impressao sao grandes (dezenas de MB por tema) e NAO vao para
+  o git: foram entregues a parte, em um ZIP por tema, e saem de novo com
+  o gerar_gabinete.py (veja COMO REFAZER).
+
+ADESIVOS AVULSOS (pastas cartelas, individuais, maquina e previas)
+------------------------------------------------------------------
+Extras para brinde, premio e sinalizacao (nao sao a adesivagem do
+gabinete). Cada peca em PDF no tamanho final + sangria, 300 DPI (as pecas
+grandes em 150 DPI), com a linha CutContour onde ha recorte.
 
 cartelas/
   cartela_adesivos_A4.pdf      A4 com 15 adesivos recortados (meio-corte,
@@ -36,9 +84,9 @@ individuais/
   personagens com 7 cm de altura, os redondos com 6 cm), para a grafica
   montar a folha dela ou ampliar.
 
-maquina/  (tamanhos de referencia; outra medida: veja COMO REFAZER)
-  letreiro_100x30cm.pdf          topo: logo, Bob e Mia, "BOLICHE INFANTIL 3D"
-  lateral_60x120cm.pdf           lateral: logo, Bob e Mia, "1 OU 2 JOGADORES!",
+maquina/  placas avulsas (tamanhos de referencia)
+  letreiro_100x30cm.pdf          logo, Bob e Mia, "BOLICHE INFANTIL 3D"
+  lateral_60x120cm.pdf           logo, Bob e Mia, "1 OU 2 JOGADORES!",
                                  os 4 cenarios e a marca Lazer & Sport
   como_jogar_40x30cm.pdf         COMO JOGAR em 4 passos (1 APERTE START,
                                  2 ESCOLHA SEU AMIGO, 3 SORRIA!, 4 ROLE A BOLA!)
@@ -46,12 +94,9 @@ maquina/  (tamanhos de referencia; outra medida: veja COMO REFAZER)
   faixa_role_a_bola_60x15cm.pdf  faixa da rampa: ROLE A BOLA AQUI!
   aperte_start_10cm.pdf          redondo, ao lado do botao START (corte redondo)
   insira_a_ficha_10x5cm.pdf      junto do moedeiro (modo ficha), cantos redondos
-  Sangria: 5 mm nas pecas grandes, 2 mm nas pequenas. Sugestao: vinil
-  adesivo branco impresso (eco-solvente/latex) com laminacao - aguenta as
-  maozinhas e a limpeza.
 
-previas/  JPG pequeno de cada peca para ver no celular (*_corte.jpg mostra
-          a linha de corte em magenta).
+previas/  JPG pequeno de cada peca avulsa para ver no celular (*_corte.jpg
+          mostra a linha de corte em magenta).
 
 COMERCIAL NARRADO (pasta comercial)
 -----------------------------------
@@ -60,8 +105,9 @@ StrikeKids_comercial_vertical_voz_masculina.mp4    Shorts, status do WhatsApp)
 StrikeKids_comercial_horizontal_voz_feminina.mp4   1920x1080 (YouTube, TV,
 StrikeKids_comercial_horizontal_voz_masculina.mp4  apresentacao)
   Os MP4 nao vao para o git (sao grandes): foram entregues a parte. Ficam
-  aqui: roteiro.txt (o que aparece e o que a voz fala, com os tempos),
-  capa_*.jpg (capa para o Reels/YouTube) e narracao/ (as frases da voz).
+  aqui: os roteiros (*_roteiro.txt: o que aparece e o que a voz fala, com
+  os tempos), as capas (capa_*.jpg, para o Reels/YouTube) e narracao/ (as
+  frases da voz).
   Imagens: uma partida gravada pelo proprio jogo (versao Godot 4, grafico
   ALTO): abertura, logo com o Bob e a Mia, escolha do amigo, SORRIA!, a
   jogada com STRIKE!, o REPLAY em camera lenta, os 4 cenarios, 1 ou 2
@@ -73,19 +119,28 @@ StrikeKids_comercial_horizontal_voz_masculina.mp4  apresentacao)
   Voz: brasileira, sintetizada pelo Kokoro (modelo aberto, licenca Apache
   2.0: pode usar em propaganda), em duas versoes - feminina (pf_dora) e
   masculina (pm_alex). Para um locutor de verdade: ele grava as frases do
-  roteiro.txt e o montador refaz o video com a voz dele.
+  roteiro e o montador refaz o video com a voz dele.
 
 COMO REFAZER (Python 3 com numpy, pillow, scipy, opencv-python-headless e
 reportlab; o comercial tambem precisa do ffmpeg)
 -------------------------------------------------------------------------
-  python3 ferramentas/gerar_adesivos.py               # todos os adesivos
-  python3 ferramentas/gerar_adesivos.py maquina       # so os da maquina
-    (as medidas da maquina sao os parametros de letreiro_maquina,
-     lateral_maquina, como_jogar, faixa_role... no fim do arquivo)
+  Gabinete:
+  python3 ferramentas/gerar_gabinete.py                 # os 12 PDFs dos 7 temas
+  python3 ferramentas/gerar_gabinete.py vermelho azul   # so estes temas
+  python3 ferramentas/gerar_gabinete.py --maquete       # so as texturas da maquete 3D
+  python3 ferramentas/gerar_gabinete.py --planta        # a planta A3
+  python3 ferramentas/gerar_gabinete.py --catalogo FOTOS  # catalogo, paginas e fotos
+    As FOTOS 3D saem da maquete no Godot 4 (ferramentas/godot4/
+    gabinete_render.tscn): veja ferramentas/godot4/LEIA-ME.txt.
+  Adesivos avulsos:
+  python3 ferramentas/gerar_adesivos.py               # todos
+  python3 ferramentas/gerar_adesivos.py maquina       # so as placas avulsas
+  Comercial:
   python3 ferramentas/narracao.py kokoro-v1.0.onnx voices-v1.0.bin
   python3 ferramentas/montar_comercial.py v pf_dora saida.mp4 \
           --promo QUADROS_PROMO --dupla QUADROS_DUPLA --narracao comercial/narracao
           [--contato "WhatsApp (xx) xxxxx-xxxx"]   # contato no cartao final
+    (h no lugar de v: o horizontal, com a partida gravada deitada)
   As partidas (QUADROS_*) sao gravadas pela versao Godot 4 do jogo
   (repositorio beta-advanced) com o diretor ferramentas/godot4/video.gd:
   veja ferramentas/godot4/LEIA-ME.txt. Os renders do Bob e da Mia (artes)
