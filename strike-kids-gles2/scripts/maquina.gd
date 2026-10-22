@@ -6,7 +6,10 @@ extends Spatial
 ##     caídos para o fosso (empurrando de verdade, com física) e sobe.
 ##   * ALÇAPÃO: depois da varrida as duas portinhas do chão do fosso abrem
 ##     para baixo e os pinos caem no poço escuro (só com a bola já
-##     recolhida; na jogada o chão fica sempre fechado).
+##     recolhida; na jogada o chão fica sempre fechado). A queda é de
+##     DESENHO ANIMADO: cada pino dá um pulinho e cai reto, girando, um
+##     depois do outro, cada um com uma notinha de xilofone (a escala vai
+##     subindo) e um assobio "fiuuu" — e nenhum volta para a pista.
 ##   * MESA: desce sobre os pinos, levanta os que ficaram em pé, espera a
 ##     varrida e devolve cada um no seu lugar. Num rack novo, desce já com
 ##     os 10 pinos encaixados e os deixa na pista.
@@ -125,7 +128,7 @@ func _montar_alcapao() -> void:
 	var comp := Medidas.ALCAPAO_Z0 - Medidas.ALCAPAO_Z1
 	var mat := Materiais.cor_toon(Color("#1D4290"), 0.0, {"borda": 0.3})
 	var mat_faixa := Materiais.cor_toon(Color("#FFD23F"), 0.0, {"borda": 0.25})
-	var pm := Medidas.material(0.9, 0.05, "pinos")
+	var pm := Medidas.material(0.9, 0.0, "pinos")
 	for s in [-1.0, 1.0]:
 		var porta := KinematicBody.new()
 		porta.name = "alcapao_%d" % int(s)
@@ -248,6 +251,87 @@ func _pinos_no_fosso(levados: Array) -> int:
 	return n
 
 
+## Os pinos que estão no fosso (atrás do fim da pista), os que o alçapão
+## derruba no poço — da esquerda para a direita (a cascata de notas).
+func _pinos_do_fosso(levados: Array) -> Array:
+	var r: Array = []
+	for p in pinos.pinos:
+		if levados.has(p) or p.removido:
+			continue
+		var g: Vector3 = p.posicao_base()
+		if g.z < Medidas.Z_FIM_DECK + 0.02 and g.y < 0.05:
+			r.append(p)
+	r.sort_custom(self, "_da_esquerda")
+	return r
+
+
+func _da_esquerda(a: Pino, b: Pino) -> bool:
+	return a.global_transform.origin.x < b.global_transform.origin.x
+
+
+## A QUEDA DIVERTIDA (desenho animado, sem física): um depois do outro, cada
+## pino achata, dá um pulinho, estica e cai reto no poço girando — e vai
+## para o meio do vão (não passa pelas portinhas abertas). Termina quando o
+## último chega lá embaixo.
+const QUEDA_DUR := 0.62
+const QUEDA_INTERVALO := 0.075
+
+
+func _queda_divertida(caindo: Array) -> SceneTreeTween:
+	var t := create_tween()
+	t.set_process_mode(Tween.TWEEN_PROCESS_PHYSICS)
+	t.set_parallel(true)
+	t.tween_interval(0.05)
+	for i in caindo.size():
+		var p: Pino = caindo[i]
+		var atraso: float = (0.16 + i * QUEDA_INTERVALO) / rapidez
+		var de: Transform = p.global_transform
+		var x: float = clamp(de.origin.x * 0.55, -0.42, 0.42)
+		var z: float = clamp(de.origin.z, Medidas.ALCAPAO_Z0 - 0.3, Medidas.ALCAPAO_Z1 + 0.3)
+		var para := Vector3(x, Medidas.POCO_FUNDO + 0.12, z)
+		var eixo := Vector3(rand_range(-1.0, 1.0), 0.0, rand_range(-1.0, 1.0))
+		if eixo.length() < 0.2:
+			eixo = Vector3.RIGHT
+		var voltas: float = rand_range(0.55, 1.1) * (1.0 if randf() < 0.5 else -1.0)
+		t.tween_callback(self, "_pulo_do_pino", [i]).set_delay(atraso)
+		t.tween_method(self, "_cair_pino", 0.0, 1.0, QUEDA_DUR / rapidez, [p, de, para, eixo.normalized(), voltas]) \
+			.set_delay(atraso)
+		t.tween_callback(self, "_pino_no_fundo", [p]).set_delay(atraso + QUEDA_DUR / rapidez)
+	_tweens.append(t)
+	return t
+
+
+func _pulo_do_pino(i: int) -> void:
+	emit_signal("som", "queda_%d" % i)
+
+
+func _pino_no_fundo(p: Pino) -> void:
+	p.malha.scale = Vector3.ONE
+	emit_signal("som", "fundo")
+
+
+## k: 0..1 da queda de um pino. Até 0,22: achata e dá o pulinho (7 cm);
+## depois cai acelerando (como quem cai de verdade) até o fundo do poço,
+## girando em volta de um eixo deitado.
+func _cair_pino(k: float, p: Pino, de: Transform, para: Vector3, eixo: Vector3, voltas: float) -> void:
+	var pos: Vector3
+	var giro := 0.0
+	if k < 0.22:
+		var u := k / 0.22
+		pos = de.origin + Vector3(0, sin(u * PI * 0.5) * 0.07, 0)
+		var a := sin(u * PI)
+		p.malha.scale = Vector3(1.0 - 0.08 * a, 1.0 + 0.12 * a, 1.0 - 0.08 * a) if u > 0.35 else \
+			Vector3(1.0 + 0.1 * a, 1.0 - 0.14 * a, 1.0 + 0.1 * a)
+	else:
+		var u := (k - 0.22) / 0.78
+		var topo := de.origin + Vector3(0, 0.07, 0)
+		var xz := u * (2.0 - u)
+		pos = Vector3(lerp(topo.x, para.x, xz), lerp(topo.y, para.y, u * u), lerp(topo.z, para.z, xz))
+		giro = voltas * TAU * u
+		p.malha.scale = Vector3.ONE
+	p.global_transform = Transform(Basis(eixo, giro) * de.basis, pos)
+
+
 func _ciclo(manter: bool, derrubou := true) -> void:
 	_seq += 1
 	var s := _seq
@@ -295,10 +379,17 @@ func _ciclo(manter: bool, derrubou := true) -> void:
 		emit_signal("alcapao", true)
 		if not yield(_ok(_pausa(0.25), s), "completed"):
 			return
+		var caindo := _pinos_do_fosso(levados)
+		for p in caindo:
+			p.prender()
 		emit_signal("som", "alcapao")
-		if not yield(_ok(_alcapao(true, 0.45), s), "completed"):
+		var abre := _alcapao(true, 0.38)
+		if not yield(_ok(_queda_divertida(caindo), s), "completed"):
 			return
-		if not yield(_ok(_pausa(0.85), s), "completed"):
+		if abre.is_valid() and abre.is_running():
+			if not yield(_ok(abre, s), "completed"):
+				return
+		if not yield(_ok(_pausa(0.2), s), "completed"):
 			return
 		# a barra volta enquanto o alçapão fecha; os pinos lá embaixo saem do jogo
 		var fecha := _alcapao(false, 0.55)

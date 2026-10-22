@@ -8,8 +8,10 @@ render_mode unshaded, cull_back, depth_draw_opaque;
 
 uniform sampler2D textura : hint_albedo;
 uniform float faixa = 0.08;
-uniform float borda = 0.45;
-uniform vec4 cor_borda : hint_color = vec4(0.8, 0.9, 1.0, 1.0);
+// borda iluminada mais fraca e quente: a cor da bola (vermelha do Bob,
+// laranja da Mia) fica viva até a beirada, sem o véu azulado
+uniform float borda = 0.28;
+uniform vec4 cor_borda : hint_color = vec4(1.0, 0.95, 0.88, 1.0);
 uniform float brilho = 1.6;
 uniform float aceso : hint_range(0.0, 2.0) = 0.0;
 // luz do cenário (Materiais.definir_luz)
@@ -31,15 +33,26 @@ vec3 s2l(vec3 c) {
 	return c * (c * (c * 0.305306011 + 0.682171111) + 0.012522878);
 }
 
+// COR VIVA: realça mais as cores menos saturadas (céu, madeira, chão) e
+// quase não mexe nas que já são fortes, com um pouco mais de contraste.
+// Era uma passada a mais na tela inteira (tela3d.shader); aqui sai de
+// graça, na mesma conta que entrega a cor (as mesmas contas de lá).
+vec3 viva(vec3 c) {
+	float lum = dot(c, vec3(0.299, 0.587, 0.114));
+	float sat = max(c.r, max(c.g, c.b)) - min(c.r, min(c.g, c.b));
+	c = mix(vec3(lum), c, 1.08 + 0.32 * (1.0 - sat));
+	return clamp(c * 1.07 - 0.035, 0.0, 1.0);
+}
+
 vec3 tela(vec3 x) {
 	// "filmic" (branco 1,6) + sRGB numa conta só, sem potência (erro < 3%)
 	x = max(x, vec3(0.0));
-	return min(sqrt(x) * (1.29 - 0.1 * x) / (1.0 + 0.25 * x), vec3(1.0));
+	return viva(min(sqrt(x) * (1.29 - 0.1 * x) / (1.0 + 0.25 * x), vec3(1.0)));
 }
 
 vec3 tela_rapida(vec3 x) {
 	x = max(x, vec3(0.0));
-	return min(sqrt(x) * (1.29 - 0.1 * x) / (1.0 + 0.25 * x), vec3(1.0));
+	return viva(min(sqrt(x) * (1.29 - 0.1 * x) / (1.0 + 0.25 * x), vec3(1.0)));
 }
 
 void vertex() {

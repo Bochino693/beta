@@ -29,7 +29,19 @@ const POS_PISTA := Vector3(0.0, 1.05, 2.2)
 const ALVO_PISTA := Vector3(0.0, 0.18, Medidas.Z_PINO1 + 0.6)
 
 var estado = E.ABERTURA
+## DESENHO DIRETO NA TELA (o normal): o 3D e a interface vão direto para a
+## tela da TV, numa passada só, na resolução da TV e com o antisserrilhado
+## 4x da própria tela (tools/android/TelaNitida). Na Mali-400/450 cada
+## passada de tela inteira custa caro (a placa tem pouca memória rápida):
+## com o 3D numa imagem separada, o quadro passava por quatro — o 3D, a
+## cópia do antisserrilhado, a imagem com a interface e a cópia final para
+## a TV — e o 3D ainda tinha de descer para 720-864 px (imagem fosca).
+## Modo "imagem" (o compatível, no menu do operador): o 3D numa imagem
+## separada (vp), com a resolução automática de 720 a 1080 px.
+var _direto := true
 var vp: Viewport
+## onde fica tudo o que é 3D (a vp, ou o nó Mundo3D no desenho direto)
+var raiz_3d: Node
 var cam: CameraCine
 var mundo: Mundo
 var pinos: Pinos
@@ -167,11 +179,12 @@ func _ready() -> void:
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	_qualidade = _qualidade_escolhida()
 	Materiais.definir_contornos(_qualidade != "baixa")
+	_direto = _desenho_direto()
 	_ler_nitidez()
 	_montar_3d()
 	hud = Hud.new()
 	add_child(hud)
-	hud.montar(vp.get_texture())
+	hud.montar(null if _direto else vp.get_texture())
 	medidor = Medidor.new(self)
 	hud.add_child(medidor)
 	if OS.get_cmdline_args().has("--medidor"):
@@ -183,12 +196,12 @@ func _ready() -> void:
 	# abertura da TV Box; a abertura começa quando terminar
 	var aq := Aquecer.new()
 	add_child(aq)
-	aq.preparar(vp, hud, efeitos.materiais(), self)
+	aq.preparar(vp if vp else get_viewport(), hud, efeitos.materiais(), self)
 	aq.connect("pronto", self, "_preparado", [], CONNECT_ONESHOT)
 	# a tela do jogo (3D e interface) fica parada e escondida enquanto as
 	# amostras compilam aos poucos (desenhada já no 1º quadro, compilava
 	# tudo de uma vez); volta no ensaio geral
-	vp.render_target_update_mode = Viewport.UPDATE_DISABLED
+	_mostrar_3d(false)
 	hud.visible = false
 	# a tabela de jogadas (quase 4 mil linhas): lida agora, com a imagem de
 	# abertura na tela, e não na primeira bola
@@ -209,6 +222,9 @@ func _ready() -> void:
 
 func _preparado() -> void:
 	_preparando = false
+	# (o ensaio geral já ligou; garantido, se a preparação acabou sem ele)
+	_mostrar_3d(true)
+	hud.visible = true
 	_abertura()
 
 
@@ -222,7 +238,7 @@ func ensaio(fase: int) -> void:
 	hud.ensaio(fase)
 	match fase:
 		0:
-			vp.render_target_update_mode = Viewport.UPDATE_ALWAYS
+			_mostrar_3d(true)
 			hud.visible = true
 			var alvo := Vector3(0.0, 0.3, -1.2)
 			cam.corte(Vector3(0.0, 1.1, 1.8), alvo, 50, 50)
@@ -308,6 +324,9 @@ func _ler_nitidez() -> void:
 		if a.begins_with("--roteiro") or a.begins_with("--video") or a.begins_with("--instantes") or a.begins_with("--replay-teste"):
 			_adaptar = false
 			_fator = 1.0
+	if _direto:
+		# o 3D sai na resolução da própria tela (o automático só mexe na qualidade)
+		_fator = 1.0
 
 
 ## Teste automático (PC): godot --path . -- --roteiro=pasta
@@ -336,71 +355,168 @@ func _ligar_roteiro_de_teste() -> void:
 
 # ================================================================ montagem
 func _montar_3d() -> void:
-	vp = Viewport.new()
-	# (o Godot liga a interpolação da física em toda Viewport; aqui ela
-	# fica desligada e só bola, pinos e máquina ligam — Tela.gd explica)
-	vp.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
-	vp.own_world = true
-	vp.render_target_update_mode = Viewport.UPDATE_ALWAYS
-	# Godot 3: a imagem de uma Viewport sai de cabeça para baixo na tela
-	# sem isto; OpenGL ES 2.0 não tem HDR
-	vp.render_target_v_flip = true
-	vp.hdr = false
-	vp.usage = Viewport.USAGE_3D
-	vp.transparent_bg = false
+	var r := get_tree().root
+	# no direto o 3D vai no mundo da própria tela (a janela): o Godot o
+	# desenha antes da interface, na mesma passada; com a imagem 3D
+	# separada, a janela só tem a interface
+	r.usage = Viewport.USAGE_3D_NO_EFFECTS if _direto else Viewport.USAGE_2D_NO_SAMPLING
+	r.hdr = false
+	r.shadow_atlas_size = 0
+	if not _direto:
+		r.msaa = Viewport.MSAA_DISABLED
+	if _na_tela_da_tv():
+		# a janela é desenhada direto na tela da TV: sem a imagem dela e sem
+		# a cópia final (no Godot 3 com OpenGL ES 2.0, por padrão, a janela é
+		# desenhada numa imagem e copiada inteira para a tela a cada quadro)
+		r.render_direct_to_screen = true
+	var lugar: Node
+	if _direto:
+		lugar = Spatial.new()
+		lugar.name = "Mundo3D"
+		add_child(lugar)
+	else:
+		vp = Viewport.new()
+		# (o Godot liga a interpolação da física em toda Viewport; aqui ela
+		# fica desligada e só bola, pinos e máquina ligam — Tela.gd explica)
+		vp.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
+		vp.own_world = true
+		vp.render_target_update_mode = Viewport.UPDATE_ALWAYS
+		# Godot 3: a imagem de uma Viewport sai de cabeça para baixo na tela
+		# sem isto; OpenGL ES 2.0 não tem HDR
+		vp.render_target_v_flip = true
+		vp.hdr = false
+		vp.usage = Viewport.USAGE_3D
+		vp.transparent_bg = false
+		vp.shadow_atlas_size = 0
+		add_child(vp)
+		lugar = vp
+	raiz_3d = lugar
 	_qualidade_viewport()
-	vp.shadow_atlas_size = 0
-	add_child(vp)
 	mundo = Mundo.new()
-	vp.add_child(mundo)
+	lugar.add_child(mundo)
 	mundo.construir()
 	mundo.aplicar_qualidade(_qualidade)
 	pinos = Pinos.new()
-	vp.add_child(pinos)
+	lugar.add_child(pinos)
 	pinos.montar()
 	pinos.connect("batida", self, "_batida_pino")
 	maquina = Maquina.new()
-	vp.add_child(maquina)
+	lugar.add_child(maquina)
 	maquina.montar(pinos)
 	maquina.connect("som", self, "_som_maquina")
 	maquina.connect("alcapao", self, "_alcapao_maquina")
 	bola = Bola.new()
-	vp.add_child(bola)
+	lugar.add_child(bola)
 	bola.guardar()
 	bola.connect("bateu", self, "_bola_bateu")
 	bola.connect("recolhida", self, "_bola_recolhida")
 	mundo.bola = bola
 	efeitos = Efeitos.new()
-	vp.add_child(efeitos)
+	lugar.add_child(efeitos)
 	for nome in ["bob", "mia"]:
 		var p := Personagem.new()
-		vp.add_child(p)
+		lugar.add_child(p)
 		p.montar(nome)
 		p.connect("soltou_bola", self, "_soltou_bola")
 		p.connect("som", self, "_som_personagem")
 		personagens[nome] = p
 	cam = CameraCine.new()
-	vp.add_child(cam)
+	lugar.add_child(cam)
 	cam.current = true
 	_replay_alvo = Spatial.new()
-	vp.add_child(_replay_alvo)
+	lugar.add_child(_replay_alvo)
+
+
+## Desenho direto ou com a imagem 3D separada: o do operador ("Desenho da
+## tela" no menu; STRIKE_DESENHO nos testes). Automático = direto, a não
+## ser que o jogo já tenha visto esta máquina sem fôlego nele, mesmo na
+## qualidade baixa (então liga na imagem separada, que desce até 720 px).
+func _desenho_direto() -> bool:
+	var d := str(Ajustes.valor("video", "desenho"))
+	if OS.has_environment("STRIKE_DESENHO"):
+		d = OS.get_environment("STRIKE_DESENHO")
+	if d == "auto":
+		d = "imagem" if str(Ajustes.valor("video", "desenho_medido")) == "imagem" else "direto"
+	return d != "imagem"
+
+
+## Na TV Box o desenho direto vai mesmo direto para a tela (sem a imagem
+## da janela). No PC (testes), a janela continua com a imagem dela: as
+## fotos dos testes são tiradas dela (STRIKE_TELA_DIRETA=1: como na TV Box).
+func _na_tela_da_tv() -> bool:
+	return OS.get_name() == "Android" or OS.has_environment("STRIKE_TELA_DIRETA")
+
+
+## O 3D aparece na tela ou não: na imagem separada, ela para de ser
+## desenhada (a última fica na tela); no direto, a câmera sai de cena e
+## nada de 3D é desenhado.
+func _mostrar_3d(sim: bool) -> void:
+	if _direto:
+		if sim:
+			cam.make_current()
+		else:
+			cam.clear_current(false)
+	else:
+		vp.render_target_update_mode = Viewport.UPDATE_ALWAYS if sim else Viewport.UPDATE_DISABLED
+
+
+## Tamanho da imagem 3D em pixels (no direto, o da própria tela).
+func tamanho_3d() -> Vector2:
+	return Tela.tamanho_fisico() if _direto else vp.size
+
+
+## (Testes no PC) a imagem 3D deste quadro: a da imagem separada ou, no
+## direto, a da janela (quem pede esconde a interface antes).
+func foto_3d() -> Image:
+	if vp:
+		return vp.get_texture().get_data()
+	var img := get_viewport().get_texture().get_data()
+	img.flip_y()
+	return img
+
+
+## (Testes no PC) sem antisserrilhado: o llvmpipe devolve a imagem preta
+## com o MSAA da OpenGL ES 2.0.
+func sem_msaa() -> void:
+	_msaa_quebrado = true
+	_qualidade_viewport()
+
+
+## Para o painel de desempenho e o teste: como o 3D está sendo desenhado.
+func descricao_3d() -> String:
+	var t := tamanho_3d()
+	if _direto:
+		return "3D direto na tela %dx%d" % [t.x, t.y]
+	return "3D em imagem %dx%d (%d%%)" % [t.x, t.y, int(round(_fator * 100.0))]
 
 
 ## Antisserrilhado conforme a qualidade: MSAA 4x (na Mali-400/450 o 4x é
 ## o modo da própria placa, resolvido dentro dela: bordas lisas quase de
-## graça); na baixa, 2x.
+## graça); na baixa, 2x. No desenho direto na TV Box é o da própria tela
+## (4x, escolhido ao abrir o jogo: tools/android/TelaNitida); no PC, o da
+## imagem da janela.
 func _qualidade_viewport() -> void:
+	var msaa: int = Viewport.MSAA_2X if _qualidade == "baixa" else Viewport.MSAA_4X
 	if _msaa_quebrado:
-		vp.msaa = Viewport.MSAA_DISABLED
-		return
-	vp.msaa = Viewport.MSAA_2X if _qualidade == "baixa" else Viewport.MSAA_4X
+		msaa = Viewport.MSAA_DISABLED
+	if not _direto:
+		vp.msaa = msaa
+	elif not _na_tela_da_tv():
+		# no PC com desenho por software (llvmpipe, dos testes) o MSAA da
+		# janela não chega na imagem: nem tenta
+		if "llvmpipe" in VisualServer.get_video_adapter_name().to_lower():
+			msaa = Viewport.MSAA_DISABLED
+		# (Godot 3: `get_tree().root.msaa = ...` tentaria regravar o root)
+		var janela := get_tree().root
+		janela.msaa = msaa
 
 
 ## Uma vez, na abertura (depois de alguns quadros 3D): a imagem 3D veio
 ## inteira PRETA? Então o MSAA não funciona nesta placa — desliga (o jogo
-## segue com a imagem certa, só sem o antisserrilhado).
+## segue com a imagem certa, só sem o antisserrilhado). (Só com a imagem
+## 3D separada: no direto, a imagem da tela já vem com a interface.)
 func _conferir_msaa() -> void:
-	if _preparando or _quadros_3d < 0 or _parado_3d or _menu != null or vp.msaa == Viewport.MSAA_DISABLED:
+	if _direto or _preparando or _quadros_3d < 0 or _parado_3d or _menu != null or vp.msaa == Viewport.MSAA_DISABLED:
 		return
 	_quadros_3d += 1
 	if _quadros_3d < 12:
@@ -426,6 +542,13 @@ func _conferir_msaa() -> void:
 ## Tamanho da imagem 3D: o lado menor da tela, limitado pelo LADO_3D da
 ## qualidade e pelo fator automático; a imagem é esticada até a tela.
 func _tela_mudou(_t: Vector2) -> void:
+	if _direto:
+		# o 3D na resolução da própria tela; com a TV de pé ligada deitada,
+		# a câmera gira a imagem (a interface gira pelo Tela.gd)
+		cam.giro_tela = Tela.giro
+		if hud:
+			hud.layout()
+		return
 	var f: Vector2 = Tela.tamanho_fisico()
 	var menor: float = min(f.x, f.y)
 	var lado: float = min(menor, float(LADO_3D.get(_qualidade, 720))) * _fator
@@ -792,10 +915,18 @@ func _subir_nos_podios() -> void:
 ## Frente de cada pódio na tela (as placas com os nomes ficam logo abaixo).
 func _pes_na_tela() -> Array:
 	var r := []
-	var f := hud.rect_size / Vector2(vp.size)
 	for p in PODIOS:
-		r.append(cam.unproject_position(p + Vector3(0, 0, 0.45)) * f)
+		r.append(na_tela(p + Vector3(0, 0, 0.45)))
 	return r
+
+
+## Onde um ponto do mundo 3D aparece na tela do jogo (na medida da
+## interface, já em pé se a tela é girada).
+func na_tela(p: Vector3) -> Vector2:
+	var s := cam.unproject_position(p)
+	if _direto:
+		return get_tree().root.global_canvas_transform.affine_inverse() * s
+	return s * hud.rect_size / Vector2(vp.size)
 
 
 func _atrasado_som(t: float, nome: String) -> void:
@@ -1780,6 +1911,10 @@ func _bola_bateu(corpo: Node, vel: float) -> void:
 		cam.tremer(0.012, 0.15)
 
 
+## as notas (semitons acima do Sol) da cascata de pinos caindo no alçapão
+const ESCALA_QUEDA := [0, 2, 4, 7, 9, 12, 14, 16, 19, 21]
+
+
 func _som_maquina(nome: String) -> void:
 	if estado == E.ATRACAO or demo:
 		return
@@ -1795,7 +1930,18 @@ func _som_maquina(nome: String) -> void:
 			Sons.tocar("tique", 0.35, 0.7)
 		"alcapao":
 			Sons.tocar("tique", 0.4, 0.5)
-			Sons.tocar("pinos_queda", 0.22, 0.72)
+			Sons.tocar("boing", 0.18, 0.8)
+		"fundo":
+			# o pino chegou lá embaixo: um "pop" fofinho e grave
+			Sons.tocar("pop", 0.22, rand_range(0.55, 0.7))
+		_:
+			if nome.begins_with("queda_"):
+				# cada pino que cai: uma notinha de xilofone (a escala sobe,
+				# pentatônica: soa bonito mesmo encavalada) e um assobio
+				var i := int(nome.substr(6))
+				var nota: int = ESCALA_QUEDA[Compat.imin(i, ESCALA_QUEDA.size() - 1)]
+				Sons.tocar("plim", 0.5, pow(2.0, nota / 12.0))
+				Sons.tocar("fiu", 0.28, rand_range(0.92, 1.12))
 
 
 func _som_personagem(nome: String) -> void:
@@ -1830,7 +1976,7 @@ func abrir_menu(cena: PackedScene) -> void:
 		_antes_menu = _ajustes_que_remontam()
 		_medidor_antes = bool(Ajustes.valor("video", "medidor"))
 		get_tree().paused = true
-		vp.render_target_update_mode = Viewport.UPDATE_DISABLED
+		_mostrar_3d(false)
 		hud.visible = false
 	_menu = cena.instance()
 	_camada_menu.add_child(_menu)
@@ -1841,7 +1987,8 @@ func abrir_menu(cena: PackedScene) -> void:
 func fechar_menu() -> void:
 	if _menu == null:
 		return
-	if _ajustes_que_remontam() != _antes_menu:
+	# (Godot 3: dois Dictionary só são "iguais" se forem o MESMO — compara o conteúdo)
+	if _ajustes_que_remontam().hash() != _antes_menu.hash():
 		# o mundo é montado de outro jeito: monta de novo, com aviso na tela
 		_menu.set_process_input(false)
 		_aviso_remontar()
@@ -1853,7 +2000,7 @@ func fechar_menu() -> void:
 	_menu.queue_free()
 	_menu = null
 	hud.visible = true
-	vp.render_target_update_mode = Viewport.UPDATE_ALWAYS
+	_mostrar_3d(true)
 	get_tree().paused = false
 	_fps_t0 = 0
 	# ajustes que valem na hora
@@ -1893,7 +2040,8 @@ func menu_aberto() -> bool:
 
 ## O que muda a MONTAGEM do jogo (e não dá para trocar com ele montado).
 func _ajustes_que_remontam() -> Dictionary:
-	return {"cenario": Ajustes.cenario_leve(), "contornos": _qualidade_escolhida() != "baixa", "em_pe": Tela.em_pe()}
+	return {"cenario": Ajustes.cenario_leve(), "contornos": _qualidade_escolhida() != "baixa", "em_pe": Tela.em_pe(),
+		"direto": _desenho_direto()}
 
 
 func _aviso_remontar() -> void:
@@ -1973,15 +2121,17 @@ func pode_configurar() -> bool:
 	return not _preparando and (estado == E.ATRACAO or estado == E.ABERTURA)
 
 
-## Modal por cima do jogo ("QUANTOS VÃO JOGAR?"): a imagem 3D de trás
-## fica parada (a última, com um véu escuro por cima) e não é desenhada de
-## novo — a TV Box só desenha o modal: abre liso, sem pesar. A câmera para
-## onde está (ao voltar, a imagem continua dali, sem pulo).
+## Modal por cima do jogo ("QUANTOS VÃO JOGAR?"): com a imagem 3D
+## separada, ela fica parada (a última, com um véu escuro por cima) e não é
+## desenhada de novo — a TV Box só desenha o modal: abre liso, sem pesar.
+## No desenho direto o 3D continua vivo atrás do véu (custa o mesmo que a
+## jogada). A câmera para onde está (ao voltar, continua dali, sem pulo).
 func _congelar_3d(sim: bool) -> void:
 	if _menu != null:
 		return
 	_parado_3d = sim
-	vp.render_target_update_mode = Viewport.UPDATE_DISABLED if sim else Viewport.UPDATE_ALWAYS
+	if not _direto:
+		vp.render_target_update_mode = Viewport.UPDATE_DISABLED if sim else Viewport.UPDATE_ALWAYS
 	if sim:
 		cam.congelar()
 
@@ -2091,7 +2241,7 @@ func _medir_fps(_delta: float) -> void:
 		if auto and _qualidade == "alta":
 			_qualidade_pendente = "media"
 			print("Qualidade automática: média (%d quadros/s, %d%% atrasados, placa %.1f ms) no próximo clarão" % [int(fps), int(atrasados * 100.0), placa])
-		elif _fator > FATOR_MIN + 0.01:
+		elif not _direto and _fator > FATOR_MIN + 0.01:
 			_teto = _fator
 			_teto_ate = agora + 90000
 			_pedir_fator(max(FATOR_MIN, _fator - 0.1), fps)
@@ -2099,6 +2249,13 @@ func _medir_fps(_delta: float) -> void:
 			_qualidade_pendente = "baixa"
 			_pedir_fator(1.0, fps)
 			print("Qualidade automática: baixa (%d quadros/s) no próximo clarão" % int(fps))
+		elif _direto and _qualidade == "baixa" and fps < alvo * 0.6 and str(Ajustes.valor("video", "desenho")) == "auto" \
+				and str(Ajustes.valor("video", "desenho_medido")) != "imagem":
+			# nem na baixa o desenho direto tem fôlego (placa fraca demais
+			# para a resolução da TV): da próxima vez que o jogo abrir, a
+			# imagem 3D separada, que desce até 720 px
+			Ajustes.definir("video", "desenho_medido", "imagem")
+			print("Desenho automático: imagem 3D separada na próxima abertura (%d quadros/s na baixa)" % int(fps))
 	elif fps >= alvo * 0.97 and atrasados < 0.01:
 		_fps_ruins = 0
 		_fps_bons += 1

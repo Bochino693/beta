@@ -40,6 +40,15 @@ const PADRAO := {
 	"video": {
 		"qualidade": "auto",
 		"cenario": "",             # fundo: "leve" ou "completo" ("" = o padrão desta versão, strike/video/cenario)
+		# desenho da tela: "direto" (o 3D e a interface direto na tela, numa
+		# passada, na resolução da TV), "imagem" (o 3D numa imagem separada,
+		# de 720 a 1080 px) ou "auto" (direto; imagem só se o jogo já viu esta
+		# máquina sem fôlego no direto, mesmo na qualidade baixa)
+		"desenho": "auto",
+		"desenho_medido": "",      # o que o automático viu ("imagem" = sem fôlego no direto)
+		# antisserrilhado 4x da própria tela da TV Box (vale ao abrir o jogo
+		# de novo: o Android escolhe a tela antes do jogo começar)
+		"antisserrilhado": true,
 		"nitidez": "auto",         # resolução do 3D: auto (sobe e desce sozinha) ou 100%/90%/80%/70% fixa
 		# o último fator automático bom (começa dele ao ligar), sobre 1080 px;
 		# 0 = esta máquina ainda não mediu (o "fator" antigo era sobre 720)
@@ -125,6 +134,11 @@ func _notification(what: int) -> void:
 
 func definir(secao: String, chave: String, v) -> void:
 	_cfg.set_value(secao, chave, v)
+	if secao == "video" and chave == "antisserrilhado":
+		_marcar_antisserrilhado()
+	elif secao == "video" and chave == "desenho":
+		# o operador escolheu: o que o automático tinha visto recomeça
+		_cfg.set_value("video", "desenho_medido", "")
 	_salvar()
 	emit_signal("mudaram")
 
@@ -133,8 +147,23 @@ func restaurar_padrao() -> void:
 	for secao in PADRAO:
 		for chave in PADRAO[secao]:
 			_cfg.set_value(secao, chave, PADRAO[secao][chave])
+	_marcar_antisserrilhado()
 	_salvar()
 	emit_signal("mudaram")
+
+
+## O Android escolhe a tela (com ou sem o antisserrilhado da placa) ANTES
+## do jogo começar: quem escolhe (tools/android/TelaNitida) olha só se este
+## arquivo existe na pasta do jogo.
+const SEM_ANTISSERRILHADO := "user://sem_antisserrilhado"
+
+
+func _marcar_antisserrilhado() -> void:
+	if bool(valor("video", "antisserrilhado")):
+		if Compat.existe_arquivo(SEM_ANTISSERRILHADO):
+			Compat.apagar(SEM_ANTISSERRILHADO)
+	elif not Compat.existe_arquivo(SEM_ANTISSERRILHADO):
+		Compat.gravar_texto(SEM_ANTISSERRILHADO, "desligado no menu do operador\n")
 
 
 # ---------------------------------------------------------------- atalhos

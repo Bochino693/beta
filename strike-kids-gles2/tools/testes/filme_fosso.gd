@@ -40,7 +40,8 @@ func _idle(delta: float) -> bool:
 			if p._preparando or n < 30:
 				return false
 			p.set_process(false)
-			p.vp.msaa = Viewport.MSAA_DISABLED
+			p.sem_msaa()
+			p.hud.visible = false
 			_fase = 1
 		1:
 			# jogada nova: para o que estava rodando, pinos no lugar
@@ -93,6 +94,6 @@ func _idle(delta: float) -> bool:
 
 
 func _salvar() -> void:
-	var img: Image = p.vp.get_texture().get_data()
+	var img: Image = p.foto_3d()
 	img.save_png("%s/j%d_%03d.png" % [pasta, _feitas, _foto])
 	_foto += 1

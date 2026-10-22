@@ -40,7 +40,9 @@ func _idle(_d: float) -> bool:
 		p.set_process(false)
 		p.set_physics_process(false)
 		# (o llvmpipe devolve a imagem preta com o MSAA da OpenGL ES 2.0)
-		p.vp.msaa = Viewport.MSAA_DISABLED
+		p.sem_msaa()
+		# só o 3D (no desenho direto, a interface fica na mesma imagem)
+		p.hud.visible = false
 		# para a demonstração que estava rodando (as corrotinas param sozinhas)
 		p._novo_seq()
 		p.bola.guardar()
@@ -105,8 +107,7 @@ func _esperar(q: int) -> void:
 func _foto() -> void:
 	if _atual == "":
 		return
-	# (a imagem da Viewport já sai em pé: render_target_v_flip)
-	var img: Image = p.vp.get_texture().get_data()
+	var img: Image = p.foto_3d()
 	var nome := "%s/%s_%s.png" % [pasta, _tema, _atual]
 	img.save_png(nome)
 	print("FOTO ", nome)

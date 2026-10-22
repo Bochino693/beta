@@ -31,6 +31,11 @@ def srgb_lin(c):
     return np.where(c <= 0.04045, c / 12.92, ((c + 0.055) / 1.055) ** 2.4)
 
 
+# as cores dos adesivos são cores de TELA (sRGB): a conta é em luz linear,
+# então elas entram convertidas — sem isso saíam em tom pastel, apagadas
+ARCO_L = srgb_lin(ARCO)
+
+
 def bilinear(img, u, v):
     """amostra com repetição (u, v em 0..1, qualquer valor)."""
     h, w, _ = img.shape
@@ -104,10 +109,51 @@ class Camada:
         self.c = self.c * (1 - cobre(dist, w)[..., None]) + (cor * (0.75 + 0.6 * acesa)) * cobre(dist, w)[..., None]
 
 
+def tabuas(madeira, X, Zm, w):
+    """MADEIRA DE PISTA DE VERDADE (cor linear): tábuas de maple cor de mel
+    ao longo da pista, cada uma num tom (claras e mais douradas
+    alternando), com o veio da textura de madeira correndo ao longo dela,
+    emendas de topo aqui e ali e a fresta fininha entre as tábuas. Tons de
+    madeira clara e viva (nada de laranja chapado): a luz do jogo é neutra
+    e o verniz brilha por cima."""
+    rng = np.random.RandomState(11)
+    nb = 16
+    bw = 2 * MEIA / nb
+    pos = (X + MEIA) / bw
+    bi = np.clip(np.floor(pos), 0, nb - 1).astype(np.int64)
+    fx = pos - np.floor(pos)
+    tom_t = rng.uniform(0.0, 1.0, nb).astype(np.float32)
+    off_u = rng.uniform(0.0, 1.0, nb).astype(np.float32)
+    off_v = rng.uniform(0.0, 1.0, nb).astype(np.float32)
+    claro = srgb_lin([0.97, 0.77, 0.45])
+    dourado = srgb_lin([0.90, 0.59, 0.27])
+    t = tom_t[bi][..., None]
+    base = claro * (1.0 - t) + dourado * t
+    # o veio: a textura de madeira, esticada ao longo da tábua (cada tábua
+    # num pedaço diferente dela), só como variação de claro/escuro
+    g = bilinear(madeira, fx * 0.22 + off_u[bi], -Zm / (REPETE * 1.6) + off_v[bi])
+    gl = (g * np.array([0.299, 0.587, 0.114], np.float32)).sum(-1)
+    gl = (gl - gl.mean()) / max(gl.std(), 1e-4)
+    c = base * (1.0 + 0.085 * np.clip(gl, -2.5, 2.5))[..., None]
+    # emendas de topo (cada tábua tem 2 ou 3 ao longo da pista)
+    d = -Zm
+    emenda = np.zeros(d.shape, np.float32)
+    for k in range(3):
+        zk = rng.uniform(1.5, 10.0, nb).astype(np.float32)[bi]
+        emenda = np.maximum(emenda, np.exp(-np.abs(d - zk) / 0.004))
+    c = c * (1.0 - 0.28 * emenda)[..., None]
+    # a fresta entre as tábuas (fininha, mais escura)
+    borda = np.minimum(fx, 1.0 - fx) * bw
+    c = c * (1.0 - 0.42 * np.exp(-borda / max(0.0016, w * 0.6)))[..., None]
+    # perto das canaletas a madeira escurece um pouquinho (dá volume)
+    ax = np.abs(X)
+    c = c * (1.0 - 0.14 * np.clip((ax - 0.48) / 0.19, 0.0, 1.0) ** 2)[..., None]
+    return c.astype(np.float32)
+
+
 def main():
     madeira = np.asarray(Image.open(sys.argv[1]).convert("RGB"), np.float32) / 255.0
     madeira = srgb_lin(madeira)
-    tom = srgb_lin([1.0, 0.84, 0.6])
     W, H = LARG * SS, ALT * SS
     # centro de cada amostra no mundo
     x = ((np.arange(W, dtype=np.float32) + 0.5) / W - 0.5) * (2 * MEIA)
@@ -117,24 +163,20 @@ def main():
     ax = np.abs(X)
     w = max(2 * MEIA / W, (Z0 - Z_FIM) / H) * 1.2
 
-    u = X / (MEIA * 2.0) + 0.5
-    v = -Zm / REPETE
-    c = bilinear(madeira, u, v) * tom
-    l = (c * np.array([0.299, 0.587, 0.114], np.float32)).sum(-1, keepdims=True)
-    c = np.clip((l + (c - l) * 1.25) * 1.04 - 0.02, 0.0, 1.0)
+    c = tabuas(madeira, X, Zm, w)
     cam = Camada(c)
     mascara = np.zeros(d.shape, np.float32)
 
     # linha de falta (o pulso fica na média)
     falta = np.abs(d - 0.02) - 0.022
-    cam.mix((1.0, 0.18, 0.35), cobre(falta, w))
-    cam.soma((1.0, 0.2, 0.4), np.exp(-np.maximum(falta, 0.0) * 40.0) * 0.35 * (d < 0.4))
+    cam.mix(srgb_lin([1.0, 0.18, 0.35]), cobre(falta, w))
+    cam.soma(srgb_lin([1.0, 0.2, 0.4]), np.exp(-np.maximum(falta, 0.0) * 40.0) * 0.35 * (d < 0.4))
 
     # pontos de mira a 1,6 m
     ip = np.clip(np.round(X / 0.17), -3, 3)
     dd = np.sqrt((X - ip * 0.17) ** 2 + (d - 1.6) ** 2) - 0.042
     zona = np.abs(d - 1.6) < 0.14
-    cor = ARCO[(ip + 3).astype(np.int64)]
+    cor = ARCO_L[(ip + 3).astype(np.int64)]
     antes = cam.c.copy()
     cam.adesivo(dd, w, cor, 0.013, 0.6)
     cam.c = np.where(zona[..., None], cam.c, antes)
@@ -145,7 +187,7 @@ def main():
     r = 0.17 + k * 0.022
     de = sd_estrela(X, qy, r, 0.48) - 0.014
     zona = (ax < 0.36) & (d > 1.9) & (d < DP - 1.05)
-    cor = ARCO[np.mod(k * 2, 7).astype(np.int64)]
+    cor = ARCO_L[np.mod(k * 2, 7).astype(np.int64)]
     antes = cam.c.copy()
     cam.adesivo(de, w, cor, 0.02, 0.35)
     cam.c = np.where(zona[..., None], cam.c, antes)
@@ -156,7 +198,7 @@ def main():
     ponta = 3.78 + (3.0 - np.abs(is_)) * 0.3
     ds = sd_tri(X - is_ * 0.17, ponta - d, 0.066, 0.44)
     zona = (d > 3.2) & (d < 4.85)
-    cor = ARCO[(is_ + 3).astype(np.int64)]
+    cor = ARCO_L[(is_ + 3).astype(np.int64)]
     antes = cam.c.copy()
     cam.adesivo(ds, w, cor, 0.016, 0.875)
     cam.c = np.where(zona[..., None], cam.c, antes)
@@ -171,11 +213,11 @@ def main():
     mpx, mpy = (kk - lin * 0.5) * 0.38, lin * 0.329
     marca = cobre(np.sqrt((r2x - mpx) ** 2 + (r2y - mpy) ** 2) - 0.08, w)
     cc = cam.c
-    cc2 = cc * (1 + 0.2 * marca[..., None]) + 0.05 * marca[..., None]
+    cc2 = cc * (1 - 0.18 * marca[..., None]) + srgb_lin([0.62, 0.34, 0.16]) * (0.18 * marca)[..., None]
     t = np.clip((d - (DP - 0.7)) / 0.3, 0.0, 1.0)
-    cc2 = cc2 * (1.0 + 0.1 * (t * t * (3 - 2 * t)))[..., None]
+    cc2 = cc2 * (1.0 + 0.08 * (t * t * (3 - 2 * t)))[..., None]
     spot = np.exp(-((r2x) ** 2 + (r2y - 0.45) ** 2) * 1.6)
-    cc2 = cc2 + np.array([1.0, 0.92, 0.75], np.float32) * (spot * 0.28)[..., None]
+    cc2 = cc2 + np.array([1.0, 0.92, 0.75], np.float32) * (spot * 0.1)[..., None]
     cam.c = np.where(zona[..., None], cc2, cc)
 
     # reduz o supersampling (média de cada bloco SSxSS)

@@ -19,6 +19,9 @@ func _init() -> void:
 
 func _idle(_d: float) -> bool:
 	n += 1
+	if p.vp == null:
+		print("depurar_3d confere a imagem 3D separada: rode com STRIKE_DESENHO=imagem")
+		return true
 	if n == 90 or n == 240:
 		var vp: Viewport = p.vp
 		print("quadro ", n, " vp.size=", vp.size, " update=", vp.render_target_update_mode, " msaa=", vp.msaa,

@@ -54,14 +54,16 @@ O QUE MUDOU PARA RODAR NA OPENGL ES 2.0
     MOTOR (cada um desenharia a cena de novo): a neblina do fundo e feita
     nos proprios shaders do cenario, por vertice, como no cenario leve do
     Godot 4 (e ela que deixa o mar verde-agua ao longe).
-  * IMAGEM 3D NITIDA: de 720 px ate a resolucao da tela (1080), com
-    ANTISSERRILHADO 4x (na Mali-400/450 o 4x e o modo da propria placa:
-    quase de graca). A nitidez automatica sobe enquanto a TV Box segura 60
-    quadros por segundo e desce se nao segurar (nunca abaixo de 720 px);
-    na 1a vez a TV Box comeca no meio (864 px) e a escolha fica guardada.
-    Antes o 3D ficava preso em 720 px esticado ate 1080: a imagem ficava
-    fosca. Na abertura o jogo confere: se com o antisserrilhado a imagem
-    3D vier preta (acontece em alguns PCs), ele desliga sozinho.
+  * DESENHO DIRETO NA TELA (versao 5.9): o 3D e a interface vao direto
+    para a tela da TV, numa passada so, na resolucao da TV, com o
+    antisserrilhado 4x da propria tela (veja "VERSAO 5.9"). No modo
+    compativel ("Desenho da tela: IMAGEM 3D" no menu do operador) o 3D
+    fica numa imagem separada, de 720 px ate a resolucao da tela (1080),
+    com ANTISSERRILHADO 4x: a nitidez automatica sobe enquanto a TV Box
+    segura 60 quadros por segundo e desce se nao segurar (nunca abaixo de
+    720 px); na 1a vez a TV Box comeca no meio (864 px) e a escolha fica
+    guardada. Na abertura o jogo confere: se com o antisserrilhado a
+    imagem 3D vier preta (acontece em alguns PCs), ele desliga sozinho.
   * TEXTURAS menores e comprimidas (ETC1) onde nao tem transparencia: o
     jogo cabe numa TV Box de 1 GB.
   * FISICA BULLET (a do Godot 3) no lugar da Jolt: atrito e quique foram
@@ -74,6 +76,79 @@ O QUE MUDOU PARA RODAR NA OPENGL ES 2.0
     mesmos nomes. O APK e montado sem Gradle (tools/android/montar_apk.sh).
   * Pacote com.lazersport.strikekids.gles2: instala AO LADO da versao
     Godot 4 (nao substitui).
+
+
+VERSAO 5.9: BONITO, COLORIDO E LEVE NA MALI-450
+-----------------------------------------------
+O QUE DEIXAVA O JOGO PESADO E FOSCO (achado no codigo do proprio Godot
+3.6): com o 3D numa imagem separada, cada quadro passava QUATRO vezes
+pela tela inteira - (1) o 3D desenhado numa imagem, (2) a copia do
+antisserrilhado (no Android o Godot 3 copia essa imagem inteira de novo),
+(3) a imagem 3D esticada na tela com a interface, em outra imagem, e (4)
+essa imagem copiada inteira para a TV. Num PC isso nao pesa; na
+Mali-400/450, que tem pouca memoria rapida, eram ~56 MB lidos e escritos
+por quadro (3,4 GB/s a 60 quadros, mais do que a TV Box tem) - e, para
+aguentar, o 3D descia para 720-864 px e era esticado (imagem fosca).
+  * DESENHO DIRETO NA TELA (o novo padrao): o 3D e a interface vao direto
+    para a tela da TV, numa passada so, na resolucao da propria TV, com o
+    ANTISSERRILHADO 4x DA PROPRIA TELA - na Mali-400/450 ele e resolvido
+    dentro da placa, ladrilho por ladrilho, sem gastar memoria. Para isso
+    o modelo Android do jogo tem uma peca do Godot trocada
+    (tools/android/TelaNitida: a que escolhe o formato da tela passa a
+    preferir a de 4 amostras; sem ela, escolhe como antes). Com a TV de
+    pe ligada deitada, a camera 3D gira a imagem (como a interface).
+    Medido no PC (desenho por software, na mesma resolucao): 10% mais
+    leve por quadro; na TV Box a economia e bem maior (3 das 4 passadas
+    de tela inteira sumiram).
+  * O AJUSTE DE COR (cores vivas) era mais uma passada na tela inteira:
+    agora e feito dentro de cada desenho 3D (viva() nos shaders), na
+    mesma conta que entrega a cor - de graca.
+  * O modo antigo continua no menu do operador ("Desenho da tela: IMAGEM
+    3D (compativel)"), com a resolucao automatica de 720 a 1080 px. No
+    AUTOMATICO, se nem na qualidade baixa o direto tiver folego (placa
+    fraca demais para a resolucao da TV), o jogo passa sozinho para o
+    compativel na proxima vez que abrir. "Antisserrilhado da tela" (vale
+    ao abrir o jogo de novo) liga e desliga o 4x da placa.
+  * MENU DO OPERADOR: ao sair dele, o jogo remontava o mundo inteiro e
+    preparava todos os desenhos de novo (no Godot 3 dois "dicionarios" so
+    sao iguais se forem o mesmo: a conferencia "mudou algum ajuste?" dava
+    sempre SIM). Agora volta na hora.
+CORES VIVAS (antes ficavam apagadas):
+  * LUZ DE PALCO na pista, nos pinos, nos bichinhos e na maquina: branca
+    e forte em todos os cenarios (antes a luz colorida de cada cenario -
+    verde no mar, roxa no espaco - tingia a pista e os bichinhos); o
+    cenario em volta continua com a luz dele.
+  * PISTA NOVA (tools/assar_pista.py): tabuas de madeira clara e dourada,
+    com veios, emendas e verniz; setas, estrelas e pontos nas cores
+    certas (antes saiam desbotados).
+  * BOLAS: a do Bob agora e VERMELHA (com as patinhas amarelas); a da Mia
+    continua laranja com estrelas; as duas com borda clara e brilho.
+  * A cor da imagem realca mais as cores apagadas (ceu, madeira, chao)
+    sem estourar as fortes, com um pouco mais de contraste.
+  * SOL E LUA do lado certo (estavam de ponta-cabeca).
+FISICA DOS PINOS (eram leves demais e voltavam do fosso para a pista):
+  * Pinos mais pesados (gravidade 1,3x), quicando menos (pino x pino e
+    pino x pista 0,5; bola x pino 0,45) e girando menos no ar.
+  * O FOSSO SEGURA OS PINOS: pino que caiu no fosso nao volta para a
+    pista (uma parede so de ida na beira do fosso; no chao do fosso eles
+    param rapido).
+  * Tabela de jogadas calibrada de novo nesta fisica (3.834 jogadas): o
+    planejador acerta a jogada (ate 1 pino de diferenca) em 87% das
+    vezes (antes 82%).
+ALCAPAO DE DESENHO ANIMADO: depois da varrida o alcapao abre e os pinos
+caem DIRETO no poco, um de cada vez, da esquerda para a direita: cada um
+da um pulinho (amassa e estica), cai girando e escurece la no fundo - com
+um xilofone subindo a escala, um apito de desenho animado e um "poc"
+quando chega no fundo (sons/plim.wav, sons/fiu.wav).
+"REDUZIR O PESO" E O BLENDER: o Blender e um programa de modelar em 3D;
+"passar no Blender e importar de novo" quer dizer diminuir os triangulos
+de cada modelo (o "Decimate" dele). Isso ja foi feito aqui com o
+meshoptimizer (a mesma tecnica, automatica, olhando a forma, a normal e
+a cor): bichinho de 27-37 mil para ~7 mil triangulos, pino de 2.400 para
+646, cenario 3 a 5 vezes mais leve (veja abaixo). As texturas tambem ja
+tem tamanho limitado (rostos 2048, telas 1024) e ETC1 onde nao ha
+transparencia (~135 MB na placa). O peso que faltava tirar era o do
+caminho da imagem (acima).
 
 
 LISO NA TV BOX (TX9 e parecidas)
@@ -199,6 +274,10 @@ COMO TESTAR NO PC
    - START: 1 ou Espaco    - Credito: 5    - Configuracao/operador: 9
    - F3 liga/desliga o painel de desempenho.
    - Numa janela em pe:  godot --path . -- --janela=540x960
+   - Desenho da tela: STRIKE_DESENHO=direto|imagem (variavel de ambiente;
+     no PC o direto passa pela imagem da janela, para os testes tirarem
+     fotos; STRIKE_TELA_DIRETA=1 desenha direto na tela como na TV Box) e
+     a TV girada: STRIKE_GIRO=1 com --janela=960x540.
 3. Para ver no PC como fica na TV Box, rode com a placa forcada em
    OpenGL ES 2.0 (ja e o padrao do projeto).
 Webcam no PC (Windows): coloque o ffmpeg.exe na pasta do jogo (a imagem
@@ -233,7 +312,7 @@ pasta, junto do project.godot). Ele faz tudo sozinho e mostra cada passo:
   Se der erro, envie o arquivo build\android\GERACAO-COMPLETA.log.
 
 NO LINUX (o jeito usado para o APK pronto):
-     bash tools/android/montar_apk.sh StrikeKids_GLES2.apk 5.8-gles2
+     bash tools/android/montar_apk.sh StrikeKids_GLES2.apk 5.9-gles2
   Os mesmos passos do GERAR_APK.bat. As ferramentas (Godot 3.6.3
   headless, uber-apk-signer e, para conferir, um python com o androguard)
   ficam em ~/strikekids_ferramentas (variavel FERRAMENTAS; veja o comeco
@@ -243,7 +322,11 @@ NO LINUX (o jeito usado para o APK pronto):
   banner: tools/android/StrikeCamera/construir.sh e StrikeSerial/
   construir.sh (refazem os .aar e o android/plugins/classes2.dex) e
      python3 -I tools/android/modelo_android.py <android_release.apk> <apktool.jar>
-  (refaz o android/modelo_android/extras.zip, com o apktool 2.10).
+  (refaz o android/modelo_android/extras.zip, com o apktool 2.10) e depois
+     sh tools/android/TelaNitida/construir.sh
+  (poe no extras.zip o classes.dex do Godot com a tela de antisserrilhado
+  4x da placa; precisa do dalvik-dx 9.0.0_r3 do Maven Central em
+  ~/strikekids_ferramentas).
 
 CAMERA, ARDUINO, ZERO DELAY E MENU DO OPERADOR
 ----------------------------------------------
@@ -275,7 +358,8 @@ PASTAS
   android/    plugins/ (StrikeCamera e StrikeSerial: .aar + .gdap e o
               classes2.dex) e modelo_android/extras.zip (o que o modelo
               Android do Godot ganha: plugins, permissao da camera,
-              filtros USB, banner da TV)
+              filtros USB, banner da TV e o classes.dex com a tela de
+              antisserrilhado 4x - tools/android/TelaNitida)
   GERAR_APK.bat / GERAR_APK.ps1   gera o APK no Windows (veja acima)
   arduino/    firmware do Arduino da maquina
   dados/      tabela de jogadas calibrada na fisica Bullet (vai no APK)
@@ -286,8 +370,9 @@ PASTAS
               ajustar_importacao.py,
               exportar_godot4.gd / montar_modelos.gd (modelos do Godot 4),
               carregar_scripts.gd (confere se os scripts compilam),
-              testar_shaders.gd, android/ (plugins e montagem do APK
-              no Linux: montar_apk.sh),
+              testar_shaders.gd, android/ (plugins, TelaNitida - a tela
+              com antisserrilhado da placa - e montagem do APK no Linux:
+              montar_apk.sh),
               limpar_forma_pino.gd (forma do pino sem pontos de dentro),
               forma_pino_leve.gd (a forma do pino com 71 pontos),
               malhas_leves.gd + malhas_leves.py (simplifica as malhas de
@@ -299,7 +384,10 @@ PASTAS
               pista ate a cacapa (pulos, pinos, tempo); filme_fosso:
               fotos da bola atravessando o fosso; custo_fisica e
               fisica_experimento: custo da fisica (rode com o Godot 3
-              "server", sem placa de video); orcamento: vertices por
+              "server", sem placa de video); filme_pinos: fotos de um
+              strike de perto e do alcapao; foto_bolas: as bolas do Bob e
+              da Mia; teste_menu_direto: menu do operador e modal no
+              desenho atual; orcamento: vertices por
               fase e por parte; vitrine: fotos fixas para comparar o
               visual; listar_mundo: as pecas do mundo e o peso de cada
               uma; perfil_remoto.py: tempo de cada funcao de script em

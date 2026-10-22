@@ -86,17 +86,16 @@ func _process(_d: float) -> void:
 		return
 	var ms: float = float(agora - _t0) / 1000.0 / max(_quadros, 1)
 	var qps: float = 1000.0 / max(ms, 0.001)
-	var vp: Viewport = principal.get("vp")
 	var cor := Color("#7CFF7C") if qps >= 50.0 else (Color("#FFE14D") if qps >= 30.0 else Color("#FF6B6B"))
 	Compat.cor_rotulo(_texto, cor)
 	# Godot 3: sem a medida da placa de vídeo (RenderingServer do Godot 4);
 	# o Godot 3 conta vértices, não triângulos
-	_texto.text = "%d QPS   (%.1f ms, pior %.0f ms)\nCPU %.1f ms · %d desenhos · %d mil vértices\n3D %dx%d (%d%%) · %s · memória %d MB · vídeo %d MB" % [
+	_texto.text = "%d QPS   (%.1f ms, pior %.0f ms)\nCPU %.1f ms · %d desenhos · %d mil vértices\n%s · %s · memória %d MB · vídeo %d MB" % [
 		int(round(qps)), ms, _pior,
 		Performance.get_monitor(Performance.TIME_PROCESS) * 1000.0,
 		Performance.get_monitor(Performance.RENDER_DRAW_CALLS_IN_FRAME),
 		Performance.get_monitor(Performance.RENDER_VERTICES_IN_FRAME) / 1000,
-		vp.size.x if vp else 0, vp.size.y if vp else 0, int(round(float(principal.get("_fator")) * 100.0)),
+		principal.descricao_3d(),
 		_nome(str(principal.get("_qualidade"))),
 		int(Performance.get_monitor(Performance.MEMORY_STATIC) / 1048576),
 		int(Performance.get_monitor(Performance.RENDER_VIDEO_MEM_USED) / 1048576)]
@@ -179,14 +178,14 @@ func testar():
 		recomendada = "baixa"
 	var d: Dictionary = Time.get_datetime_dict_from_system()
 	var data := "%02d/%02d/%04d %02d:%02d" % [d["day"], d["month"], d["year"], d["hour"], d["minute"]]
-	var vs: Vector2 = principal.vp.size
+	var vs: Vector2 = principal.tamanho_3d()
 	# Godot 3: o tamanho da janela em pixels (o get_window().size do Godot 4)
 	var janela: Vector2 = OS.window_size
 	var r := {"media_qps": media_qps, "pior_quadro_ms": p99, "pior_plano": pior_plano, "pior_plano_qps": pior_qps,
 		"qualidade": qual, "recomendada": recomendada, "veredito": veredito, "por_plano": por_plano,
-		"resolucao_3d": "%dx%d" % [vs.x, vs.y], "tela": "%dx%d" % [janela.x, janela.y], "data": data}
-	var linhas := "TESTE DE DESEMPENHO\n%s\n\n%s\n\nMédia: %d quadros por segundo (QPS)\nPior momento: %.0f ms (%s: %d QPS)\nQualidade usada: %s (imagem 3D %s)\nRECOMENDADA: %s\n\n" % [
-		data, veredito, int(round(media_qps)), p99, pior_plano, int(round(pior_qps)), _nome(qual), r["resolucao_3d"],
+		"resolucao_3d": "%dx%d" % [vs.x, vs.y], "desenho_3d": principal.descricao_3d(), "tela": "%dx%d" % [janela.x, janela.y], "data": data}
+	var linhas := "TESTE DE DESEMPENHO\n%s\n\n%s\n\nMédia: %d quadros por segundo (QPS)\nPior momento: %.0f ms (%s: %d QPS)\nQualidade usada: %s (%s)\nRECOMENDADA: %s\n\n" % [
+		data, veredito, int(round(media_qps)), p99, pior_plano, int(round(pior_qps)), _nome(qual), r["desenho_3d"],
 		_nome(recomendada)]
 	for k in por_plano:
 		linhas += "  %s: %d QPS\n" % [k, int(round(por_plano[k]))]

@@ -28,7 +28,7 @@ uniform vec4 cor_reflexo_b : hint_color = vec4(0.91, 0.22, 0.31, 1.0);
 uniform vec3 luz_cena = vec3(1.2, 1.2, 1.22);   // linear (o Mundo calcula)
 uniform vec4 cor_ceu : hint_color = vec4(0.85, 0.93, 1.0, 1.0);
 uniform vec3 dir_sol = vec3(0.35, 0.79, 0.5);
-uniform float verniz = 0.32;
+uniform float verniz = 0.24;
 
 // a coordenada da textura vai direto do vértice para a leitura (na Mali-400
 // assim ela não perde precisão); `xd` = (x, distância da linha de falta)
@@ -37,11 +37,22 @@ varying vec2 xd;
 varying vec3 olhar;
 
 
+// COR VIVA: realça mais as cores menos saturadas (céu, madeira, chão) e
+// quase não mexe nas que já são fortes, com um pouco mais de contraste.
+// Era uma passada a mais na tela inteira (tela3d.shader); aqui sai de
+// graça, na mesma conta que entrega a cor (as mesmas contas de lá).
+vec3 viva(vec3 c) {
+	float lum = dot(c, vec3(0.299, 0.587, 0.114));
+	float sat = max(c.r, max(c.g, c.b)) - min(c.r, min(c.g, c.b));
+	c = mix(vec3(lum), c, 1.08 + 0.32 * (1.0 - sat));
+	return clamp(c * 1.07 - 0.035, 0.0, 1.0);
+}
+
 // a mesma curva de tela do Godot 4 ("filmic", branco 1,6, + sRGB),
 // aproximada para a meia precisão da Mali-400 (erro < 3%)
 vec3 tela_rapida(vec3 x) {
 	x = max(x, vec3(0.0));
-	return min(sqrt(x) * (1.29 - 0.1 * x) / (1.0 + 0.25 * x), vec3(1.0));
+	return viva(min(sqrt(x) * (1.29 - 0.1 * x) / (1.0 + 0.25 * x), vec3(1.0)));
 }
 
 void vertex() {
