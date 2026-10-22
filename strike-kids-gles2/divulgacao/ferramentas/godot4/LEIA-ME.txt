@@ -1,0 +1,28 @@
+GRAVACOES PARA A DIVULGACAO (versao Godot 4 do jogo, repositorio beta-advanced)
+==============================================================================
+
+Estes arquivos vao em strike-kids/tools/testes/ da versao Godot 4 (a de
+grafico ALTO). Nao fazem parte desta edicao Godot 3.6 (ficam aqui so
+guardados, junto do kit de divulgacao).
+
+video.gd  - o DIRETOR do video: joga uma partida roteirada sozinho e grava
+            CADA quadro em JPG + os sons com o numero do quadro (sons.json,
+            com as trocas de estado em "estados"). O principal.gd do jogo o
+            liga com --video=. Cenas:
+              promo  1 jogador (Bob): atracao pelos 4 cenarios, START,
+                     escolha, SORRIA!, 3 strikes (replay no 1o, PEGANDO
+                     FOGO! no 2o, bola de fogo no 3o), fim de jogo
+              dupla  2 jogadores (Bob x Mia), parque e fundo do mar
+              curto  1 rodada so (teste rapido)
+            Na pasta do projeto Godot 4 (em PC sem placa de video:
+            xvfb-run), quadros fixos a 30 por segundo:
+              godot --path . --fixed-fps 30 --audio-driver Dummy --resolution 1080x1920 \
+                    -- --janela=1080x1920 --video=PASTA --cena=promo --camera-falsa
+            (--janela=1920x1080 para o horizontal; --camera-falsa usa a foto
+            de teste no lugar da camera). Leva ~1 h por cena num PC sem
+            placa de video (cada quadro e desenhado inteiro, sem pular).
+
+adesivos_render.gd/.tscn - o Bob e a Mia de corpo inteiro com fundo
+            transparente, para os adesivos (pasta ../../artes):
+              godot --path . res://tools/testes/adesivos_render.tscn -- \
+                    --saida=PASTA --tam=4800 [--so=bob_acenando,mia_festa]

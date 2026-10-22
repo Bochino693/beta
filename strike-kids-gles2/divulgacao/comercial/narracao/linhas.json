@@ -1,0 +1,160 @@
+{
+ "pf_dora": [
+  {
+   "chave": "abre",
+   "arquivo": "pf_dora_abre.wav",
+   "dur": 3.371,
+   "legenda": "Olha só: chegou o STRIKE KIDS, o boliche infantil 3D!",
+   "fala": "Olha só: chegou o Straik Kids, o boliche infantil em três dê!"
+  },
+  {
+   "chave": "amigo",
+   "arquivo": "pf_dora_amigo.wav",
+   "dur": 3.307,
+   "legenda": "Escolha o seu amigo: o cachorrinho Bob ou a gatinha Mia!",
+   "fala": "Escolha o seu amigo: o cachorrinho Bob, ou a gatinha Mi-a!"
+  },
+  {
+   "chave": "foto",
+   "arquivo": "pf_dora_foto.wav",
+   "dur": 2.603,
+   "legenda": "Sorria pra câmera: a sua foto vai pro placar!",
+   "fala": "Sorria pra câmera: a sua foto vai pro placar!"
+  },
+  {
+   "chave": "jogar",
+   "arquivo": "pf_dora_jogar.wav",
+   "dur": 3.051,
+   "legenda": "É só rolar a bola, derrubar os pinos e fazer STRIKE!",
+   "fala": "É só rolar a bola, derrubar os pinos, e fazer istráique!"
+  },
+  {
+   "chave": "replay",
+   "arquivo": "pf_dora_replay.wav",
+   "dur": 2.155,
+   "legenda": "E ainda tem REPLAY em câmera lenta!",
+   "fala": "E ainda tem replay em câmera lenta!"
+  },
+  {
+   "chave": "cenarios",
+   "arquivo": "pf_dora_cenarios.wav",
+   "dur": 5.355,
+   "legenda": "A cada rodada, um cenário novo: espaço, fundo do mar, selva dos dinos e parque de diversões!",
+   "fala": "A cada rodada, um cenário novo: espaço, fundo do mar, selva dos dinos, e parque de diversões!"
+  },
+  {
+   "chave": "amigos",
+   "arquivo": "pf_dora_amigos.wav",
+   "dur": 1.92,
+   "legenda": "Jogue sozinho ou com um amigo!",
+   "fala": "Jogue sozinho, ou com um amigo!"
+  },
+  {
+   "chave": "fogo",
+   "arquivo": "pf_dora_fogo.wav",
+   "dur": 2.581,
+   "legenda": "Dois STRIKES seguidos... e a bola PEGA FOGO!",
+   "fala": "Dois istráiques seguidos... e a bola pega fogo!"
+  },
+  {
+   "chave": "ranking",
+   "arquivo": "pf_dora_ranking.wav",
+   "dur": 2.944,
+   "legenda": "No final, a sua foto entra na classificação do dia!",
+   "fala": "No final, a sua foto entra na classificação do dia!"
+  },
+  {
+   "chave": "final",
+   "arquivo": "pf_dora_final.wav",
+   "dur": 4.288,
+   "legenda": "STRIKE KIDS: diversão garantida no seu parque, shopping ou buffet infantil!",
+   "fala": "Straik Kids: diversão garantida no seu parque, shopping ou bufê infantil!"
+  },
+  {
+   "chave": "marca",
+   "arquivo": "pf_dora_marca.wav",
+   "dur": 1.259,
+   "legenda": "Lazer & Sport",
+   "fala": "Lazer and Sport."
+  }
+ ],
+ "pm_alex": [
+  {
+   "chave": "abre",
+   "arquivo": "pm_alex_abre.wav",
+   "dur": 3.477,
+   "legenda": "Olha só: chegou o STRIKE KIDS, o boliche infantil 3D!",
+   "fala": "Olha só: chegou o Straik Kids, o boliche infantil em três dê!"
+  },
+  {
+   "chave": "amigo",
+   "arquivo": "pm_alex_amigo.wav",
+   "dur": 3.307,
+   "legenda": "Escolha o seu amigo: o cachorrinho Bob ou a gatinha Mia!",
+   "fala": "Escolha o seu amigo: o cachorrinho Bob, ou a gatinha Mi-a!"
+  },
+  {
+   "chave": "foto",
+   "arquivo": "pm_alex_foto.wav",
+   "dur": 2.688,
+   "legenda": "Sorria pra câmera: a sua foto vai pro placar!",
+   "fala": "Sorria pra câmera: a sua foto vai pro placar!"
+  },
+  {
+   "chave": "jogar",
+   "arquivo": "pm_alex_jogar.wav",
+   "dur": 3.093,
+   "legenda": "É só rolar a bola, derrubar os pinos e fazer STRIKE!",
+   "fala": "É só rolar a bola, derrubar os pinos, e fazer istráique!"
+  },
+  {
+   "chave": "replay",
+   "arquivo": "pm_alex_replay.wav",
+   "dur": 2.219,
+   "legenda": "E ainda tem REPLAY em câmera lenta!",
+   "fala": "E ainda tem replay em câmera lenta!"
+  },
+  {
+   "chave": "cenarios",
+   "arquivo": "pm_alex_cenarios.wav",
+   "dur": 5.419,
+   "legenda": "A cada rodada, um cenário novo: espaço, fundo do mar, selva dos dinos e parque de diversões!",
+   "fala": "A cada rodada, um cenário novo: espaço, fundo do mar, selva dos dinos, e parque de diversões!"
+  },
+  {
+   "chave": "amigos",
+   "arquivo": "pm_alex_amigos.wav",
+   "dur": 1.899,
+   "legenda": "Jogue sozinho ou com um amigo!",
+   "fala": "Jogue sozinho, ou com um amigo!"
+  },
+  {
+   "chave": "fogo",
+   "arquivo": "pm_alex_fogo.wav",
+   "dur": 2.624,
+   "legenda": "Dois STRIKES seguidos... e a bola PEGA FOGO!",
+   "fala": "Dois istráiques seguidos... e a bola pega fogo!"
+  },
+  {
+   "chave": "ranking",
+   "arquivo": "pm_alex_ranking.wav",
+   "dur": 3.029,
+   "legenda": "No final, a sua foto entra na classificação do dia!",
+   "fala": "No final, a sua foto entra na classificação do dia!"
+  },
+  {
+   "chave": "final",
+   "arquivo": "pm_alex_final.wav",
+   "dur": 4.267,
+   "legenda": "STRIKE KIDS: diversão garantida no seu parque, shopping ou buffet infantil!",
+   "fala": "Straik Kids: diversão garantida no seu parque, shopping ou bufê infantil!"
+  },
+  {
+   "chave": "marca",
+   "arquivo": "pm_alex_marca.wav",
+   "dur": 1.323,
+   "legenda": "Lazer & Sport",
+   "fala": "Lazer and Sport."
+  }
+ ]
+}

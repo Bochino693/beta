@@ -1,7 +1,8 @@
 extends SceneTree
 
 ## MODELOS 3D PARA O GODOT 3: lê as malhas exportadas do projeto Godot 4
-## (strike-kids/, pelo tools/exportar_godot4.gd: binário .msh + indice.json)
+## (o projeto Godot 4, hoje no repositório beta-advanced, pelo
+## tools/exportar_godot4.gd: binário .msh + indice.json)
 ## e grava as mesmas peças em modelos/ no formato do Godot 3 — as mesmas
 ## posições, normais e cores de vértice, peça por peça.
 ##   godot3 --no-window --path . --script res://tools/montar_modelos.gd -- <pasta_exportada>

@@ -16,7 +16,8 @@ mkdir -p "$CACHE"
 [ -f "$CACHE/.gitignore" ] || printf '*\n' > "$CACHE/.gitignore"
 
 if [ ! -f "$CACHE/android-all.jar" ]; then
-  # a versão Godot 4 (pasta irmã strike-kids) talvez já tenha o mesmo jar
+  # a versão Godot 4 (repositório beta-advanced, se estiver na pasta ao
+  # lado como strike-kids) talvez já tenha o mesmo jar; senão, baixa
   G4=${ANDROID_ALL:-$RAIZ/../strike-kids/tools/android/StrikeCamera/.cache/android-all.jar}
   if [ -f "$G4" ]; then
     cp "$G4" "$CACHE/android-all.jar.tmp"
