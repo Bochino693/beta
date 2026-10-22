@@ -1,0 +1,92 @@
+STRIKE KIDS - KIT DE DIVULGACAO: ADESIVOS E COMERCIAL NARRADO
+==============================================================
+
+Tudo aqui sai das artes do proprio jogo: o Bob e a Mia renderizados pelo
+jogo (pasta artes, 4800 px, fundo transparente), os letreiros e o logo no
+mesmo desenho do jogo e a marca Lazer & Sport (ui/marca). Esta pasta NAO
+entra no APK (tem .gdignore: o Godot nem olha para ela).
+
+ADESIVOS (pasta adesivos) - PRONTOS PARA A GRAFICA
+--------------------------------------------------
+Cada peca em PDF no tamanho final + sangria. Imagem em 300 DPI (as pecas
+grandes da maquina em 150 DPI, o normal da impressao em grande formato).
+Onde ha recorte, o PDF traz a linha de corte em vetor na cor especial
+"CutContour" (magenta 100 %, 0,25 pt, sobreimpressao): a plotter de
+recorte (Roland, Mimaki, Summa, Graphtec...) corta por ela e ela NAO e
+impressa. Pecas retangulares levam marcas de corte. Cores em RGB: a
+grafica converte para CMYK (laranjas e azuis muito vivos podem sair um
+pouco mais apagados no papel).
+
+cartelas/
+  cartela_adesivos_A4.pdf      A4 com 15 adesivos recortados (meio-corte,
+                               borda branca de 2,6 mm): Bob e Mia nas
+                               roupas dos 4 cenarios, a dupla, STRIKE!,
+                               SPARE!, SUPER!, o logo, o pino e a bola.
+  cartela_redondos_6cm_A4.pdf  12 redondos de 6 cm: EU FIZ STRIKE! (Bob e
+                               Mia), CAMPEAO DO DIA / CAMPEA DO DIA, VIAGEM
+                               AO ESPACO!, FUNDO DO MAR!, SELVA DOS DINOS!,
+                               PARQUE DE DIVERSOES! - bons de premio na
+                               maquina (fez strike, campeao do dia).
+  *.jpg                        as mesmas cartelas em imagem (300 DPI).
+  Sugestao: vinil adesivo branco (ou papel adesivo brilho) + laminacao,
+  recorte eletronico.
+
+individuais/
+  Cada adesivo sozinho: PNG transparente (300 DPI) e PDF com o corte (os
+  personagens com 7 cm de altura, os redondos com 6 cm), para a grafica
+  montar a folha dela ou ampliar.
+
+maquina/  (tamanhos de referencia; outra medida: veja COMO REFAZER)
+  letreiro_100x30cm.pdf          topo: logo, Bob e Mia, "BOLICHE INFANTIL 3D"
+  lateral_60x120cm.pdf           lateral: logo, Bob e Mia, "1 OU 2 JOGADORES!",
+                                 os 4 cenarios e a marca Lazer & Sport
+  como_jogar_40x30cm.pdf         COMO JOGAR em 4 passos (1 APERTE START,
+                                 2 ESCOLHA SEU AMIGO, 3 SORRIA!, 4 ROLE A BOLA!)
+  como_jogar_40x30cm_sem_foto.pdf  o mesmo sem o passo da foto (maquina sem camera)
+  faixa_role_a_bola_60x15cm.pdf  faixa da rampa: ROLE A BOLA AQUI!
+  aperte_start_10cm.pdf          redondo, ao lado do botao START (corte redondo)
+  insira_a_ficha_10x5cm.pdf      junto do moedeiro (modo ficha), cantos redondos
+  Sangria: 5 mm nas pecas grandes, 2 mm nas pequenas. Sugestao: vinil
+  adesivo branco impresso (eco-solvente/latex) com laminacao - aguenta as
+  maozinhas e a limpeza.
+
+previas/  JPG pequeno de cada peca para ver no celular (*_corte.jpg mostra
+          a linha de corte em magenta).
+
+COMERCIAL NARRADO (pasta comercial)
+-----------------------------------
+StrikeKids_comercial_vertical_voz_feminina.mp4     1080x1920 (Reels, TikTok,
+StrikeKids_comercial_vertical_voz_masculina.mp4    Shorts, status do WhatsApp)
+StrikeKids_comercial_horizontal_voz_feminina.mp4   1920x1080 (YouTube, TV,
+StrikeKids_comercial_horizontal_voz_masculina.mp4  apresentacao)
+  Os MP4 nao vao para o git (sao grandes): foram entregues a parte. Ficam
+  aqui: roteiro.txt (o que aparece e o que a voz fala, com os tempos),
+  capa_*.jpg (capa para o Reels/YouTube) e narracao/ (as frases da voz).
+  Imagens: uma partida gravada pelo proprio jogo (versao Godot 4, grafico
+  ALTO): abertura, logo com o Bob e a Mia, escolha do amigo, SORRIA!, a
+  jogada com STRIKE!, o REPLAY em camera lenta, os 4 cenarios, 1 ou 2
+  jogadores, PEGANDO FOGO!, fim de jogo com a classificacao do dia e o
+  cartao final com o logo e a marca Lazer & Sport.
+  Som: a musica e os efeitos do jogo (nos quadros exatos em que tocaram),
+  a narracao e legendas grandes (o video se entende sem som). Volume no
+  padrao das redes sociais (-14 LUFS).
+  Voz: brasileira, sintetizada pelo Kokoro (modelo aberto, licenca Apache
+  2.0: pode usar em propaganda), em duas versoes - feminina (pf_dora) e
+  masculina (pm_alex). Para um locutor de verdade: ele grava as frases do
+  roteiro.txt e o montador refaz o video com a voz dele.
+
+COMO REFAZER (Python 3 com numpy, pillow, scipy, opencv-python-headless e
+reportlab; o comercial tambem precisa do ffmpeg)
+-------------------------------------------------------------------------
+  python3 ferramentas/gerar_adesivos.py               # todos os adesivos
+  python3 ferramentas/gerar_adesivos.py maquina       # so os da maquina
+    (as medidas da maquina sao os parametros de letreiro_maquina,
+     lateral_maquina, como_jogar, faixa_role... no fim do arquivo)
+  python3 ferramentas/narracao.py kokoro-v1.0.onnx voices-v1.0.bin
+  python3 ferramentas/montar_comercial.py v pf_dora saida.mp4 \
+          --promo QUADROS_PROMO --dupla QUADROS_DUPLA --narracao comercial/narracao
+          [--contato "WhatsApp (xx) xxxxx-xxxx"]   # contato no cartao final
+  As partidas (QUADROS_*) sao gravadas pela versao Godot 4 do jogo
+  (repositorio beta-advanced) com o diretor ferramentas/godot4/video.gd:
+  veja ferramentas/godot4/LEIA-ME.txt. Os renders do Bob e da Mia (artes)
+  saem de ferramentas/godot4/adesivos_render.tscn.

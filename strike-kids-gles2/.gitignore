@@ -3,3 +3,7 @@
 build/
 *.apk
 *.idsig
+# comercial em vídeo (grande demais para o git: entregue à parte; refaz com
+# divulgacao/ferramentas/montar_comercial.py)
+divulgacao/comercial/*.mp4
+divulgacao/**/__pycache__/

@@ -12,6 +12,11 @@ com placa de vídeo **Mali-400/450** (como a TX9 "comum"):
 - Como testar, gerar o APK e operar a máquina:
   [`strike-kids-gles2/LEIA-ME.txt`](strike-kids-gles2/LEIA-ME.txt).
 
+- **Divulgação:** adesivos prontos para a gráfica (cartelas A4, redondos,
+  letreiro, lateral e COMO JOGAR da máquina) e o comercial narrado com voz
+  brasileira — [`strike-kids-gles2/divulgacao/`](strike-kids-gles2/divulgacao/)
+  ([LEIA-ME](strike-kids-gles2/divulgacao/LEIA-ME.txt)); essa pasta não entra no APK.
+
 Jogo de boliche infantil para máquina arcade de **5 sensores** (placa Zero
 Delay, Arduino dos sensores/LEDs, câmera para a foto dos jogadores): mascotes
 fofinhos (Bob, o cachorrinho, e Mia, a gatinha), 4 cenários (Parque de
