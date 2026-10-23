@@ -92,6 +92,17 @@ func _pino_bateu(pino: Pino, f: float) -> void:
 ## pino batia na parede do fundo e voltava pulando para a pista.)
 const BEIRADA_FOSSO := 0.3
 const PULO_MAX_FOSSO := 0.9
+## PINO DE MADEIRA PARA LOGO: deitado no chão (pista, canaleta ou fosso) e
+## já devagar, ele perde 7% da velocidade e do giro a cada passo (1/60 s) e
+## para em ~1 s. Sem isto ele rolava de um lado para o outro na canaleta,
+## como um pêndulo, e seguia rolando pela pista por mais de 3 s (medido em
+## tools/testes/pinos_vivos.gd; o amortecimento do próprio corpo não
+## bastou). Pino deitado: centro abaixo de DEITADO_ALTURA (na pista ~0,08
+## m; na canaleta e no fosso, menos) e mais devagar que DEITADO_VELOCIDADE
+## (m/s) — o que voa ou acabou de ser batido não é freado.
+const FREIO_DEITADO := 0.93
+const DEITADO_ALTURA := 0.13
+const DEITADO_VELOCIDADE := 1.5
 
 
 func _physics_process(_d: float) -> void:
@@ -100,11 +111,19 @@ func _physics_process(_d: float) -> void:
 		if pino.removido or pino.mode != RigidBody.MODE_RIGID:
 			continue
 		var o: Vector3 = pino.global_transform.origin
+		var v: Vector3 = pino.linear_velocity
+		# deitado (mais na horizontal que em pé), no chão e já devagar: freia
+		if pino.global_transform.basis.y.y < 0.5 and o.y < DEITADO_ALTURA \
+				and v.length_squared() < DEITADO_VELOCIDADE * DEITADO_VELOCIDADE:
+			var w: Vector3 = pino.angular_velocity
+			if v.length_squared() > 0.0001 or w.length_squared() > 0.01:
+				v *= FREIO_DEITADO
+				pino.linear_velocity = v
+				pino.angular_velocity = w * FREIO_DEITADO
 		if not pino.no_fosso:
 			if o.z < Medidas.Z_FIM_DECK - 0.04 and o.y < 0.02:
 				pino.entrou_no_fosso()
 			continue
-		var v: Vector3 = pino.linear_velocity
 		var mudou := false
 		if o.z > Medidas.Z_FIM_DECK - BEIRADA_FOSSO and v.z > 0.0:
 			v.z = -v.z * 0.2

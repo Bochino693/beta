@@ -22,7 +22,7 @@ const CONFIG := {
 		"fundo": [Color("#3A1C8C"), Color("#7A3FD6")], "halo": Color("#FFD6F4"),
 		"portal": [Color("#FFC21A"), Color("#E8384F")], "gabinete": Color("#E8384F"), "coluna": Color("#1E62C8"), "neon": Color("#FF4FC8"),
 		"parede": Color("#2A63C4"),
-		"placa": Color("#1E3FA0"), "divisoria": Color("#FFB627"), "faixa": Color("#E8384F"),
+		"placa": Color("#2F63E0"), "divisoria": Color("#FFB627"), "faixa": Color("#E8384F"),
 		# canaleta de doce (listras rosa e creme, lábios amarelos) e para-choques de bala
 		"canaleta_modo": 0, "canaleta": [Color("#FF6FAE"), Color("#FFF3E2"), Color("#FFD23F")],
 		"bumper": [Color("#FFFFFF"), Color("#FF3B50")],
@@ -37,7 +37,7 @@ const CONFIG := {
 		"fundo": [Color("#0B1450"), Color("#2A3FB0")], "halo": Color("#9FE8FF"),
 		"portal": [Color("#4FD8FF"), Color("#3B2FA8")], "gabinete": Color("#3B3FA8"), "coluna": Color("#6A3FD0"), "neon": Color("#4FE3FF"),
 		"parede": Color("#3B4FC8"),
-		"placa": Color("#141E66"), "divisoria": Color("#4FD8FF"), "faixa": Color("#FF9F2E"),
+		"placa": Color("#5A3FD8"), "divisoria": Color("#4FD8FF"), "faixa": Color("#FF9F2E"),
 		# canaleta de nave (metal com luzes correndo) e para-choques azul e branco
 		"canaleta_modo": 1, "canaleta": [Color("#26357A"), Color("#9FB4FF"), Color("#4FE3FF")],
 		"bumper": [Color("#FFFFFF"), Color("#3B8BFF")],
@@ -52,7 +52,7 @@ const CONFIG := {
 		"fundo": [Color("#064A70"), Color("#0FA0B8")], "halo": Color("#C8FFF4"),
 		"portal": [Color("#2EE6C8"), Color("#FF7A5C")], "gabinete": Color("#0E8C9C"), "coluna": Color("#FF7A5C"), "neon": Color("#5CFFD8"),
 		"parede": Color("#18A6B8"),
-		"placa": Color("#0B5A80"), "divisoria": Color("#FF8A5C"), "faixa": Color("#2EC4B6"),
+		"placa": Color("#1A9BD0"), "divisoria": Color("#FF8A5C"), "faixa": Color("#2EC4B6"),
 		# canaleta de água (reflexos e bolhinhas) e para-choques coral
 		"canaleta_modo": 2, "canaleta": [Color("#0C86A6"), Color("#56E0EA"), Color("#E9FFFB")],
 		"bumper": [Color("#FFFFFF"), Color("#FF7A5C")],
@@ -67,7 +67,7 @@ const CONFIG := {
 		"fundo": [Color("#14501E"), Color("#3E9A2E")], "halo": Color("#FFF2A8"),
 		"portal": [Color("#9BE04A"), Color("#FF8A1E")], "gabinete": Color("#8A5228"), "coluna": Color("#2E9A3E"), "neon": Color("#B6FF3B"),
 		"parede": Color("#3E9A3A"),
-		"placa": Color("#1E5A28"), "divisoria": Color("#FF9F2E"), "faixa": Color("#8BD33F"),
+		"placa": Color("#2FA046"), "divisoria": Color("#FF9F2E"), "faixa": Color("#8BD33F"),
 		# canaleta de bambu e para-choques amarelo e verde
 		"canaleta_modo": 3, "canaleta": [Color("#6DBB45"), Color("#D4F58A"), Color("#F2D27A")],
 		"bumper": [Color("#FFE65A"), Color("#2E9A3E")],

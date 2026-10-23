@@ -79,6 +79,42 @@ O QUE MUDOU PARA RODAR NA OPENGL ES 2.0
     Godot 4 (nao substitui).
 
 
+VERSAO 6.1: PINOS DE MADEIRA, LETREIRO SEM MANCHA E A MARCA CERTA
+------------------------------------------------------------------
+  * PINOS PESADOS DE VERDADE: ainda quicavam muito (40 a 70 quiques por
+    jogada), giravam ate 10 voltas por segundo e, deitados, ficavam
+    rolando de um lado para o outro na canaleta (como um pendulo) e pela
+    pista por mais de 3 s. Agora: quique pino x pino 0,2 (era 0,5), no
+    chao e nas paredes metade do quique da superficie, pino de 1,8 kg
+    (era 1,5), gravidade nele 1,5x (era 1,3x), giro mais amortecido e um
+    FREIO no pino que ja esta deitado no chao e devagar (perde 7% da
+    velocidade a cada passo e para em ~1 s - pinos.gd). Medido nas mesmas
+    jogadas (tools/testes/pinos_vivos.gd): 4 a 8 quiques por jogada, pulos
+    de 33 para 10-20 cm, todos parados antes de 2 s - e os mesmos pinos
+    caindo. (Na fisica Bullet o amortecimento do corpo vai so ate 1:
+    acima disso ela corta e zera o giro a cada passo.)
+  * BOLA DE FOGO PESADA: na sequencia de strikes a bola passa a 14 kg (a
+    normal tem 9): atravessa os pinos com mais forca e eles voam mais.
+  * TABELA DE JOGADAS calibrada de novo nesta fisica (7.668 jogadas): com
+    os pinos calmos o planejador voltou a acertar - ate 1 pino de
+    diferenca em ~86% das vezes (FACIL 88%, NORMAL 86%, DIFICIL 85%; na
+    6.0 eram 78%).
+  * LETREIRO SEM A MANCHA PRETA: a placa atras do logo STRIKE KIDS (no
+    fim da pista e atras dos jogadores) tinha cores escuras e, virada para
+    longe do sol, ficava na sombra - quase preta. Agora ela e iluminada
+    por dentro, em cores vivas de cada cenario. E o logo 3D deixou de ser
+    "recortado": a sombra suave embaixo das letras virava um bloco escuro
+    duro em volta delas; agora ela se mistura com a placa
+    (tools/testes/foto_letreiro.gd tira as fotos de perto).
+  * SIMBOLO DA LAZER & SPORT NA ABERTURA COMO NA MARCA: o alvo com o
+    dardo em cima da placa, na proporcao da marca oficial. A causa do "aro
+    muito grande" da 5.9: as imagens do simbolo sao importadas com no
+    maximo 1024 px e a placa encolhia 2,5 vezes mas o alvo so 1,5 - o
+    alvo saia da largura da placa. Agora a conta usa os tamanhos originais.
+  * Fisica um pouco mais leve ainda: 0,38 ms por passo no PC (os pinos
+    param e dormem mais cedo).
+
+
 VERSAO 6.0: LISO E UNIFORME NA MALI-450 (DO COMECO AO FIM)
 ----------------------------------------------------------
 As tecnicas que os jogos feitos no Unity usam para rodar bem na
@@ -448,7 +484,9 @@ PASTAS
               fisica_experimento: custo da fisica (rode com o Godot 3
               "server", sem placa de video); filme_pinos: fotos de um
               strike de perto e do alcapao; foto_bolas: as bolas do Bob e
-              da Mia; teste_menu_direto: menu do operador e modal no
+              da Mia; pinos_vivos: quiques, pulos, giro e quanto os
+              pinos ainda andam depois da batida; foto_letreiro: os
+              letreiros STRIKE KIDS de perto; teste_menu_direto: menu do operador e modal no
               desenho atual; orcamento: vertices por
               fase e por parte; vitrine: fotos fixas para comparar o
               visual; listar_mundo: as pecas do mundo e o peso de cada
