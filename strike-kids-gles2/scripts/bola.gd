@@ -10,7 +10,14 @@ signal bateu(corpo, velocidade)
 signal recolhida
 
 const RAIO := 0.14
-const MASSA := 6.5
+## pesada como uma bola de verdade perto dos pinos (9 kg x 1,5 kg): leve
+## demais, ela era jogada para o lado na batida (até 66 cm no fim da pista)
+const MASSA := 9.0
+## FIRMEZA NA LINHA: nos pinos, a cada passo (1/60 s) a bola volta 10%
+## para a direção em que chegou neles — ela atravessa os pinos firme, sem
+## ser rebatida para a canaleta. Com a massa: desvio médio de 16 para 8 cm
+## e o pior de 66 para 25 cm (tools/testes/calibrar.gd --linha: desvio=)
+const FIRMEZA := 0.1
 ## NO FOSSO (_comecar_fosso): a velocidade até a caçapa e onde o caminho
 ## termina (já dentro do túnel)
 const VEL_FOSSO_MIN := 3.2
@@ -45,6 +52,8 @@ var _g_vy := 0.0
 var _na_canaleta := false
 ## já chegou nos pinos nesta jogada (dali ela não volta para quem joga)
 var _nos_pinos := false
+## a direção (x por z) em que ela chegou nos pinos (FIRMEZA)
+var _direcao_x := 0.0
 
 
 static func material(nome: String) -> ShaderMaterial:
@@ -286,8 +295,12 @@ func _physics_process(delta: float) -> void:
 	# metros para trás — derrubando pinos na volta.
 	if not _nos_pinos and p.z < Medidas.Z_PINO1 + 0.2:
 		_nos_pinos = true
+		_direcao_x = linear_velocity.x / min(linear_velocity.z, -0.5)
 	if _nos_pinos and linear_velocity.z > 0.0:
 		apply_central_impulse(Vector3(0, 0, -linear_velocity.z * mass))
+	elif _nos_pinos and not _na_canaleta and p.y > -0.02:
+		var vx_linha := _direcao_x * linear_velocity.z
+		apply_central_impulse(Vector3((vx_linha - linear_velocity.x) * mass * FIRMEZA, 0, 0))
 	# PASSOU DO FIM DA PISTA: daqui ela vai sozinha para a caçapa
 	if p.z < Medidas.Z_FIM_DECK:
 		_comecar_fosso(p)

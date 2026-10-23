@@ -39,6 +39,8 @@ const ITENS := [
 	["Som na demonstração", "som", "som_na_demo", "bool", []],
 	["Qualidade gráfica", "video", "qualidade", "lista", ["auto", "alta", "media", "baixa"]],
 	["Cenário (fundo)", "video", "cenario", "lista", ["leve", "completo"]],
+	["Resolução da imagem (TV Box)", "video", "resolucao", "lista", ["auto", "720p", "900p", "1080p", "tela"]],
+	["Quadros por segundo", "video", "qps", "lista", ["auto", "60", "30"]],
 	["Desenho da tela", "video", "desenho", "lista", ["auto", "direto", "imagem"]],
 	["Antisserrilhado da tela (ao reabrir)", "video", "antisserrilhado", "bool", []],
 	["Nitidez do 3D (só no desenho imagem)", "video", "nitidez", "lista", ["auto", "100%", "90%", "80%", "70%"]],
@@ -58,7 +60,8 @@ const ITENS := [
 ]
 const NOMES := {"facil": "FÁCIL", "normal": "NORMAL", "dificil": "DIFÍCIL", "auto": "AUTOMÁTICA", "alta": "ALTA",
 	"media": "MÉDIA", "baixa": "BAIXA", "leve": "LEVE (TV Box)", "completo": "COMPLETO",
-	"direto": "DIRETO NA TELA (rápido)", "imagem": "IMAGEM 3D (compatível)", 1: "1 (topo à esquerda)", -1: "-1 (topo à direita)", 0: "0 (sem giro)",
+	"direto": "DIRETO NA TELA (rápido)", "720p": "720p (mais leve)", "900p": "900p", "1080p": "1080p (Full HD)",
+	"tela": "A DA PRÓPRIA TELA", "60": "60 (o mais liso)", "30": "30 TRAVADOS (uniforme)", "imagem": "IMAGEM 3D (compatível)", 1: "1 (topo à esquerda)", -1: "-1 (topo à direita)", 0: "0 (sem giro)",
 	90: "90°", 180: "180°", 270: "270°", 100: "100% (tempo real)", 115: "115%", 130: "130% (padrão)", 145: "145%",
 	160: "160%"}
 

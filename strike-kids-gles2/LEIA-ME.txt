@@ -55,8 +55,9 @@ O QUE MUDOU PARA RODAR NA OPENGL ES 2.0
     nos proprios shaders do cenario, por vertice, como no cenario leve do
     Godot 4 (e ela que deixa o mar verde-agua ao longe).
   * DESENHO DIRETO NA TELA (versao 5.9): o 3D e a interface vao direto
-    para a tela da TV, numa passada so, na resolucao da TV, com o
-    antisserrilhado 4x da propria tela (veja "VERSAO 5.9"). No modo
+    para a tela da TV, numa passada so, com o antisserrilhado 4x da
+    propria tela (veja "VERSAO 5.9"); na Mali-400/450 em 720 linhas,
+    esticadas de graca pela propria TV Box (veja "VERSAO 6.0"). No modo
     compativel ("Desenho da tela: IMAGEM 3D" no menu do operador) o 3D
     fica numa imagem separada, de 720 px ate a resolucao da tela (1080),
     com ANTISSERRILHADO 4x: a nitidez automatica sobe enquanto a TV Box
@@ -76,6 +77,69 @@ O QUE MUDOU PARA RODAR NA OPENGL ES 2.0
     mesmos nomes. O APK e montado sem Gradle (tools/android/montar_apk.sh).
   * Pacote com.lazersport.strikekids.gles2: instala AO LADO da versao
     Godot 4 (nao substitui).
+
+
+VERSAO 6.0: LISO E UNIFORME NA MALI-450 (DO COMECO AO FIM)
+----------------------------------------------------------
+As tecnicas que os jogos feitos no Unity usam para rodar bem na
+Mali-400/450, aplicadas aqui (o Godot 3 e o Unity desenham do mesmo
+jeito nessa placa: OpenGL ES 2.0; o que muda e o cuidado com cada peca):
+  * RESOLUCAO DA IMAGEM PELA PROPRIA TV BOX (o Screen.SetResolution do
+    Unity): o jogo desenha numa imagem menor que a tela e quem estica ate
+    a tela inteira e o hardware de video da TV Box (o compositor do
+    Android) - de graca para a placa, sem passada nenhuma a mais. No
+    AUTOMATICO: 720 linhas na Mali-400/450 (menos da metade dos pixels de
+    1080, com o antisserrilhado 4x da placa) e ate 1080 nas outras (TV
+    4K nao desenha em 4K). Menu do operador: "Resolucao da imagem (TV
+    Box)" = automatica, 720p, 900p, 1080p ou a da propria tela. Fica
+    guardada: das proximas vezes o Android ja abre o jogo assim. Toque e
+    mouse continuam no lugar certo. (Plugin StrikeSerial, TelaDaTv.java.)
+  * 30 QUADROS TRAVADOS NA BATIDA DA TV (o vSyncCount = 2 do Unity / a
+    biblioteca Swappy do Android): a TV Box que nao segura 60 quadros na
+    hora da jogada mostrava 40-55 quadros desiguais - a imagem "engasga"
+    mesmo com a media boa. Travado em 30, cada quadro fica na tela por
+    exatamente 2 batidas da TV e o movimento e uniforme do comeco ao fim
+    (a fisica e interpolada: a bola e os pinos andam igual). No Android
+    o eglSwapInterval(2) nao vale; o jogo marca em cada quadro QUANDO ele
+    deve aparecer (EGL_ANDROID_presentation_time), na grade das batidas
+    da TV (QuadrosDaTv.java). Menu: "Quadros por segundo" = automatico
+    (comeca em 60; se em dois trechos de 10 s de jogada mais de 10% dos
+    quadros atrasarem, trava em 30 e guarda), 60 ou 30 travados. Escolher
+    60 de proposito esquece a medida.
+  * BATIDA SEM TRAVAR: a fisica passou a 60 passos por segundo (eram 120)
+    e cada pino virou 3 cilindros (pe, barriga e pescoco com a cabeca) no
+    lugar da forma de 71 pontos: o Bullet testa um cilindro numa conta so.
+    Custo da fisica por segundo de jogo: de ~100 ms para ~31 ms no PC (3
+    vezes mais leve) - o pico da batida, que era o que travava, caiu
+    junto. Os pinos caem do mesmo jeito (9,3-9,5 pinos por bola no centro).
+  * BOLA FIRME: 9 kg e, depois de entrar nos pinos, ela segue a linha em
+    que chegou (so um "puxao" leve de volta para a linha: FIRMEZA no
+    bola.gd) - antes cada pino batido empurrava a bola de lado. Desvio
+    medio na saida dos pinos: de 16 cm para 8 cm (o maior, de 66 para 25).
+  * TABELA DE JOGADAS NOVA (7.668 jogadas, 4 pontos de saida para cada
+    linha - a fisica e caotica nas batidas de raspao, e com 4 amostras o
+    planejador sabe quais linhas rendem sempre o mesmo). O planejador
+    acerta ate 1 pino em ~78% das vezes (FACIL 81%, NORMAL 75%, DIFICIL
+    76%; na fisica pesada da 5.9 eram 87%) e saem mais strikes de
+    verdade no centro, como no boliche.
+  * POCO SEM FUNDO: os pinos do alcapao caem para sempre - o poco escurece
+    ate o preto e as faixas das paredes continuam passando para cima
+    enquanto eles somem la embaixo (sem o "poc" do fundo).
+  * SOL E LUA EM PE: com a TV de pe ligada deitada a camera gira 90 graus
+    e o sol (que usava os eixos dela) aparecia deitado; agora ele fica de
+    pe pelo "para cima" do ceu.
+  * ABERTURA COM O TITULO CONVENCIONAL: o alvo (o aro) estava grande
+    demais; agora e o simbolo da Lazer & Sport como na marca - o alvo
+    pequeno em cima da placa "Lazer & Sport", e o "GAMES" embaixo.
+  * ARQUIVOS: sairam a forma antiga do pino (modelos/pino_colisao.res) e
+    as ferramentas dela; o tools/android/dex_dos_plugins.sh ja poe o dex
+    dos plugins no modelo Android (extras.zip) - mudanca so no Java dos
+    plugins nao precisa mais do apktool.
+TESTADO (PC, Godot 3.6.3): partida inteira de 2 jogadores com a TV
+girada (tools/testes/roteiro.gd: abertura, START, jogadas, replay,
+alcapao, fim e classificacao), calibracao e validacao das 3
+dificuldades, plugins compilados contra o Godot 3.6.3. A resolucao pela
+TV Box e os 30 travados so existem no Android (no PC nao mudam nada).
 
 
 VERSAO 5.9: BONITO, COLORIDO E LEVE NA MALI-450
@@ -373,8 +437,6 @@ PASTAS
               testar_shaders.gd, android/ (plugins, TelaNitida - a tela
               com antisserrilhado da placa - e montagem do APK no Linux:
               montar_apk.sh),
-              limpar_forma_pino.gd (forma do pino sem pontos de dentro),
-              forma_pino_leve.gd (a forma do pino com 71 pontos),
               malhas_leves.gd + malhas_leves.py (simplifica as malhas de
               modelos/ para a Mali-400/450: exportar, simplificar e
               importar - veja o comeco dos dois arquivos),

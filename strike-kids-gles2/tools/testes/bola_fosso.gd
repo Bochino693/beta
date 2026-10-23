@@ -1,7 +1,7 @@
 extends Node
 
 ## TESTE: A BOLA NO FOSSO (só no PC, não vai no APK)
-##   godot3_server --path . --fixed-fps 120 res://tools/testes/bola_fosso.tscn -- [--jogadas=300] [--dificuldade=normal]
+##   godot3_server --path . --fixed-fps 60 res://tools/testes/bola_fosso.tscn -- [--jogadas=300] [--dificuldade=normal]
 ## Joga como o jogo joga (Jogada.planejar, saindo da mão, máquina de pinos
 ## com o alçapão fechado) e acompanha a bola DEPOIS do fim da pista, até a
 ## caçapa: quanto ela pula (quica), em quantos pinos bate lá dentro,

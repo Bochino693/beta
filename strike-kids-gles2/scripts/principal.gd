@@ -84,7 +84,7 @@ var _lenta_dur := 0.0
 var _lenta_t0 := -1
 ## passos da física por segundo (o do project.godot, lido ao abrir); a câmera
 ## lenta só diminui quantos passos acontecem por segundo, nunca o tamanho
-var _passos_fisica := 120
+var _passos_fisica := 60
 ## VELOCIDADE DO JOGO (menu do operador): 1,3 = tudo 30% mais rápido que o
 ## tempo real — bola, pinos, bichinhos, câmera e as esperas entre as jogadas
 var _velocidade := 1.0
@@ -123,6 +123,22 @@ var _gpu_ms := 0.0
 var _gpu_n := 0
 var _mede_placa := false
 var _alvo_qps := 60.0       # quadros por segundo da tela (lido a cada medida, não a cada quadro)
+## QUADROS POR SEGUNDO ("Quadros por segundo" no menu): 60, ou 30 TRAVADOS
+## na batida da TV. A TV Box que não segura 60 na hora da jogada (o
+## processador: física das batidas, bichinhos, desenhos) mostrava 40-55
+## quadros desiguais — a imagem "engasga" mesmo com a média boa. Travado
+## em 30 (cada quadro na tela por 2 batidas da TV, o vSyncCount = 2 do
+## Unity; plugin StrikeSerial, QuadrosDaTv.java), o movimento fica
+## uniforme do começo ao fim e a física (interpolada) é a mesma.
+## Automático: começa em 60 e, se em dois trechos seguidos de 10 s de
+## jogada mais de 10% dos quadros atrasarem, trava em 30 (e guarda).
+const QPS_JANELA := 600
+var _qps := 60
+var _qps_auto := false
+var _qj_ultimo := 0
+var _qj_quadros := 0
+var _qj_atrasos := 0
+var _qj_ruins := 0
 ## troca de resolução (ou de qualidade) decidida, esperando um clarão de
 ## tela para acontecer: refazer as imagens da placa de vídeo dá um tranco,
 ## e escondido no clarão branco ninguém vê
@@ -173,12 +189,14 @@ const FATOR_INICIAL_TV := 0.8
 
 func _ready() -> void:
 	randomize()
-	_passos_fisica = int(Compat.config("physics/common/physics_fps", 120))
+	_passos_fisica = int(Compat.config("physics/common/physics_fps", 60))
 	_velocidade = Ajustes.velocidade()
 	_ritmo(1.0)
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	_qualidade = _qualidade_escolhida()
 	Materiais.definir_contornos(_qualidade != "baixa")
+	_resolucao_da_tv()
+	_qps_do_operador()
 	_direto = _desenho_direto()
 	_ler_nitidez()
 	_montar_3d()
@@ -427,6 +445,85 @@ func _montar_3d() -> void:
 	lugar.add_child(_replay_alvo)
 
 
+## RESOLUÇÃO DA IMAGEM NA TV BOX ("Resolução da imagem" no menu): como os
+## jogos do Unity fazem no Android, o jogo desenha numa imagem menor que a
+## tela e a própria TV Box estica até a tela inteira, no hardware de vídeo
+## — de graça para a placa, sem passada nenhuma a mais (plugin StrikeSerial,
+## TelaDaTv.java). Automática: 720 linhas na Mali-400/450 (menos da metade
+## dos pixels de 1080, com o antisserrilhado 4x da placa) e até 1080 nas
+## outras (TV 4K não desenha em 4K). Vale na hora e fica guardada: das
+## próximas vezes o Android já abre o jogo assim.
+func _resolucao_da_tv() -> void:
+	if Engine.has_singleton("StrikeSerial"):
+		Engine.get_singleton("StrikeSerial").definir_tela(linhas_da_tv())
+
+
+## Os quadros por segundo do menu do operador (no automático, o que ele já
+## mediu nesta TV Box). Escolher 60 de propósito esquece a medida.
+func _qps_do_operador() -> void:
+	var q := str(Ajustes.valor("video", "qps"))
+	if q == "60" and int(Ajustes.valor("video", "qps_medido")) != 0:
+		Ajustes.definir("video", "qps_medido", 0)
+	_qps_auto = q == "auto"
+	_qj_quadros = 0
+	_qj_atrasos = 0
+	_qj_ruins = 0
+	_definir_qps(30 if q == "30" or (_qps_auto and int(Ajustes.valor("video", "qps_medido")) == 30) else 60)
+
+
+func _definir_qps(q: int) -> void:
+	_qps = q
+	if Engine.has_singleton("StrikeSerial"):
+		# na TV Box quem segura o ritmo é a própria tela (sem o relógio do Godot)
+		Engine.get_singleton("StrikeSerial").definir_quadros(1 if q >= 60 else 2)
+		Engine.target_fps = 0
+	else:
+		Engine.target_fps = 0 if q >= 60 else q
+
+
+## (automático) mede as jogadas: quadros que passaram de 1,5 vez o tempo
+## de um quadro de 60.
+func _medir_jogada() -> void:
+	var agora := Time.get_ticks_usec()
+	var antes := _qj_ultimo
+	_qj_ultimo = agora
+	if not _qps_auto or _qps < 60 or antes == 0 or _preparando or _menu != null:
+		return
+	if not estado in [E.ARREMESSO, E.ROLANDO, E.RESULTADO, E.DEMO]:
+		return
+	_qj_quadros += 1
+	if agora - antes > 25000:
+		_qj_atrasos += 1
+	if _qj_quadros < QPS_JANELA:
+		return
+	var parte := float(_qj_atrasos) / float(_qj_quadros)
+	_qj_ruins = _qj_ruins + 1 if parte > 0.1 else 0
+	_qj_quadros = 0
+	_qj_atrasos = 0
+	if _qj_ruins >= 2:
+		_definir_qps(30)
+		Ajustes.definir("video", "qps_medido", 30)
+		print("Quadros automáticos: 30 travados (%d%% dos quadros atrasados a 60)" % int(parte * 100.0))
+
+
+## Quantas linhas a imagem do jogo tem na TV Box (0 = as da própria tela).
+func linhas_da_tv() -> int:
+	match str(Ajustes.valor("video", "resolucao")):
+		"720p":
+			return 720
+		"900p":
+			return 900
+		"1080p":
+			return 1080
+		"tela":
+			return 0
+	var placa := VisualServer.get_video_adapter_name().to_lower()
+	for utgard in ["mali-4", "mali-3", "mali-2"]:
+		if utgard in placa:
+			return 720
+	return 1080
+
+
 ## Desenho direto ou com a imagem 3D separada: o do operador ("Desenho da
 ## tela" no menu; STRIKE_DESENHO nos testes). Automático = direto, a não
 ## ser que o jogo já tenha visto esta máquina sem fôlego nele, mesmo na
@@ -486,7 +583,12 @@ func sem_msaa() -> void:
 func descricao_3d() -> String:
 	var t := tamanho_3d()
 	if _direto:
-		return "3D direto na tela %dx%d" % [t.x, t.y]
+		var tv := ""
+		if Engine.has_singleton("StrikeSerial"):
+			var partes: PoolStringArray = str(Engine.get_singleton("StrikeSerial").tela()).split("|")
+			if partes.size() == 2 and partes[0] != partes[1]:
+				tv = " (a TV Box estica até %s)" % partes[0]
+		return "3D direto na tela %dx%d%s" % [t.x, t.y, tv]
 	return "3D em imagem %dx%d (%d%%)" % [t.x, t.y, int(round(_fator * 100.0))]
 
 
@@ -1262,6 +1364,7 @@ func _bola_no_retorno(nome: String) -> void:
 
 
 func _process(delta: float) -> void:
+	_medir_jogada()
 	_medir_fps(delta)
 	_folego_da_fisica()
 	_andar_lenta()
@@ -1385,9 +1488,9 @@ func _andar_lenta() -> void:
 
 
 ## Ritmo do tempo SEM mudar a física: o passo da física continua sempre de
-## 1/120 s (o mesmo da calibração das jogadas — o resultado não muda). O
-## jogo mais rápido (velocidade 1,3) dá MAIS passos por segundo (156); a
-## câmera lenta dá MENOS (0,4 = 62 por segundo) e a interpolação deixa a
+## 1/60 s (o mesmo da calibração das jogadas — o resultado não muda). O
+## jogo mais rápido (velocidade 1,3) dá MAIS passos por segundo (78); a
+## câmera lenta dá MENOS (0,4 = 31 por segundo) e a interpolação deixa a
 ## imagem lisa.
 func _ritmo(v: float) -> void:
 	var normal := float(_passos_fisica) * _velocidade * _folego
@@ -1427,7 +1530,7 @@ func _folego_da_fisica() -> void:
 			_ritmo(1.0)
 
 
-## O relógio da jogada anda junto com a FÍSICA (120 passos por segundo, já
+## O relógio da jogada anda junto com a FÍSICA (60 passos por segundo, já
 ## com a câmera lenta aplicada): cada quadro gravado tem o seu próprio
 ## instante. (Se o relógio fosse o da tela, a 60 QPS dois passos de física
 ## ficavam com o mesmo horário e o replay saía picotado.)
@@ -1602,6 +1705,12 @@ func _plano_maquina() -> void:
 ## da direita, atrás da mesa) enquanto os pinos caem; depois volta para a
 ## mesa repondo os pinos.
 func _alcapao_maquina(abrindo: bool) -> void:
+	# o poço sem fundo: as faixas das paredes correm para cima na queda
+	var m: ShaderMaterial = mundo.mat_poco
+	if abrindo:
+		m.set_shader_param("rolar", 0.0)
+		var t := create_tween()
+		t.tween_property(m, "shader_param/rolar", 6.0, 2.2).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 	if estado != E.RESULTADO:
 		return
 	if abrindo:
@@ -1931,9 +2040,6 @@ func _som_maquina(nome: String) -> void:
 		"alcapao":
 			Sons.tocar("tique", 0.4, 0.5)
 			Sons.tocar("boing", 0.18, 0.8)
-		"fundo":
-			# o pino chegou lá embaixo: um "pop" fofinho e grave
-			Sons.tocar("pop", 0.22, rand_range(0.55, 0.7))
 		_:
 			if nome.begins_with("queda_"):
 				# cada pino que cai: uma notinha de xilofone (a escala sobe,
@@ -1999,6 +2105,8 @@ func fechar_menu() -> void:
 		return
 	_menu.queue_free()
 	_menu = null
+	_resolucao_da_tv()
+	_qps_do_operador()
 	hud.visible = true
 	_mostrar_3d(true)
 	get_tree().paused = false
@@ -2205,7 +2313,7 @@ func _medir_fps(_delta: float) -> void:
 		_gpu_ms = 0.0
 		_gpu_n = 0
 		var hz := OS.get_screen_refresh_rate()
-		_alvo_qps = clamp(hz if hz > 0.0 else 60.0, 30.0, 60.0)
+		_alvo_qps = min(clamp(hz if hz > 0.0 else 60.0, 30.0, 60.0), float(_qps))
 		return
 	if agora - _fps_t0 < 2000:
 		return
@@ -2219,7 +2327,7 @@ func _medir_fps(_delta: float) -> void:
 	_gpu_ms = 0.0
 	_gpu_n = 0
 	var hz := OS.get_screen_refresh_rate()
-	_alvo_qps = clamp(hz if hz > 0.0 else 60.0, 30.0, 60.0)
+	_alvo_qps = min(clamp(hz if hz > 0.0 else 60.0, 30.0, 60.0), float(_qps))
 	if _qualidade_pendente != "" or _fator_pendente > 0.0:
 		return   # já tem uma troca esperando o clarão: mede de novo depois dela
 	if fps < alvo * 0.9 or atrasados > 0.04:

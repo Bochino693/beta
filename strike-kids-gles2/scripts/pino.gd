@@ -40,7 +40,7 @@ var no_fosso := false
 const GIRO_AMORTECE := 0.35
 
 
-func montar(n: int, pos: Vector3, malha_pino: Mesh, forma: Shape, rosto: Texture, meta: Dictionary) -> void:
+func montar(n: int, pos: Vector3, malha_pino: Mesh, formas: Array, rosto: Texture, meta: Dictionary) -> void:
 	numero = n
 	lugar = pos
 	name = "Pino%d" % n
@@ -60,10 +60,12 @@ func montar(n: int, pos: Vector3, malha_pino: Mesh, forma: Shape, rosto: Texture
 	pm.friction = Medidas.ATRITO_PINO
 	pm.bounce = Medidas.QUIQUE_PINO
 	physics_material_override = pm
-	var cs := CollisionShape.new()
-	cs.shape = forma
-	cs.translation = -COM
-	add_child(cs)
+	# a forma de colisão: os cilindros de `formas` (Pinos.formas_do_pino)
+	for f in formas:
+		var cs := CollisionShape.new()
+		cs.shape = f[0]
+		cs.translation = f[1] - COM
+		add_child(cs)
 	malha = MeshInstance.new()
 	malha.mesh = malha_pino
 	mat = Materiais.toon(true, 0.0026, {
@@ -84,7 +86,9 @@ func montar(n: int, pos: Vector3, malha_pino: Mesh, forma: Shape, rosto: Texture
 	me.albedo_color = Color("#FFE14D")
 	me.params_use_alpha_scissor = true
 	me.params_alpha_scissor_threshold = 0.5
-	me.params_billboard_mode = SpatialMaterial.BILLBOARD_ENABLED
+	# em pé no mundo (com a TV girada a câmera também gira: virada para ela
+	# a estrelinha saía deitada)
+	me.params_billboard_mode = SpatialMaterial.BILLBOARD_FIXED_Y
 	for i in 3:
 		var e := MeshInstance.new()
 		var qe := QuadMesh.new()
@@ -209,10 +213,10 @@ func _celula(nome: String) -> void:
 func _process(delta: float) -> void:
 	if not visible:
 		return
-	# caindo no poço do alçapão: escurece com a fundura (lá embaixo é escuro)
+	# caindo no poço do alçapão: escurece com a fundura até sumir no preto
 	var y := posicao_base().y
 	if y < Medidas.Y_CHAO_FOSSO - 0.05 or _escuro < 1.0:
-		_escurecer(clamp(1.0 + (y - Medidas.Y_CHAO_FOSSO + 0.05) * 0.75, 0.1, 1.0))
+		_escurecer(clamp(1.0 + (y - Medidas.Y_CHAO_FOSSO + 0.05) * 0.66, 0.0, 1.0))
 	# tontura: estrelinhas girando em volta da cabeça
 	if _estrelas.visible:
 		var topo = global_transform.xform(Vector3(0, 0.42, 0) - COM)

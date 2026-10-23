@@ -256,7 +256,7 @@ input_teste={
 
 [physics]
 
-common/physics_fps=120
+common/physics_fps=60
 common/physics_jitter_fix=0.0
 3d/physics_engine="Bullet"
 common/physics_interpolation=true

@@ -81,6 +81,8 @@ var mat_faixa: ShaderMaterial
 var mats_canaleta: Array = []
 var mat_bumper: ShaderMaterial
 var mat_terreno: ShaderMaterial
+## o poço sem fundo do alçapão (as faixas das paredes correm na queda)
+var mat_poco: ShaderMaterial
 var mat_gabinete: ShaderMaterial
 var mat_parede: ShaderMaterial
 var mat_coluna: ShaderMaterial
@@ -734,6 +736,7 @@ func _poco_do_alcapao() -> void:
 	var topo := Y_CHAO_FOSSO + 0.0025
 	var mat := ShaderMaterial.new()
 	mat.shader = load("res://shaders/poco.shader")
+	mat_poco = mat
 	mat.set_shader_param("y_topo", Y_CHAO_FOSSO)
 	mat.set_shader_param("y_fundo", POCO_FUNDO)
 	var poco := MeshInstance.new()

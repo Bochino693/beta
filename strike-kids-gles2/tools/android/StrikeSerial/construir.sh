@@ -48,6 +48,6 @@ custom_maven_repos=[]
 GDAP
 rm -rf "$T"
 echo "ok: android/plugins/StrikeSerial.aar e StrikeSerial.gdap"
-# o dex pronto dos dois plugins; depois refaça o extras.zip do modelo Android
+# o dex pronto dos dois plugins (já vai para o extras.zip do modelo Android)
 bash "$AQUI/../dex_dos_plugins.sh" || echo "aviso: rode tools/android/dex_dos_plugins.sh (android/plugins/classes2.dex)"
-echo "agora: python3 -I tools/android/modelo_android.py <android_release.apk> <apktool.jar>"
+echo "(mudou o manifesto, os filtros USB ou o banner? python3 -I tools/android/modelo_android.py <android_release.apk> <apktool.jar>)"

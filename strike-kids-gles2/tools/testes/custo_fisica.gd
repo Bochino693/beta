@@ -1,9 +1,9 @@
 extends "res://tools/testes/calibrar.gd"
 
 ## CUSTO DA FÍSICA (só no PC, não vai no APK)
-##   godot3 --no-window --path . --fixed-fps 120 res://tools/testes/custo_fisica.tscn -- --linha=C,0.0,0.06,8.8,0.0
+##   godot3 --no-window --path . --fixed-fps 60 res://tools/testes/custo_fisica.tscn -- --linha=C,0.0,0.06,8.8,0.0
 ## As mesmas jogadas da calibração (--linha: 5 saídas da mesma linha), e o
-## tempo de cada passo da física (com --fixed-fps 120 cada quadro tem um
+## tempo de cada passo da física (com --fixed-fps 60 cada quadro tem um
 ## passo): antes da bola (pinos soltos), com a bola rolando e depois da
 ## batida (pinos assentando). Serve para comparar mudanças na colisão — e
 ## as linhas "saida" mostram se as jogadas continuam dando o mesmo resultado.
