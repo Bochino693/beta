@@ -79,6 +79,65 @@ O QUE MUDOU PARA RODAR NA OPENGL ES 2.0
     Godot 4 (nao substitui).
 
 
+VERSAO 6.3: ABERTURA SEM TELA PRETA, FISICA DE 1 OU 2 PINOS, CENARIO NITIDO
+---------------------------------------------------------------------------
+  * ABERTURA SEM TELA PRETA: a imagem do Lazer & Sport GAMES aparece em
+    tela cheia ja no primeiro quadro e fica ate o jogo estar pronto (a
+    barrinha de carregamento anda por cima dela). Antes aparecia o logo,
+    depois uma tela preta enquanto o mundo era montado. As imagens de
+    abertura (Android e jogo, nos 3 jeitos da tela) saem de
+    tools/imagem_abertura.py.
+  * UM PINO SO (OU DOIS) SEM "BUG": a bola anda 12 a 15 cm por passo da
+    fisica e a Bullet so via a batida com a bola ja enterrada no pino -
+    para separar, dava energia a mais: o pino saia a 1,7x a velocidade da
+    bola dando cambalhotas e a bola dava um pulinho. Agora a batida da bola
+    no pino em pe e feita no passo certo (scripts/bola.gd, quique 0,45, na
+    altura do toque): o pino sai a ~1,25x, tombando para tras, e a bola nao
+    pula. Outro achado: no Godot 3 a velocidade lida do pino e a de um
+    passo atras - o limite de voo se realimentava e a gravidade sumia (um
+    pino subiu 7 m). Agora tudo vem do estado do corpo e o pino de madeira
+    tem limites (giro 25 rad/s, subida 2,4 m/s, 11 m/s).
+    A mira das bolas seguintes passa pelo MEIO do grupo (pega 3-6, 1-3-6,
+    3-6-10, 2-4-7 de uma vez). Teste novo tools/testes/poucos_pinos.gd (22
+    grupos x 5 posicoes x 2): na 6.2, 35 de 220 bolas "certeiras" deixavam
+    pino em pe e um pino subiu 1,85 m; agora nenhuma (so o 7-10, quase
+    impossivel tambem no boliche de verdade) e o mais alto que um pino
+    sobe e 19 cm. Tabela de jogadas recalibrada com a fisica nova:
+    "perto do planejado" 90% a 100% (antes 85% a 91%).
+  * PINO BATIDO QUE FICA DE PE VIRA DE FRENTE: girado ou torto, ele da um
+    pulinho, vira a carinha para quem joga e comemora.
+  * CANALETAS COM EFEITO DE NOVO: com os para-choques ligados (o normal) a
+    canaleta fica escondida - agora os para-choques tem LUZES no neon do
+    cenario correndo ate os pinos (as mesmas das bordas da pista, mais
+    fortes na jogada; shaders/para_choque.shader). Na canaleta voltaram os
+    rebites (espaco), as bolhinhas (mar) e as fibras do bambu (selva). O
+    tempo das animacoes vem da CPU ja dentro de uma volta (na Mali-450 o
+    pixel e de meia precisao e o TIME andava aos saltos).
+  * CORTINA DA BOLA TEMATICA: as 7 tiras numa malha so (um desenho), com o
+    desenho de cada cenario - lona de circo com estrela, foguete e
+    planetas, peixinhos e bolhas, folhas e pegada de dinossauro
+    (tools/cortina_bola.py -> texturas/cortina_bola.png) - e abrindo para
+    DENTRO quando a bola passa. Atras dela agora e o tunel escuro (antes a
+    chapa do fundo do gabinete enchia o tunel).
+  * ALCAPAO LIMPO: as faixas de luz que corriam nas paredes do poco eram
+    linhas finas que piscavam - sairam. Abriu, caiu, acabou.
+  * CENARIO NITIDO (OLHOS CERTINHOS): a textura assada agora sai por RAIOS,
+    como num assador profissional - de cada ponto da forma leve um raio de
+    fora para dentro pega a casca de fora do modelo original (o olho por
+    cima do rosto), 4 raios por pixel (bordas lisas). Antes cada pixel
+    pegava a amostra mais perto e os olhos saiam borrados e rabiscados.
+    Os principais com mais detalhe: pterossauro, dinossauro e navio com
+    textura 1024, e mais forma (pterossauro e dino 560/520 triangulos,
+    tartaruga 520, navio 1700) - cada um continua uma peca so. O atlas
+    continua 2048x4096 (alguns objetos simples foram para 256).
+    (tools/modelos_texturizados.py precisa de trimesh + embreex no python.)
+    Medido (tools/testes/orcamento.gd): o mesmo peso da 6.2 (de -3% a +3%
+    por cenario).
+  * BAU DO TESOURO PERTINHO DA PISTA (fundo do mar, do lado direito,
+    virado para quem joga): as moedas (com estrela) e as joias lapidadas
+    pintadas numa textura propria do atlas, 3 moedas grandes de pe e 4
+    joias de quinas vivas - poucos triangulos.
+
 VERSAO 6.2: CENARIO BONITO DE NOVO, LEVE, E A MAQUINA QUE LEVA TUDO
 ------------------------------------------------------------------
   * CENARIO COM A QUALIDADE DOS ORIGINAIS E MENOS TRIANGULOS: para caber
@@ -532,6 +591,9 @@ PASTAS
               malhas_leves.gd + malhas_leves.py (simplifica as malhas de
               modelos/ para a Mali-400/450: exportar, simplificar e
               importar - veja o comeco dos dois arquivos),
+              modelos_texturizados.py (o cenario com textura assada no
+              atlas), imagem_abertura.py (as imagens de abertura),
+              cortina_bola.py (o desenho da cortina da cacapa),
               testes/ (calibrar, roteiro, instantes, medir_desenho,
               desempenho: tempo de cada quadro; bola_volta: confere a
               bola no fosso e na canaleta; bola_fosso: a bola do fim da
@@ -541,7 +603,10 @@ PASTAS
               "server", sem placa de video); filme_pinos: fotos de um
               strike de perto e do alcapao; foto_bolas: as bolas do Bob e
               da Mia; pinos_vivos: quiques, pulos, giro e quanto os
-              pinos ainda andam depois da batida; foto_letreiro: os
+              pinos ainda andam depois da batida; poucos_pinos: a bola
+              da sobra em 1, 2 ou 3 pinos - o que ficou de pe, quanto o
+              pino sobe e gira; varrida: a plaqueta leva todos os pinos
+              para o alcapao; foto_letreiro: os
               letreiros STRIKE KIDS de perto; teste_menu_direto: menu do operador e modal no
               desenho atual; orcamento: vertices por
               fase e por parte; vitrine: fotos fixas para comparar o

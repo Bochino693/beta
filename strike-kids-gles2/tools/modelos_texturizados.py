@@ -70,14 +70,18 @@ ALVO = {
     "roda": 640, "peixe": 400,
     # o baú em duas peças (o corpo e a tampa, que abre)
     "bau": 220, "bau_tampa": 200,
+    # os PRINCIPAIS (6.3): mais forma (e textura de 1024) — pterossauros,
+    # dinossauros, tartarugas e o navio aparecem grandes
+    "ptero": 560, "dino": 520, "tartaruga": 520, "navio": 1700,
 }
 # erro máximo da forma de cada peça (fração do tamanho); o padrão é ERRO_FORMA
 ERRO = {"roda": 0.012, "peixe": 0.011, "ovo_dino": 0.06, "cristal": 0.05, "palmeira": 0.05}
 # textura de cada objeto (lado em pixels): 512 nos grandes e nos que têm
 # rosto ou desenho miúdo; 256 nos outros
-TEX_512 = ("vulcao", "navio", "carrossel", "roda", "torre", "planeta_anel", "arco_iris", "tenda", "cristal",
-           "dino", "tartaruga", "peixe", "ptero", "ovo_dino", "donut", "foguete", "ovni",
-           "estrela_mar", "cupcake", "presente", "bau", "bau_tampa", "pirulito")
+TEX_1024 = ("ptero", "navio", "dino")
+TEX_512 = ("vulcao", "carrossel", "roda", "torre", "planeta_anel", "tenda",
+           "tartaruga", "peixe", "ovo_dino", "donut", "foguete", "ovni",
+           "cupcake", "bau", "bau_tampa")
 TEX_128 = ()
 # SEM TEXTURA: as peças de uma cor só ou quase (plantas, pedras, nuvens,
 # balões, lâmpadas) espalhadas às dezenas pelo cenário — a textura não
@@ -191,6 +195,80 @@ def normais_suaves(v, f, media, quina):
 
 
 # ------------------------------------------------------------ amostras do original
+def cor_por_raios(v, f, cor, uv_px, fx, pd, nd, lin, col, tri, arvore, a_pts, a_nor, a_cor, todos):
+    """A COR DE CADA PIXEL PELO ORIGINAL, COMO NUM ASSADOR DE VERDADE (6.3).
+    Antes cada pixel pegava a amostra do original mais perto: num olho (uma
+    bolinha por cima do rosto, que a forma leve não tem) o pixel pegava ora
+    o olho, ora o rosto embaixo, ora a bochecha do lado — olhos borrados e
+    rabiscados. Agora, de cada ponto da forma leve sai um raio de FORA para
+    DENTRO (começa a `dist` acima dela, pela normal) e a cor é a do primeiro
+    lado de fora do original que ele encontra (a casca de fora: o olho por
+    cima do rosto), interpolada no triângulo — as bordas saem como as do
+    original. 4 raios por pixel (bordas lisas). `dist`: o quanto o original
+    sai da forma leve (99,5% dos pontos dele), com folga."""
+    import trimesh
+    from trimesh.ray.ray_pyembree import RayMeshIntersector
+    malha = trimesh.Trimesh(vertices=v, faces=f, process=False)
+    raios = RayMeshIntersector(malha)
+    diag = float(np.linalg.norm(v.max(0) - v.min(0)))
+    # o quanto o original sai da forma leve (pontos da forma: os vértices e
+    # o centro de cada pixel)
+    centro = np.stack([col + 0.5, lin + 0.5], 1)
+    w_c = _bary(uv_px, fx, tri, centro)
+    p_c = np.einsum("pc,pcd->pd", w_c, pd[fx[tri]])
+    longe = cKDTree(np.concatenate([p_c, pd, todos])).query(a_pts)[0]
+    dist = float(np.clip(np.percentile(longe, 99.5) * 1.3, 0.006 * diag, 0.06 * diag))
+    soma = np.zeros((len(tri), 3))
+    for dx, dy in ((-0.25, -0.25), (0.25, -0.25), (-0.25, 0.25), (0.25, 0.25)):
+        w = _bary(uv_px, fx, tri, centro + [dx, dy])
+        p3 = np.einsum("pc,pcd->pd", w, pd[fx[tri]])
+        n3 = np.einsum("pc,pcd->pd", w, nd[fx[tri]])
+        n3 /= np.maximum(np.linalg.norm(n3, axis=1, keepdims=True), 1e-12)
+        c = np.empty((len(tri), 3))
+        falta = np.ones(len(tri), bool)
+        it, ir, cc = _casca(malha, raios, cor, f, p3, n3, dist)
+        c[ir] = cc
+        falta[ir] = False
+        # sem casca no caminho (raro): a amostra mais perto, como antes
+        if falta.any():
+            c[falta] = a_cor[procurar(arvore, a_nor, p3[falta], n3[falta]), :3]
+        soma += tela_g4(s2l(np.clip(c, 0, 1)))
+    return soma / 4.0
+
+
+def _casca(malha, raios, cor, f, p3, n3, dist):
+    """Raios de fora (a `dist` acima de cada ponto, pela normal) para dentro:
+    a primeira face da FRENTE até `dist` abaixo do ponto. Devolve os
+    triângulos, os raios que acharam e a cor interpolada no triângulo."""
+    import trimesh
+    origem = p3 + n3 * dist
+    it, ir, loc = raios.intersects_id(origem, -n3, multiple_hits=True, max_hits=8, return_locations=True)
+    t = np.einsum("pd,pd->p", loc - origem[ir], -n3[ir])
+    ok = (t >= -1e-6) & (t <= dist * 2.0) & (np.einsum("pd,pd->p", malha.face_normals[it], n3[ir]) > 0.0)
+    it, ir, loc, t = it[ok], ir[ok], loc[ok], t[ok]
+    ordem = np.lexsort((t, ir))
+    it, ir, loc = it[ordem], ir[ordem], loc[ordem]
+    primeiro = np.r_[True, ir[1:] != ir[:-1]][:len(ir)]
+    it, ir, loc = it[primeiro], ir[primeiro], loc[primeiro]
+    bc = trimesh.triangles.points_to_barycentric(malha.triangles[it], loc)
+    bc = np.clip(np.nan_to_num(bc), 0, 1)
+    bc /= np.maximum(bc.sum(1, keepdims=True), 1e-12)
+    return it, ir, np.einsum("pc,pcd->pd", bc, cor[f[it], :3])
+
+
+def _bary(uv_px, fx, tri, pts):
+    """Baricêntricas dos pontos (pixels) no triângulo de cada um (um pouco
+    para fora vale: o pixel da borda)."""
+    a, b, c = uv_px[fx[tri, 0]], uv_px[fx[tri, 1]], uv_px[fx[tri, 2]]
+    d = (b[:, 1] - c[:, 1]) * (a[:, 0] - c[:, 0]) + (c[:, 0] - b[:, 0]) * (a[:, 1] - c[:, 1])
+    d = np.where(np.abs(d) < 1e-12, 1e-12, d)
+    w0 = ((b[:, 1] - c[:, 1]) * (pts[:, 0] - c[:, 0]) + (c[:, 0] - b[:, 0]) * (pts[:, 1] - c[:, 1])) / d
+    w1 = ((c[:, 1] - a[:, 1]) * (pts[:, 0] - c[:, 0]) + (a[:, 0] - c[:, 0]) * (pts[:, 1] - c[:, 1])) / d
+    w = np.stack([w0, w1, 1 - w0 - w1], 1)
+    w = np.clip(w, -0.25, 1.25)
+    return w / w.sum(1, keepdims=True)
+
+
 def amostras(v, f, cor, passo):
     """Pontos espalhados pela superfície do original (cada triângulo numa
     grade com espaço `passo`), com a cor interpolada e a normal da face."""
@@ -434,14 +512,10 @@ def assar(nome, antigo, alvo_tris, tam, erro=None):
         pd = pd[vmap]
         nd = nd[vmap]
         fx = fx.astype(np.int64)
-        # 5. cor do original na textura
+        # 5. cor do original na textura: por RAIOS (6.3), 4 por pixel
         uv_px = uv * tam
         lin, col, tri, w = rasterizar(uv_px, fx, tam)
-        p3 = np.einsum("pc,pcd->pd", w, pd[fx[tri]])
-        n3 = np.einsum("pc,pcd->pd", w, nd[fx[tri]])
-        n3 /= np.maximum(np.linalg.norm(n3, axis=1, keepdims=True), 1e-12)
-        achou = procurar(arvore, a_nor, p3, n3)
-        rgb = tela_g4(s2l(np.clip(a_cor[achou, :3], 0, 1)))
+        rgb = cor_por_raios(v, f, cor, uv_px, fx, pd, nd, lin, col, tri, arvore, a_pts, a_nor, a_cor, pos)
         img = np.zeros((tam, tam, 3))
         cheio = np.zeros((tam, tam), bool)
         img[lin, col] = rgb
@@ -498,6 +572,13 @@ BAU_CORTE = 0.45                 # a tampa começa aqui (o corpo vai até 0,46 p
 BAU_DOBRADICA = (0.452, -0.297)  # (y, z) da dobradiça: atrás, embaixo da tampa
 BAU_BOCA = (0.427, 0.294, 0.46)  # meia largura, meia fundura e altura da boca do corpo
 UV_BRANCO = -1.0                 # UV das peças com cor no vértice (montar_atlas troca pelo branco)
+## o DESENHO DO TESOURO (6.3): moedas e joias pintadas numa textura própria
+## (pintar_tesouro, um pedaço do atlas) — nítidas, com pouca malha. O UV de
+## quem usa esse desenho vem com u - 3 (montar_atlas leva para o pedaço).
+UV_TESOURO = -3.0
+TESOURO_TAM = 256
+TESOURO_MONTE = (0.75, 0.53)     # o monte de ouro: u 0..0,75, v 0..0,53
+TESOURO_MOEDA = (0.875, 0.125, 0.115)   # a cara da moeda: centro (u, v) e raio
 
 
 def _sub(s, sel):
@@ -540,20 +621,23 @@ class _Pecas:
     no branco do atlas."""
 
     def __init__(self):
-        self.pos, self.nor, self.cor, self.ind = [], [], [], []
+        self.pos, self.nor, self.cor, self.uv, self.ind = [], [], [], [], []
         self._vistos = {}
 
-    def tri(self, pts, nors, cores):
-        # o mesmo ponto (lugar, normal e cor) é um vértice só. No Godot a
+    def tri(self, pts, nors, cores, uvs=None):
+        # o mesmo ponto (lugar, normal, cor e UV) é um vértice só. No Godot a
         # frente do triângulo é a do sentido HORÁRIO (a normal da regra da
         # mão direita aponta para trás): grava na ordem inversa
-        for q, n, c in zip(pts[::-1], nors[::-1], cores[::-1]):
-            chave = tuple(np.round(np.concatenate([q, n, c]), 5))
+        if uvs is None:
+            uvs = [np.array([UV_BRANCO, 0.0])] * 3
+        for q, n, c, t in zip(pts[::-1], nors[::-1], cores[::-1], uvs[::-1]):
+            chave = tuple(np.round(np.concatenate([q, n, c, t]), 5))
             if chave not in self._vistos:
                 self._vistos[chave] = len(self.pos)
                 self.pos.append(q)
                 self.nor.append(n)
                 self.cor.append(c)
+                self.uv.append(t)
             self.ind.append(self._vistos[chave])
 
     def chato(self, pts, cor, centro):
@@ -568,7 +652,7 @@ class _Pecas:
     def superficie(self, listas):
         nv = len(self.pos)
         arr = {VERTEX: np.array(self.pos, np.float32), NORMAL: np.array(self.nor, np.float32),
-               COLOR: np.array(self.cor, np.float32), TEX_UV: np.full((nv, 2), UV_BRANCO, np.float32)}
+               COLOR: np.array(self.cor, np.float32), TEX_UV: np.array(self.uv, np.float32).reshape(nv, 2)}
         arr = {k: a for k, a in arr.items() if listas & (1 << k)}
         return {"prim": TRIANGULOS, "listas": listas, "arr": arr, "ind": np.array(self.ind, np.uint32)}
 
@@ -579,14 +663,17 @@ def _cor(hexa, alfa=0.0):
 
 
 def tesouro(listas):
-    """O tesouro na boca do corpo: monte de ouro, moedas, joias e a parede
-    de dentro (uma faixa escura logo abaixo da borda)."""
+    """O tesouro na boca do corpo: o monte de ouro com as moedas e joias
+    PINTADAS (pintar_tesouro: nítidas de perto e de longe), três moedas
+    grandes de pé no monte (a cara também pintada, com borda grossa),
+    quatro joias lapidadas (as faces de cima claras, as de baixo escuras)
+    e a parede de dentro (uma faixa escura logo abaixo da borda)."""
     rnd = np.random.RandomState(7)
     mx, mz, topo = BAU_BOCA
     p = _Pecas()
     # o monte de ouro: uma grade com uma corcova no meio, a borda logo
-    # abaixo da boca; cada ponto um ouro um pouco diferente (parece moeda
-    # sobre moeda) e alguns brilham
+    # abaixo da boca; a cor vem do desenho (o vértice é branco; alguns
+    # brilham — o alfa)
     nx, nz = 9, 7
     xs = np.linspace(-mx, mx, nx)
     zs = np.linspace(-mz, mz, nz)
@@ -596,57 +683,68 @@ def tesouro(listas):
             u, w = x / mx, z / mz
             h[i, j] = topo - 0.015 + 0.10 * (1 - u * u) * (1 - w * w)
             if 0 < i < nz - 1 and 0 < j < nx - 1:
-                h[i, j] += rnd.uniform(-0.012, 0.012)
+                h[i, j] += rnd.uniform(-0.008, 0.008)
     gz, gx = np.gradient(h, zs, xs)
-    ouros = [_cor("#FFC93C"), _cor("#F2A91E"), _cor("#FFE07A"), _cor("#E8961A")]
-    grade_cor = {}
-    for i in range(nz):
-        for j in range(nx):
-            c = ouros[rnd.randint(len(ouros))].copy()
-            if rnd.uniform() < 0.12:
-                c[3] = 0.62
-            grade_cor[i, j] = c
+    um, vm = TESOURO_MONTE
 
     def ponto(i, j):
         n = np.array([-gx[i, j], 1.0, -gz[i, j]])
-        return np.array([xs[j], h[i, j], zs[i]]), n / np.linalg.norm(n), grade_cor[i, j]
+        c = np.array([1.0, 1.0, 1.0, 0.62 if (i * 7 + j * 3) % 9 == 0 else 0.0])
+        t = np.array([UV_TESOURO + (xs[j] / mx * 0.5 + 0.5) * um, (zs[i] / mz * 0.5 + 0.5) * vm])
+        return np.array([xs[j], h[i, j], zs[i]]), n / np.linalg.norm(n), c, t
     for i in range(nz - 1):
         for j in range(nx - 1):
             a, b, c, d = ponto(i, j), ponto(i, j + 1), ponto(i + 1, j + 1), ponto(i + 1, j)
-            for t in ((a, d, c), (a, c, b)):
-                p.tri([q[0] for q in t], [q[1] for q in t], [q[2] for q in t])
+            for tr in ((a, d, c), (a, c, b)):
+                p.tri([q[0] for q in tr], [q[1] for q in tr], [q[2] for q in tr], [q[3] for q in tr])
 
     def altura(x, z):
         j = np.clip(np.searchsorted(xs, x) - 1, 0, nx - 2)
         i = np.clip(np.searchsorted(zs, z) - 1, 0, nz - 2)
         return h[i:i + 2, j:j + 2].mean()
-    # moedas por cima (discos de 6 lados, inclinados)
-    for k in range(7):
-        x, z = rnd.uniform(-mx * 0.7, mx * 0.7), rnd.uniform(-mz * 0.6, mz * 0.75)
-        centro = np.array([x, altura(x, z) + 0.012, z])
-        inc = rnd.uniform(-0.6, 0.6, 2)
-        n = np.array([inc[0], 1.0, inc[1]])
+    # três moedas grandes encostadas no monte (8 lados, com espessura)
+    cu, cv, cr = TESOURO_MOEDA
+    branco = np.array([1.0, 1.0, 1.0, 0.62])
+    beira = _cor("#C8861A")
+    for k, (x, z, inc_x, inc_z) in enumerate(((-0.17, 0.12, 0.9, 0.5), (0.2, 0.15, -0.8, 0.6), (0.04, -0.12, 0.3, -0.55))):
+        r, esp = 0.06, 0.012
+        n = np.array([inc_x, 1.0, inc_z])
         n /= np.linalg.norm(n)
-        e1 = np.cross(n, [0.0, 0.0, 1.0])
+        centro = np.array([x, altura(x, z) + r * 0.55, z])
+        e1 = np.cross(n, [0.0, 1.0, 0.0])
         e1 /= np.linalg.norm(e1)
         e2 = np.cross(n, e1)
-        borda = [centro + 0.045 * (np.cos(a) * e1 + np.sin(a) * e2) for a in np.linspace(0, 2 * np.pi, 7)[:-1]]
-        claro, ouro = _cor("#FFF0A0", 0.62 if k % 2 == 0 else 0.0), _cor("#FFC93C")
-        for a in range(6):
-            p.tri([centro, borda[a], borda[(a + 1) % 6]], [n] * 3, [claro, ouro, ouro])
-    # joias (octaedros de quinas vivas) que brilham
-    for k, (cor, x, z) in enumerate((("#FF2D55", -0.20, 0.10), ("#2E7BFF", 0.17, -0.06),
-                                     ("#2ED47A", 0.02, 0.17), ("#B25BFF", 0.27, 0.15))):
-        c = _cor(cor, 0.6)
-        r = 0.05 if k == 0 else 0.042
-        centro = np.array([x, altura(x, z) + r * 0.55, z])
+        ang = np.linspace(0, 2 * np.pi, 9)[:-1]
+        topo_c = centro + n * esp * 0.5
+        base_c = centro - n * esp * 0.5
+        bt = [topo_c + r * (np.cos(a) * e1 + np.sin(a) * e2) for a in ang]
+        bb = [base_c + r * (np.cos(a) * e1 + np.sin(a) * e2) for a in ang]
+        uvs = [np.array([UV_TESOURO + cu + cr * np.cos(a), cv + cr * np.sin(a)]) for a in ang]
+        uc = np.array([UV_TESOURO + cu, cv])
+        for a in range(8):
+            b2 = (a + 1) % 8
+            # a cara (desenhada) e a borda (ouro escuro, quinas vivas)
+            p.tri([topo_c, bt[a], bt[b2]], [n] * 3, [branco] * 3, [uc, uvs[a], uvs[b2]])
+            p.chato([bt[a], bb[a], bb[b2]], beira, centro)
+            p.chato([bt[a], bb[b2], bt[b2]], beira, centro)
+    # joias lapidadas (octaedros de quinas vivas): as faces de cima claras e
+    # as de baixo escuras — cada face uma cor lisa, bem definida
+    for k, (cor, x, z) in enumerate((("#FF2D55", -0.24, -0.06), ("#2E7BFF", 0.25, -0.1),
+                                     ("#2ED47A", -0.02, 0.19), ("#B25BFF", 0.31, 0.17))):
+        base = _cor(cor, 0.6)
+        claro = base.copy()
+        claro[:3] = base[:3] * 0.55 + 0.45
+        escuro = base.copy()
+        escuro[:3] = base[:3] * 0.62
+        r = 0.058 if k == 0 else 0.05
+        centro = np.array([x, altura(x, z) + r * 0.6, z])
         giro = rnd.uniform(0, np.pi)
         e = [np.array([np.cos(giro + a), 0.0, np.sin(giro + a)]) for a in (0, np.pi / 2, np.pi, 3 * np.pi / 2)]
-        cima, baixo = centro + [0, r * 1.25, 0], centro - [0, r * 1.25, 0]
+        cima, baixo = centro + [0, r * 1.15, 0], centro - [0, r * 1.15, 0]
         for a in range(4):
             q0, q1 = centro + r * e[a], centro + r * e[(a + 1) % 4]
-            p.chato([cima, q1, q0], c, centro)
-            p.chato([baixo, q0, q1], c, centro)
+            p.chato([cima, q1, q0], claro if a % 2 == 0 else base, centro)
+            p.chato([baixo, q0, q1], escuro, centro)
     # a parede de dentro: faixa escura da borda até o ouro (sem ela, olhando
     # de cima, a parede do corpo — que só tem o lado de fora — some)
     madeira = _cor("#5C3014")
@@ -661,6 +759,78 @@ def tesouro(listas):
         p.chato([p0, p2, p1], madeira, fora)
         p.chato([p0, p3, p2], madeira, fora)
     return p.superficie(listas)
+
+
+def pintar_tesouro():
+    """O desenho do tesouro (TESOURO_TAM x TESOURO_TAM, já como sai na
+    tela, como os pedaços assados): à esquerda, em cima, o monte de ouro
+    visto de cima — moedas umas sobre as outras (borda escura, cara clara
+    com estrela e um brilho), joias lapidadas e pérolas; à direita, em
+    cima, a cara de uma moeda grande (a das moedas de pé)."""
+    from PIL import ImageDraw
+    k = 2
+    t = TESOURO_TAM * k
+    img = Image.new("RGB", (t, t), (236, 190, 60))
+    d = ImageDraw.Draw(img)
+    rnd = np.random.RandomState(21)
+
+    def moeda(cx, cy, r):
+        d.ellipse([cx - r, cy - r, cx + r, cy + r], fill=(196, 140, 30))
+        d.ellipse([cx - r * 0.86, cy - r * 0.86, cx + r * 0.86, cy + r * 0.86], fill=(255, 226, 96))
+        d.ellipse([cx - r * 0.66, cy - r * 0.66, cx + r * 0.66, cy + r * 0.66], outline=(236, 182, 46), width=max(1, int(r * 0.09)))
+        pts = []
+        for i in range(10):
+            a = -np.pi / 2 + np.pi * i / 5
+            rr = r * (0.42 if i % 2 == 0 else 0.18)
+            pts.append((cx + np.cos(a) * rr, cy + np.sin(a) * rr))
+        d.polygon(pts, fill=(240, 186, 48))
+        d.arc([cx - r * 0.74, cy - r * 0.74, cx + r * 0.74, cy + r * 0.74], 195, 255, fill=(255, 246, 200), width=max(1, int(r * 0.14)))
+
+    def joia(cx, cy, r, cor):
+        cor = np.array(cor, float)
+        claro = tuple(int(c) for c in cor * 0.5 + 127)
+        escuro = tuple(int(c) for c in cor * 0.6)
+        base = tuple(int(c) for c in cor)
+        out = [(cx + np.cos(a) * r, cy + np.sin(a) * r) for a in np.linspace(0, 2 * np.pi, 7)[:-1] + np.pi / 6]
+        mesa = [(cx + np.cos(a) * r * 0.5, cy + np.sin(a) * r * 0.5) for a in np.linspace(0, 2 * np.pi, 7)[:-1] + np.pi / 6]
+        d.polygon(out, fill=(60, 30, 20))
+        for i in range(6):
+            j = (i + 1) % 6
+            cor_f = claro if i in (3, 4) else (escuro if i in (0, 1) else base)
+            d.polygon([out[i], out[j], mesa[j], mesa[i]], fill=cor_f)
+        d.polygon(mesa, fill=base)
+        g = r * 0.28
+        d.polygon([(mesa[4][0], mesa[4][1] - g), (mesa[4][0] + g * 0.3, mesa[4][1]), (mesa[4][0], mesa[4][1] + g),
+                   (mesa[4][0] - g * 0.3, mesa[4][1])], fill=(255, 255, 255))
+
+    def perola(cx, cy, r):
+        d.ellipse([cx - r, cy - r, cx + r, cy + r], fill=(200, 196, 210))
+        d.ellipse([cx - r * 0.85, cy - r * 0.95, cx + r * 0.7, cy + r * 0.6], fill=(250, 248, 255))
+        d.ellipse([cx - r * 0.5, cy - r * 0.6, cx - r * 0.1, cy - r * 0.2], fill=(255, 255, 255))
+
+    um, vm = TESOURO_MONTE
+    w, h = int(t * um), int(t * vm)
+    # o fundo do monte: ouro com um pouco de sombra entre as moedas
+    for _ in range(500):
+        x, y = rnd.uniform(0, w), rnd.uniform(0, h)
+        r = rnd.uniform(8, 16) * k
+        c = (int(rnd.uniform(205, 240)), int(rnd.uniform(160, 190)), 50)
+        d.ellipse([x - r, y - r, x + r, y + r], fill=c)
+    # moedas umas sobre as outras (as de baixo primeiro)
+    for _ in range(230):
+        moeda(rnd.uniform(-10, w + 10), rnd.uniform(-10, h + 10), rnd.uniform(11, 15) * k)
+    # joias e pérolas por cima
+    cores = [(255, 45, 85), (46, 123, 255), (46, 212, 122), (178, 91, 255), (255, 200, 40), (40, 220, 240)]
+    for i in range(12):
+        joia(rnd.uniform(40, w - 40), rnd.uniform(40, h - 40), rnd.uniform(14, 18) * k, cores[i % len(cores)])
+    for _ in range(10):
+        perola(rnd.uniform(20, w - 20), rnd.uniform(20, h - 20), rnd.uniform(6, 8) * k)
+    # a cara da moeda grande
+    cu, cv, cr = TESOURO_MOEDA
+    moeda(cu * t, cv * t, cr * t)
+    img = img.resize((TESOURO_TAM, TESOURO_TAM), Image.LANCZOS)
+    a = np.asarray(img).astype(np.float64) / 255.0
+    return (np.clip(tela_g4(s2l(a.reshape(-1, 3))).reshape(a.shape), 0, 1) * 255 + 0.5).astype(np.uint8)
 
 
 def tampa_por_dentro(listas, tampa):
@@ -714,11 +884,14 @@ def montar_atlas(atuais, saida):
         return
     # os maiores primeiro, cada um no primeiro lugar livre de cima para baixo
     pecas.sort(key=lambda p: (-p[2].shape[0], p[0]))
-    livres = [(x, y, 512) for y in range(0, 8192, 512) for x in range(0, ATLAS_LARGURA, 512)]
+    livres = [(x, y, 1024) for y in range(0, 8192, 1024) for x in range(0, ATLAS_LARGURA, 1024)]
     lugares = [_alocar(livres, p[2].shape[0]) for p in pecas]
+    # o desenho do tesouro (moedas e joias: UV_TESOURO)
+    des_tesouro = pintar_tesouro()
+    tx, ty = _alocar(livres, TESOURO_TAM)
     bx, by = _alocar(livres, 16)
     altura = 512
-    while altura < max([y + p[2].shape[0] for (x, y), p in zip(lugares, pecas)] + [by + 16]):
+    while altura < max([y + p[2].shape[0] for (x, y), p in zip(lugares, pecas)] + [by + 16, ty + TESOURO_TAM]):
         altura *= 2
     uv_branco = np.array([(bx + 8) / ATLAS_LARGURA, (by + 8) / altura], np.float32)
     img = np.zeros((altura, ATLAS_LARGURA, 3), np.uint8)
@@ -731,13 +904,20 @@ def montar_atlas(atuais, saida):
         novo = np.empty_like(uv)
         novo[:, 0] = (x + uv[:, 0] * t) / ATLAS_LARGURA
         novo[:, 1] = (y + uv[:, 1] * t) / altura
-        # as partes com a cor no vértice (o tesouro do baú): no branco
+        # as partes com a cor no vértice (joias, bordas das moedas): no branco
         novo[uv[:, 0] <= UV_BRANCO] = uv_branco
+        # as partes com o desenho do tesouro: no pedaço dele
+        des = uv[:, 0] < (UV_BRANCO + UV_TESOURO) * 0.5
+        novo[des, 0] = (tx + (uv[des, 0] - UV_TESOURO) * TESOURO_TAM) / ATLAS_LARGURA
+        novo[des, 1] = (ty + uv[des, 1] * TESOURO_TAM) / altura
         sup = dict(sup)
         sup["arr"] = dict(sup["arr"])
         sup["arr"][TEX_UV] = novo.astype(np.float32)
         gravar_msh(os.path.join(atuais, ident + ".leve.msh"), [sup])
         print("  atlas: %-14s %4d px em (%4d, %4d)" % (nome, t, x, y))
+    img[ty:ty + TESOURO_TAM, tx:tx + TESOURO_TAM] = des_tesouro
+    cheio[ty:ty + TESOURO_TAM, tx:tx + TESOURO_TAM] = True
+    print("  atlas: %-14s %4d px em (%4d, %4d)" % ("(tesouro)", TESOURO_TAM, tx, ty))
     # o quadradinho BRANCO (o branco como sai na tela com luz 1, como os
     # pedaços): as peças de uma cor só apontam o UV para o meio dele e a cor
     # delas vem do vértice — o mesmo material das de textura
@@ -821,7 +1001,7 @@ def main():
         atual = ler_msh(os.path.join(atuais, e["id"] + ".msh"))[0]
         tris_atual = len(atual["ind"]) // 3
         alvo = ALVO.get(nome, max(60, int(round(tris_atual * FATOR))))
-        tam = 512 if nome in TEX_512 else (128 if nome in TEX_128 else 256)
+        tam = 1024 if nome in TEX_1024 else (512 if nome in TEX_512 else (128 if nome in TEX_128 else 256))
         pedaco = os.path.join(atuais, "pedacos", nome + ".png")
         local = os.path.join(atuais, e["id"] + ".local.msh")
         if nome in SO_COR:

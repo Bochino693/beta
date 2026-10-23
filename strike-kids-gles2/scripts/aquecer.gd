@@ -26,6 +26,10 @@ extends Viewport
 ##      bichinhos, e a logo aparecendo e sumindo com o brilho e as
 ##      estrelinhas — do jeito que vão aparecer: uma amostra nem sempre é
 ##      desenhada do mesmo jeito (o rastro, a logo que some aos poucos...).
+## A capa aparece JÁ no primeiro quadro do jogo (capa(), chamada antes de o
+## jogo montar o mundo): o Android mostra a imagem de abertura e, sem
+## quadro novo, a tela ficava PRETA enquanto o jogo montava tudo. A barra
+## anda primeiro com a montagem (montando()) e depois com as amostras.
 ## Só então a capa sai (sinal `pronto`) e a abertura começa, lisa. A
 ## telinha e as amostras são apagadas no fim. Durante as amostras a tela do
 ## jogo fica parada (principal), senão ela compilava tudo de uma vez no
@@ -46,6 +50,8 @@ const LETRAS := "0123456789 ABCDEFGHIJKLMNOPQRSTUVWXYZÁÉÍÓÚÂÊÔÃÕÇ!?:.
 const MINUSCULAS := "abcdefghijklmnopqrstuvwxyzáéíóúâêôãõç"
 const NUMEROS := "0123456789 +!"
 const FONTES_POR_QUADRO := 3
+## a parte da barra que é a montagem do jogo (o resto, as amostras)
+const MONTAGEM := 0.3
 const SAIDA_S := 0.3
 ## amostras apagadas por quadro no fim (por trás da capa)
 const APAGAR_POR_QUADRO := 24
@@ -76,6 +82,20 @@ var _barra: ColorRect
 var _trilho: ColorRect
 
 
+## A CAPA, antes de tudo (o jogo ainda vai montar o mundo): a telinha fica
+## parada até preparar().
+func capa() -> void:
+	render_target_update_mode = Viewport.UPDATE_DISABLED
+	set_process(false)
+	if _capa == null:
+		_montar_capa()
+
+
+## A barra durante a montagem do jogo (f de 0 a 1).
+func montando(f: float) -> void:
+	_barra_em(MONTAGEM * f)
+
+
 func preparar(vp: Viewport, interface: Node, extras: Array = [], ensaio: Object = null) -> void:
 	_interface = interface
 	_ensaio = ensaio
@@ -87,7 +107,9 @@ func preparar(vp: Viewport, interface: Node, extras: Array = [], ensaio: Object 
 	usage = vp.usage
 	hdr = vp.hdr
 	render_target_update_mode = Viewport.UPDATE_ALWAYS
-	_montar_capa()
+	if _capa == null:
+		_montar_capa()
+	set_process(true)
 	var cam := Camera.new()
 	cam.fov = 75.0
 	cam.far = 40.0
@@ -238,7 +260,12 @@ func _montar_capa() -> void:
 	_trilho.add_child(_barra)
 
 
+## A barra durante as amostras (f de 0 a 1), depois da montagem.
 func _progresso(f: float) -> void:
+	_barra_em(MONTAGEM + (1.0 - MONTAGEM) * f)
+
+
+func _barra_em(f: float) -> void:
 	if _barra:
 		_barra.rect_size.x = _trilho.rect_size.x * clamp(f, 0.0, 1.0)
 
