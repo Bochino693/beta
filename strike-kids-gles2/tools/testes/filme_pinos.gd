@@ -71,7 +71,7 @@ func _idle(delta: float) -> bool:
 				_salvar("a")
 			if _q > 75:
 				# a máquina: barra, alçapão, mesa (como depois de um strike)
-				var r = p.maquina.rack_novo(true)
+				var r = p.maquina.rack_novo()
 				_fase = 4
 				_q = 0
 		4:

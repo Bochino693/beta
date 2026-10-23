@@ -1779,6 +1779,8 @@ func _layout_marca(T: Vector2) -> void:
 ## (tremidinha + estrelas), sobe o selo GAMES, passa um brilho e entra
 ## "apresenta".
 func marca(ligado: bool, na_hora := false, sobre_3d := false) -> void:
+	if _marca_tela == null:
+		return
 	if not ligado:
 		if not _marca_tela.visible:
 			return
@@ -1826,6 +1828,31 @@ func marca(ligado: bool, na_hora := false, sobre_3d := false) -> void:
 	var tt := create_tween()
 	tt.tween_interval(1.0)
 	tt.tween_property(_marca_texto, "modulate:a", 1.0, 0.4)
+
+
+## A marca só aparece na abertura (uma vez cada vez que o jogo liga): depois
+## ela sai da memória — as imagens dela (ui/marca) estão entre as maiores
+## do jogo e ficavam paradas na placa de vídeo o dia inteiro.
+func soltar_marca() -> void:
+	if _marca_tela == null:
+		return
+	_marca_tela.queue_free()
+	_marca_tela = null
+	_marca_fundo = null
+	_marca_games = null
+	_marca_veu = null
+	_marca_alvo = null
+	_marca_placa = null
+	_marca_texto = null
+
+
+## Desenho direto com o 3D parado atrás de um modal (principal.gd,
+## _foto_do_3d): a foto do 3D no lugar dele, por baixo da interface.
+## null = o 3D de volta.
+func fundo_parado(textura: Texture) -> void:
+	tela3d.texture = textura
+	_filtrar(textura)
+	tela3d.visible = textura != null
 
 
 ## O brilho passando pela logo (Godot 3: sem lambda no tween_method).
@@ -2026,7 +2053,7 @@ func layout() -> void:
 	_inativo_texto.rect_position = Vector2.ZERO
 	if _foto_tela.visible:
 		_layout_fotos()
-	if _marca_tela.visible:
+	if _marca_tela != null and _marca_tela.visible:
 		_layout_marca(T)
 	if _atracao.visible:
 		atracao(true, _recorde.text, _creditos.text, _rec_foto.texture, _melhores_hoje)

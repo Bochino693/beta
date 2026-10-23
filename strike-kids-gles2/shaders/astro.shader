@@ -53,9 +53,10 @@ void vertex() {
 	vec3 p = centro + (dir * VERTEX.x + cima * VERTEX.y) * tamanho;
 	POSITION = PROJECTION_MATRIX * (INV_CAMERA_MATRIX * vec4(p, 1.0));
 	float a = mod(TIME * giro, 1.0) * 6.2831853;
-	// o QuadMesh do Godot 3 tem o V de baixo para cima: sem virar, o rosto
-	// aparecia de ponta-cabeça (a boca em cima dos olhos)
-	vec2 uv = vec2(UV.x, 1.0 - UV.y);
+	// o UV do QuadMesh do Godot 3 já vem com o V de cima para baixo (o topo
+	// do quadrado é V = 0, como a imagem): virar o V deixava o sol e a lua
+	// de ponta-cabeça (a boca em cima dos olhos)
+	vec2 uv = UV;
 	vec2 q = uv - 0.5;
 	uv_raios = vec2(q.x * cos(a) - q.y * sin(a), q.x * sin(a) + q.y * cos(a)) + 0.5;
 	float pisca = step(piscar_cada - 0.16, mod(TIME, piscar_cada));

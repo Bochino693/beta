@@ -6,6 +6,9 @@ extends SceneTree
 ##   1) godot3 --no-window --path . -s res://tools/malhas_leves.gd -- --exportar <pasta>
 ##   2) python3 tools/malhas_leves.py <pasta>
 ##   3) godot3 --no-window --path . -s res://tools/malhas_leves.gd -- --importar <pasta>
+## (--origem=<pasta>: exporta os .res/.scn de outra pasta em vez de
+## res://modelos — por exemplo os modelos originais tirados do git, para o
+## tools/modelos_texturizados.py)
 ##
 ## Cada malha (as peças dos bichinhos e das roupinhas, o pino, o terreno,
 ## cada objeto do cenário) sai num .msh com as mesmas listas do Godot
@@ -21,6 +24,7 @@ const COLUNAS := {Mesh.ARRAY_VERTEX: 3, Mesh.ARRAY_NORMAL: 3, Mesh.ARRAY_TANGENT
 	Mesh.ARRAY_TEX_UV: 2, Mesh.ARRAY_TEX_UV2: 2}
 
 var pasta := ""
+var origem := ""
 
 
 func _init() -> void:
@@ -30,6 +34,8 @@ func _init() -> void:
 		if args[i] in ["--exportar", "--importar"] and i + 1 < args.size():
 			modo = args[i]
 			pasta = args[i + 1]
+		elif args[i].begins_with("--origem="):
+			origem = args[i].substr(9)
 	if modo == "":
 		printerr("uso: -- --exportar <pasta>  |  -- --importar <pasta>")
 		quit(1)
@@ -76,7 +82,7 @@ func _malhas(r: Resource) -> Array:
 
 func _exportar() -> void:
 	var arquivos := []
-	for p in PASTAS:
+	for p in ([origem] if origem != "" else PASTAS):
 		_arquivos(p, arquivos)
 	var indice := []
 	var vistas := {}
@@ -196,7 +202,9 @@ func _importar() -> void:
 	var trocadas := 0
 	var gravados := 0
 	for arq in por_recurso:
-		var r: Resource = load(arq)
+		# peça nova (o índice ganhou uma que o projeto não tem, como a
+		# tampa do baú): uma malha vazia, que a troca preenche e grava
+		var r: Resource = load(arq) if ResourceLoader.exists(arq) else _malha_nova()
 		var malhas := {}
 		for par in _malhas(r):
 			malhas[par[0]] = par[1]
@@ -215,6 +223,17 @@ func _importar() -> void:
 			else:
 				printerr("não gravou ", arq)
 	print("TROCADAS ", trocadas, " malhas; ", gravados, " recursos gravados")
+
+
+## Uma malha com uma superfície qualquer (a compressão de sempre do Godot):
+## _trocar põe no lugar a do arquivo .leve.msh.
+func _malha_nova() -> ArrayMesh:
+	var m := ArrayMesh.new()
+	var arr := []
+	arr.resize(Mesh.ARRAY_MAX)
+	arr[Mesh.ARRAY_VERTEX] = PoolVector3Array([Vector3.ZERO, Vector3.RIGHT, Vector3.UP])
+	m.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr)
+	return m
 
 
 func _trocar(m: ArrayMesh, caminho: String) -> bool:

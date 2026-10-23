@@ -79,6 +79,62 @@ O QUE MUDOU PARA RODAR NA OPENGL ES 2.0
     Godot 4 (nao substitui).
 
 
+VERSAO 6.2: CENARIO BONITO DE NOVO, LEVE, E A MAQUINA QUE LEVA TUDO
+------------------------------------------------------------------
+  * CENARIO COM A QUALIDADE DOS ORIGINAIS E MENOS TRIANGULOS: para caber
+    na Mali-450 os objetos do fundo tinham sido simplificados e o desenho
+    deles (olhos, bocas, pintas, listras, confeitos), pintado nos
+    vertices, sumia ou quebrava. Agora e o jeito dos jogos profissionais:
+    a FORMA com poucos triangulos e o DESENHO numa textura assada dos
+    modelos originais (tools/modelos_texturizados.py: forma simplificada
+    so pela forma, normais do original, mapa UV pelo xatlas, a cor do
+    original em cada pixel). Todas as texturas num ATLAS so
+    (texturas/cenario/atlas.png, 2048x4096, comprimido na placa): todos os
+    objetos usam o MESMO material e continuam juntos num desenho por
+    regiao. As pecas de uma cor so (arvores, nuvens, algas, corais,
+    baloes...) apontam para um quadradinho branco do atlas e a cor vem do
+    vertice. O shader (shaders/toon_leve_tex.shader) faz a luz por vertice:
+    por pixel, 1 leitura e 1 multiplicacao.
+    Medido (tools/testes/orcamento.gd, 4 cenarios x 4 vistas): 7,8% menos
+    indices por quadro que a 6.1 (229 mil contra 249 mil), as MESMAS
+    chamadas de desenho (140 por quadro); so o cenario: 19% a 42% menos
+    triangulos (dinos -30%, parque -29%, espaco -42%, mar -19%). Os cortes
+    do mapa UV somam vertices (+18% a +33% em tres cenarios: 11 a 18 mil
+    por cenario, bem dentro do que a Mali-450 processa).
+    Galeria de cada modelo: tools/testes/galeria_modelos.gd; peso de cada
+    modelo: tools/testes/estat_modelos.gd.
+  * O BAU DO TESOURO ABRE: a primeira vez que o fundo do mar aparece a
+    tampa abre (com um pulinho no fim) e fica aberta, mostrando o tesouro
+    dentro - monte de ouro, moedas e joias que brilham, com poucos
+    triangulos e no mesmo atlas.
+  * PINOS LEVES DE NOVO: de volta a 1,5 kg (na 6.1, 1,8 kg "segurava" a
+    bola) e o freio do pino deitado so vale LONGE da bola e fora da
+    varrida. A bola desvia menos nos pinos que na 6.1 e os quiques
+    continuam poucos (8 por jogada; na 6.0 eram 52).
+  * A PLAQUETA LEVA TODOS OS PINOS PARA O ALCAPAO: o pino caido na
+    canaleta passava por baixo da barra e sumia no fim; o empurrado por
+    cima de outro ou ainda caindo tambem sumia; e na segunda bola errada
+    os pinos que sobraram em pe eram varridos e sumiam (o alcapao nao
+    abria). Agora: um disco em cada canaleta empurra o pino dali, a barra
+    tem 30 cm (o pino em pe cai para a frente, nao monta nela), a varrida
+    dura 1 s (mais rapido ela prensava e os pinos voavam) e o alcapao abre
+    sempre que a varrida leva algum pino - nenhum some sem cair.
+    Teste: tools/testes/varrida.gd (na 6.1, 83 de 212 pinos sumiam; na
+    6.2, 375 de 375 no alcapao).
+  * TABELA DE JOGADAS calibrada de novo (7.668 jogadas): ate 1 pino de
+    diferenca em ~90% das vezes (FACIL 91%, NORMAL 88%, DIFICIL 91%).
+  * MODAL NA FRENTE = 3D PARADO: no "QUANTOS VAO JOGAR?" e no "SORRIA!"
+    o jogo tira UMA foto pequena do 3D, mostra a foto atras do veu escuro
+    e para de desenhar o 3D - a TV Box so desenha o modal (0 chamadas de
+    desenho do 3D, contra ~160).
+  * LUA E SOL DE PE: os rostinhos no ceu estavam de ponta-cabeca (a boca
+    em cima dos olhos) - o shader (shaders/astro.shader) virava o V do
+    quadrado, que no Godot 3 ja vem certo.
+  * O QUE APARECE UMA VEZ SAI DA MEMORIA: a marca da abertura (as maiores
+    imagens do jogo) e liberada depois da abertura; o modelo sem uso
+    (bumper.res) saiu do projeto.
+
+
 VERSAO 6.1: PINOS DE MADEIRA, LETREIRO SEM MANCHA E A MARCA CERTA
 ------------------------------------------------------------------
   * PINOS PESADOS DE VERDADE: ainda quicavam muito (40 a 70 quiques por

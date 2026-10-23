@@ -16,7 +16,7 @@ extends RigidBody
 signal bateu(pino, forca)
 
 const EXPR := ["normal", "piscando", "medo", "tonto", "feliz", "surpreso", "triste", "bravo"]
-const MASSA := 1.8
+const MASSA := 1.5
 const COM := Vector3(0, 0.17, 0)
 
 var numero := 1

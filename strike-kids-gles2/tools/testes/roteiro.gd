@@ -54,7 +54,8 @@ func foto(nome: String) -> void:
 	img.flip_y()
 	n_foto += 1
 	img.save_png("%s/%02d_%s.png" % [pasta, n_foto, nome])
-	print("FOTO ", nome, "  estado=", _estado())
+	print("FOTO ", nome, "  estado=", _estado(), "  desenhos=", Performance.get_monitor(Performance.RENDER_DRAW_CALLS_IN_FRAME),
+		"  vertices=", Performance.get_monitor(Performance.RENDER_VERTICES_IN_FRAME))
 
 
 ## Espera `seg` segundos de verdade (a câmera lenta e a velocidade do jogo

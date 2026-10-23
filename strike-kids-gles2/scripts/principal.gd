@@ -149,6 +149,10 @@ var _mouse_parado := 0.0
 var _menu: Control = null
 ## o 3D está parado atrás do modal de jogadores (_congelar_3d)
 var _parado_3d := false
+## desenho direto com o 3D parado: a imagem pequena com a foto do 3D
+## (_foto_do_3d) e a vez de cada foto (cancela a que ainda não saiu)
+var _vp_foto: Viewport
+var _foto_seq := 0
 ## MSAA conferido na abertura (algumas placas e drivers de PC devolvem a
 ## imagem 3D PRETA com o MSAA da OpenGL ES 2.0): quadros 3D já desenhados
 ## e se ele precisou ser desligado
@@ -424,6 +428,7 @@ func _montar_3d() -> void:
 	maquina.connect("som", self, "_som_maquina")
 	maquina.connect("alcapao", self, "_alcapao_maquina")
 	bola = Bola.new()
+	pinos.bola = bola
 	lugar.add_child(bola)
 	bola.guardar()
 	bola.connect("bateu", self, "_bola_bateu")
@@ -549,7 +554,8 @@ func _na_tela_da_tv() -> bool:
 ## nada de 3D é desenhado.
 func _mostrar_3d(sim: bool) -> void:
 	if _direto:
-		if sim:
+		# (parado atrás de um modal, a foto dele continua no lugar)
+		if sim and _vp_foto == null:
 			cam.make_current()
 		else:
 			cam.clear_current(false)
@@ -885,7 +891,7 @@ func _atracao() -> void:
 	_novo_seq()
 	_limpar()
 	_roupa_de_sempre()
-	hud.marca(false, true)
+	hud.soltar_marca()
 	hud.tela_fim(false)
 	hud.jogadores(false)
 	_congelar_3d(false)
@@ -949,7 +955,7 @@ func _escolher_jogadores() -> void:
 	Sons.tocar("start")
 	Sons.mudo_demo = false
 	Sons.atualizar_volume()
-	hud.marca(false, true)
+	hud.soltar_marca()
 	hud.atracao(false)
 	hud.tela_fim(false)
 	hud.etapa(1)
@@ -1089,7 +1095,8 @@ func _sessao_de_fotos(lista: Array) -> bool:
 	_subir_nos_podios()
 	t.destaque(0.0)
 	r.destaque(0.0)
-	cam.ir(Vector3(0, 1.05, 6.1), Vector3(0, 0.78, 2.5), 32, 52, 3.0)
+	# (atrás do véu do "SORRIA!" o 3D fica parado: a câmera já no lugar)
+	cam.corte(Vector3(0, 1.05, 6.1), Vector3(0, 0.78, 2.5), 32, 52)
 	for i in lista.size():
 		var p: String = lista[i]
 		var a: Personagem = personagens[p]
@@ -1099,6 +1106,9 @@ func _sessao_de_fotos(lista: Array) -> bool:
 			sub = "quem joga com %s %s: olhe para a câmera!" % ["o" if p == "bob" else "a", "BOB" if p == "bob" else "MIA"]
 		a.tocar("acenar", 0.2, true)
 		hud.foto_tela(true, Fotos.ao_vivo(), p, "SORRIA!", sub)
+		# a foto do 3D com o pódio de quem vai tirar a foto aceso
+		_congelar_3d(false)
+		_congelar_3d(true)
 		Sons.tocar("vez")
 		if not yield(_esperar(1.9, s, false, false), "completed"):
 			return false
@@ -1122,6 +1132,7 @@ func _sessao_de_fotos(lista: Array) -> bool:
 		if not yield(_esperar(1.5, s, false), "completed"):
 			return false
 	hud.foto_tela(false)
+	_congelar_3d(false)
 	Fotos.desligar()
 	mundo.podios(false)
 	return true
@@ -1659,11 +1670,11 @@ func _finalizar_jogada() -> void:
 		return
 	# a máquina de pinos: barra varre os caídos, a mesa recoloca / desce rack novo
 	_plano_maquina()
-	# (o alçapão só abre se esta bola derrubou algum pino)
+	# (o alçapão abre se a varrida levar algum pino)
 	if proximo == "bola":
-		maquina.reposicionar(n > 0)
+		maquina.reposicionar()
 	else:
-		maquina.rack_novo(n > 0)
+		maquina.rack_novo()
 	if not yield(_esperar(0.3, s, false), "completed"):
 		return
 	while maquina.trabalhando:
@@ -2128,7 +2139,7 @@ func fechar_menu() -> void:
 		_resultado_teste = null
 	# a abertura pode ter ficado pela metade
 	hud.tarjas(false)
-	hud.marca(false, true)
+	hud.soltar_marca()
 	bola.fogo(false)
 	bola.vestir("bob")
 	mundo.bola_z = 100.0
@@ -2213,7 +2224,7 @@ func _limpar() -> void:
 	Fotos.desligar()
 	mundo.podios(false)
 	_modal_inativo = 0.0
-	hud.marca(false, true)
+	hud.soltar_marca()
 	for nome in personagens:
 		var p: Personagem = personagens[nome]
 		p.visible = true
@@ -2229,19 +2240,67 @@ func pode_configurar() -> bool:
 	return not _preparando and (estado == E.ATRACAO or estado == E.ABERTURA)
 
 
-## Modal por cima do jogo ("QUANTOS VÃO JOGAR?"): com a imagem 3D
-## separada, ela fica parada (a última, com um véu escuro por cima) e não é
-## desenhada de novo — a TV Box só desenha o modal: abre liso, sem pesar.
-## No desenho direto o 3D continua vivo atrás do véu (custa o mesmo que a
-## jogada). A câmera para onde está (ao voltar, continua dali, sem pulo).
+## Modal por cima do jogo ("QUANTOS VÃO JOGAR?", "SORRIA!"): com a imagem
+## 3D separada, ela fica parada (a última, com um véu escuro por cima) e não
+## é desenhada de novo; no desenho direto (a TV Box) o 3D vira uma FOTO
+## parada (_foto_do_3d). Nos dois a TV Box só desenha o modal: abre liso,
+## sem pesar. A câmera para onde está (ao voltar, continua dali, sem pulo).
 func _congelar_3d(sim: bool) -> void:
 	if _menu != null:
 		return
 	_parado_3d = sim
 	if not _direto:
 		vp.render_target_update_mode = Viewport.UPDATE_DISABLED if sim else Viewport.UPDATE_ALWAYS
+	else:
+		_foto_do_3d(sim)
 	if sim:
 		cam.congelar()
+
+
+## Desenho direto com o 3D parado atrás de um modal: não há imagem 3D para
+## deixar parada. Uma câmera igual à do jogo tira UMA foto do 3D numa imagem
+## pequena (1/3 da tela: atrás do véu escuro do modal a diferença não
+## aparece); a foto fica no lugar do 3D, por baixo da interface, e o 3D
+## para de ser desenhado. Ao fechar o modal a foto sai e o 3D volta.
+func _foto_do_3d(sim: bool) -> void:
+	_foto_seq += 1
+	if _vp_foto != null:
+		hud.fundo_parado(null)
+		_vp_foto.queue_free()
+		_vp_foto = null
+		cam.make_current()
+	# (a TV de pé ligada deitada gira a imagem do 3D: aí ele continua vivo)
+	if not sim or Tela.giro != 0:
+		return
+	var s := _foto_seq
+	var f := Viewport.new()
+	f.size = (Tela.tamanho_fisico() / 3.0).round()
+	f.usage = Viewport.USAGE_3D_NO_EFFECTS
+	f.hdr = false
+	f.msaa = Viewport.MSAA_DISABLED
+	f.shadow_atlas_size = 0
+	f.render_target_v_flip = true
+	f.render_target_update_mode = Viewport.UPDATE_ONCE
+	f.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
+	# (sem mundo próprio: a imagem mostra o mesmo 3D da janela)
+	add_child(f)
+	var c := Camera.new()
+	c.fov = cam.fov
+	c.near = cam.near
+	c.far = cam.far
+	c.keep_aspect = cam.keep_aspect
+	c.cull_mask = cam.cull_mask
+	c.environment = cam.environment
+	f.add_child(c)
+	c.global_transform = cam.global_transform
+	c.current = true
+	_vp_foto = f
+	# a foto sai no próximo quadro desenhado; aí o 3D para
+	yield(VisualServer, "frame_post_draw")
+	if s != _foto_seq or _vp_foto != f:
+		return
+	hud.fundo_parado(f.get_texture())
+	cam.clear_current(false)
 
 
 ## O tempo do último quadro em segundos de verdade (sem a velocidade do

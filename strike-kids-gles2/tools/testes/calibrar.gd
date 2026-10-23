@@ -64,6 +64,7 @@ func _ready() -> void:
 	maquina.montar(pinos)
 	bola = Bola.new()
 	add_child(bola)
+	pinos.bola = bola
 	bola.vestir("bob")
 	if OS.get_environment("EXP_MASSA_BOLA") != "":
 		bola.mass = float(OS.get_environment("EXP_MASSA_BOLA"))

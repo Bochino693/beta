@@ -89,6 +89,7 @@ var mat_coluna: ShaderMaterial
 var mat_friso: ShaderMaterial
 var mat_portal: ShaderMaterial
 var temas: Temas
+var _ptero_simbolo: MeshInstance
 var tema := ""
 var _bumpers: Array = []
 var balao: Spatial                # o símbolo do cenário de agora (Parque: o balão)
@@ -139,6 +140,9 @@ func construir() -> void:
 	temas = Temas.new()
 	add_child(temas)
 	temas.construir(self)
+	# o pterossauro do símbolo da selva: o mesmo material dos do cenário
+	# (com a textura deles; o símbolo é montado antes do cenário)
+	_ptero_simbolo.material_override = temas._mat_modelo("ptero", 0.003, Color.white)
 	# peças paradas com o mesmo material viram uma malha só (menos desenhos)
 	# (o céu e o astro ficam de fora: são desenhados no infinito)
 	var fora: Array = [temas, ceu, _astro]
@@ -1189,15 +1193,10 @@ func _ptero_marca() -> Spatial:
 		c.radial_segments = 5
 		var mi := _peca_simbolo(b, c, mc, Vector3(lado * 0.17, 0.4, 0.0))
 		mi.rotation.z = lado * 0.45
-	var pt := _peca_simbolo(b, load("res://modelos/cenario/ptero.res"), _mat_ptero(), Vector3(0, 0.66, 0.02))
-	pt.scale = Vector3.ONE * 0.62
-	pt.name = "ptero"
+	_ptero_simbolo = _peca_simbolo(b, load("res://modelos/cenario/ptero.res"), null, Vector3(0, 0.66, 0.02))
+	_ptero_simbolo.scale = Vector3.ONE * 0.62
+	_ptero_simbolo.name = "ptero"
 	return b
-
-
-func _mat_ptero() -> Material:
-	# o mesmo toon dos pterossauros do cenário (contorno fino)
-	return Materiais.toon(false, 0.003, {"borda": 0.3})
 
 
 func _mostrar_marca(nome: String) -> void:
