@@ -1,7 +1,7 @@
 extends SceneTree
 
 ## Teste rápido da física (Bullet): pista lisa simples, 10 pinos, bola.
-##   godot3 --no-window --fixed-fps 120 --path . -s res://tools/testes/fisica_rapida.gd -- x0 xt vel efeito
+##   godot3 --no-window --fixed-fps 60 --path . -s res://tools/testes/fisica_rapida.gd -- x0 xt vel efeito
 ## Mostra quantos pinos caíram e onde a bola passou.
 
 var pinos

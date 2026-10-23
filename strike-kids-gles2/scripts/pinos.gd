@@ -35,19 +35,37 @@ static func posicao_do_pino(n: int) -> Vector3:
 	return Vector3(x, 0.0, Medidas.Z_PINO1 - fileira * Medidas.FILEIRA)
 
 
+## A FORMA DE COLISÃO DO PINO: três cilindros — base, barriga e
+## pescoço com a cabeça — no lugar do casco de 71 pontos. A física testa um
+## cilindro numa conta só (o casco percorria os 71 pontos a cada teste, em
+## cada par de pinos encostados): a batida ficou ~3x mais leve e, com a
+## física a 60 passos por segundo, ~6x (tools/testes/custo_fisica.gd) — na
+## TV Box era o que travava no impacto. A base continua estreita (o pino
+## tomba como um pino). [raio, altura, centro (altura a partir da base)];
+## margem de 5 mm por dentro (na Bullet o cilindro não engorda com ela).
+const CILINDROS := [[0.045, 0.10, 0.05], [0.083, 0.20, 0.17], [0.04, 0.21, 0.375]]
+
+
+static func formas_do_pino() -> Array:
+	var r := []
+	for c in CILINDROS:
+		var cil := CylinderShape.new()
+		cil.radius = c[0]
+		cil.height = c[1]
+		cil.margin = 0.005
+		r.append([cil, Vector3(0, c[2], 0)])
+	return r
+
+
 func montar() -> void:
 	var malha: Mesh = load("res://modelos/pino.res")
-	var forma: Shape = load("res://modelos/pino_colisao.res")
-	# Bullet (Godot 3): a forma convexa ENGORDA pela margem (0,04 m de
-	# fábrica = o pino boiando 4 cm acima da pista e batendo antes de
-	# encostar). Margem de 3 mm: do tamanho do desenho.
-	forma.margin = 0.003
+	var formas := formas_do_pino()
 	var rosto := Materiais.textura("rosto_pino")
 	var meta: Dictionary = malha.get_meta("rosto", {})
 	for n in range(1, 11):
 		var p := Pino.new()
 		add_child(p)
-		p.montar(n, posicao_do_pino(n), malha, forma, rosto, meta)
+		p.montar(n, posicao_do_pino(n), malha, formas, rosto, meta)
 		p.connect("bateu", self, "_pino_bateu")
 		pinos.append(p)
 	# Godot 3: a QuadMesh só olha para Z; a PlaneMesh já é deitada (olha para Y)

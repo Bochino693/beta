@@ -49,6 +49,15 @@ const PADRAO := {
 		# antisserrilhado 4x da própria tela da TV Box (vale ao abrir o jogo
 		# de novo: o Android escolhe a tela antes do jogo começar)
 		"antisserrilhado": true,
+		# resolução da imagem do jogo na TV Box, esticada pela própria TV Box
+		# (de graça, no hardware de vídeo): "auto" (720 na Mali-400/450, até
+		# 1080 nas outras), "720p", "900p", "1080p" ou "tela" (a da própria tela)
+		"resolucao": "auto",
+		# quadros por segundo: "60", "30" (travados na batida da TV: cada
+		# quadro na tela por 2 batidas - uniforme) ou "auto" (60; 30 se a
+		# TV Box não segurar 60 nas jogadas)
+		"qps": "auto",
+		"qps_medido": 0,           # o que o automático viu (30 = não segurou 60)
 		"nitidez": "auto",         # resolução do 3D: auto (sobe e desce sozinha) ou 100%/90%/80%/70% fixa
 		# o último fator automático bom (começa dele ao ligar), sobre 1080 px;
 		# 0 = esta máquina ainda não mediu (o "fator" antigo era sobre 720)

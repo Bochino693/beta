@@ -25,10 +25,6 @@ const AZUL := Color("#1A4FA8")      # placas azuis
 const CREME := Color("#FFF6A8")
 const ZONAS := ["Z", "X", "C", "V", "B"]
 const MARCA := "res://ui/marca/"
-## posição das peças dentro da logo inteira (tools/arte/gerar_marca.py)
-const CENTRO_ALVO := Vector2(0.4752, 0.2780)
-const CENTRO_PLACA := Vector2(0.5, 0.7792)
-const PROPORCAO_LOGO := 1698.0 / 2560.0
 
 ## nomes das fontes (Compat.fonte): no Godot 3 cada tamanho é uma DynamicFont
 var fonte := "fredoka_700"
@@ -1732,32 +1728,41 @@ func _montar_marca() -> void:
 	_marca_tela.add_child(_marca_texto)
 
 
+## TÍTULO CONVENCIONAL: a placa "Lazer & Sport" é o título, grande e no
+## meio; o alvo vem pequeno em cima dela, como emblema (na logo inteira o
+## alvo é maior que a placa e tomava a tela).
+const ALVO_NA_PLACA := 0.6     # altura do alvo / altura da placa
+
+
 func _layout_marca(T: Vector2) -> void:
 	_marca_fundo.rect_size = T
-	var lw: float = min(T.x * 0.82, T.y * 0.62 / PROPORCAO_LOGO)
-	var lh := lw * PROPORCAO_LOGO
-	var centro_y := 0.4 if _marca_veu.visible else 0.46
-	var origem := Vector2((T.x - lw) / 2, T.y * centro_y - lh / 2)
-	var ref := float(_marca_placa.texture.get_width())     # a placa tem a largura da logo inteira
-	for par in [[_marca_alvo, CENTRO_ALVO], [_marca_placa, CENTRO_PLACA]]:
-		var t: TextureRect = par[0]
-		var centro: Vector2 = par[1]
-		var tam: Vector2 = t.texture.get_size() * (lw / ref)
-		t.rect_size = tam
-		t.rect_position = origem + Vector2(lw, lh) * centro - tam / 2
-		t.rect_pivot_offset = tam / 2
-	var gw := lw * 0.46
+	var placa: Vector2 = _marca_placa.texture.get_size()
+	var alvo: Vector2 = _marca_alvo.texture.get_size()
+	var pw: float = min(T.x * 0.84, T.y * 1.1)
+	var ph := pw * placa.y / placa.x
+	var ah := ph * ALVO_NA_PLACA
+	var aw := ah * alvo.x / alvo.y
+	var centro_y := 0.42 if _marca_veu.visible else 0.46
+	var topo := T.y * centro_y - (ah * 0.9 + ph) / 2
+	_marca_alvo.rect_size = Vector2(aw, ah)
+	_marca_alvo.rect_position = Vector2((T.x - aw) / 2, topo)
+	_marca_alvo.rect_pivot_offset = _marca_alvo.rect_size / 2
+	_marca_placa.rect_size = Vector2(pw, ph)
+	_marca_placa.rect_position = Vector2((T.x - pw) / 2, topo + ah * 0.9)
+	_marca_placa.rect_pivot_offset = _marca_placa.rect_size / 2
+	var base := _marca_placa.rect_position.y + ph
+	var gw := pw * 0.42
 	var gh := gw * 188.0 / 616.0
 	_marca_games.rect_size = Vector2(gw, gh)
-	_marca_games.rect_position = Vector2((T.x - gw) / 2, origem.y + lh + 10 * u)
+	_marca_games.rect_position = Vector2((T.x - gw) / 2, base + 14 * u)
 	_marca_games.rect_pivot_offset = _marca_games.rect_size / 2
 	var vw: float = max(T.x, T.y) * 1.25
 	_marca_veu.rect_size = Vector2(vw, vw)
-	_marca_veu.rect_position = origem + Vector2(lw, lh) * 0.5 - _marca_veu.rect_size / 2
+	_marca_veu.rect_position = _marca_placa.rect_position + _marca_placa.rect_size * 0.5 - _marca_veu.rect_size / 2
 	# (o shadow_size do Godot 4 não existe aqui: a sombra é a letra deslocada)
 	_tamanho_rotulo(_marca_texto, 52 * u)
 	_marca_texto.rect_size = Vector2(T.x, 80 * u)
-	_marca_texto.rect_position = Vector2(0, origem.y + lh + gh + 26 * u)
+	_marca_texto.rect_position = Vector2(0, base + 14 * u + gh + 12 * u)
 
 
 ## Abertura: a logo aparece (sobre o fundo azul da inicialização ou, com

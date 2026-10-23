@@ -30,7 +30,7 @@ var _fisico := Vector2(1080, 1920)
 
 func _ready() -> void:
 	pause_mode = Node.PAUSE_MODE_PROCESS
-	# INTERPOLAÇÃO DA FÍSICA: a física anda 120 passos por segundo; a tela,
+	# INTERPOLAÇÃO DA FÍSICA: a física anda 60 passos por segundo; a tela,
 	# 60, 75, 144... Só o que é movido PELA FÍSICA (bola, pinos, máquina de
 	# pinos) liga a interpolação e aparece sempre no lugar certo do instante
 	# do quadro — liso em qualquer monitor. Todo o resto (câmera, bichinhos,

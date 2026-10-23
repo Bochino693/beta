@@ -13,6 +13,7 @@ import android.hardware.usb.UsbManager;
 import android.os.Build;
 import android.os.SystemClock;
 import android.util.Log;
+import android.view.View;
 
 import org.godotengine.godot.Godot;
 import org.godotengine.godot.plugin.GodotPlugin;
@@ -27,6 +28,8 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+
+import javax.microedition.khronos.opengles.GL10;
 
 /**
  * ARDUINO PELO USB DA TV BOX (Strike Kids): os 5 sensores da pista, o botão
@@ -60,6 +63,12 @@ import java.util.concurrent.Executors;
  *   s.ler()                linhas completas que chegaram (separadas por \n)
  *   s.escrever("PING")     manda uma linha (o \n vai junto)
  *   s.fechar(); s.erro(); s.relatorio()
+ *   s.tela()               "1920x1080|1280x720": a tela da TV e a imagem do jogo
+ *   s.definir_tela(720)    a imagem do jogo com 720 linhas, esticada pela
+ *                          própria TV Box (0 = a da tela); fica guardada
+ *                          (TelaDaTv: o Android já abre o jogo assim)
+ *   s.definir_quadros(2)   cada quadro por 2 batidas da TV: 30 travados
+ *                          (1 = 60; QuadrosDaTv)
  * Tudo também vai para o logcat com a etiqueta "StrikeSerial".
  */
 public class StrikeSerial extends GodotPlugin {
@@ -436,6 +445,67 @@ public class StrikeSerial extends GodotPlugin {
 	@Override
 	public void onMainDestroy() {
 		fechar();
+	}
+
+	// ------------------------------------------------------------ tela
+	/** Logo depois de a vista do Godot nascer, antes da tela dela existir. */
+	@Override
+	public View onMainCreate(Activity activity) {
+		try {
+			int alt = TelaDaTv.lerAltura(activity);
+			if (alt > 0) {
+				TelaDaTv.aplicar(activity, getGodot().getRenderView(), alt);
+			}
+		} catch (Throwable t) {
+			anotar("tela: " + t);
+		}
+		return null;
+	}
+
+	@UsedByGodot
+	public void definir_quadros(int batidas) {
+		Activity a = getActivity();
+		if (a != null) {
+			QuadrosDaTv.definir(a, batidas);
+		}
+	}
+
+	/** (processo do desenho) o quadro está pronto e vai para a tela. */
+	@Override
+	public void onGLDrawFrame(GL10 gl) {
+		QuadrosDaTv.antesDeTrocar();
+	}
+
+	@UsedByGodot
+	public String tela() {
+		Activity a = getActivity();
+		if (a == null) {
+			return "";
+		}
+		try {
+			return TelaDaTv.descrever(a, getGodot().getRenderView());
+		} catch (Throwable t) {
+			return "";
+		}
+	}
+
+	@UsedByGodot
+	public void definir_tela(final int altura) {
+		final Activity a = getActivity();
+		if (a == null) {
+			return;
+		}
+		TelaDaTv.guardarAltura(a, altura);
+		runOnUiThread(new Runnable() {
+			@Override
+			public void run() {
+				try {
+					TelaDaTv.aplicar(a, getGodot().getRenderView(), altura);
+				} catch (Throwable t) {
+					anotar("tela: " + t);
+				}
+			}
+		});
 	}
 
 	// ------------------------------------------------------------ relatório

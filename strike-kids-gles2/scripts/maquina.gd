@@ -273,8 +273,13 @@ func _da_esquerda(a: Pino, b: Pino) -> bool:
 ## pino achata, dá um pulinho, estica e cai reto no poço girando — e vai
 ## para o meio do vão (não passa pelas portinhas abertas). Termina quando o
 ## último chega lá embaixo.
-const QUEDA_DUR := 0.62
+## A QUEDA SEM FIM: depois do pulinho cada pino cai acelerando, girando,
+## escurece e some lá embaixo, no escuro do poço sem fundo (as faixas das
+## paredes correm para cima: shaders/poco.shader).
+const QUEDA_DUR := 1.0
 const QUEDA_INTERVALO := 0.075
+## até onde o pino cai: passa do fundo preto do poço (some atrás dele)
+const QUEDA_ALEM := 0.6
 
 
 func _queda_divertida(caindo: Array) -> SceneTreeTween:
@@ -288,15 +293,15 @@ func _queda_divertida(caindo: Array) -> SceneTreeTween:
 		var de: Transform = p.global_transform
 		var x: float = clamp(de.origin.x * 0.55, -0.42, 0.42)
 		var z: float = clamp(de.origin.z, Medidas.ALCAPAO_Z0 - 0.3, Medidas.ALCAPAO_Z1 + 0.3)
-		var para := Vector3(x, Medidas.POCO_FUNDO + 0.12, z)
+		var para := Vector3(x, Medidas.POCO_FUNDO - QUEDA_ALEM, z)
 		var eixo := Vector3(rand_range(-1.0, 1.0), 0.0, rand_range(-1.0, 1.0))
 		if eixo.length() < 0.2:
 			eixo = Vector3.RIGHT
-		var voltas: float = rand_range(0.55, 1.1) * (1.0 if randf() < 0.5 else -1.0)
+		var voltas: float = rand_range(1.1, 1.9) * (1.0 if randf() < 0.5 else -1.0)
 		t.tween_callback(self, "_pulo_do_pino", [i]).set_delay(atraso)
 		t.tween_method(self, "_cair_pino", 0.0, 1.0, QUEDA_DUR / rapidez, [p, de, para, eixo.normalized(), voltas]) \
 			.set_delay(atraso)
-		t.tween_callback(self, "_pino_no_fundo", [p]).set_delay(atraso + QUEDA_DUR / rapidez)
+		t.tween_callback(self, "_pino_sumiu", [p]).set_delay(atraso + QUEDA_DUR / rapidez)
 	_tweens.append(t)
 	return t
 
@@ -305,25 +310,26 @@ func _pulo_do_pino(i: int) -> void:
 	emit_signal("som", "queda_%d" % i)
 
 
-func _pino_no_fundo(p: Pino) -> void:
+## Sumiu no escuro lá embaixo (a máquina traz os pinos novos depois).
+func _pino_sumiu(p: Pino) -> void:
 	p.malha.scale = Vector3.ONE
-	emit_signal("som", "fundo")
+	p.visible = false
 
 
-## k: 0..1 da queda de um pino. Até 0,22: achata e dá o pulinho (7 cm);
-## depois cai acelerando (como quem cai de verdade) até o fundo do poço,
-## girando em volta de um eixo deitado.
+## k: 0..1 da queda de um pino. Até 0,18: achata e dá o pulinho (7 cm);
+## depois cai acelerando (como quem cai de verdade), girando em volta de um
+## eixo deitado, até passar do fundo preto do poço.
 func _cair_pino(k: float, p: Pino, de: Transform, para: Vector3, eixo: Vector3, voltas: float) -> void:
 	var pos: Vector3
 	var giro := 0.0
-	if k < 0.22:
-		var u := k / 0.22
+	if k < 0.18:
+		var u := k / 0.18
 		pos = de.origin + Vector3(0, sin(u * PI * 0.5) * 0.07, 0)
 		var a := sin(u * PI)
 		p.malha.scale = Vector3(1.0 - 0.08 * a, 1.0 + 0.12 * a, 1.0 - 0.08 * a) if u > 0.35 else \
 			Vector3(1.0 + 0.1 * a, 1.0 - 0.14 * a, 1.0 + 0.1 * a)
 	else:
-		var u := (k - 0.22) / 0.78
+		var u := (k - 0.18) / 0.82
 		var topo := de.origin + Vector3(0, 0.07, 0)
 		var xz := u * (2.0 - u)
 		pos = Vector3(lerp(topo.x, para.x, xz), lerp(topo.y, para.y, u * u), lerp(topo.z, para.z, xz))

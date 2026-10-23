@@ -1,7 +1,7 @@
 extends Node
 
 ## TESTE: A BOLA VOLTA? (só no PC, não vai no APK)
-##   godot3 --no-window --path . --fixed-fps 120 res://tools/testes/bola_volta.tscn -- [--jogadas=300] [--sem-protecao] [--dificuldade=facil]
+##   godot3 --no-window --path . --fixed-fps 60 res://tools/testes/bola_volta.tscn -- [--jogadas=300] [--sem-protecao] [--dificuldade=facil]
 ## Monta o mundo como o jogo (pista, fosso, MÁQUINA DE PINOS com o alçapão
 ## fechado) e joga a 1ª bola como o jogo joga (Jogada.planejar, saindo da
 ## mão), rastreando a bola: se ela volta na direção de quem joga depois de

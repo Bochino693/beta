@@ -43,8 +43,14 @@ vec3 tela_g4(vec3 x) {
 
 void vertex() {
 	vec3 cam = CAMERA_MATRIX[3].xyz;
-	vec3 centro = cam + normalize(direcao) * distancia;
-	vec3 p = centro + (CAMERA_MATRIX[0].xyz * VERTEX.x + CAMERA_MATRIX[1].xyz * VERTEX.y) * tamanho;
+	vec3 f = normalize(direcao);
+	vec3 centro = cam + f * distancia;
+	// de frente para a câmera e EM PÉ no mundo: o "para cima" é o do céu,
+	// não o da câmera — com a TV de pé ligada deitada a câmera gira 90° e
+	// o sol (com os eixos dela) saía deitado
+	vec3 dir = normalize(cross(f, vec3(0.0, 1.0, 0.0)));
+	vec3 cima = cross(dir, f);
+	vec3 p = centro + (dir * VERTEX.x + cima * VERTEX.y) * tamanho;
 	POSITION = PROJECTION_MATRIX * (INV_CAMERA_MATRIX * vec4(p, 1.0));
 	float a = mod(TIME * giro, 1.0) * 6.2831853;
 	// o QuadMesh do Godot 3 tem o V de baixo para cima: sem virar, o rosto
