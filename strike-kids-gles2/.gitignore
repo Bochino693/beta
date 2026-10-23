@@ -7,6 +7,7 @@ build/
 # divulgacao/ferramentas/montar_comercial.py)
 divulgacao/comercial/*.mp4
 divulgacao/**/__pycache__/
+tools/**/__pycache__/
 # gabinete: os PDFs de impressão de cada tema (dezenas de MB por tema) e as
 # texturas da maquete 3D saem de novo com divulgacao/ferramentas/gerar_gabinete.py
 divulgacao/adesivos/gabinete/*/[0-9][0-9]_*

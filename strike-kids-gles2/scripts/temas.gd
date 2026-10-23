@@ -201,12 +201,26 @@ func _q(n: int) -> int:
 ## A luz da cena para a decoração leve (Mundo.aplicar_tema): para onde está o
 ## sol, cor x força do sol e do ambiente e a neblina (cores lineares).
 func luz(sol_dir: Vector3, sol_cor: Vector3, ambiente: Vector3, neblina_cor: Vector3, neblina_densidade: float) -> void:
+	var neblina_tela := _tela_g4(neblina_cor)
 	for m in _mats_leve:
 		m.set_shader_param("sol_dir", sol_dir)
 		m.set_shader_param("sol_cor", sol_cor)
 		m.set_shader_param("ambiente", ambiente)
 		m.set_shader_param("neblina_cor", neblina_cor)
+		m.set_shader_param("neblina_tela", neblina_tela)
 		m.set_shader_param("neblina_densidade", neblina_densidade)
+
+
+## A cor linear como sai na tela (a tela_g4 dos shaders leves: curva do
+## Godot 4 + cor viva), aqui na CPU para o que é igual em todos os vértices.
+static func _tela_g4(c: Vector3) -> Vector3:
+	var x := Vector3(clamp(c.x, 0.0, 1.25), clamp(c.y, 0.0, 1.25), clamp(c.z, 0.0, 1.25))
+	x = x * (Vector3.ONE * 1.2094 - x * (Vector3.ONE * 0.015 + x * 0.25))
+	var lum := x.dot(Vector3(0.299, 0.587, 0.114))
+	var sat: float = max(x.x, max(x.y, x.z)) - min(x.x, min(x.y, x.z))
+	x = Vector3.ONE * lum + (x - Vector3.ONE * lum) * (1.08 + 0.32 * (1.0 - sat))
+	x = x * 1.07 - Vector3.ONE * 0.035
+	return Vector3(clamp(x.x, 0.0, 1.0), clamp(x.y, 0.0, 1.0), clamp(x.z, 0.0, 1.0))
 
 
 ## Um objeto do cenário (res://modelos/cenario/<nome>.res) no grupo do tema.

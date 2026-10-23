@@ -56,46 +56,52 @@ import meshoptimizer as mo
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from malhas_leves import ler_msh, gravar_msh, VERTEX, NORMAL, COLOR, TEX_UV, TRIANGULOS  # noqa: E402
 
-# triângulos de cada objeto: os do modelo atual (o orçamento que já cabe
-# na Mali-450) vezes FATOR — agora nenhum vai para as bordas de cor
-FATOR = 0.6
+# TRIÂNGULOS DE CADA OBJETO (6.4): contados com quantas cópias cada um tem
+# em cada cenário (tools/testes/orcamento.gd mede o total) — os únicos e os
+# grandes com mais forma, os que aparecem às dezenas mais enxutos. A forma
+# vem das fontes em alta (tools/cenario_sdf), lisa: com a simplificação
+# peça por peça (simplificar_pecas) as peças pequenas (os pôneis do
+# carrossel, as cabines, as pétalas) não viram cacos.
 ALVO = {
-    # formas redondas grandes precisam de um pouco mais para o contorno
-    "balao": 240, "lampada": 64, "nuvem": 200, "planeta": 420, "ovo_dino": 380,
-    # os que aparecem às dezenas (cada corte do mapa UV conta em cada cópia)
-    "cristal": 260, "palmeira": 300,
-    # peças finas ou com o rosto miúdo: mais triângulos e erro menor (o olho
-    # do peixe é uma bolinha por cima do rosto: com poucos triângulos ela
-    # some da forma e o desenho dela se espalha)
-    "roda": 640, "peixe": 400,
+    # selva dos dinos
+    "dino": 1400, "ptero": 1100, "vulcao": 900, "flor_gigante": 500, "palmeira": 480,
+    "samambaia": 560, "ovo_dino": 440, "pedra": 300, "nuvem": 380,
+    # espaço
+    "planeta_anel": 1200, "foguete": 750, "ovni": 900, "planeta": 600, "cristal": 260,
+    "pedra_lua": 260, "estrela_3d": 300,
+    # fundo do mar
+    "navio": 2400, "tartaruga": 1100, "agua_viva": 700, "peixe": 420, "concha": 360,
+    "coral": 300, "coral_roxo": 650, "alga": 300, "estrela_mar": 300,
     # o baú em duas peças (o corpo e a tampa, que abre)
-    "bau": 220, "bau_tampa": 200,
-    # os PRINCIPAIS (6.3): mais forma (e textura de 1024) — pterossauros,
-    # dinossauros, tartarugas e o navio aparecem grandes
-    "ptero": 560, "dino": 520, "tartaruga": 520, "navio": 1700,
+    "bau": 420, "bau_tampa": 300,
+    # parque (carrossel e tenda: três de cada, sempre longe)
+    "carrossel": 1250, "roda": 1600, "roda_base": 300, "cabine": 320, "tenda": 650,
+    "torre": 700, "arco_iris": 900, "arvore_verde": 300, "arvore_laranja": 300,
+    "arvore_escura": 300, "bengala": 400, "cogumelo": 400, "cupcake": 500, "donut": 420,
+    "pirulito": 340, "presente": 400, "balao": 240, "lampada": 64,
 }
-# erro máximo da forma de cada peça (fração do tamanho); o padrão é ERRO_FORMA
-ERRO = {"roda": 0.012, "peixe": 0.011, "ovo_dino": 0.06, "cristal": 0.05, "palmeira": 0.05}
-# textura de cada objeto (lado em pixels): 512 nos grandes e nos que têm
-# rosto ou desenho miúdo; 256 nos outros
-TEX_1024 = ("ptero", "navio", "dino")
-TEX_512 = ("vulcao", "carrossel", "roda", "torre", "planeta_anel", "tenda",
-           "tartaruga", "peixe", "ovo_dino", "donut", "foguete", "ovni",
-           "cupcake", "bau", "bau_tampa")
+# erro máximo da forma de cada peça (fração do tamanho DELA); o padrão é ERRO_FORMA
+ERRO = {"roda": 0.012, "peixe": 0.011, "ovo_dino": 0.04, "cristal": 0.05, "palmeira": 0.05}
+# textura de cada objeto (lado em pixels; o padrão é 512): 1024 nos grandes e
+# nos que têm rosto ou desenho miúdo. O atlas cresce, mas só a memória: a
+# placa lê a textura do tamanho que aparece (mipmap), o custo por pixel é o mesmo
+TEX_1024 = ("ptero", "navio", "dino", "carrossel", "tartaruga", "peixe", "roda", "tenda",
+            "foguete", "planeta_anel")
+TEX_512 = ()
 TEX_128 = ()
+TEX_256 = ("lampada", "bau_tampa")
 # SEM TEXTURA: as peças de uma cor só ou quase (plantas, pedras, nuvens,
 # balões, lâmpadas) espalhadas às dezenas pelo cenário — a textura não
 # acrescenta desenho e os cortes do mapa UV somariam vértices em cada
-# cópia. Nelas: a forma limpa do original e a cor dele nos vértices.
-# (pedras, pedra da lua, palmeira e planeta têm desenho — musgo, crateras,
-# anéis do tronco — e vão com textura)
+# cópia. Nelas: a forma limpa do original e a cor dele nos vértices (com o
+# sombreado dos cantinhos).
 SO_COR = ("arvore_escura", "arvore_laranja", "arvore_verde", "balao", "lampada", "nuvem",
-          "samambaia", "alga", "coral", "coral_roxo", "estrela_3d", "agua_viva", "cabine", "roda_base")
+          "samambaia", "alga", "coral", "coral_roxo", "estrela_3d", "cabine", "roda_base")
 ANGULO_QUINA = 75.0
 PADDING = 4
 # o atlas: largura fixa; a altura é a potência de 2 que couber (a Mali-450
 # só faz mipmap em textura de lado potência de 2)
-ATLAS_LARGURA = 2048
+ATLAS_LARGURA = 4096
 ATLAS = "atlas.png"
 
 
@@ -134,6 +140,7 @@ def soldar(v, f):
 ## triângulos pedir mais que isso, o objeto fica com mais triângulos — a
 ## forma não quebra (raios da roda-gigante, o ovo, a borda da tenda)
 ERRO_FORMA = 0.03
+ERRO_LIMITE = 0.06
 
 
 def simplificar_forma(v, f, alvo_tris, erro=None):
@@ -145,6 +152,63 @@ def simplificar_forma(v, f, alvo_tris, erro=None):
     qtd = mo.simplify(destino, ind, pos, target_index_count=alvo_tris * 3,
                       target_error=ERRO_FORMA if erro is None else erro)
     return destino[:qtd].reshape(-1, 3)
+
+
+def simplificar_pecas(v, f, alvo_tris, erro=None):
+    """A FORMA PEÇA POR PEÇA (6.4): o simplificador junto num objeto inteiro
+    acha 'barato' acabar com as peças pequenas (o erro de amassar um pônei
+    de 0,8 m é menor que o de achatar o telhado do carrossel): os pôneis,
+    as cabines e as pétalas viravam cacos. Aqui cada peça solta é
+    simplificada sozinha, com o erro medido no tamanho DELA, e os
+    triângulos são repartidos pela raiz da área de cada uma (as pequenas
+    ganham mais que a parte da área delas)."""
+    from scipy.sparse import coo_matrix
+    from scipy.sparse.csgraph import connected_components
+    if len(f) <= alvo_tris:
+        return f
+    n = len(v)
+    lig = coo_matrix((np.ones(f.size), (f.reshape(-1), np.roll(f, 1, 1).reshape(-1))), shape=(n, n))
+    _, rotulo = connected_components(lig, directed=False)
+    peca = rotulo[f[:, 0]]
+    ids = np.unique(peca)
+    area = np.linalg.norm(np.cross(v[f[:, 1]] - v[f[:, 0]], v[f[:, 2]] - v[f[:, 0]]), axis=1) / 2
+    a_peca = np.array([area[peca == k].sum() for k in ids])
+    t_peca = np.array([(peca == k).sum() for k in ids])
+    peso = np.sqrt(np.maximum(a_peca, 1e-12))
+    # reparte; as peças que já têm menos que a parte delas ficam inteiras e
+    # o que sobra vai para as outras
+    cota = np.zeros(len(ids))
+    livre = np.ones(len(ids), bool)
+    resto = float(alvo_tris)
+    for _ in range(6):
+        c = resto * peso / max(peso[livre].sum(), 1e-12)
+        cheia = livre & (t_peca <= c)
+        if not cheia.any():
+            break
+        cota[cheia] = t_peca[cheia]
+        resto -= t_peca[cheia].sum()
+        livre &= ~cheia
+    cota[livre] = np.maximum(resto * peso[livre] / max(peso[livre].sum(), 1e-12), 12)
+    # o erro máximo segura a forma de cada peça. A peça que pede bem mais
+    # que a cota dela (um pônei: 600 triângulos para 3%) aceita o dobro do
+    # erro, até ERRO_LIMITE — passou disso a forma quebra (um ovo vira
+    # pirâmide); a que já cabe na cota não muda
+    saida = []
+    for k, alvo_k in zip(ids, cota):
+        fk = f[peca == k]
+        if len(fk) <= alvo_k:
+            saida.append(fk)
+            continue
+        us = np.unique(fk)
+        rm = np.full(n, -1)
+        rm[us] = np.arange(len(us))
+        e = ERRO_FORMA if erro is None else erro
+        sk = simplificar_forma(v[us], rm[fk], int(round(alvo_k)), e)
+        while len(sk) > alvo_k * 1.3 and e * 2.0 <= ERRO_LIMITE:
+            e *= 2.0
+            sk = simplificar_forma(v[us], rm[fk], int(round(alvo_k)), e)
+        saida.append(us[sk])
+    return np.concatenate(saida)
 
 
 def normais_do_original(n_orig, inv, n_soldados):
@@ -192,6 +256,78 @@ def normais_suaves(v, f, media, quina):
     pos = v[f.reshape(-1)[primeiro]]
     nor = cantos.reshape(-1, 3)[primeiro]
     return pos, nor, inv.reshape(-1, 3)
+
+
+# ------------------------------------------------------------ sombreado dos cantinhos
+## O SOMBREADO SUAVE DOS CANTINHOS (6.4, "oclusão de ambiente" assada):
+## de cada ponto da fonte saem AO_RAIOS raios para o lado de fora; os que
+## batem em outra parte do objeto perto (até AO_ALCANCE do tamanho dele)
+## escurecem o ponto — o pescoço embaixo da cabeça do dino, entre as
+## pernas, embaixo do telhado do carrossel, as emendas das bolotas da
+## nuvem. Alcance curto (cantinhos, não sombra de longe: os raios da
+## roda-gigante e as folhas da samambaia ficavam escuros). Vai na COR da fonte, então sai de graça no jogo (na textura ou
+## no vértice): nenhuma conta a mais na placa. AO_FORCA: o quanto escurece
+## o canto mais fechado (leve, de desenho animado).
+AO_RAIOS = 32
+AO_ALCANCE = (0.06, 0.05, 0.3)   # fração do tamanho, com mínimo e máximo em metros
+AO_FORCA = 0.3
+
+
+def sombrear_cantos(antigo):
+    import trimesh
+    from trimesh.ray.ray_pyembree import RayMeshIntersector
+    v = antigo["arr"][VERTEX].astype(np.float64)
+    n = antigo["arr"][NORMAL].astype(np.float64)
+    f = antigo["ind"].reshape(-1, 3).astype(np.int64)
+    vw, fw, inv = soldar(v, f)
+    nw = np.zeros_like(vw)
+    np.add.at(nw, inv, n)
+    nw /= np.maximum(np.linalg.norm(nw, axis=1, keepdims=True), 1e-12)
+    diag = float(np.linalg.norm(vw.max(0) - vw.min(0)))
+    alcance = float(np.clip(AO_ALCANCE[0] * diag, AO_ALCANCE[1], AO_ALCANCE[2]))
+    raios = RayMeshIntersector(trimesh.Trimesh(vertices=vw, faces=fw, process=False))
+    # direções num hemisfério (mais perto da normal, como a luz difusa),
+    # giradas de um ângulo diferente em cada ponto (sem listras)
+    k = np.arange(AO_RAIOS) + 0.5
+    r = np.sqrt(k / AO_RAIOS)
+    a = k * math.pi * (3.0 - math.sqrt(5.0))
+    loc = np.stack([r * np.cos(a), r * np.sin(a), np.sqrt(1.0 - r * r)], 1)
+    t1 = np.cross(nw, np.where(np.abs(nw[:, 1:2]) < 0.9, [[0.0, 1.0, 0.0]], [[1.0, 0.0, 0.0]]))
+    t1 /= np.maximum(np.linalg.norm(t1, axis=1, keepdims=True), 1e-12)
+    t2 = np.cross(nw, t1)
+    giro = np.random.default_rng(7).uniform(0, 2 * math.pi, len(vw))
+    c, s_ = np.cos(giro)[:, None], np.sin(giro)[:, None]
+    t1, t2 = t1 * c + t2 * s_, t2 * c - t1 * s_
+    oclusao = np.zeros(len(vw))
+    lote = max(1, 2000000 // AO_RAIOS)
+    for i0 in range(0, len(vw), lote):
+        sl = slice(i0, i0 + lote)
+        m = len(vw[sl])
+        d = (loc[None, :, 0:1] * t1[sl, None] + loc[None, :, 1:2] * t2[sl, None] + loc[None, :, 2:3] * nw[sl, None])
+        d = d.reshape(-1, 3)
+        o = np.repeat(vw[sl] + nw[sl] * diag * 2e-4, AO_RAIOS, 0)
+        it, ir, pts = raios.intersects_id(o, d, multiple_hits=False, return_locations=True)
+        dist = np.linalg.norm(pts - o[ir], axis=1)
+        peso = np.clip(1.0 - dist / alcance, 0.0, 1.0) ** 2
+        soma = np.zeros(m * AO_RAIOS)
+        soma[ir] = peso
+        oclusao[sl] = soma.reshape(m, AO_RAIOS).mean(1)
+    # alisa um pouco (32 raios deixam grão): média com os vizinhos, 2 vezes
+    from scipy.sparse import coo_matrix
+    nv = len(vw)
+    viz = coo_matrix((np.ones(fw.size * 2), (np.r_[fw.reshape(-1), np.roll(fw, 1, 1).reshape(-1)],
+                                             np.r_[np.roll(fw, 1, 1).reshape(-1), fw.reshape(-1)])), shape=(nv, nv)).tocsr()
+    viz.data[:] = 1.0
+    grau = np.asarray(viz.sum(1)).ravel()
+    for _ in range(2):
+        oclusao = (oclusao + viz @ oclusao) / (1.0 + grau)
+    fator = 1.0 - AO_FORCA * np.clip(oclusao * 1.6, 0.0, 1.0)
+    novo = dict(antigo)
+    novo["arr"] = dict(antigo["arr"])
+    cor = antigo["arr"][COLOR].astype(np.float64).copy() if COLOR in antigo["arr"] else np.ones((len(v), 4))
+    cor[:, :3] *= fator[inv][:, None]
+    novo["arr"][COLOR] = cor.astype(np.float32)
+    return novo
 
 
 # ------------------------------------------------------------ amostras do original
@@ -367,14 +503,28 @@ def dilatar(img, cheio, vezes=PADDING * 3):
     return img
 
 
-def so_cor(antigo, alvo_tris, erro=None):
+def so_cor(antigo, alvo_tris, erro=None, forma=None):
     """Forma limpa do original, normais do original e a cor dele nos
-    vértices (sem textura e sem cortes: o mínimo de vértices)."""
+    vértices (sem textura e sem cortes: o mínimo de vértices). Com `forma`
+    (a fonte de grade normal, veja main), a forma e as normais vêm dela e
+    a cor de cada ponto vem da fonte fina (a amostra mais perto, do mesmo
+    lado)."""
+    if forma is not None:
+        sup = so_cor(forma, alvo_tris, erro)
+        v = antigo["arr"][VERTEX].astype(np.float64)
+        f = antigo["ind"].reshape(-1, 3).astype(np.int64)
+        cor = antigo["arr"][COLOR].astype(np.float64) if COLOR in antigo["arr"] else np.ones((len(v), 4))
+        diag = float(np.linalg.norm(v.max(0) - v.min(0)))
+        a_pts, a_cor, a_nor = amostras(v, f, cor, diag / 400.0)
+        pos = sup["arr"][VERTEX].astype(np.float64)
+        nor = sup["arr"][NORMAL].astype(np.float64)
+        sup["arr"][COLOR] = a_cor[procurar(cKDTree(a_pts), a_nor, pos, nor)].astype(np.float32)
+        return sup
     v = antigo["arr"][VERTEX].astype(np.float64)
     cor = antigo["arr"][COLOR].astype(np.float64) if COLOR in antigo["arr"] else np.ones((len(v), 4))
     f = antigo["ind"].reshape(-1, 3).astype(np.int64)
     vw, fw, inv = soldar(v, f)
-    fl = simplificar_forma(vw, fw, alvo_tris, erro)
+    fl = simplificar_pecas(vw, fw, alvo_tris, erro)
     usados = np.unique(fl)
     remap = np.full(len(vw), -1)
     remap[usados] = np.arange(len(usados))
@@ -446,20 +596,21 @@ def _liso(pos, nor, fn, arvore, a_nor, a_cor, cor_v):
     return np.abs(orig - interp).max(2)                                  # (f, k)
 
 
-def assar(nome, antigo, alvo_tris, tam, erro=None):
+def assar(nome, antigo, alvo_tris, tam, erro=None, forma=None):
     v = antigo["arr"][VERTEX].astype(np.float64)
     cor = antigo["arr"][COLOR].astype(np.float64) if COLOR in antigo["arr"] else np.ones((len(v), 4))
     f = antigo["ind"].reshape(-1, 3).astype(np.int64)
-    # 1. forma
-    vw, fw, inv = soldar(v, f)
-    fl = simplificar_forma(vw, fw, alvo_tris, erro)
+    # 1. forma (da fonte de grade normal, se tiver: veja main)
+    fonte = forma if forma is not None else antigo
+    vw, fw, inv = soldar(fonte["arr"][VERTEX].astype(np.float64), fonte["ind"].reshape(-1, 3).astype(np.int64))
+    fl = simplificar_pecas(vw, fw, alvo_tris, erro)
     usados = np.unique(fl)
     remap = np.full(len(vw), -1)
     remap[usados] = np.arange(len(usados))
     vl = vw[usados]
     fl = remap[fl]
     # 2. normais (as do original)
-    n_orig = antigo["arr"][NORMAL].astype(np.float64)
+    n_orig = fonte["arr"][NORMAL].astype(np.float64)
     media, quina = normais_do_original(n_orig, inv, len(vw))
     pos, nor, fn = normais_suaves(vl, fl, media[usados], quina[usados])
     # as amostras do original (cor, normal) para assar e comparar
@@ -540,7 +691,7 @@ type="StreamTexture"
 [params]
 
 compress/mode=2
-compress/lossy_quality=0.7
+compress/lossy_quality=1.0
 compress/hdr_mode=0
 compress/bptc_ldr=0
 compress/normal_map=0
@@ -997,15 +1148,24 @@ def main():
         if arq not in ia:
             print("  sem original:", arq)
             continue
-        antigo = ler_msh(os.path.join(antigos, ia[arq]["id"] + ".msh"))[0]
+        antigo = sombrear_cantos(ler_msh(os.path.join(antigos, ia[arq]["id"] + ".msh"))[0])
+        # A FORMA (6.4): as fontes finas (o desenho nítido) têm, onde
+        # folhas e gravetos finos se encostam, arestas de 3 ou 4 triângulos
+        # (a grade fina "costura" as duas folhas) — o simplificador não
+        # mexe ali e a samambaia, o coral e o ninho não desciam de 1.000 a
+        # 2.600 triângulos. A forma vem da mesma fonte numa grade normal
+        # (<antigos>/forma, gerar.py com CENARIO_FINO=1), com bem menos
+        # costuras; a cor, os olhos e o sombreado vêm da fina.
+        caminho_forma = os.path.join(antigos, "forma", ia[arq]["id"] + ".msh")
+        forma = ler_msh(caminho_forma)[0] if os.path.exists(caminho_forma) else None
         atual = ler_msh(os.path.join(atuais, e["id"] + ".msh"))[0]
         tris_atual = len(atual["ind"]) // 3
-        alvo = ALVO.get(nome, max(60, int(round(tris_atual * FATOR))))
-        tam = 1024 if nome in TEX_1024 else (512 if nome in TEX_512 else (128 if nome in TEX_128 else 256))
+        alvo = ALVO.get(nome, max(60, tris_atual))
+        tam = 1024 if nome in TEX_1024 else (256 if nome in TEX_256 else (128 if nome in TEX_128 else 512))
         pedaco = os.path.join(atuais, "pedacos", nome + ".png")
         local = os.path.join(atuais, e["id"] + ".local.msh")
         if nome in SO_COR:
-            sup = so_cor(antigo, alvo, ERRO.get(nome))
+            sup = so_cor(antigo, alvo, ERRO.get(nome), forma)
             tam = 0
             for velho in (pedaco, local):
                 if os.path.exists(velho):
@@ -1014,16 +1174,17 @@ def main():
         elif nome == "bau":
             # o corpo (com o tesouro dentro) e a tampa (uma peça nova)
             corpo, tampa = dividir_bau(antigo)
-            sup, img = assar(nome, corpo, alvo, tam, ERRO.get(nome))
+            f_corpo, f_tampa = dividir_bau(forma) if forma is not None else (None, None)
+            sup, img = assar(nome, corpo, alvo, tam, ERRO.get(nome), f_corpo)
             sup = _juntar(sup, tesouro(sup["listas"]))
             _gravar_assado(atuais, e["id"], nome, sup, img)
-            st, it = assar("bau_tampa", tampa, ALVO["bau_tampa"], tam, ERRO.get("bau_tampa"))
+            st, it = assar("bau_tampa", tampa, ALVO["bau_tampa"], tam, ERRO.get("bau_tampa"), f_tampa)
             st = tampa_por_dentro(st["listas"], st)
             _no_indice(atuais, "bau_tampa", "res://modelos/cenario/bau_tampa.res")
             _gravar_assado(atuais, "bau_tampa", "bau_tampa", st, it)
             print("  %-14s agora %5d tri %5d vert" % ("bau_tampa", len(st["ind"]) // 3, len(st["arr"][VERTEX])))
         else:
-            sup, img = assar(nome, antigo, alvo, tam, ERRO.get(nome))
+            sup, img = assar(nome, antigo, alvo, tam, ERRO.get(nome), forma)
             _gravar_assado(atuais, e["id"], nome, sup, img)
         t1 = len(sup["ind"]) // 3
         n1 = len(sup["arr"][VERTEX])

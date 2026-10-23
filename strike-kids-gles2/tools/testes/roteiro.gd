@@ -101,6 +101,18 @@ func esperar_pronto_ou_fim(limite := 60.0) -> bool:
 	return true
 
 
+## A jogada liberada (a câmera assentou e o ROLE A BOLA! apareceu)?
+func esperar_liberada(limite := 6.0) -> bool:
+	var t := 0.0
+	yield(get_tree(), "idle_frame")
+	while not principal._liberada:
+		yield(get_tree(), "idle_frame")
+		t += get_process_delta_time() / max(Engine.time_scale, 0.01)
+		if t > limite or _estado() != "PRONTO":
+			return false
+	return true
+
+
 func apertar(acao: String) -> void:
 	var teclas := {"input_start": KEY_1, "input_z": KEY_A, "input_x": KEY_S, "input_c": KEY_D, "input_v": KEY_F, "input_b": KEY_G, "input_credit": KEY_5}
 	var k := InputEventKey.new()
@@ -149,11 +161,22 @@ func _rodar() -> void:
 			continue
 		if _estado() == "FIM":
 			break
-		yield(esperar(0.5), "completed")
+		var z: String = jogadas[i]
+		var tecla: String = {"Z": "input_z", "X": "input_x", "C": "input_c", "V": "input_v", "B": "input_b"}[z]
+		# TRAVA: apertar ANTES do ROLE A BOLA! não pode valer (nem depois)
+		if not principal._liberada:
+			yield(apertar(tecla), "completed")
+		if not yield(esperar_liberada(), "completed"):
+			print("ERRO TRAVA: a jogada não foi liberada (estado ", _estado(), ")")
+			continue
+		yield(esperar(0.6), "completed")
+		if _estado() != "PRONTO" or not principal._liberada:
+			print("ERRO TRAVA: jogada de antes do ROLE A BOLA! valeu (estado ", _estado(), ")")
+		else:
+			print("TRAVA OK %d" % i)
 		if i < 3:
 			yield(foto("pronto_%d" % i), "completed")
-		var z: String = jogadas[i]
-		yield(apertar({"Z": "input_z", "X": "input_x", "C": "input_c", "V": "input_v", "B": "input_b"}[z]), "completed")
+		yield(apertar(tecla), "completed")
 		i += 1
 		if i <= 3:
 			yield(esperar(0.55), "completed")
@@ -166,6 +189,8 @@ func _rodar() -> void:
 			yield(foto("pinos_%d" % i), "completed")
 			yield(esperar(1.0), "completed")
 			yield(foto("resultado_%d" % i), "completed")
+			# rolar de novo com a bola ainda na pista: não vale
+			yield(apertar(tecla), "completed")
 			# máquina lenta (teste): espera a bola terminar antes do replay
 			yield(esperar_sair_de("ROLANDO", 12.0), "completed")
 			if yield(esperar_estado("REPLAY", 4.0), "completed"):

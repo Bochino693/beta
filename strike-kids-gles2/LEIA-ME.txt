@@ -79,6 +79,61 @@ O QUE MUDOU PARA RODAR NA OPENGL ES 2.0
     Godot 4 (nao substitui).
 
 
+VERSAO 6.4: JOGADA SO NA HORA CERTA E CENARIO DE DESENHO ANIMADO
+-----------------------------------------------------------------
+  * TRAVA DA JOGADA: sensores, teclas, placa e toque na tela so valem
+    depois que a camera para na pista e aparece o "ROLE A BOLA!". O que
+    chega antes (durante a bola rolando, o resultado, o replay, a troca de
+    vez ou a camera ainda andando) e DESCARTADO - antes a ultima jogada
+    ficava guardada e disparava sozinha quando a pista abria. O LED de
+    "pronto" do Arduino tambem so acende nessa hora. O roteiro de teste
+    (tools/testes/roteiro.gd) aperta antes do convite e durante o
+    resultado e confere que nada vale.
+  * CENARIO REFEITO EM ALTA E ASSADO DE NOVO (tools/cenario_sdf): as
+    formas matematicas dos 4 cenarios (as mesmas do Godot 4) agora estao no
+    projeto e saem numa grade 8x mais fina (gerar.py) - as fontes lisas de
+    onde o assador (tools/modelos_texturizados.py) tira a forma leve e o
+    desenho. ver.py mostra qualquer modelo numa imagem, sem abrir o Godot.
+  * ROSTOS PINTADOS: olhos, sorriso e bochechas do dinossauro, tartaruga,
+    pterossauro, peixe e agua-viva viraram PINTURA na pele (olho de desenho
+    animado: oval escuro com um brilho grande e um pequeno), nao bolinhas
+    por cima - a forma leve nao perde o olho e ele sai nitido.
+  * CAVALINHOS DO CARROSSEL NOVOS: poneis de desenho animado (cabecao com
+    focinho claro, olhos grandes, crina e rabo de bolotas, cascos dourados,
+    sela vermelha com borda dourada), cada um de uma cor; estrelinhas no
+    piso. NUVENS fofas de desenho (bolotas bem marcadas, base reta) e
+    ARVORES com a copa de bolotas.
+  * SIMPLIFICACAO PECA POR PECA: o simplificador junto no objeto inteiro
+    amassava as pecas pequenas (os poneis viravam cacos). Agora cada peca
+    solta e simplificada sozinha, com o erro medido no tamanho dela.
+  * SOMBREADO SUAVE DOS CANTINHOS (oclusao de ambiente assada nas fontes:
+    embaixo do telhado, entre as pernas, nas emendas das bolotas) - vai na
+    cor, sem nenhuma conta a mais na placa.
+  * LUZ DO CENARIO SEM DEGRAUS: a divisa entre o lado do sol e a sombra e
+    feita por pixel (toon_leve e toon_leve_tex); antes ela seguia os
+    triangulos e fazia "escadinhas". Custa 1 clamp e 1 mix por pixel (a
+    rampa ja vem pronta do vertice); e o shader de vertice dos modelos
+    (toon_leve_tex) ficou MAIS barato que o da 6.3 (as contas iguais em
+    todos os vertices - a cor da neblina na tela, o tom medio - sairam
+    para a CPU: 3 curvas de cor por vertice em vez de 5).
+  * TEXTURA: atlas 4096x4096 (os principais com 1024, os outros 512) e a
+    compressao ETC1 no capricho (qualidade 1,0 = o compressor tenta mais).
+    So a memoria cresce (~11 MB); o custo por pixel e o mesmo (mipmap).
+  * ORCAMENTO (tools/testes/orcamento.gd, vista da pista, indices por
+    quadro): espaco 241 mil (+5% sobre a 6.3), mar 266 mil (+5%), selva
+    282 mil (+9%), parque 280 mil (+12%). O que mais cresceu sao os
+    principais (dinossauro 1.400 triangulos, pterossauro 1.100, carrossel
+    ~2.000 com os poneis, roda-gigante); os que aparecem as dezenas ficaram
+    enxutos (cristal 260, pedra da lua 260, coral 300). Os numeros de cada
+    objeto estao na tabela ALVO de tools/modelos_texturizados.py.
+    COMO REFAZER O CENARIO (python com numpy, scipy, Pillow, trimesh,
+    embreex, xatlas e meshoptimizer):
+      python3 tools/cenario_sdf/gerar.py <fontes>          (a fonte fina)
+      CENARIO_FINO=1 python3 tools/cenario_sdf/gerar.py <fontes>/forma
+      godot3 --no-window --path . -s res://tools/malhas_leves.gd -- --exportar <atuais>
+      python3 tools/modelos_texturizados.py <fontes> <atuais> texturas/cenario
+      godot3 --no-window --path . -s res://tools/malhas_leves.gd -- --importar <atuais>
+
 VERSAO 6.3: ABERTURA SEM TELA PRETA, FISICA DE 1 OU 2 PINOS, CENARIO NITIDO
 ---------------------------------------------------------------------------
   * ABERTURA SEM TELA PRETA: a imagem do Lazer & Sport GAMES aparece em
