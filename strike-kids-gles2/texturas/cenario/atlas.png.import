@@ -17,7 +17,7 @@ dest_files=[ "res://.import/atlas.png-3d0947f2faedca47860bece6524ed84e.s3tc.stex
 [params]
 
 compress/mode=2
-compress/lossy_quality=0.7
+compress/lossy_quality=1.0
 compress/hdr_mode=0
 compress/bptc_ldr=0
 compress/normal_map=0

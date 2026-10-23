@@ -177,6 +177,14 @@ func soco(graus: float) -> void:
 	_soco = graus
 
 
+## Chegou no plano pedido (parada, sem trilho, órbita nem perseguição)?
+func assentou(folga := 0.08) -> bool:
+	if not _trilho.empty() or _orbita or _seguir != null:
+		return false
+	return _pos.distance_to(_pos_dest) < folga and _alvo.distance_to(_alvo_dest) < folga * 4.0 \
+		and abs(_fov_v - _fov_v_dest) < 1.0 and abs(_fov_h - _fov_h_dest) < 1.0
+
+
 ## Fica onde está (sem órbita, trilho nem perseguição): a imagem não muda.
 func congelar() -> void:
 	_parar_modos()

@@ -16,7 +16,8 @@ enum E { ABERTURA, ATRACAO, JOGADORES, PERSONAGEM, PRONTO, ARREMESSO, ROLANDO, R
 const Z_INICIO := 3.15
 const X_MAO := 0.28            # a mão direita fica 0,28 m à direita do corpo
 const MESMA_BOLA_MS := 1200
-const VALIDADE_PENDENTE_MS := 10000
+## o tempo máximo esperando a câmera assentar na pista (segundos de tela)
+const ASSENTAR_MAX := 2.2
 ## menus que abrem POR CIMA do jogo pausado (nada é desmontado)
 const CENA_OPERADOR := preload("res://cenas/operador.tscn")
 const CENA_BOTOES := preload("res://cenas/configuracao_botoes.tscn")
@@ -57,8 +58,10 @@ var jogada: Jogada
 var demo := false
 var _seq := 0
 var _pular := false
-var _pendente := ""
-var _pendente_ms := 0
+## TRAVA DA JOGADA: sensores, teclas, placa e toque na tela só valem
+## depois que a câmera assentou na pista e o "ROLE A BOLA!" apareceu.
+## O que chega antes é descartado (não fica guardado para depois).
+var _liberada := false
 var _ultima_jogada_ms := -100000
 var _inativo := 0.0
 var _modal_inativo := 0.0
@@ -767,7 +770,8 @@ func _jogada_recebida(zona: String) -> void:
 		_fechar_inatividade()
 	match estado:
 		E.PRONTO:
-			_arremessar(zona)
+			if _liberada:
+				_arremessar(zona)
 		E.PERSONAGEM:
 			if zona in ["Z", "X"]:
 				_marcar_destaque(0)
@@ -779,12 +783,8 @@ func _jogada_recebida(zona: String) -> void:
 			# rolar a bola no menu também convida a jogar
 			hud.sensor_acendeu(zona)
 			Sons.tocar("selecao")
-		E.ARREMESSO, E.ROLANDO, E.RESULTADO, E.REPLAY:
-			if Time.get_ticks_msec() - _ultima_jogada_ms < MESMA_BOLA_MS:
-				return
-			_pendente = zona
-			_pendente_ms = Time.get_ticks_msec()
-			_pular = true
+		# (arremesso, bola rolando, resultado, replay, começo da vez: a
+		# jogada não vale — nem fica guardada para quando a pista abrir)
 
 
 # ================================================================ abertura e atração
@@ -1300,22 +1300,26 @@ func _plano_pista(corte := false) -> void:
 
 func _pronto() -> void:
 	estado = E.PRONTO
-	_novo_seq()
-	_pular = false
+	var s := _novo_seq()
+	_liberada = false
 	_inativo = 0.0
 	_plano_pista()
-	hud.convite(true)
-	ArduinoBridge.send_led("IDLE")
+	hud.convite(false)
 	var a: Personagem = personagens[_ativo]
 	a.expressao("concentrado")
-	# jogada que chegou enquanto a pista não estava pronta
-	if _pendente != "" and Time.get_ticks_msec() - _pendente_ms < VALIDADE_PENDENTE_MS:
-		var z := _pendente
-		_pendente = ""
-		yield(get_tree().create_timer(0.35), "timeout")
-		if estado == E.PRONTO:
-			_arremessar(z)
-	_pendente = ""
+	# a jogada só vale com a pista na tela: a câmera assenta, aparece o
+	# ROLE A BOLA! e só então os sensores e as teclas valem
+	var t := 0.0
+	while t < ASSENTAR_MAX and not cam.assentou():
+		yield(get_tree(), "idle_frame")
+		if s != _seq or estado != E.PRONTO:
+			return
+		t += _delta_real()
+	if s != _seq or estado != E.PRONTO:
+		return
+	hud.convite(true)
+	ArduinoBridge.send_led("IDLE")
+	_liberada = true
 
 
 func _arremessar(zona: String) -> void:
@@ -1324,6 +1328,7 @@ func _arremessar(zona: String) -> void:
 	if Time.get_ticks_msec() - _ultima_jogada_ms < MESMA_BOLA_MS:
 		return
 	_ultima_jogada_ms = Time.get_ticks_msec()
+	_liberada = false
 	_novo_seq()
 	estado = E.ARREMESSO
 	hud.sensor_acendeu(zona)
