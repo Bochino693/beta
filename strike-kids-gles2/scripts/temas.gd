@@ -149,6 +149,34 @@ func _mat(contorno: float, tinta: Color, extra := {}) -> ShaderMaterial:
 	return _mats[chave]
 
 
+## Material de um MODELO do cenário: os que têm desenho usam o ATLAS (uma
+## textura com o desenho de todos, assado dos modelos originais por
+## tools/modelos_texturizados.py) e o toon leve com textura — a forma com
+## poucos triângulos e o desenho na imagem. Todos com o MESMO material: o
+## Lote junta os parados num desenho por região. Sem mapa UV (as peças de
+## uma cor só), o toon de sempre (cor nos vértices).
+const ATLAS := "res://texturas/cenario/atlas.png"
+
+
+func _mat_modelo(nome: String, contorno: float, tinta: Color, extra := {}) -> ShaderMaterial:
+	var malha = load("res://modelos/cenario/%s.res" % nome)
+	if not (malha is ArrayMesh and (malha as ArrayMesh).surface_get_format(0) & Mesh.ARRAY_FORMAT_TEX_UV):
+		return _mat(contorno, tinta, extra)
+	var chave := "atlas|%s|%s" % [tinta.to_html(), str(extra)]
+	if not _mats.has(chave):
+		var m := ShaderMaterial.new()
+		m.shader = Materiais.shader("res://shaders/toon_leve_tex.shader")
+		m.set_shader_param("textura", load(ATLAS))
+		var p := {"borda": 0.3, "tinta": tinta}
+		p.merge(extra, true)
+		for k in p:
+			if k != "especular" and k != "tamanho_especular":
+				m.set_shader_param(k, p[k])
+		_mats_leve.append(m)
+		_mats[chave] = m
+	return _mats[chave]
+
+
 ## Toon do cenário: o completo (luz por pixel, contorno) ou o leve (luz por
 ## vértice; o brilho especular não existe nele).
 func _toon(contorno: float, p: Dictionary) -> ShaderMaterial:
@@ -186,7 +214,7 @@ func _obj(tema: String, nome: String, pos: Vector3, rot_y := 0.0, esc := 1.0, co
 	var caminho := "res://modelos/cenario/%s.res" % nome
 	if ResourceLoader.exists(caminho):
 		mi.mesh = load(caminho)
-	mi.material_override = _mat(contorno, tinta)
+	mi.material_override = _mat_modelo(nome, contorno, tinta)
 	mi.translation = pos
 	mi.rotation.y = rot_y
 	mi.scale = Vector3.ONE * esc
@@ -194,7 +222,33 @@ func _obj(tema: String, nome: String, pos: Vector3, rot_y := 0.0, esc := 1.0, co
 	if abs(pos.x) > 3.6 or pos.z < -15.0 or pos.z > 4.0 or pos.y > 1.5:
 		mi.cast_shadow = GeometryInstance.SHADOW_CASTING_SETTING_OFF
 	(pai if pai != null else grupos[tema] as Spatial).add_child(mi)
+	if nome == "bau":
+		_tampa_do_bau(tema, mi)
 	return mi
+
+
+## O BAÚ DO TESOURO: o corpo (com o tesouro dentro: ouro, moedas e joias que
+## brilham) e a TAMPA, uma peça à parte com a origem na dobradiça
+## (tools/modelos_texturizados.py). Ela abre uma vez — a primeira vez que o
+## cenário aparece — com um pulinho no fim, e fica aberta. É irmã do corpo
+## (não filha): o corpo continua parado e o Lote o junta com o resto.
+const BAU_DOBRADICA := Vector3(0.0, 0.452, -0.297)
+const BAU_ABERTO := -1.85         # giro da tampa aberta (rad), para trás
+const BAU_ESPERA := 1.2           # s até abrir, depois que o cenário aparece
+const BAU_ABRINDO := 0.9          # s abrindo
+
+
+func _tampa_do_bau(tema: String, corpo: MeshInstance) -> void:
+	var caminho := "res://modelos/cenario/bau_tampa.res"
+	if not ResourceLoader.exists(caminho):
+		return
+	var t := MeshInstance.new()
+	t.mesh = load(caminho)
+	t.material_override = corpo.material_override
+	t.cast_shadow = corpo.cast_shadow
+	corpo.get_parent().add_child(t)
+	t.transform = corpo.transform * Transform(Basis(), BAU_DOBRADICA)
+	_animar(tema, {"tipo": "abrir", "no": t, "base": t.transform, "espera": BAU_ESPERA, "k": 0.0})
 
 
 func _chao(x: float, z: float) -> float:
@@ -346,7 +400,7 @@ func _baloes(tema: String) -> void:
 		var b := Spatial.new()
 		var mi := MeshInstance.new()
 		mi.mesh = mb
-		mi.material_override = _mat(0.0, cores[i % cores.size()], {"borda": 0.6, "especular": 0.8, "tamanho_especular": 0.95})
+		mi.material_override = _mat_modelo("balao", 0.0, cores[i % cores.size()], {"borda": 0.6, "especular": 0.8, "tamanho_especular": 0.95})
 		b.add_child(mi)
 		var fio := MeshInstance.new()
 		var cm := CylinderMesh.new()
@@ -564,6 +618,17 @@ func _process(delta: float) -> void:
 				no.translation = (item["centro"] as Vector3) + Vector3(sin(a) * r.x, sin(2.0 * a) * r.y, cos(a) * r.z)
 				item["ang"] = fposmod(float(item["ang"]) + float(item["girar"]) * delta, TAU)
 				no.transform.basis = Basis(Vector3(0, 0, 1), -cos(a) * 0.2) * Basis(Vector3.UP, float(item["ang"]))
+			"abrir":
+				# espera, abre com um pulinho no fim (passa um pouco e volta,
+				# como tampa que bate no batente) e fica aberta
+				if float(item["espera"]) > 0.0:
+					item["espera"] = float(item["espera"]) - delta
+				elif float(item["k"]) < 1.0:
+					var k: float = min(float(item["k"]) + delta / BAU_ABRINDO, 1.0)
+					item["k"] = k
+					var u := k - 1.0
+					var pulo := 1.0 + 2.70158 * u * u * u + 1.70158 * u * u
+					(item["no"] as Spatial).transform = (item["base"] as Transform) * Transform(Basis(Vector3.RIGHT, BAU_ABERTO * pulo), Vector3.ZERO)
 			"roda":
 				var roda: Spatial = item["roda"]
 				roda.rotation.z += float(item["vel"]) * delta

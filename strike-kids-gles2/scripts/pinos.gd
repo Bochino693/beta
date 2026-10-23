@@ -16,6 +16,10 @@ signal batida(posicao, forca)
 signal som_pousar
 
 var pinos: Array = []
+## a bola (Principal/calibração põem): perto dela os pinos não são freados
+var bola: Spatial
+## a máquina varrendo: os pinos não são freados (a barra empurra livre)
+var varrendo := false
 ## sombrinhas pintadas no chão embaixo de cada pino (deitam junto com ele).
 ## Uma MultiMesh só para os 10 pinos = um desenho.
 var _sombras: MultiMeshInstance
@@ -101,6 +105,7 @@ const PULO_MAX_FOSSO := 0.9
 ## m; na canaleta e no fosso, menos) e mais devagar que DEITADO_VELOCIDADE
 ## (m/s) — o que voa ou acabou de ser batido não é freado.
 const FREIO_DEITADO := 0.93
+const LONGE_DA_BOLA := 0.8
 const DEITADO_ALTURA := 0.13
 const DEITADO_VELOCIDADE := 1.5
 
@@ -112,9 +117,12 @@ func _physics_process(_d: float) -> void:
 			continue
 		var o: Vector3 = pino.global_transform.origin
 		var v: Vector3 = pino.linear_velocity
-		# deitado (mais na horizontal que em pé), no chão e já devagar: freia
-		if pino.global_transform.basis.y.y < 0.5 and o.y < DEITADO_ALTURA \
-				and v.length_squared() < DEITADO_VELOCIDADE * DEITADO_VELOCIDADE:
+		# deitado (mais na horizontal que em pé), no chão, já devagar e longe
+		# da bola: freia (perto dela, ou com a barra varrendo, o pino freado
+		# era um peso morto que segurava e desviava a bola e a varrida)
+		if not varrendo and pino.global_transform.basis.y.y < 0.5 and o.y < DEITADO_ALTURA \
+				and v.length_squared() < DEITADO_VELOCIDADE * DEITADO_VELOCIDADE \
+				and (bola == null or not bola.visible or bola.global_transform.origin.distance_squared_to(o) > LONGE_DA_BOLA * LONGE_DA_BOLA):
 			var w: Vector3 = pino.angular_velocity
 			if v.length_squared() > 0.0001 or w.length_squared() > 0.01:
 				v *= FREIO_DEITADO

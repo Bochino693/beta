@@ -6,7 +6,9 @@ extends Spatial
 ##     caídos para o fosso (empurrando de verdade, com física) e sobe.
 ##   * ALÇAPÃO: depois da varrida as duas portinhas do chão do fosso abrem
 ##     para baixo e os pinos caem no poço escuro (só com a bola já
-##     recolhida; na jogada o chão fica sempre fechado). A queda é de
+##     recolhida; na jogada o chão fica sempre fechado). Abre sempre que a
+##     varrida levou algum pino — os da canaleta e os que sobraram em pé
+##     depois da segunda bola também; nenhum some sem cair. A queda é de
 ##     DESENHO ANIMADO: cada pino dá um pulinho e cai reto, girando, um
 ##     depois do outro, cada um com uma notinha de xilofone (a escala vai
 ##     subindo) e um assobio "fiuuu" — e nenhum volta para a pista.
@@ -25,6 +27,7 @@ const Y_ENCAIXE := 0.575       # altura da mesa com os pinos apoiados na pista
 const Y_LEVANTA := 0.95
 const Y_BARRA_CIMA := 1.72
 const Y_BARRA_BAIXO := 0.085
+const ALTURA_BARRA := 0.3
 const ABRE_ALCAPAO := 1.4      # quanto as portinhas giram para baixo (rad)
 
 var pinos: Pinos
@@ -93,15 +96,44 @@ func montar(p: Pinos) -> void:
 	var pm_barra := Medidas.material(1.0, 0.0, "pinos")
 	PhysicsServer.body_set_param(barra.get_rid(), PhysicsServer.BODY_PARAM_FRICTION, pm_barra.friction)
 	PhysicsServer.body_set_param(barra.get_rid(), PhysicsServer.BODY_PARAM_BOUNCE, pm_barra.bounce)
+	# 30 cm de altura (do chão da pista para cima): empurra o pino em pé
+	# acima do centro de massa e ele cai para a frente, para o fosso — mais
+	# baixa, o pino tombava para trás por cima dela e ia junto, montado
 	var cs := CollisionShape.new()
 	var bs := BoxShape.new()
-	bs.extents = Vector3(Medidas.MEIA_LARGURA * 2 + 0.3, 0.17, 0.07) / 2.0
+	bs.extents = Vector3(Medidas.MEIA_LARGURA * 2 + 0.3, ALTURA_BARRA, 0.07) / 2.0
 	cs.shape = bs
+	cs.translation.y = ALTURA_BARRA * 0.5 - Y_BARRA_BAIXO
 	barra.add_child(cs)
-	var vis := MeshInstance.new()
+	# a barra e as duas pás num desenho só (uma malha)
+	var desenho := SurfaceTool.new()
+	desenho.begin(Mesh.PRIMITIVE_TRIANGLES)
 	var bb := CubeMesh.new()
 	bb.size = bs.extents * 2.0
-	vis.mesh = bb
+	desenho.append_from(bb, 0, Transform(Basis(), cs.translation))
+	# PÁS DAS CANALETAS: a barra fica na altura da pista e o pino caído na
+	# canaleta (mais funda) passava por baixo dela — sumia no fim da varrida
+	# em vez de ir para o fosso. Cada pá é um disco do tamanho da meia-cana
+	# (um pouco menor, sem raspar nela): empurra o pino reto para o fosso,
+	# sem prensar contra a parede curva (uma caixa prensava e o pino voava).
+	for s in [-1.0, 1.0]:
+		var cp := CollisionShape.new()
+		var pc := CylinderShape.new()
+		pc.radius = Medidas.CANALETA * 0.5 - 0.02
+		pc.height = 0.07
+		cp.shape = pc
+		cp.rotation = Vector3(PI * 0.5, 0, 0)
+		cp.translation = Vector3(s * (Medidas.MEIA_LARGURA + Medidas.CANALETA * 0.5), -0.018 - Y_BARRA_BAIXO, 0)
+		barra.add_child(cp)
+		var pm := CylinderMesh.new()
+		pm.top_radius = pc.radius
+		pm.bottom_radius = pc.radius
+		pm.height = pc.height
+		pm.radial_segments = 16
+		pm.rings = 1
+		desenho.append_from(pm, 0, cp.transform)
+	var vis := MeshInstance.new()
+	vis.mesh = desenho.commit()
 	vis.material_override = Materiais.cor_toon(cor_detalhe, 0.003, {"borda": 0.3})
 	barra.add_child(vis)
 	for s in [-1.0, 1.0]:
@@ -224,42 +256,29 @@ func _ok(t: SceneTreeTween, s: int) -> bool:
 
 
 ## Depois de uma bola que não fechou a rodada: guarda os pinos em pé,
-## varre os caídos e devolve os em pé no lugar. derrubou: a bola derrubou
-## algum pino (numa jogada errada o alçapão não abre).
-func reposicionar(derrubou := true) -> void:
-	var r = _ciclo(true, derrubou)
+## varre os caídos e devolve os em pé no lugar (sem pino caído — a bola
+## foi na canaleta — o alçapão não abre).
+func reposicionar() -> void:
+	var r = _ciclo(true)
 	if r is GDScriptFunctionState:
 		yield(r, "completed")
 
 
 ## Rack novo (rodada nova): varre tudo e desce os 10 pinos.
-func rack_novo(derrubou := true) -> void:
-	var r = _ciclo(false, derrubou)
+func rack_novo() -> void:
+	var r = _ciclo(false)
 	if r is GDScriptFunctionState:
 		yield(r, "completed")
 
 
-## Pinos caídos lá no fosso (atrás da pista), que o alçapão faria cair.
-func _pinos_no_fosso(levados: Array) -> int:
-	var n := 0
-	for p in pinos.pinos:
-		if levados.has(p) or p.removido:
-			continue
-		var g: Vector3 = p.posicao_base()
-		if g.z < Medidas.Z_FIM_DECK and g.z > Medidas.ALCAPAO_Z1 - 0.1 and abs(g.x) < Medidas.ALCAPAO_X + 0.05 and g.y < 0.0:
-			n += 1
-	return n
-
-
-## Os pinos que estão no fosso (atrás do fim da pista), os que o alçapão
-## derruba no poço — da esquerda para a direita (a cascata de notas).
+## Os pinos que a varrida levou (todos os que a mesa não guardou) e que o
+## alçapão derruba no poço — da esquerda para a direita (a cascata de
+## notas). Quase sempre estão no fosso; o que ficou para trás (por cima de
+## outro, na beirada da pista) dá o pulinho de lá mesmo e cai junto.
 func _pinos_do_fosso(levados: Array) -> Array:
 	var r: Array = []
 	for p in pinos.pinos:
-		if levados.has(p) or p.removido:
-			continue
-		var g: Vector3 = p.posicao_base()
-		if g.z < Medidas.Z_FIM_DECK + 0.02 and g.y < 0.05:
+		if not levados.has(p) and not p.removido:
 			r.append(p)
 	r.sort_custom(self, "_da_esquerda")
 	return r
@@ -338,10 +357,13 @@ func _cair_pino(k: float, p: Pino, de: Transform, para: Vector3, eixo: Vector3, 
 	p.global_transform = Transform(Basis(eixo, giro) * de.basis, pos)
 
 
-func _ciclo(manter: bool, derrubou := true) -> void:
+func _ciclo(manter: bool) -> void:
 	_seq += 1
 	var s := _seq
 	trabalhando = true
+	# (a barra empurra os pinos livres: sem o freio dos pinos deitados, que
+	# os deixava pesados e prensados contra a barra)
+	pinos.varrendo = true
 	pinos.prender_todos()
 	# 1. barra desce na frente (proteção)
 	emit_signal("som", "barra")
@@ -375,13 +397,15 @@ func _ciclo(manter: bool, derrubou := true) -> void:
 		if not levados.has(p) and not p.removido:
 			p.soltar()
 			p.sleeping = false
+	# (1 s: mais rápido a barra prensava os pinos contra os outros e contra a
+	# canaleta, e eles voavam por cima dela)
 	emit_signal("som", "varrer")
-	if not yield(_ok(_tw(barra, "translation:z", Medidas.Z_FIM_DECK - 0.15, 0.7), s), "completed"):
+	if not yield(_ok(_tw(barra, "translation:z", Medidas.Z_FIM_DECK - 0.15, 1.0), s), "completed"):
 		return
-	# 3b. o ALÇAPÃO: as portinhas abrem para baixo e os pinos do fosso caem
-	# (com a física) até o fundo do poço — só se a bola derrubou pinos e há
-	# pino caído no fosso (bola na canaleta / jogada errada: fica fechado)
-	if derrubou and _pinos_no_fosso(levados) > 0:
+	# 3b. o ALÇAPÃO: as portinhas abrem para baixo e os pinos varridos caem
+	# até o fundo do poço — se a varrida levou algum (bola na canaleta sem
+	# pino caído: fica fechado)
+	if not _pinos_do_fosso(levados).empty():
 		emit_signal("alcapao", true)
 		if not yield(_ok(_pausa(0.25), s), "completed"):
 			return
@@ -444,12 +468,14 @@ func _ciclo(manter: bool, derrubou := true) -> void:
 	if not yield(_ok(_tw(barra, "translation:y", Y_BARRA_CIMA, 0.5), s), "completed"):
 		return
 	trabalhando = false
+	pinos.varrendo = false
 	emit_signal("terminou")
 
 
 ## Sem animação (atração, começo).
 func instantaneo() -> void:
 	_seq += 1
+	pinos.varrendo = false
 	for t in _tweens:
 		if t.is_valid():
 			t.kill()
