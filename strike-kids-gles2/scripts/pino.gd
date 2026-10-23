@@ -16,7 +16,7 @@ extends RigidBody
 signal bateu(pino, forca)
 
 const EXPR := ["normal", "piscando", "medo", "tonto", "feliz", "surpreso", "triste", "bravo"]
-const MASSA := 1.5
+const MASSA := 1.8
 const COM := Vector3(0, 0.17, 0)
 
 var numero := 1
@@ -37,7 +37,9 @@ var _escuro := 1.0      # 1 = normal; menor = caindo no poço do alçapão
 ## caiu no FOSSO (atrás do fim da pista, abaixo dela): dali não volta para a
 ## pista (Pinos segura) e assenta logo, sem ficar pulando
 var no_fosso := false
-const GIRO_AMORTECE := 0.35
+## (na Bullet o amortecimento é a fração perdida por segundo, de 0 a 1:
+## acima de 1 ela corta em 1 e zera o giro a cada passo)
+const GIRO_AMORTECE := 0.6
 
 
 func montar(n: int, pos: Vector3, malha_pino: Mesh, formas: Array, rosto: Texture, meta: Dictionary) -> void:

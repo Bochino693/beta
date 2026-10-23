@@ -1728,31 +1728,40 @@ func _montar_marca() -> void:
 	_marca_tela.add_child(_marca_texto)
 
 
-## TÍTULO CONVENCIONAL: a placa "Lazer & Sport" é o título, grande e no
-## meio; o alvo vem pequeno em cima dela, como emblema (na logo inteira o
-## alvo é maior que a placa e tomava a tela).
-const ALVO_NA_PLACA := 0.6     # altura do alvo / altura da placa
+## O SÍMBOLO DA LAZER & SPORT COMO NA MARCA (ui/marca/lazer_sport.png): a
+## placa "Lazer & Sport" grande no meio e o alvo com o dardo em cima dela,
+## no tamanho da marca de verdade (CENTRO_ALVO e CENTRO_PLACA: o centro de
+## cada peça na marca inteira, em frações dela; a placa tem a largura da
+## marca). O alvo pequeno, como emblema, ficava fora de proporção.
+## Os tamanhos são os das imagens ORIGINAIS da marca (2560 px de largura):
+## a importação limita cada uma a 1024 px (memória da placa de vídeo) e
+## encolhe a placa 2,5 vezes mas o alvo só 1,5 — pelo tamanho importado o
+## alvo saía da largura da placa (o "aro muito grande" da versão 5.9).
+const CENTRO_ALVO := Vector2(0.4752, 0.2780)
+const CENTRO_PLACA := Vector2(0.5, 0.7792)
+const TAM_ALVO := Vector2(1501, 944)
+const TAM_PLACA := Vector2(2560, 750)
+const PROPORCAO_LOGO := 1698.0 / 2560.0    # altura / largura da marca
 
 
 func _layout_marca(T: Vector2) -> void:
 	_marca_fundo.rect_size = T
-	var placa: Vector2 = _marca_placa.texture.get_size()
-	var alvo: Vector2 = _marca_alvo.texture.get_size()
-	var pw: float = min(T.x * 0.84, T.y * 1.1)
-	var ph := pw * placa.y / placa.x
-	var ah := ph * ALVO_NA_PLACA
-	var aw := ah * alvo.x / alvo.y
-	var centro_y := 0.42 if _marca_veu.visible else 0.46
-	var topo := T.y * centro_y - (ah * 0.9 + ph) / 2
-	_marca_alvo.rect_size = Vector2(aw, ah)
-	_marca_alvo.rect_position = Vector2((T.x - aw) / 2, topo)
-	_marca_alvo.rect_pivot_offset = _marca_alvo.rect_size / 2
-	_marca_placa.rect_size = Vector2(pw, ph)
-	_marca_placa.rect_position = Vector2((T.x - pw) / 2, topo + ah * 0.9)
-	_marca_placa.rect_pivot_offset = _marca_placa.rect_size / 2
-	var base := _marca_placa.rect_position.y + ph
-	var gw := pw * 0.42
+	# a placa do mesmo tamanho de antes; a marca inteira cabe na tela
+	var lw: float = min(T.x * 0.84, T.y * 0.6 / PROPORCAO_LOGO)
+	var lh := lw * PROPORCAO_LOGO
+	var gw := lw * 0.42
 	var gh := gw * 188.0 / 616.0
+	var centro_y := 0.42 if _marca_veu.visible else 0.46
+	var origem := Vector2((T.x - lw) / 2, T.y * centro_y - (lh + 14 * u + gh) / 2)
+	var k := lw / TAM_PLACA.x
+	for par in [[_marca_alvo, CENTRO_ALVO, TAM_ALVO], [_marca_placa, CENTRO_PLACA, TAM_PLACA]]:
+		var t: TextureRect = par[0]
+		var tam: Vector2 = (par[2] as Vector2) * k
+		t.rect_size = tam
+		t.rect_position = origem + Vector2(lw, lh) * (par[1] as Vector2) - tam / 2
+		t.rect_pivot_offset = tam / 2
+	var ph := _marca_placa.rect_size.y
+	var base := _marca_placa.rect_position.y + ph
 	_marca_games.rect_size = Vector2(gw, gh)
 	_marca_games.rect_position = Vector2((T.x - gw) / 2, base + 14 * u)
 	_marca_games.rect_pivot_offset = _marca_games.rect_size / 2

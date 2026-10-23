@@ -10,9 +10,12 @@ signal bateu(corpo, velocidade)
 signal recolhida
 
 const RAIO := 0.14
-## pesada como uma bola de verdade perto dos pinos (9 kg x 1,5 kg): leve
+## pesada como uma bola de verdade perto dos pinos (9 kg x 1,8 kg): leve
 ## demais, ela era jogada para o lado na batida (até 66 cm no fim da pista)
 const MASSA := 9.0
+## a BOLA DE FOGO (sequência de strikes) é bem mais pesada: atravessa os
+## pinos com força, sem desviar
+const MASSA_FOGO := 14.0
 ## FIRMEZA NA LINHA: nos pinos, a cada passo (1/60 s) a bola volta 10%
 ## para a direção em que chegou neles — ela atravessa os pinos firme, sem
 ## ser rebatida para a canaleta. Com a massa: desvio médio de 16 para 8 cm
@@ -254,6 +257,7 @@ func ensaio(pos: Vector3) -> void:
 ## Bola de fogo (sequência de strikes): rastro de fogo e chamas.
 func fogo(ligar: bool) -> void:
 	_fogo = ligar
+	mass = MASSA_FOGO if ligar else MASSA
 	_brilhos.color_initial_ramp = _grad_fogo if ligar else _grad_arco
 	if not ligar:
 		_chamas.emitting = false

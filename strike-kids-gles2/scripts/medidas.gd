@@ -64,18 +64,21 @@ static func na_tela(n: Spatial) -> Transform:
 ## MENOR atrito dos dois e a SOMA dos quiques; a Bullet do Godot 3
 ## MULTIPLICA os dois valores. Os números de cada corpo são convertidos
 ## para que os pares que importam saiam como pedidos:
-##   pino x pino: atrito 0,38, quique 0,5;  bola x pino: 0,12 e 0,45.
-## PINO DE MADEIRA, PESADO: o quique de 0,76 (o do Godot 4) fazia os pinos
-## parecerem de plástico — pulavam como bolinhas e voltavam do fosso. Com
-## 0,5 eles batem, tombam e rolam como pino de boliche de verdade.
-const QUIQUE_PINO_SOMA := 0.25  # a parte de cada pino na soma (0,25 + 0,25)
+##   pino x pino: atrito 0,38, quique 0,2;  bola x pino: 0,12 e 0,3.
+## PINO DE MADEIRA, PESADO (versão 6.1): com quique 0,5 os pinos ainda
+## pareciam de plástico — davam 40 a 70 quiques por jogada, giravam até 10
+## voltas por segundo e não paravam em 3 s. Com 0,2 entre eles, metade do
+## quique da superfície no chão e nas paredes e o giro amortecido, eles
+## batem, tombam, deslizam um pouco e param, como pino de verdade.
+const QUIQUE_PINO_SOMA := 0.0   # a parte de cada pino na soma (o Godot 4 somava)
+const QUIQUE_PINO_SUPERFICIE := 0.5  # pino x chão/parede: metade do quique da superfície
 const ATRITO_PINO := 0.6164     # sqrt(0.38)
-const QUIQUE_PINO := 0.7071     # sqrt(0.5)
+const QUIQUE_PINO := 0.4472     # sqrt(0.2)
 const ATRITO_BOLA := 0.1947     # 0.12 / ATRITO_PINO
-const QUIQUE_BOLA := 0.6364     # 0.45 / QUIQUE_PINO
+const QUIQUE_BOLA := 0.6708     # 0.3 / QUIQUE_PINO
 ## a gravidade nos pinos (x 1): o pino que voa desce logo e o que tomba cai
 ## firme, sem flutuar — parece pesado (a bola não muda)
-const GRAVIDADE_PINO := 1.3
+const GRAVIDADE_PINO := 1.5
 
 
 ## Material de uma superfície parada, com o atrito e o quique que ela tinha
@@ -84,7 +87,7 @@ const GRAVIDADE_PINO := 1.3
 static func material(atrito: float, quique: float, quem := "todos") -> PhysicsMaterial:
 	var fp: float = min(atrito, 0.38) / ATRITO_PINO
 	var fb: float = min(atrito, 0.12) / ATRITO_BOLA
-	var rp: float = min(quique + QUIQUE_PINO_SOMA, 1.0) / QUIQUE_PINO
+	var rp: float = min(quique * QUIQUE_PINO_SUPERFICIE + QUIQUE_PINO_SOMA, 1.0) / QUIQUE_PINO
 	var rb: float = min(quique + 0.12, 1.0) / QUIQUE_BOLA
 	var pm := PhysicsMaterial.new()
 	if quem == "pinos":

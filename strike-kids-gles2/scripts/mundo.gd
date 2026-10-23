@@ -823,8 +823,10 @@ func _fundo_dos_pinos() -> void:
 	_peca(Perfis.retangulo(2.8, 0.32, 0.1, Vector2(0, 3.24)), z_tras + 0.3, z_masc, mat_gabinete, "gabinete_teto")
 	_peca(Perfis.retangulo(2.9, 3.75, 0.22, Vector2(0, 1.53)), z_tras, Z_FUNDO - 0.02, mat_gabinete, "gabinete_fundo")
 	_peca(Perfis.retangulo(2.96, 0.09, 0.04, Vector2(0, 3.42)), z_tras - 0.03, z_masc, mat_friso)
-	# letreiro (masking) acima dos pinos, com o logo e lâmpadas
-	mat_placa = Materiais.cor_toon(Color("#1E3FA0"), 0.004, {"borda": 0.4})
+	# letreiro (masking) acima dos pinos, com o logo e lâmpadas. A placa é
+	# iluminada por dentro (luz mínima cheia): virada para longe do sol ela
+	# ficava na sombra, quase preta — uma mancha escura atrás do logo
+	mat_placa = Materiais.cor_toon(Color("#1E3FA0"), 0.004, {"borda": 0.15, "luz_minima": 1.0})
 	_peca(Perfis.retangulo(2.7, 0.95, 0.07, Vector2(0, 1.85)), Z_PINO1 + 0.68, Z_PINO1 + 0.82, mat_placa, "placa")
 	_peca(Perfis.retangulo(2.8, 1.05, 0.09, Vector2(0, 1.85)), Z_PINO1 + 0.66, Z_PINO1 + 0.78, mat_friso)
 	var logo_tex := Materiais.textura("logo")
@@ -867,14 +869,15 @@ func _fundo_dos_pinos() -> void:
 	add_child(lampadas_em(pontos))
 
 
-## Material do logo dos letreiros: a imagem sem luz, com o fundo recortado
-## (alpha scissor). O filtro com mipmaps vem da importação da textura.
+## Material do logo dos letreiros: a imagem sem luz, misturada com a placa
+## pela transparência dela (o filtro com mipmaps vem da importação). Com o
+## fundo RECORTADO (alpha scissor) a sombra suave embaixo das letras virava
+## um bloco escuro duro em volta do logo — a "marca preta" do letreiro.
 static func _mat_logo_letreiro(logo_tex: Texture) -> SpatialMaterial:
 	var ml := SpatialMaterial.new()
 	ml.flags_unshaded = true
+	ml.flags_transparent = true
 	ml.albedo_texture = logo_tex
-	ml.params_use_alpha_scissor = true
-	ml.params_alpha_scissor_threshold = 0.4
 	return ml
 
 
