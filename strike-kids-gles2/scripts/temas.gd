@@ -168,6 +168,7 @@ func _mat_modelo(nome: String, contorno: float, tinta: Color, extra := {}) -> Sh
 	if not _mats.has(chave):
 		var m := ShaderMaterial.new()
 		m.shader = Materiais.shader("res://shaders/toon_leve_tex.shader")
+		m.set_meta("atlas", true)
 		m.set_shader_param("textura", load(ATLAS))
 		var p := {"borda": 0.3, "tinta": tinta}
 		p.merge(extra, true)
@@ -176,6 +177,7 @@ func _mat_modelo(nome: String, contorno: float, tinta: Color, extra := {}) -> Sh
 				m.set_shader_param(k, p[k])
 		_mats_leve.append(m)
 		_mats[chave] = m
+		_aplicar_luz([m])
 	return _mats[chave]
 
 
@@ -201,14 +203,67 @@ func _q(n: int) -> int:
 ## A luz da cena para a decoração leve (Mundo.aplicar_tema): para onde está o
 ## sol, cor x força do sol e do ambiente e a neblina (cores lineares).
 func luz(sol_dir: Vector3, sol_cor: Vector3, ambiente: Vector3, neblina_cor: Vector3, neblina_densidade: float) -> void:
+	_luz_atual = [sol_dir, sol_cor, ambiente, neblina_cor, neblina_densidade]
+	_aplicar_luz(_mats_leve)
+
+
+## (a luz do cenário de agora: um material criado depois já sai com ela)
+var _luz_atual := []
+
+
+func _aplicar_luz(mats: Array) -> void:
+	if _luz_atual.empty():
+		return
+	var sol_dir: Vector3 = _luz_atual[0]
+	var sol_cor: Vector3 = _luz_atual[1]
+	var ambiente: Vector3 = _luz_atual[2]
+	var neblina_cor: Vector3 = _luz_atual[3]
+	var neblina_densidade: float = _luz_atual[4]
 	var neblina_tela := _tela_g4(neblina_cor)
-	for m in _mats_leve:
+	for m in mats:
 		m.set_shader_param("sol_dir", sol_dir)
 		m.set_shader_param("sol_cor", sol_cor)
 		m.set_shader_param("ambiente", ambiente)
 		m.set_shader_param("neblina_cor", neblina_cor)
 		m.set_shader_param("neblina_tela", neblina_tela)
 		m.set_shader_param("neblina_densidade", neblina_densidade)
+		if m.has_meta("atlas"):
+			_fatores(m, sol_cor, ambiente)
+
+
+## A LUZ DO MATERIAL JÁ COMO SAI NA TELA (toon_leve_tex): no sol, na
+## sombra, o quanto a borda clara soma em cada uma e a das partes que
+## brilham — as contas que eram feitas em cada vértice, iguais em todos.
+const MEIO := 0.25
+const TELA_MEIO := 0.283332
+
+
+func _fatores(m: ShaderMaterial, sol: Vector3, amb: Vector3) -> void:
+	var tinta: Color = _param(m, "tinta", Color.white)
+	var lm: float = _param(m, "luz_minima", 0.0)
+	var cb: Color = _param(m, "cor_borda", Color(1.0, 0.95, 0.9))
+	var borda: float = _param(m, "borda", 0.35)
+	var brilho: float = _param(m, "brilho_luz", 1.4)
+	var tin := _s2l(Vector3(tinta.r, tinta.g, tinta.b)) * MEIO
+	var b := _s2l(Vector3(cb.r, cb.g, cb.b)) * borda
+	var no_sol := amb + sol
+	var na_sombra := amb + sol * lm
+	var f_sol := _tela_g4(tin * no_sol) / TELA_MEIO
+	var f_sombra := _tela_g4(tin * na_sombra) / TELA_MEIO
+	m.set_shader_param("f_sol", f_sol)
+	m.set_shader_param("f_sombra", f_sombra)
+	m.set_shader_param("f_borda_sol", _tela_g4(tin * (no_sol + b)) / TELA_MEIO - f_sol)
+	m.set_shader_param("f_borda_sombra", _tela_g4(tin * (na_sombra + b)) / TELA_MEIO - f_sombra)
+	m.set_shader_param("f_acesa", _tela_g4(tin * (no_sol + Vector3.ONE * brilho)) / TELA_MEIO)
+
+
+static func _param(m: ShaderMaterial, nome: String, padrao):
+	var v = m.get_shader_param(nome)
+	return padrao if v == null else v
+
+
+static func _s2l(c: Vector3) -> Vector3:
+	return c * (c * (c * 0.305306011 + Vector3.ONE * 0.682171111) + Vector3.ONE * 0.012522878)
 
 
 ## A cor linear como sai na tela (a tela_g4 dos shaders leves: curva do
@@ -224,12 +279,22 @@ static func _tela_g4(c: Vector3) -> Vector3:
 
 
 ## Um objeto do cenário (res://modelos/cenario/<nome>.res) no grupo do tema.
+## A VERSÃO DE LONGE: a peça que fica pequena na tela (raio dela menor que
+## LONGE vezes a distância até a pista) usa <nome>_longe.res — a mesma
+## textura, ~40% dos triângulos (tools/modelos_texturizados.py). De lá ela
+## ocupa poucos pixels; os triângulos a mais só pesavam na placa de vídeo.
+const LONGE := 0.12
+
+
 func _obj(tema: String, nome: String, pos: Vector3, rot_y := 0.0, esc := 1.0, contorno := 0.0,
 		tinta := Color.white, pai: Spatial = null) -> MeshInstance:
 	var mi := MeshInstance.new()
 	var caminho := "res://modelos/cenario/%s.res" % nome
 	if ResourceLoader.exists(caminho):
 		mi.mesh = load(caminho)
+		var de_longe := "res://modelos/cenario/%s_longe.res" % nome
+		if pai == null and ResourceLoader.exists(de_longe) and mi.mesh.get_aabb().size.length() * 0.5 * esc < LONGE * _ate_pista(pos):
+			mi.mesh = load(de_longe)
 	mi.material_override = _mat_modelo(nome, contorno, tinta)
 	mi.translation = pos
 	mi.rotation.y = rot_y
@@ -241,6 +306,13 @@ func _obj(tema: String, nome: String, pos: Vector3, rot_y := 0.0, esc := 1.0, co
 	if nome == "bau":
 		_tampa_do_bau(tema, mi)
 	return mi
+
+
+## Distância (no chão) até a pista, da linha de falta (z = 4, com quem
+## joga) até os pinos (z = -10): de onde a câmera olha.
+static func _ate_pista(pos: Vector3) -> float:
+	var dz: float = max(pos.z - 4.0, max(-10.0 - pos.z, 0.0))
+	return Vector2(pos.x, dz).length()
 
 
 ## O BAÚ DO TESOURO: o corpo (com o tesouro dentro: ouro, moedas e joias que
@@ -396,12 +468,11 @@ func _nuvens(tema: String, qtd: int, semente: int) -> void:
 	rnd.seed = semente
 	var mat := _toon(0.0, {"borda": 0.6, "luz_minima": 0.5, "cor_borda": Color(0.9, 0.96, 1)})
 	for i in _q(qtd):
-		var n := _obj(tema, "nuvem", Vector3.ZERO)
+		var lado := -1.0 if i % 2 == 0 else 1.0
+		var pos := Vector3(lado * rnd.randf_range(4.0, 22.0), rnd.randf_range(6.0, 15.0), rnd.randf_range(-60.0, -8.0))
+		var n := _obj(tema, "nuvem", pos, 0.0, rnd.randf_range(1.2, 2.6))
 		n.material_override = mat
 		n.cast_shadow = GeometryInstance.SHADOW_CASTING_SETTING_OFF
-		var lado := -1.0 if i % 2 == 0 else 1.0
-		n.translation = Vector3(lado * rnd.randf_range(4.0, 22.0), rnd.randf_range(6.0, 15.0), rnd.randf_range(-60.0, -8.0))
-		n.scale = Vector3.ONE * rnd.randf_range(1.2, 2.6)
 		n.rotation.y = rnd.randf() * TAU
 		_animar(tema, {"tipo": "nuvem", "no": n, "vel": rnd.randf_range(0.15, 0.4)})
 

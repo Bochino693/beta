@@ -1029,7 +1029,7 @@ def montar_atlas(atuais, saida):
         nome = os.path.basename(e["recurso"]).rsplit(".", 1)[0]
         pedaco = os.path.join(atuais, "pedacos", nome + ".png")
         local = os.path.join(atuais, e["id"] + ".local.msh")
-        if os.path.exists(pedaco) and os.path.exists(local):
+        if not nome.endswith("_longe") and os.path.exists(pedaco) and os.path.exists(local):
             pecas.append((nome, e["id"], np.asarray(Image.open(pedaco).convert("RGB")), ler_msh(local)[0]))
     if not pecas:
         return
@@ -1079,7 +1079,7 @@ def montar_atlas(atuais, saida):
     for e in json.load(open(os.path.join(atuais, "indice.json"))):
         nome = os.path.basename(e["recurso"]).rsplit(".", 1)[0]
         leve = os.path.join(atuais, e["id"] + ".leve.msh")
-        if "/cenario/" in e["recurso"] and nome not in com_desenho and os.path.exists(leve):
+        if "/cenario/" in e["recurso"] and nome not in com_desenho and not nome.endswith("_longe") and os.path.exists(leve):
             sup = ler_msh(leve)[0]
             sup["arr"][TEX_UV] = np.tile(uv_branco, (len(sup["arr"][VERTEX]), 1))
             sup["listas"] |= 1 << TEX_UV
@@ -1101,6 +1101,48 @@ def montar_atlas(atuais, saida):
             if os.path.exists(velho):
                 os.remove(velho)
     print("ATLAS %dx%d com %d objetos com desenho e %d de uma cor só" % (ATLAS_LARGURA, altura, len(pecas), n_cor))
+
+
+# ------------------------------------------------------------ versão de longe
+## A VERSÃO DE LONGE (6.5): a mesma malha leve (o mesmo mapa UV no atlas)
+## com ~40% dos triângulos, para as cópias que ficam longe da pista
+## (scripts/temas.gd escolhe pelo tamanho da peça e a distância) — lá ela
+## ocupa poucos pixels e os triângulos a mais só custavam vértices na
+## Mali-450. Grava <id>_longe.leve.msh e a entrada no índice (o
+## tools/malhas_leves.gd -- --importar cria <nome>_longe.res).
+LONGE = 0.4
+LONGE_ERRO = 0.02
+SEM_LONGE = ("bau", "bau_tampa", "lampada", "cabine")
+
+
+def gerar_longe(atuais):
+    caminho = os.path.join(atuais, "indice.json")
+    indice = json.load(open(caminho))
+    novos = []
+    for e in indice:
+        nome = os.path.basename(e["recurso"]).rsplit(".", 1)[0]
+        leve = os.path.join(atuais, e["id"] + ".leve.msh")
+        if "/cenario/" not in e["recurso"] or nome.endswith("_longe") or nome in SEM_LONGE or not os.path.exists(leve):
+            continue
+        sup = ler_msh(leve)[0]
+        pos = np.ascontiguousarray(sup["arr"][VERTEX].astype(np.float32))
+        ind = np.ascontiguousarray(sup["ind"].astype(np.uint32))
+        tris = len(ind) // 3
+        destino = np.zeros_like(ind)
+        qtd = mo.simplify(destino, ind, pos, target_index_count=max(60, int(tris * LONGE)) * 3, target_error=LONGE_ERRO)
+        f = destino[:qtd].reshape(-1, 3)
+        usados = np.unique(f)
+        remap = np.full(len(pos), -1)
+        remap[usados] = np.arange(len(usados))
+        longe = {"prim": sup["prim"], "listas": sup["listas"], "arr": {k: a[usados] for k, a in sup["arr"].items()},
+                 "ind": remap[f].reshape(-1).astype(np.uint32)}
+        ident = e["id"] + "_longe"
+        gravar_msh(os.path.join(atuais, ident + ".leve.msh"), [longe])
+        novos.append({"id": ident, "recurso": "res://modelos/cenario/%s_longe.res" % nome, "no": "", "superficies": []})
+        print("  longe: %-14s %5d -> %5d tri" % (nome, tris, len(f)))
+    ids = {e["id"] for e in indice}
+    indice += [n for n in novos if n["id"] not in ids]
+    json.dump(indice, open(caminho, "w"), indent=1)
 
 
 def _gravar_assado(atuais, ident, nome, sup, img):
@@ -1134,6 +1176,10 @@ def main():
     so = set(sys.argv[4].split(",")) if len(sys.argv) > 4 else None
     if so == {"atlas"}:
         montar_atlas(atuais, saida)
+        gerar_longe(atuais)
+        return
+    if so == {"longe"}:
+        gerar_longe(atuais)
         return
     os.makedirs(saida, exist_ok=True)
     ia = {os.path.basename(e["recurso"]): e for e in json.load(open(os.path.join(antigos, "indice.json")))}
@@ -1143,7 +1189,7 @@ def main():
             continue
         arq = os.path.basename(e["recurso"])
         nome = arq.rsplit(".", 1)[0]
-        if so and nome not in so:
+        if (so and nome not in so) or nome.endswith("_longe"):
             continue
         if arq not in ia:
             print("  sem original:", arq)
@@ -1196,6 +1242,7 @@ def main():
             nome, len(antigo["ind"]) // 3, tris_atual, len(atual["arr"][VERTEX]), t1, n1, tam))
     print("TOTAL antes %d tri %d vert -> agora %d tri %d vert" % (tot0, v0, tot1, v1))
     montar_atlas(atuais, saida)
+    gerar_longe(atuais)
 
 
 if __name__ == "__main__":
