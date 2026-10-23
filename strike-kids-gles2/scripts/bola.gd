@@ -27,6 +27,21 @@ const VEL_FOSSO_MIN := 3.2
 const VEL_FOSSO_MAX := 7.0
 const Z_DENTRO := Medidas.Z_FUNDO - 0.4
 const GRAVIDADE := 9.8
+## A BATIDA DA BOLA NO PINO EM PÉ é feita aqui, no passo certo (6.3). A
+## bola anda 12 a 15 cm por passo da física (1/60 s), quase o raio do pino:
+## a Bullet só via a batida com a bola já enterrada no pino e, para separar
+## os dois, dava energia a mais — o pino saía a 1,7x a velocidade da bola
+## (batida 100% elástica, em vez do quique 0,3 pedido), dando cambalhotas
+## para o fosso, e a bola dava um pulinho de até 7 cm. Com um pino só era
+## o que mais aparecia: ele "sumia". Agora, antes de cada passo: se a bola
+## vai encostar num pino em pé durante ele, a bola é posta no encontro e os
+## dois trocam o impulso de uma batida de verdade (QUIQUE_BATIDA), na altura
+## do toque — abaixo do centro de massa: o pino sai a ~1,25x a velocidade da
+## bola, tombando para trás, como num boliche. O resto (pino x pino,
+## paredes, canaleta) continua com a Bullet.
+const QUIQUE_BATIDA := 0.45
+## o raio do pino na altura do centro da bola (o cilindro do meio, Pinos.CILINDROS)
+const RAIO_BARRIGA := 0.083
 const FOGO := [Color("#FFF3B0"), Color("#FFD43B"), Color("#FF9F2E"), Color("#FF5A1E"), Color("#E0301E")]
 
 var malha: MeshInstance
@@ -57,6 +72,9 @@ var _na_canaleta := false
 var _nos_pinos := false
 ## a direção (x por z) em que ela chegou nos pinos (FIRMEZA)
 var _direcao_x := 0.0
+## os pinos (para a batida feita aqui) e os que a bola já bateu nesta jogada
+var _pinos_lista: Array = []
+var _batidos := {}
 
 
 static func material(nome: String) -> ShaderMaterial:
@@ -213,6 +231,8 @@ func lancar(origem: Vector3, velocidade: Vector3, efeito := 0.0) -> void:
 	em_replay = false
 	_na_canaleta = false
 	_nos_pinos = false
+	_batidos.clear()
+	_pinos_lista = get_tree().get_nodes_in_group("pinos")
 	physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_ON
 	reset_physics_interpolation()
 	_pontos.clear()
@@ -269,6 +289,7 @@ func _physics_process(delta: float) -> void:
 	if _guiada:
 		_andar_no_fosso(delta)
 		return
+	_bater_nos_pinos(delta)
 	var p := global_translation
 	# Godot 3: add_central_force fica valendo para sempre; a força de UM
 	# passo (o apply_central_force do Godot 4) é um impulso de força x passo
@@ -308,6 +329,78 @@ func _physics_process(delta: float) -> void:
 	# PASSOU DO FIM DA PISTA: daqui ela vai sozinha para a caçapa
 	if p.z < Medidas.Z_FIM_DECK:
 		_comecar_fosso(p)
+
+
+## A batida no pino em pé que vai acontecer neste passo (QUIQUE_BATIDA): a
+## primeira, se houver — a bola no encontro, o impulso nos dois.
+## (Godot 3 + Bullet: a posição e a velocidade do NÓ são as de um passo
+## atrás; as de agora vêm do estado do corpo — body_get_direct_state.)
+func _bater_nos_pinos(delta: float) -> void:
+	var eu := PhysicsServer.body_get_direct_state(get_rid())
+	var tb: Transform = eu.transform
+	var b := tb.origin
+	if _na_canaleta or b.y < RAIO - 0.05 or b.y > RAIO + 0.1 or b.z > Medidas.Z_PINO1 + 1.0 or b.z < Medidas.Z_FIM_DECK:
+		return
+	var vb: Vector3 = eu.linear_velocity
+	var encontro := RAIO + RAIO_BARRIGA
+	var alvo: Pino = null
+	var t_alvo := delta
+	var n_alvo := Vector2.ZERO
+	var v_alvo := Vector3.ZERO
+	var c_alvo := Vector3.ZERO
+	for no in _pinos_lista:
+		var pino: Pino = no
+		if pino.removido or pino.mode != RigidBody.MODE_RIGID or _batidos.has(pino):
+			continue
+		# em pé (até ~25 graus) e no chão; o que já está caindo fica com a Bullet
+		var st := PhysicsServer.body_get_direct_state(pino.get_rid())
+		var tp: Transform = st.transform
+		var eixo := tp.basis.y.normalized()
+		if eixo.y < 0.9:
+			continue
+		var pb: Vector3 = tp.xform(-Pino.COM)
+		if abs(pb.y) > 0.04:
+			continue
+		# o eixo do pino na altura do centro da bola
+		var q := pb + eixo * ((b.y - pb.y) / eixo.y)
+		var vp: Vector3 = st.linear_velocity
+		var r := Vector2(q.x - b.x, q.z - b.z)
+		var w := Vector2(vb.x - vp.x, vb.z - vp.z)
+		var rw := r.dot(w)
+		if rw <= 0.0:
+			continue
+		# quando a distância chega a `encontro` (já encostados: agora)
+		var t := 0.0
+		var r2 := r.length_squared()
+		if r2 > encontro * encontro:
+			var ww := w.length_squared()
+			var disc := rw * rw - ww * (r2 - encontro * encontro)
+			if disc < 0.0:
+				continue
+			t = (rw - sqrt(disc)) / ww
+		if t <= t_alvo:
+			alvo = pino
+			t_alvo = t
+			n_alvo = (r - w * t).normalized()
+			v_alvo = vp
+			c_alvo = tp.origin
+	if alvo == null:
+		return
+	var n := Vector3(n_alvo.x, 0.0, n_alvo.y)
+	var u := (vb - v_alvo).dot(n)
+	if u <= 0.0:
+		return
+	var j := (1.0 + QUIQUE_BATIDA) * u / (1.0 / mass + 1.0 / alvo.mass)
+	if t_alvo > 0.0:
+		b += vb * t_alvo
+		eu.transform = Transform(tb.basis, b)
+	var toque := b + n * RAIO
+	alvo.sleeping = false
+	alvo.apply_impulse(toque - c_alvo, n * j)
+	apply_central_impulse(-n * j)
+	_batidos[alvo] = true
+	emit_signal("bateu", alvo, vb.length())
+	alvo._ao_bater(self)
 
 
 ## NO FOSSO a bola vai direto para a caçapa, SEM QUICAR: cai até o chão do

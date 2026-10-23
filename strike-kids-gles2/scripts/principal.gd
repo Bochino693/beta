@@ -192,6 +192,18 @@ const FATOR_INICIAL_TV := 0.8
 
 
 func _ready() -> void:
+	# A IMAGEM DE ABERTURA JÁ NO 1º QUADRO: o Android mostra a imagem de
+	# abertura e, enquanto o jogo monta o mundo (vários segundos na TV Box)
+	# sem desenhar quadro nenhum, a tela ficava PRETA. A capa (a mesma
+	# imagem, com a barra de carregamento) é desenhada antes e fica na tela
+	# durante a montagem; o jogo só começa a andar no fim dela.
+	set_process(false)
+	set_physics_process(false)
+	var aq := Aquecer.new()
+	add_child(aq)
+	aq.capa()
+	for i in 2:
+		yield(VisualServer, "frame_post_draw")
 	randomize()
 	_passos_fisica = int(Compat.config("physics/common/physics_fps", 60))
 	_velocidade = Ajustes.velocidade()
@@ -204,6 +216,11 @@ func _ready() -> void:
 	_direto = _desenho_direto()
 	_ler_nitidez()
 	_montar_3d()
+	aq.montando(0.5)
+	yield(VisualServer, "frame_post_draw")
+	_montar_atores()
+	aq.montando(0.8)
+	yield(VisualServer, "frame_post_draw")
 	hud = Hud.new()
 	add_child(hud)
 	hud.montar(null if _direto else vp.get_texture())
@@ -216,8 +233,7 @@ func _ready() -> void:
 		Ajustes.definir("video", "testar", true)
 	# prepara os desenhos de tudo por trás de uma capa igual à imagem de
 	# abertura da TV Box; a abertura começa quando terminar
-	var aq := Aquecer.new()
-	add_child(aq)
+	aq.montando(1.0)
 	aq.preparar(vp if vp else get_viewport(), hud, efeitos.materiais(), self)
 	aq.connect("pronto", self, "_preparado", [], CONNECT_ONESHOT)
 	# a tela do jogo (3D e interface) fica parada e escondida enquanto as
@@ -240,6 +256,8 @@ func _ready() -> void:
 	_camada_menu.pause_mode = Node.PAUSE_MODE_PROCESS
 	add_child(_camada_menu)
 	_ligar_roteiro_de_teste()
+	set_process(true)
+	set_physics_process(true)
 
 
 func _preparado() -> void:
@@ -418,6 +436,11 @@ func _montar_3d() -> void:
 	lugar.add_child(mundo)
 	mundo.construir()
 	mundo.aplicar_qualidade(_qualidade)
+
+
+## Os que jogam no mundo: pinos, máquina, bola, efeitos, bichinhos e câmera.
+func _montar_atores() -> void:
+	var lugar: Node = raiz_3d
 	pinos = Pinos.new()
 	lugar.add_child(pinos)
 	pinos.montar()
@@ -1716,12 +1739,6 @@ func _plano_maquina() -> void:
 ## da direita, atrás da mesa) enquanto os pinos caem; depois volta para a
 ## mesa repondo os pinos.
 func _alcapao_maquina(abrindo: bool) -> void:
-	# o poço sem fundo: as faixas das paredes correm para cima na queda
-	var m: ShaderMaterial = mundo.mat_poco
-	if abrindo:
-		m.set_shader_param("rolar", 0.0)
-		var t := create_tween()
-		t.tween_property(m, "shader_param/rolar", 6.0, 2.2).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 	if estado != E.RESULTADO:
 		return
 	if abrindo:

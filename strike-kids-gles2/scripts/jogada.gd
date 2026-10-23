@@ -238,8 +238,19 @@ static func _media(a: Array) -> float:
 
 
 # ---------------------------------------------------------------- bolas seguintes
-## Mira no que sobrou: o pino da frente do grupo, batendo do lado que joga
-## ele em cima dos outros. Errou a mira? A bola passa raspando ou de lado.
+## A bola (raio 0,14) pega o pino que passa a menos de 0,22 m do centro
+## dela. Com 2 cm de folga, mirando no MEIO, ela pega de uma vez todos os
+## pinos que cabem numa faixa de 2 x ALCANCE (um pino só, 3-6, 1-3-6,
+## 3-6-10, 2-4-7...). Antes ela mirava no pino da frente, pelo lado,
+## contando que ele derrubasse os outros: 3-6, 3-6-10, 1-3-6 e 7-10 ficavam
+## de pé em 1 de cada 6 bolas "certeiras" (tools/testes/poucos_pinos.gd).
+const ALCANCE := 0.2
+
+
+## Mira no que sobrou: a faixa da bola que pega mais pinos (com o da
+## frente). Grupo largo demais (7-10, 4-6): ela pega o pedaço da frente e
+## o resto fica com os pinos que voam. Errou a mira? A bola passa raspando
+## ou de lado.
 static func _resto(j, linha: float, em_pe: Array, dif: String, desejado: int, protecao: bool) -> void:
 	j.origem_x = clamp(linha, -0.45, 0.45)
 	j.velocidade = rand_range(8.0, 8.8)
@@ -247,23 +258,51 @@ static func _resto(j, linha: float, em_pe: Array, dif: String, desejado: int, pr
 	if em_pe.empty():
 		j.alvo_x = 0.0
 		return
-	# centro do grupo e o pino "chave" (o mais da frente; empate: o mais central)
-	var cx := 0.0
+	# o pino "chave" (o mais da frente; empate: o mais central)
 	var chave: int = em_pe[0]
 	var xmin := 9.0
 	var xmax := -9.0
 	for n in em_pe:
 		var p := Pinos.posicao_do_pino(n)
-		cx += p.x
 		xmin = min(xmin, p.x)
 		xmax = max(xmax, p.x)
 		var pc := Pinos.posicao_do_pino(chave)
 		if p.z > pc.z + 0.01 or (abs(p.z - pc.z) < 0.01 and abs(p.x) < abs(pc.x)):
 			chave = n
-	cx /= float(em_pe.size())
-	var pk := Pinos.posicao_do_pino(chave)
-	var lado := sign(cx - pk.x)
-	var mira := pk.x - lado * 0.07 if abs(cx - pk.x) > 0.03 else pk.x + rand_range(-0.03, 0.03)
+	# cada pino na conta da mira: a bola vem em linha reta da origem (z =
+	# 0,35) até alvo_x (no pino 1) e segue torta assim até as fileiras de
+	# trás — o x da mira que passa pelo pino n
+	var vai := 0.35 - Medidas.Z_PINO1
+	var ax := {}
+	for n in em_pe:
+		var p := Pinos.posicao_do_pino(n)
+		var d := Medidas.Z_PINO1 - p.z
+		ax[n] = (p.x + j.origem_x * d / vai) / (1.0 + d / vai)
+	var mira: float = ax[chave]
+	var nota_melhor := -1.0
+	var cabem := 1
+	var largura := 0.0
+	for a in em_pe:
+		var x0: float = ax[a]
+		var lo := 9.0
+		var hi := -9.0
+		var nota := 0.0
+		var dentro := 0
+		for n in em_pe:
+			var x: float = ax[n]
+			if x >= x0 - 0.001 and x <= x0 + 2.0 * ALCANCE:
+				dentro += 1
+				lo = min(lo, x)
+				hi = max(hi, x)
+				nota += 1.5 if n == chave else 1.0
+		if nota > nota_melhor:
+			nota_melhor = nota
+			mira = (lo + hi) * 0.5
+			cabem = dentro
+			largura = hi - lo
+	# um pino só (ou um atrás do outro): em cheio, um pouquinho de cada lado
+	if largura < 0.02:
+		mira += rand_range(-0.03, 0.03)
 	var dist := 0.0
 	if linha < xmin:
 		dist = xmin - linha
@@ -276,7 +315,8 @@ static func _resto(j, linha: float, em_pe: Array, dif: String, desejado: int, pr
 		acertou = desejado >= em_pe.size()
 	if acertou:
 		j.alvo_x = mira + rand_range(-0.015, 0.015)
-		j.esperado = em_pe.size()
+		# (grupo largo demais: a bola mesmo só pega os da faixa)
+		j.esperado = cabem
 	else:
 		# erra para o lado de fora do grupo (raspando ou passando direto)
 		var fora := sign(mira) if mira != 0.0 else (1.0 if randf() < 0.5 else -1.0)

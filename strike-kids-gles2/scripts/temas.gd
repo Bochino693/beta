@@ -78,6 +78,8 @@ const CONFIG := {
 const CORES_BICHOS := [Color("#FF9F2E"), Color("#FFD43B"), Color("#4FD8FF"), Color("#FF4B5C"), Color("#8DFF6A"), Color("#2E7BFF")]
 
 ## Lugares de destaque perto da pista (vistos de perto nas jogadas): x, z, giro, escala
+## o baú do tesouro (mar): ao lado da pista, à direita, no meio do caminho
+const BAU_PERTO := Vector3(1.75, 0.0, -4.4)
 const DESTAQUES := [[-2.55, -1.2, 0.3], [2.7, -2.7, -0.4], [-3.9, 3.4, 0.4], [3.9, 2.6, 0.0],
 	[2.3, -6.0, 2.0], [-2.3, -6.8, 1.0], [-2.4, -4.2, 0.0], [2.45, -8.7, 0.5]]
 
@@ -110,7 +112,7 @@ func construir(m) -> void:
 	# atrás de quem joga (a câmera vira para o mascote): o próprio cenário
 	_atras("parque", [["carrossel", 0.9], ["tenda", 1.0], ["arvore_verde", 1.4], ["pirulito", 1.3], ["arvore_laranja", 1.4], ["cupcake", 1.5]])
 	_atras("espaco", [["foguete", 1.1], ["pedra_lua", 1.7], ["cristal", 1.5], ["cristal", 1.1], ["pedra_lua", 1.3], ["foguete", 0.9]])
-	_atras("mar", [["coral_roxo", 1.5], ["concha", 1.3], ["alga", 1.6], ["coral", 1.5], ["alga", 1.3], ["bau", 1.2]])
+	_atras("mar", [["coral_roxo", 1.5], ["concha", 1.3], ["alga", 1.6], ["coral", 1.5], ["alga", 1.3], ["estrela_mar", 1.4]])
 	_atras("dinos", [["palmeira", 1.1], ["samambaia", 1.5], ["ovo_dino", 1.3], ["pedra", 1.4], ["palmeira", 0.95], ["flor_gigante", 1.4]])
 	# o que fica parado em cada cenário vira poucas malhas (uma por material)
 	for nome in ORDEM:
@@ -492,13 +494,18 @@ func _mar() -> void:
 	var nz := Medidas.Z_FUNDO - 6.5
 	var navio := _obj(T, "navio", Vector3(nx, _chao(nx, nz) - 0.06, nz), deg2rad(38.0), 1.3, 0.004)
 	navio.rotation.z = 0.05   # adernado de leve, de quem afundou
+	# o BAÚ DO TESOURO pertinho da pista, do lado direito, virado para quem
+	# joga (lá atrás dos jogadores e no canto ninguém via): abre a tampa e
+	# mostra as moedas e as joias
+	var bau := Vector2(BAU_PERTO.x, BAU_PERTO.z)
+	_obj(T, "bau", Vector3(bau.x, _chao(bau.x, bau.y) - 0.02, bau.y), -0.5, 0.75, 0.004)
 	var ocupado: Array = [Vector2(nx, nz), Vector2(nx + 3.2, nz + 4.1), Vector2(nx - 2.4, nz - 3.1)]
 	# corais no lugar das torres
 	_obj(T, "coral", Vector3(-2.75, -0.02, Medidas.Z_FUNDO + 0.4), deg2rad(25.0), 2.1, 0.004)
 	_obj(T, "coral_roxo", Vector3(2.75, -0.02, Medidas.Z_FUNDO + 0.4), deg2rad(-25.0), 2.3, 0.004)
 	_espalhar(T, ["coral", "coral_roxo", "alga", "alga", "estrela_mar", "concha", "pedra", "coral"], _q(44), 31,
 		{"coral": 1.5, "coral_roxo": 1.5, "alga": 1.3, "estrela_mar": 1.6, "concha": 0.7, "pedra": 1.2}, ocupado)
-	_destaques(T, [["coral", 0.8, 0.004], ["alga", 0.8, 0.0], ["estrela_mar", 1.0, 0.004], ["bau", 0.9, 0.004],
+	_destaques(T, [["coral", 0.8, 0.004], ["alga", 0.8, 0.0], ["estrela_mar", 1.0, 0.004], ["concha", 0.8, 0.004],
 		["coral_roxo", 0.9], ["alga", 0.9], ["concha", 0.5], ["estrela_mar", 1.0]])
 	# algas balançando na correnteza (as dos destaques e mais algumas)
 	for g in grupos[T].get_children():

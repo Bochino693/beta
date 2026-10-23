@@ -31,6 +31,7 @@ var _estrelas: Spatial
 var _ultimo_som := 0
 var _pulo: SceneTreeTween
 var _base_pulo := Transform()
+var _de_virar := Transform()
 var _pulando := false
 var _raiva: SceneTreeTween
 var _escuro := 1.0      # 1 = normal; menor = caindo no poço do alçapão
@@ -260,22 +261,36 @@ func ficar_bravo() -> void:
 
 
 ## Ficou de pé: feliz. pulos > 0: pulinhos de comemoração (agacha, pula,
-## amortece), começando depois de `atraso`; no fim volta exatamente ao
-## lugar de onde saiu.
+## amortece), começando depois de `atraso`; no fim fica exatamente no
+## lugar de onde saiu. O que levou uma batida e ficou de pé, mas girado ou
+## torto (a carinha de lado), primeiro VIRA DE FRENTE para quem joga, num
+## pulinho, endireitando — e comemora (6.3: antes ele ficava de lado, sem
+## fazer nada).
 func comemorar(atraso: float, pulos: int) -> void:
 	if removido:
 		return
 	expressao("feliz")
-	if pulos <= 0:
+	var b := global_transform.basis
+	var frente := b.z
+	var de_lado: bool = abs(atan2(frente.x, frente.z)) > 0.3 or b.y.normalized().y < 0.996
+	if pulos <= 0 and not de_lado:
 		return
 	parar_pulo()
 	prender()
-	_base_pulo = global_transform
+	_de_virar = global_transform
+	if de_lado:
+		var base := posicao_base()
+		_base_pulo = Transform(Basis(), Vector3(base.x, lugar.y, base.z) + COM)
+		pulos = int(max(pulos, 1))
+	else:
+		_base_pulo = global_transform
 	_pulando = true
 	# os pulinhos são animados a cada quadro: sem interpolar
 	physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
 	_pulo = create_tween()
 	_pulo.tween_interval(atraso)
+	if de_lado:
+		_pulo.tween_method(self, "_virar", 0.0, 1.0, 0.42).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 	for i in pulos:
 		var h := 0.16 if i == 0 else 0.1
 		_pulo.tween_property(malha, "scale", Vector3(1.08, 0.86, 1.08), 0.08)
@@ -286,6 +301,14 @@ func comemorar(atraso: float, pulos: int) -> void:
 		_pulo.tween_property(malha, "scale", Vector3(1.07, 0.9, 1.07), 0.06)
 		_pulo.tween_property(malha, "scale", Vector3.ONE, 0.1)
 	_pulo.tween_callback(self, "parar_pulo")
+
+
+## Virando de frente: de onde estava (girado/torto) até em pé de frente,
+## num pulinho.
+func _virar(k: float) -> void:
+	var q := _de_virar.basis.get_rotation_quat().slerp(Quat(), k)
+	var o := _de_virar.origin.linear_interpolate(_base_pulo.origin, k) + Vector3(0, sin(k * PI) * 0.07, 0)
+	global_transform = Transform(Basis(q), o)
 
 
 func _altura_pulo(h: float) -> void:

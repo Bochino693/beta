@@ -108,26 +108,51 @@ const FREIO_DEITADO := 0.93
 const LONGE_DA_BOLA := 0.8
 const DEITADO_ALTURA := 0.13
 const DEITADO_VELOCIDADE := 1.5
+## SEM VOOS NEM PIÕES (6.3): um pino a 9 m/s anda 15 cm por passo da física
+## — quase a largura dele. Batendo em outro pino ou na parede, a Bullet só
+## vê a batida com os dois já entrando um no outro e, para separar, dá
+## energia a mais: pinos girando a 15-19 voltas por segundo e subindo até
+## 1 m (tools/testes/poucos_pinos.gd). Um pino de madeira de verdade não
+## passa disto: giro (rad/s), subida (m/s, o centro sobe no máximo ~20 cm)
+## e velocidade (m/s, ~1,25x a bola mais rápida).
+const GIRO_MAX := 25.0
+const SUBIDA_MAX := 2.4
+const VEL_MAX := 11.0
 
 
+## (Godot 3 + Bullet: dentro do _physics_process, a posição e as
+## velocidades do NÓ são as de um passo atrás — o estado do corpo
+## (body_get_direct_state) é o de agora. Mexendo na velocidade a cada passo
+## a partir do valor do nó, a conta se realimentava e a gravidade sumia: um
+## pino subiu 7 m em linha reta. Aqui tudo vem do estado do corpo.)
 func _physics_process(_d: float) -> void:
 	for p in pinos:
 		var pino: Pino = p
 		if pino.removido or pino.mode != RigidBody.MODE_RIGID:
 			continue
-		var o: Vector3 = pino.global_transform.origin
-		var v: Vector3 = pino.linear_velocity
+		var st := PhysicsServer.body_get_direct_state(pino.get_rid())
+		var tr: Transform = st.transform
+		var o: Vector3 = tr.origin
+		var v: Vector3 = st.linear_velocity
+		var w: Vector3 = st.angular_velocity
+		if w.length_squared() > GIRO_MAX * GIRO_MAX:
+			w = w.normalized() * GIRO_MAX
+			st.angular_velocity = w
+		if v.y > SUBIDA_MAX + 0.01 or v.length_squared() > VEL_MAX * VEL_MAX + 0.1:
+			v.y = min(v.y, SUBIDA_MAX)
+			if v.length_squared() > VEL_MAX * VEL_MAX:
+				v = v.normalized() * VEL_MAX
+			st.linear_velocity = v
 		# deitado (mais na horizontal que em pé), no chão, já devagar e longe
 		# da bola: freia (perto dela, ou com a barra varrendo, o pino freado
 		# era um peso morto que segurava e desviava a bola e a varrida)
-		if not varrendo and pino.global_transform.basis.y.y < 0.5 and o.y < DEITADO_ALTURA \
+		if not varrendo and tr.basis.y.y < 0.5 and o.y < DEITADO_ALTURA \
 				and v.length_squared() < DEITADO_VELOCIDADE * DEITADO_VELOCIDADE \
 				and (bola == null or not bola.visible or bola.global_transform.origin.distance_squared_to(o) > LONGE_DA_BOLA * LONGE_DA_BOLA):
-			var w: Vector3 = pino.angular_velocity
 			if v.length_squared() > 0.0001 or w.length_squared() > 0.01:
 				v *= FREIO_DEITADO
-				pino.linear_velocity = v
-				pino.angular_velocity = w * FREIO_DEITADO
+				st.linear_velocity = v
+				st.angular_velocity = w * FREIO_DEITADO
 		if not pino.no_fosso:
 			if o.z < Medidas.Z_FIM_DECK - 0.04 and o.y < 0.02:
 				pino.entrou_no_fosso()
@@ -136,11 +161,11 @@ func _physics_process(_d: float) -> void:
 		if o.z > Medidas.Z_FIM_DECK - BEIRADA_FOSSO and v.z > 0.0:
 			v.z = -v.z * 0.2
 			mudou = true
-		if v.y > PULO_MAX_FOSSO:
+		if v.y > PULO_MAX_FOSSO + 0.01:
 			v.y = PULO_MAX_FOSSO
 			mudou = true
 		if mudou:
-			pino.linear_velocity = v
+			st.linear_velocity = v
 
 
 func _process(_d: float) -> void:

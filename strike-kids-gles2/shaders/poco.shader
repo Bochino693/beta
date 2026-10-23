@@ -1,17 +1,14 @@
 shader_type spatial;
 render_mode unshaded, cull_back, depth_draw_opaque;
 
-// POÇO DO ALÇAPÃO: um poço SEM FUNDO — fica preto com a fundura e tem
-// faixas de luz nas paredes, que correm para cima enquanto os pinos caem
-// (rolar): parece que a queda não acaba nunca.
+// POÇO DO ALÇAPÃO: um poço SEM FUNDO — fica preto com a fundura. (As
+// faixas de luz que corriam nas paredes eram linhas finas que piscavam
+// com o alçapão aberto: saíram — abriu, caiu, acabou.)
 
 uniform vec4 cor_topo : hint_color = vec4(0.10, 0.20, 0.45, 1.0);
 uniform vec4 cor_fundo : hint_color = vec4(0.0, 0.004, 0.02, 1.0);
-uniform vec4 cor_faixa : hint_color = vec4(0.35, 0.9, 1.0, 1.0);
 uniform float y_topo = -0.14;
 uniform float y_fundo = -1.75;
-uniform float passo_faixas = 0.3;
-uniform float rolar = 0.0;          // as faixas sobem (m) durante a queda
 
 varying float fundura;
 
@@ -43,10 +40,5 @@ void vertex() {
 void fragment() {
 	float t = clamp(fundura / (y_topo - y_fundo), 0.0, 1.0);
 	vec3 c = mix(cor_topo.rgb, cor_fundo.rgb, sqrt(t));
-	float d = abs(fract((fundura + rolar) / passo_faixas + 0.5) - 0.5) * passo_faixas;
-	// borda suave fixa (sem derivadas na OpenGL ES 2)
-	float faixa = 1.0 - smoothstep(0.007, 0.012, d);
-	faixa *= step(passo_faixas * 0.5, fundura);
-	c += cor_faixa.rgb * faixa * (1.0 - t) * (1.0 - t) * 0.9;
 	ALBEDO = tela_g4(c);
 }

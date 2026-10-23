@@ -104,7 +104,8 @@ var _luz := 0.0
 var _luz_alvo := 0.0
 var bola_z := 100.0
 var bola: Spatial                 # a bola do jogo (as tiras da caçapa abrem quando ela passa)
-var _tiras: MultiMeshInstance
+var _tiras: MeshInstance
+var mat_cortina: ShaderMaterial
 var _abertura_tiras: PoolRealArray = PoolRealArray()
 var _bola_volta: MeshInstance
 var mat_boca_luz: ShaderMaterial
@@ -225,6 +226,7 @@ func aplicar_tema(nome: String) -> void:
 	mat_fundo.set_shader_param("cor_b", f[1])
 	mat_fundo.set_shader_param("cor_halo", c["halo"])
 	mat_boca_luz.set_shader_param("emissao", (c["halo"] as Color) * 0.9)
+	mat_cortina.set_shader_param("linha", float(LINHA_CORTINA.find(nome)))
 	mat_placa.set_shader_param("tinta", c["placa"])
 	var portal: Array = c["portal"]
 	# a pista: neon das bordas e o reflexo do portal no verniz
@@ -248,6 +250,7 @@ func aplicar_tema(nome: String) -> void:
 	var bp: Array = c["bumper"]
 	mat_bumper.set_shader_param("cor_a", bp[0])
 	mat_bumper.set_shader_param("cor_b", bp[1])
+	mat_bumper.set_shader_param("cor_luz", c.get("neon", portal[0]))
 	var chao: Array = c["chao"]
 	var modo_chao := int(c["chao_modo"])
 	mat_terreno.set_shader_param("modo", modo_chao)
@@ -587,11 +590,13 @@ func _pista() -> void:
 			Materiais.cor_toon(Color("#FFFFFF"), 0.0, {"emissao": Color(0.35, 0.85, 1.0), "borda": 0.0}), false, false)
 		luzes.name = "luz_divisoria_%d" % s
 
-	# --- para-choques (bumpers) listrados de doce
+	# --- para-choques (bumpers) listrados de doce, com as luzes do neon do
+	# cenário correndo até os pinos (com eles ligados — o normal — é o que
+	# se vê das canaletas)
 	# cápsula simples + listras pelo shader (nítidas em 4K e levinhas)
 	var mb := _capsula_em_pe(0.07, 1.14, 10, 2)
 	var mat_b := ShaderMaterial.new()
-	mat_b.shader = load("res://shaders/doce_listrado.shader")
+	mat_b.shader = load("res://shaders/para_choque.shader")
 	# a luz do cenário por vértice, como nos toons (Materiais.definir_luz)
 	Materiais.registrar(mat_b)
 	mat_bumper = mat_b
@@ -825,7 +830,9 @@ func _fundo_dos_pinos() -> void:
 		# um pino que voa por cima da parede bate no gabinete (não atravessa)
 		_peca_solida(0.34, 3.7, 0.12, Vector2(s * 1.23, 1.55), z_tras + 0.3, z_masc, mat_gabinete, 0.4, 0.1, "gabinete_lado_%d" % s, "pinos")
 	_peca(Perfis.retangulo(2.8, 0.32, 0.1, Vector2(0, 3.24)), z_tras + 0.3, z_masc, mat_gabinete, "gabinete_teto")
-	_peca(Perfis.retangulo(2.9, 3.75, 0.22, Vector2(0, 1.53)), z_tras, Z_FUNDO - 0.02, mat_gabinete, "gabinete_fundo")
+	# (o fundo é uma chapa atrás do túnel da caçapa: inteiro, até a cortina,
+	# ele enchia o túnel e a bola entrava numa parede colorida)
+	_peca(Perfis.retangulo(2.9, 3.75, 0.22, Vector2(0, 1.53)), z_tras, z_tras + 0.35, mat_gabinete, "gabinete_fundo")
 	_peca(Perfis.retangulo(2.96, 0.09, 0.04, Vector2(0, 3.42)), z_tras - 0.03, z_masc, mat_friso)
 	# letreiro (masking) acima dos pinos, com o logo e lâmpadas. A placa é
 	# iluminada por dentro (luz mínima cheia): virada para longe do sol ela
@@ -890,6 +897,8 @@ static func _mat_logo_letreiro(logo_tex: Texture) -> SpatialMaterial:
 ## empurra as tiras e some no túnel (depois volta no retorno de bolas, perto
 ## de quem joga). Os pinos batem na boca e ficam no fosso.
 const N_TIRAS = Medidas.N_TIRAS
+## a faixa de cada cenário em texturas/cortina_bola.png
+const LINHA_CORTINA := ["parque", "espaco", "mar", "dinos"]
 const Y_CHAO_FOSSO = Medidas.Y_CHAO_FOSSO
 
 
@@ -900,7 +909,7 @@ func _cacapa_das_bolas() -> void:
 	var borracha := Materiais.cor_toon(Color("#20263A"), 0.0, {"borda": 0.3, "luz_minima": 0.35})
 	var meia := LARGURA_BOCA / 2.0
 	var alto := Y_BOCA - Y_CHAO_FOSSO
-	var fundo := 1.0
+	var fundo := 0.55
 	# túnel: chão (a bola rola para dentro), paredes, teto e fundo — escuros
 	# (só a bola entra nele)
 	_caixa(Vector3(LARGURA_BOCA + 0.2, 0.2, fundo), Vector3(0, Y_CHAO_FOSSO - 0.1, Z_FUNDO - fundo / 2), escuro, true, false, 0.3, 0.0, "bola")
@@ -924,22 +933,34 @@ func _cacapa_das_bolas() -> void:
 			Z_FUNDO - 0.04, Z_FUNDO + 0.1, mat_friso, 0.5, 0.2)
 	mat_boca_luz = Materiais.cor_toon(Color("#FFFFFF"), 0.0, {"emissao": Color(0.6, 0.9, 1.0), "borda": 0.0})
 	_caixa(Vector3(LARGURA_BOCA, 0.025, 0.02), Vector3(0, Y_BOCA + 0.005, Z_FUNDO + 0.105), mat_boca_luz, false, false)
-	# cortina de tiras de borracha (uma MultiMesh: um desenho só)
-	var tira := CubeMesh.new()
-	var larg_tira := LARGURA_BOCA / N_TIRAS - 0.012
-	tira.size = Vector3(larg_tira, alto - 0.03, 0.012)
-	var mm := MultiMesh.new()
-	mm.transform_format = MultiMesh.TRANSFORM_3D
-	mm.mesh = tira
-	mm.instance_count = N_TIRAS
-	_tiras = MultiMeshInstance.new()
-	_tiras.multimesh = mm
-	_tiras.material_override = Materiais.cor_toon(Color("#151A28"), 0.0, {"borda": 0.25, "luz_minima": 0.3})
+	# CORTINA de tiras de borracha com o desenho do cenário (6.3): as 7
+	# tiras numa malha só (um desenho); cada uma gira presa em cima, para
+	# DENTRO, no shader (shaders/cortina.shader; tools/cortina_bola.py)
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var larg_tira := LARGURA_BOCA / N_TIRAS
+	var alto_tira := alto - 0.03
+	for i in N_TIRAS:
+		# 3 mm de vão entre as tiras (lê-se a borracha) — atrás é o túnel escuro
+		var x0: float = -meia + larg_tira * i + 0.0015
+		var x1: float = x0 + larg_tira - 0.003
+		var cantos := [Vector3(x0, 0, 0), Vector3(x1, 0, 0), Vector3(x1, -alto_tira, 0), Vector3(x0, -alto_tira, 0)]
+		var uvs := [Vector2(0, 0), Vector2(1, 0), Vector2(1, 1), Vector2(0, 1)]
+		# (Godot 3: a frente é a do sentido horário)
+		for k in [0, 1, 2, 0, 2, 3]:
+			st.add_normal(Vector3.BACK)
+			st.add_uv(uvs[k])
+			st.add_uv2(Vector2(i, 0))
+			st.add_vertex(cantos[k])
+	mat_cortina = ShaderMaterial.new()
+	mat_cortina.shader = load("res://shaders/cortina.shader")
+	mat_cortina.set_shader_param("desenho", load("res://texturas/cortina_bola.png"))
+	_tiras = MeshInstance.new()
+	_tiras.mesh = st.commit()
+	_tiras.material_override = mat_cortina
 	_tiras.cast_shadow = GeometryInstance.SHADOW_CASTING_SETTING_OFF
-	# as tiras mexem a cada quadro (não na física); no Godot 3, numa
-	# MultiMesh com a interpolação da física ligada, mudar a cópia depois de
-	# entrar na cena não vale
-	_tiras.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
+	_tiras.translation = Vector3(0, Y_BOCA - 0.015, Z_FUNDO + 0.03)
+	_tiras.name = "cortina_bola"
 	add_child(_tiras)
 	# (Godot 3: o resize não zera os números novos)
 	_abertura_tiras = PoolRealArray()
@@ -948,10 +969,8 @@ func _cacapa_das_bolas() -> void:
 	_mexer_tiras(0.0)
 
 
-## As tiras abrem (giram para trás, presas em cima) quando a bola passa.
+## As tiras abrem (giram para DENTRO, presas em cima) quando a bola passa.
 func _mexer_tiras(delta: float) -> void:
-	var mm := _tiras.multimesh
-	var alto := Y_BOCA - Y_CHAO_FOSSO - 0.03
 	var meia := LARGURA_BOCA / 2.0
 	var pb: Vector3 = bola.global_translation if bola != null and bola.visible else Vector3(100, 100, 100)
 	var mexeu := delta <= 0.0
@@ -965,9 +984,7 @@ func _mexer_tiras(delta: float) -> void:
 		var novo: float = move_toward(a, alvo, delta * (14.0 if alvo > a else 2.2))
 		if novo != a or mexeu:
 			_abertura_tiras[i] = novo
-			# balancinho depois que a bola passa
-			var t := Transform(Basis(Vector3.RIGHT, -novo), Vector3(x, Y_BOCA - 0.015, Z_FUNDO + 0.03))
-			mm.set_instance_transform(i, t * Transform(Basis(), Vector3(0, -alto / 2.0, 0)))
+			mat_cortina.set_shader_param("a%d" % i, novo)
 
 
 ## A bola que caiu na caçapa sai rolando de baixo da capota do retorno de
@@ -1431,7 +1448,16 @@ func _process(delta: float) -> void:
 	_t = fposmod(_t + delta, 3600.0)
 	_luz = move_toward(_luz, _luz_alvo, delta * 2.5)
 	mat_pista.set_shader_param("luz", _luz)
-	mat_pista.set_shader_param("fase", fposmod(_t * 2.2, 1.0))
+	var fase := fposmod(_t * 2.2, 1.0)
+	mat_pista.set_shader_param("fase", fase)
+	mat_bumper.set_shader_param("fase", fase)
+	mat_bumper.set_shader_param("luz", _luz)
+	# o tempo das canaletas já numa volta (canaleta.shader)
+	for m in mats_canaleta:
+		m.set_shader_param("fase", fposmod(_t * 1.3, 1.0))
+		m.set_shader_param("onda1", fposmod(_t * 1.7, TAU))
+		m.set_shader_param("onda2", fposmod(_t * 2.2, TAU))
+		m.set_shader_param("bolhas", fposmod(_t * 0.12, 3.52))
 	mat_pista.set_shader_param("fase_lenta", fposmod(_t * 0.75, 1.0))
 	mat_pista.set_shader_param("pulso", 0.5 + 0.5 * sin(_t * 3.1))
 	if mat_piso:

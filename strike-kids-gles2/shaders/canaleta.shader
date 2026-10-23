@@ -2,10 +2,14 @@ shader_type spatial;
 render_mode unshaded, blend_mix, depth_draw_opaque, cull_back;
 
 // CANALETA DE CADA CENÁRIO (a mesma meia-cana; o desenho muda):
-//   0 = doce listrado (Parque), 1 = metal de nave com luz correndo (Espaço),
-//   2 = água com reflexos (Fundo do Mar), 3 = bambu com nós (Selva).
-// Edição OpenGL ES 2.0: bordas suaves de largura fixa (sem derivadas) e as
-// contas que dependem só da posição feitas por vértice.
+//   0 = doce listrado (Parque), 1 = metal de nave com rebites e luzes que
+//   correm para os pinos (Espaço), 2 = água com reflexos e bolhinhas indo
+//   para os pinos (Fundo do Mar), 3 = bambu com nós e fibras (Selva).
+// Edição OpenGL ES 2.0: bordas suaves de largura fixa (sem derivadas), as
+// contas que dependem só da posição feitas por vértice e o TEMPO vindo da
+// CPU já dentro de uma volta (fase, onda1, onda2, bolhas): na Mali-450 o
+// pixel é de meia precisão e o TIME, depois de uns minutos, andava aos
+// saltos.
 
 uniform int modo = 0;
 uniform vec4 cor_a : hint_color = vec4(1.0, 0.48, 0.72, 1.0);
@@ -13,6 +17,10 @@ uniform vec4 cor_b : hint_color = vec4(1.0, 0.95, 0.88, 1.0);
 uniform vec4 cor_c : hint_color = vec4(1.0, 0.82, 0.25, 1.0);
 uniform vec3 luz_cena = vec3(1.2, 1.2, 1.22);
 uniform float centro = 0.8;      // |x| do meio de cada calha
+uniform float fase = 0.0;        // 0..1: as luzes que correm (espaço)
+uniform float onda1 = 0.0;       // 0..2pi: os reflexos da água
+uniform float onda2 = 0.0;
+uniform float bolhas = 0.0;      // 0..3,52 m: as bolhinhas andando
 
 varying float ux;
 varying float z;
@@ -56,25 +64,38 @@ void fragment() {
 		c = mix(cor_b.rgb, cor_a.rgb, m);
 		c = mix(c, cor_c.rgb, labio);
 	} else if (modo == 1) {
+		// painéis de 0,5 m com emenda e rebites dos lados
 		float ds = abs(fract(z * 2.0 + 0.5) - 0.5) * 0.5;
 		float emenda = 1.0 - smoothstep(0.004, 0.008, ds);
-		c = cor_a.rgb * (1.0 - 0.35 * emenda);
-		float p = fract(z * 0.8 + TIME * 1.3);
+		float rebite = 1.0 - smoothstep(0.006, 0.01, length(vec2(abs(ux) - 0.1, ds - 0.06)));
+		c = cor_a.rgb * (1.0 - 0.35 * emenda) + cor_b.rgb * 0.4 * rebite;
+		// luzes que correm pelo fundo até os pinos e o filete do meio
+		float p = fract(z * 0.8 + fase);
 		float q = (p - 0.5) * 9.0;
 		float pulso = exp(-q * q) * (1.0 - smoothstep(0.02, 0.07, abs(ux)));
 		float filete = 1.0 - smoothstep(0.004, 0.008, abs(ux));
 		c += cor_c.rgb * (pulso * 1.1 + filete * 0.45);
 		c = mix(c, cor_c.rgb * 1.15, labio);
 	} else if (modo == 2) {
-		float o = sin(z * 7.0 + sin(ux * 38.0 + TIME * 1.7) * 1.3 + TIME * 2.2);
+		float o = sin(z * 7.0 + sin(ux * 38.0 + onda1) * 1.3 + onda2);
 		float reflexo = smoothstep(0.82, 0.92, o);
 		c = mix(cor_a.rgb, cor_b.rgb, 0.25 + 0.35 * labio) + vec3(0.85, 1.0, 1.0) * reflexo * 0.35;
+		// bolhinhas: uma por célula (0,08 x 0,22 m), indo devagar para os
+		// pinos (o sorteio repete a cada 16 células: a volta de `bolhas`)
+		vec2 bq = vec2(ux / 0.08, (z + bolhas) / 0.22);
+		vec2 cel = floor(bq);
+		float h = fract(cel.x * 0.618 + mod(cel.y, 16.0) * 0.7548 + cel.x * mod(cel.y, 16.0) * 0.137);
+		vec2 cb = cel + vec2(0.25 + 0.5 * h, 0.2 + 0.6 * fract(h * 7.3));
+		vec2 db = (bq - cb) * vec2(0.08, 0.22);
+		float raio = 0.007 + 0.009 * fract(h * 13.1);
+		float bolha = (1.0 - smoothstep(0.0015, 0.0035, abs(length(db) - raio))) * step(0.45, h);
+		c = mix(c, vec3(0.92, 1.0, 1.0), bolha * 0.85);
 		c = mix(c, cor_c.rgb, labio);
 	} else {
 		float dn = abs(fract(z / 0.42 + 0.5) - 0.5) * 0.42;
 		float no = 1.0 - smoothstep(0.011, 0.016, dn);
 		float anel = 1.0 - smoothstep(0.007, 0.012, abs(dn - 0.03));
-		float fibra = 0.9 + 0.1 * sin(ux * 95.0);
+		float fibra = 0.9 + 0.1 * sin(ux * 95.0 + sin(z * 2.7) * 0.6);
 		c = cor_a.rgb * fibra;
 		c = mix(c, cor_b.rgb, anel * 0.7);
 		c = mix(c, cor_a.rgb * 0.45, no);
