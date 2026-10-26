@@ -79,6 +79,67 @@ O QUE MUDOU PARA RODAR NA OPENGL ES 2.0
     Godot 4 (nao substitui).
 
 
+VERSAO 6.8: BICHINHOS COM 3 NIVEIS DE DETALHE, SOL E LUA 3D, DESEMPATE
+----------------------------------------------------------------------
+A ESTRATEGIA (o limite da Mali-450): o que pesa sao os vertices de cada
+quadro. A vista da pista desenha 250-258 mil indices por quadro e roda
+lisa na TX9 - esse e o orcamento. A 6.8 nao aumenta o total: gasta os
+poligonos onde a camera esta perto e economiza onde esta longe.
+  * BICHINHOS EM 3 NIVEIS (cada bichinho e cada roupinha, modelos/niveis/):
+      - PERTO (HD): 15 a 17 mil triangulos, tirados dos modelos ORIGINAIS
+        de 26 a 37 mil (tools/bichos_niveis.py, com o meshoptimizer);
+      - MEIO: o de sempre (~7 mil);
+      - LONGE: ~2,7 mil (a espera vista do alto, a bola chegando nos pinos).
+    A troca e pelo TAMANHO NA TELA (altura do bichinho / tela): HD acima
+    de 19% (volta abaixo de 17%), leve abaixo de 9% (volta acima de 11%)
+    - a folga evita ficar trocando para la e para ca.
+  * GOVERNADOR DO QUADRO: a cada quadro o jogo le quantos vertices o
+    quadro anterior desenhou e so deixa UM bichinho em HD (o maior na
+    tela) se o HD couber em 250 mil (folga de 12 mil). O HD nunca empurra
+    um quadro para cima do orcamento: se o cenario ja estiver pesado, o
+    bichinho fica no nivel do meio.
+  * Resultado: nos closes (comemoracao, escolha de perto) rosto, maos e
+    roupinha lisos; a comemoracao com HD fica em ~210 mil. A vista do
+    alto caiu (225-237 mil -> 193-225 mil) e a da pista ficou igual
+    (dinos 258.248, parque 250.785, espaco 217.596, mar 235.179).
+    "Detalhes extras" desligado no menu do operador desliga tambem os
+    niveis (tudo como na 6.7) - para comparar na TX9 sem reinstalar.
+  * SOL E LUA EM 3D: objetos de verdade, com volume (o sol com raios que
+    giram, a lua crescente), com a carinha de sempre piscando, balancando
+    a cabeca e respirando; sempre no infinito, na direcao do sol do ceu
+    (shaders/astro3d.shader, uns 1.000 triangulos, sem luz do motor).
+  * FUNDO DO MAR SEM SOL (estamos debaixo d'agua): no lugar dele, uma
+    BALEIA azul com carinha (ui/ceu/baleia.png, tools/assar_rosto_baleia.py)
+    nadando devagar de um lado para o outro no fundo, batendo o rabo.
+  * NAVIO PIRATA A VISTA: a esquerda do gabinete, de lado, inteiro.
+  * AS 4 PISTAS SORTEADAS + DESEMPATE: cada partida sorteia as 4 pistas em
+    ordem aleatoria, sem repetir. As 3 primeiras sao as 3 rodadas e a 4a
+    fica guardada para o DESEMPATE: com 2 jogadores empatados no fim,
+      1. os dois aparecem juntos com o letreiro EMPATE! e os cartoes do
+         duelo (foto ou mascote, nome e pontos, com o "=" dourado);
+      2. letreiro DESEMPATE! - "RODADA EXTRA NA PISTA QUE FALTAVA!";
+      3. troca para a 4a pista, com o letreiro do cenario;
+      4. faixa "VEZ DO BOB! / DESEMPATE!", placar "DESEMPATE!" e a
+         bolinha da rodada extra dourada;
+      5. no fim: "VENCEU! NO DESEMPATE!" ou, se empatar de novo,
+         "EMPATE! OS DOIS SAO CAMPEOES!".
+    A faixa de cada rodada diz "RODADA 1 DE 3", "RODADA 2 DE 3" e
+    "ULTIMA RODADA!". Com mais de 3 rodadas (menu) as pistas se repetem
+    (nunca a mesma duas seguidas) e o desempate e numa pista diferente da
+    ultima. Os avisos sao os mesmos letreiros, cartoes e faixas do resto do
+    jogo (o letreiro novo, ui/desempate.png, sai do mesmo desenho dos
+    outros: tools/letreiros.py). O aviso de empate custa o mesmo que a
+    tela de fim (242-277 mil indices, por uns 4 segundos).
+  * FIM DE JOGO: os letreiros EMPATE! e NOVO RECORDE! ficavam escondidos
+    atras dos cartoes; agora aparecem por cima, um depois do outro.
+  * Testes: roteiro de 1 jogador e de 2 jogadores com empate
+    (godot3 --path . -- --roteiro=<pasta> --jogadores=2 --empatar),
+    ROTEIRO OK, trava da jogada OK, START LIVRE OK; orcamento por vista
+    (tools/testes/orcamento.gd, com a vista nova "empate").
+  * Na TX9: rode o "TESTE DE DESEMPENHO" do menu com "Detalhes extras"
+    ligado e desligado e compare os quadros por segundo.
+
+
 VERSAO 6.7: MAIS VIDA E MAIS RESOLUCAO, SEM PESAR NA MALI-450
 --------------------------------------------------------------
 Na Mali-450 o limite sao os vertices (a vista da pista ja passa de 240 mil

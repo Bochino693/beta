@@ -59,7 +59,7 @@ const APAGAR_POR_QUADRO := 24
 ## cenários, fim de jogo, a bola de cada bichinho): carregadas já aqui —
 ## ler e mandar para a placa de vídeo na primeira vez que aparecessem dava
 ## um tranco (na TV Box, bem visível).
-const TEXTURAS := ["strike", "spare", "ops", "boa", "super", "uau", "quase", "pegando_fogo", "empate",
+const TEXTURAS := ["strike", "spare", "ops", "boa", "super", "uau", "quase", "pegando_fogo", "empate", "desempate",
 	"novo_recorde", "parabens", "venceu", "fim_de_jogo", "replay", "cen_dinos", "cen_parque", "cen_espaco",
 	"cen_mar", "estrela", "estrela_placar", "estrela_vazia", "bola_bob", "bola_mia", "retrato_bob",
 	"retrato_mia", "retrato_bob_empolgado", "retrato_mia_empolgado"]

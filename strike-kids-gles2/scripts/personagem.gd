@@ -104,6 +104,29 @@ var _carregadas := {}
 ## de lugar ou de animação, atualiza sempre.
 var _tela: VisibilityNotifier
 var _forcar := 0
+## NÍVEIS DE DETALHE (6.8, com os detalhes extras — o jogo liga `niveis`
+## antes de montar): cada peça tem três malhas — a de PERTO (tirada dos
+## modelos originais, ~2,5x a de sempre: tools/bichos_niveis.py), a do MEIO
+## (a de sempre) e a de LONGE (~40%). O LONGE é dele mesmo: pequenininho na
+## tela. O PERTO quem dá é o jogo (Principal._orcamento_bichos, o "gerente
+## de polígonos"): só para o bichinho maior na tela, inteiro nela, e só se
+## o quadro anterior mais o que o HD dele custa a mais couber no orçamento
+## da placa — na comemoração cabe; com o cenário inteiro atrás, não.
+## (medido nas câmeras do jogo, com a TV em pé: a comemoração ~0,21-0,23
+## da altura da tela; a espera, a escolha e o fim 0,13-0,15; de longe <0,1)
+const NIVEL_PERTO := 0.19        # fração da altura da tela: candidato ao de perto
+const NIVEL_PERTO_VOLTA := 0.17
+const NIVEL_LONGE := 0.09        # abaixo, o de longe
+const NIVEL_LONGE_VOLTA := 0.11
+const ALTURA_BICHO := 0.95       # do pé ao topo da cabeça (m)
+var niveis := false
+var _nivel := "meio"
+var _malhas_nivel := {"meio": {}, "perto": {}, "longe": {}}
+var _niveis_padrao := {}         # perto/longe da roupa de sempre
+var _fracao := 0.0               # o tamanho na tela da última conta
+var _dentro := false             # o meio dele está dentro da tela
+var pode_perto := false          # o jogo deixou vestir o de perto (orçamento)
+var _custo_perto := 0            # índices a mais do de perto (com o contorno)
 
 
 func montar(nome: String) -> void:
@@ -202,6 +225,13 @@ func montar(nome: String) -> void:
 			_pecas[j] = no.get_node("malha") as MeshInstance
 			_malhas_padrao[j] = (_pecas[j] as MeshInstance).mesh
 	_estampa_padrao = _parametros_estampa(modelo.get_meta("estampa", {}))
+	_malhas_nivel["meio"] = _malhas_padrao
+	if niveis:
+		for nv in ["perto", "longe"]:
+			var c := _caminho_nivel("", nv)
+			_niveis_padrao[nv] = _malhas_da_cena(load(c) if ResourceLoader.exists(c) else null)
+		_malhas_nivel["perto"] = _niveis_padrao["perto"]
+		_malhas_nivel["longe"] = _niveis_padrao["longe"]
 	# brilhos de festa (estrelinhas e faíscas subindo em volta) para as comemorações
 	_festa = CPUParticles.new()
 	_festa.amount = 36
@@ -517,6 +547,8 @@ func _process(delta: float) -> void:
 		_forcar -= 1
 	elif not bola_mao.visible and _tela != null and not _tela.is_on_screen():
 		return
+	if niveis:
+		_escolher_nivel()
 	_aplicar(pose, delta)
 	_rosto(delta)
 	if _helice and _helice.visible:
@@ -859,20 +891,130 @@ func _caminho_roupa(r: String) -> String:
 	return "res://modelos/roupas/%s_%s.scn" % [nome_modelo, r]
 
 
+## A cena do nível `nv` ("perto" ou "longe") da roupa `r` ("" = a de sempre).
+func _caminho_nivel(r: String, nv: String) -> String:
+	var sufixo := "hd" if nv == "perto" else "longe"
+	if r == "":
+		return "res://modelos/niveis/%s_%s.scn" % [nome_modelo, sufixo]
+	return "res://modelos/niveis/roupas/%s_%s_%s.scn" % [nome_modelo, r, sufixo]
+
+
+## junta -> malha das peças de uma cena (vazio se ela não existe).
+func _malhas_da_cena(cena: PackedScene) -> Dictionary:
+	var d := {}
+	if cena == null:
+		return d
+	var inst := cena.instance()
+	for j in PECAS:
+		var no := inst.find_node(j, true, false)
+		if no:
+			d[j] = (no.get_node("malha") as MeshInstance).mesh
+	inst.free()
+	return d
+
+
+## Escolhe o nível pelo tamanho na tela (a altura do bichinho dividida pela
+## da tela), com folga para não ficar trocando. O de perto só com o meio do
+## bichinho dentro da tela: pertinho da câmera e saindo pela beirada ele
+## parece enorme, mas quase nada dele aparece.
+func _escolher_nivel() -> void:
+	var cam := get_viewport().get_camera()
+	if cam == null:
+		return
+	var pe := global_transform.origin
+	var topo := pe + Vector3(0, ALTURA_BICHO, 0)
+	if cam.is_position_behind(pe) or cam.is_position_behind(topo):
+		return
+	var tela := get_viewport().get_visible_rect().size
+	var a := cam.unproject_position(pe)
+	var b := cam.unproject_position(topo)
+	_fracao = a.distance_to(b) / max(max(tela.x, tela.y), 1.0)
+	var meio := (a + b) * 0.5
+	_dentro = meio.x > 0.0 and meio.y > 0.0 and meio.x < tela.x and meio.y < tela.y
+	var novo := "meio"
+	if pode_perto:
+		novo = "perto"
+	elif _fracao < NIVEL_LONGE or (_nivel == "longe" and _fracao < NIVEL_LONGE_VOLTA):
+		novo = "longe"
+	if novo != _nivel:
+		_nivel = novo
+		_vestir_nivel()
+
+
+## O jogo deixa (ou não) vestir o de perto. Tirando, volta ao do meio na
+## hora — mesmo fora da tela, para não aparecer de perto num quadro cheio.
+func permitir_perto(sim: bool) -> void:
+	if sim == pode_perto:
+		return
+	pode_perto = sim
+	if not sim and _nivel == "perto":
+		_nivel = "meio"
+		_vestir_nivel()
+
+
+## Pode ganhar o de perto: grande na tela e inteiro dentro dela.
+func candidato_perto() -> bool:
+	if not niveis or not visible or _malhas_nivel["perto"].empty():
+		return false
+	if _tela != null and not _tela.is_on_screen():
+		return false
+	return _dentro and _fracao > (NIVEL_PERTO_VOLTA if pode_perto else NIVEL_PERTO)
+
+
+## Quantos índices o de perto desenha a mais que o do meio (o contorno
+## desenha cada peça de novo: x2).
+func custo_perto() -> int:
+	return _custo_perto
+
+
+static func _indices(malhas: Dictionary) -> int:
+	var t := 0
+	for j in malhas:
+		var m: ArrayMesh = malhas[j]
+		if m != null and m.get_surface_count() > 0:
+			t += m.surface_get_array_index_len(0)
+	return t
+
+
+## Põe em cada peça a malha do nível atual (a do meio onde o nível não tem).
+func _vestir_nivel() -> void:
+	if not _malhas_nivel["perto"].empty():
+		_custo_perto = 2 * (_indices(_malhas_nivel["perto"]) - _indices(_malhas_nivel["meio"]))
+	var meio: Dictionary = _malhas_nivel["meio"]
+	var outro: Dictionary = _malhas_nivel.get(_nivel, {})
+	for j in meio:
+		if _pecas.has(j):
+			(_pecas[j] as MeshInstance).mesh = outro.get(j, meio[j])
+
+
+## O nível de detalhe vestido agora ("perto", "meio" ou "longe").
+func nivel() -> String:
+	return _nivel
+
+
+## A altura dele na tela (fração da tela) na última conta.
+func tamanho_na_tela() -> float:
+	return _fracao
+
+
 ## Começa a carregar uma roupinha em segundo plano (o jogo não para).
 func pedir_roupa(r: String) -> void:
 	if r == "" or r == roupa:
 		return
-	var c := _caminho_roupa(r)
-	if c in _pedidos:
-		return
-	if c in _descartar:
-		_descartar.erase(c)
-	elif ResourceLoader.exists(c):
-		Tarefas.rodar(self, "_carregar_roupa", [c])
-	else:
-		return
-	_pedidos.append(c)
+	var caminhos := [_caminho_roupa(r)]
+	if niveis:
+		caminhos.append(_caminho_nivel(r, "perto"))
+		caminhos.append(_caminho_nivel(r, "longe"))
+	for c in caminhos:
+		if c in _pedidos:
+			continue
+		if c in _descartar:
+			_descartar.erase(c)
+		elif ResourceLoader.exists(c):
+			Tarefas.rodar(self, "_carregar_roupa", [c])
+		else:
+			continue
+		_pedidos.append(c)
 
 
 ## (Na linha de trabalho.) Carrega a roupinha e deixa a cena pronta para
@@ -925,6 +1067,11 @@ func trocar_roupa(r: String) -> void:
 	var helice: Mesh = null
 	var helice_pos := Vector3.ZERO
 	var cena: PackedScene = _pegar_roupa(r) if r != "" else null
+	var perto: Dictionary = _niveis_padrao.get("perto", {})
+	var longe: Dictionary = _niveis_padrao.get("longe", {})
+	if cena != null and niveis:
+		perto = _malhas_da_cena(_pegar_cena(_caminho_nivel(r, "perto")))
+		longe = _malhas_da_cena(_pegar_cena(_caminho_nivel(r, "longe")))
 	if cena != null:
 		var inst := cena.instance()
 		malhas = {}
@@ -943,9 +1090,8 @@ func trocar_roupa(r: String) -> void:
 	if r == roupa:
 		return
 	roupa = r
-	for j in malhas:
-		if _pecas.has(j):
-			(_pecas[j] as MeshInstance).mesh = malhas[j]
+	_malhas_nivel = {"meio": malhas, "perto": perto, "longe": longe}
+	_vestir_nivel()
 	_aplicar_estampa(estampa)
 	if helice != null and _helice == null:
 		_helice = MeshInstance.new()
@@ -961,7 +1107,12 @@ func trocar_roupa(r: String) -> void:
 
 
 func _pegar_roupa(r: String) -> PackedScene:
-	var c := _caminho_roupa(r)
+	return _pegar_cena(_caminho_roupa(r))
+
+
+## A cena `c` pedida em segundo plano (se ainda não acabou, espera o resto)
+## ou, se não foi pedida, carregada agora.
+func _pegar_cena(c: String) -> PackedScene:
 	if c in _pedidos or c in _descartar:
 		_pedidos.erase(c)
 		_descartar.erase(c)

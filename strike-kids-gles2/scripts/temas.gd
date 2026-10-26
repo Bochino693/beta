@@ -648,19 +648,23 @@ func _mar() -> void:
 	var T := "mar"
 	var rnd := RandomNumberGenerator.new()
 	rnd.seed = 505
-	# NAVIO PIRATA naufragado, inteiro, pousado na areia atrás do gabinete:
-	# os mastros, as velas e a bandeira de caveira aparecem por cima do arco
-	# (ali ficava uma concha gigante que furava a cortina do fundo dos pinos)
-	var nx := 0.4
-	var nz := Medidas.Z_FUNDO - 6.5
-	var navio := _obj(T, "navio", Vector3(nx, _chao(nx, nz) - 0.06, nz), deg2rad(38.0), 1.3, 0.004)
+	# NAVIO PIRATA naufragado, inteiro, pousado na areia À ESQUERDA do
+	# gabinete, de lado para quem olha (6.8; antes ficava escondido atrás do
+	# gabinete, só os mastros por cima do arco): na espera, na escolha e no
+	# fim ele aparece inteiro, de perfil, emoldurando o gabinete; na vista
+	# da pista, a proa, os mastros e a bandeira de caveira à esquerda. Do
+	# outro lado ficam a baleia (no alto) e o baú (perto da pista).
+	var nx := -6.0
+	var nz := -18.0
+	var navio := _obj(T, "navio", Vector3(nx, _chao(nx, nz) - 0.06, nz), deg2rad(105.0), 1.05, 0.004)
 	navio.rotation.z = 0.05   # adernado de leve, de quem afundou
 	# o BAÚ DO TESOURO pertinho da pista, do lado direito, virado para quem
 	# joga (lá atrás dos jogadores e no canto ninguém via): abre a tampa e
 	# mostra as moedas e as joias
 	var bau := Vector2(BAU_PERTO.x, BAU_PERTO.z)
 	_obj(T, "bau", Vector3(bau.x, _chao(bau.x, bau.y) - 0.02, bau.y), -0.5, 0.75, 0.004)
-	var ocupado: Array = [Vector2(nx, nz), Vector2(nx + 3.2, nz + 4.1), Vector2(nx - 2.4, nz - 3.1)]
+	# (o comprido do navio, girado: nada nasce dentro dele)
+	var ocupado: Array = [Vector2(nx, nz), Vector2(nx + 3.4, nz - 0.9), Vector2(nx - 3.4, nz + 0.9)]
 	# corais no lugar das torres
 	_obj(T, "coral", Vector3(-2.75, -0.02, Medidas.Z_FUNDO + 0.4), deg2rad(25.0), 2.1, 0.004)
 	_obj(T, "coral_roxo", Vector3(2.75, -0.02, Medidas.Z_FUNDO + 0.4), deg2rad(-25.0), 2.3, 0.004)

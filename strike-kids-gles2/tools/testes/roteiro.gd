@@ -45,8 +45,8 @@ func _estado() -> String:
 
 
 func foto(nome: String) -> void:
-	if poucas and not (nome in ["atracao", "escolha_robo", "pronto_0", "rolando_1", "pinos_1", "resultado_1", "reacao_1",
-			"maquina_1", "maquina_b_1", "maquina_c_1", "depois_1", "fim", "foto_sorria", "foto_contagem", "foto_pronta", "pronto_1"]):
+	if poucas and not nome.begins_with("desempate") and not (nome in ["atracao", "escolha_robo", "pronto_0", "rolando_1", "pinos_1", "resultado_1", "reacao_1",
+			"maquina_1", "maquina_b_1", "maquina_c_1", "depois_1", "fim", "fim_2", "fim_desempate", "fim_recorde", "foto_sorria", "foto_contagem", "foto_pronta", "pronto_1"]):
 		yield(get_tree(), "idle_frame")
 		return
 	yield(VisualServer, "frame_post_draw")
@@ -54,8 +54,13 @@ func foto(nome: String) -> void:
 	img.flip_y()
 	n_foto += 1
 	img.save_png("%s/%02d_%s.png" % [pasta, n_foto, nome])
+	var niveis := ""
+	for b in principal.personagens:
+		var p = principal.personagens[b]
+		if p.visible and p.has_method("nivel"):
+			niveis += "  %s=%s(%.2f)" % [b, p.nivel(), p.tamanho_na_tela()]
 	print("FOTO ", nome, "  estado=", _estado(), "  desenhos=", Performance.get_monitor(Performance.RENDER_DRAW_CALLS_IN_FRAME),
-		"  vertices=", Performance.get_monitor(Performance.RENDER_VERTICES_IN_FRAME))
+		"  vertices=", Performance.get_monitor(Performance.RENDER_VERTICES_IN_FRAME), niveis)
 
 
 ## Espera `seg` segundos de verdade (a câmera lenta e a velocidade do jogo
@@ -126,7 +131,50 @@ func apertar(acao: String) -> void:
 	Input.parse_input_event(k2)
 
 
+## DESEMPATE: fotos do aviso de empate, da troca para a pista que faltava
+## e da faixa da rodada extra (e as fases sorteadas da partida).
+func _vigiar_desempate() -> void:
+	while not terminou:
+		yield(get_tree(), "idle_frame")
+		if principal.placar.desempate:
+			break
+	if terminou:
+		return
+	print("DESEMPATE: fases ", principal._temas_partida, "  cenário agora ", principal.mundo.tema,
+		"  pontos %d x %d" % [principal.placar.total(0), principal.placar.total(1)])
+	for par in [[0.7, "desempate_empate"], [1.0, "desempate_duelo"], [0.9, "desempate_extra"],
+			[1.0, "desempate_extra_b"], [2.0, "desempate_pista"], [1.5, "desempate_faixa"]]:
+		yield(esperar(par[0]), "completed")
+		yield(foto(par[1]), "completed")
+	print("DESEMPATE: cenário da rodada extra ", principal.mundo.tema, "  rodada ", principal.placar.rodada_atual + 1,
+		" de ", principal.placar.rodadas)
+
+
+## --empatar: depois da última bola das rodadas normais, iguala os pontos
+## da Mia aos do Bob (a física nem sempre repete o resultado pedido) — para
+## testar o desempate com qualquer número de rodadas.
+func _forcar_empate() -> void:
+	while not terminou:
+		yield(get_tree(), "idle_frame")
+		var pl = principal.placar
+		if pl.desempate or pl.jogadores.size() < 2 or pl.jogadores[1]["rodadas"].size() < pl.rodadas:
+			continue
+		var r: int = pl.rodadas - 1
+		var bolas: Array = pl.jogadores[1]["rodadas"][r]
+		var soma := 0
+		for b in bolas:
+			soma += int(b)
+		if pl.rodada_atual == r and pl.jogador_atual == 1 and (soma >= 10 or bolas.size() >= pl.tentativas) \
+				and int(pl.jogadores[1]["pontos"]) != int(pl.jogadores[0]["pontos"]):
+			print("EMPATE FORÇADO: Mia %d -> %d" % [pl.jogadores[1]["pontos"], pl.jogadores[0]["pontos"]])
+			pl.jogadores[1]["pontos"] = pl.jogadores[0]["pontos"]
+			principal.hud.atualizar_placar(pl)
+
+
 func _rodar() -> void:
+	_vigiar_desempate()
+	if OS.get_cmdline_args().has("--empatar"):
+		_forcar_empate()
 	yield(esperar(1.4), "completed")
 	yield(foto("abertura"), "completed")
 	yield(esperar_estado("ATRACAO"), "completed")
@@ -214,6 +262,13 @@ func _rodar() -> void:
 			yield(esperar(1.3), "completed")
 			yield(foto("depois_%d" % i), "completed")
 	yield(esperar_estado("FIM", 60.0), "completed")
+	if principal.placar.desempate:
+		yield(esperar(2.9), "completed")
+		yield(foto("fim_desempate"), "completed")
+		yield(esperar(1.4), "completed")
+		yield(foto("fim_recorde"), "completed")
+	print("FIM: pontos ", principal.placar.total(0), " x ", (principal.placar.total(1) if principal.placar.jogadores.size() > 1 else -1),
+		"  vencedor ", principal.placar.vencedor(), "  desempate ", principal.placar.desempate, "  fases ", principal._temas_partida)
 	yield(esperar(3.8), "completed")
 	yield(foto("fim"), "completed")
 	yield(esperar(2.0), "completed")
