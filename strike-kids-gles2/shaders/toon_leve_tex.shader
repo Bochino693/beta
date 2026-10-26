@@ -53,8 +53,8 @@ vec3 s2l(vec3 c) {
 vec3 viva(vec3 c) {
 	float lum = dot(c, vec3(0.299, 0.587, 0.114));
 	float sat = max(c.r, max(c.g, c.b)) - min(c.r, min(c.g, c.b));
-	c = mix(vec3(lum), c, 1.08 + 0.32 * (1.0 - sat));
-	return clamp(c * 1.07 - 0.035, 0.0, 1.0);
+	c = mix(vec3(lum), c, 1.14 + 0.34 * (1.0 - sat));
+	return clamp(c * 1.08 - 0.045, 0.0, 1.0);
 }
 
 vec3 tela_g4(vec3 x) {
@@ -63,7 +63,7 @@ vec3 tela_g4(vec3 x) {
 }
 
 // o branco como sai na tela com luz 1: tela_g4(vec3(1.0))
-const float BRANCO = 0.97551;
+const float BRANCO = 0.97495;
 
 void vertex() {
 	vec3 n = normalize((WORLD_MATRIX * vec4(NORMAL, 0.0)).xyz);

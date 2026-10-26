@@ -7,7 +7,7 @@ render_mode unshaded, blend_mix, depth_draw_opaque, cull_back;
 
 uniform sampler2D madeira : hint_albedo;
 uniform vec2 escala_uv = vec2(4.2, 3.2);
-uniform vec4 tom : hint_color = vec4(0.93, 0.84, 0.76, 1.0);
+uniform vec4 tom : hint_color = vec4(0.86, 0.69, 0.52, 1.0);
 uniform vec3 luz_cena = vec3(1.2, 1.2, 1.22);
 uniform vec4 cor_ceu : hint_color = vec4(0.85, 0.93, 1.0, 1.0);
 uniform float verniz = 0.15;
@@ -23,8 +23,8 @@ varying vec3 olhar;
 vec3 viva(vec3 c) {
 	float lum = dot(c, vec3(0.299, 0.587, 0.114));
 	float sat = max(c.r, max(c.g, c.b)) - min(c.r, min(c.g, c.b));
-	c = mix(vec3(lum), c, 1.08 + 0.32 * (1.0 - sat));
-	return clamp(c * 1.07 - 0.035, 0.0, 1.0);
+	c = mix(vec3(lum), c, 1.14 + 0.34 * (1.0 - sat));
+	return clamp(c * 1.08 - 0.045, 0.0, 1.0);
 }
 
 // a cor CRUA, como o shader do Godot 4 a entregava, até a tela: lá ela

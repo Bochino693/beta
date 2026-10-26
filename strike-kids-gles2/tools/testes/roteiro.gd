@@ -172,6 +172,8 @@ func _forcar_empate() -> void:
 
 
 func _rodar() -> void:
+	# (anota os sons tocados: no fim, quantos de ambiente de cada fase)
+	Sons.registrar = true
 	_vigiar_desempate()
 	if OS.get_cmdline_args().has("--empatar"):
 		_forcar_empate()
@@ -275,6 +277,11 @@ func _rodar() -> void:
 	yield(foto("fim_2"), "completed")
 	if _rodadas_antes != null:
 		Ajustes.definir("jogo", "rodadas", _rodadas_antes)
+	var amb := {}
+	for r in Sons.registro:
+		if str(r[1]).begins_with("amb_"):
+			amb[r[1]] = int(amb.get(r[1], 0)) + 1
+	print("SONS DE AMBIENTE: ", amb)
 	print("ROTEIRO OK")
 	terminou = true
 	if not OS.get_cmdline_args().has("--sem-sair"):

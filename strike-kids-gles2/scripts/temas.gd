@@ -16,9 +16,9 @@ const ORDEM := ["dinos", "parque", "espaco", "mar"]
 const CONFIG := {
 	"parque": {
 		"ceu": [Color("#2F7FFF"), Color("#6CBBFF"), Color("#E4F4FF"), Color("#8CD18C")],
-		"ambiente": Color(0.62, 0.7, 0.86), "ambiente_forca": 0.62,
-		"neblina": Color(0.84, 0.92, 1.0), "neblina_densidade": 0.0045,
-		"sol": Color(1.0, 0.95, 0.86), "sol_forca": 1.05,
+		"ambiente": Color(0.62, 0.7, 0.86), "ambiente_forca": 0.68,
+		"neblina": Color(0.84, 0.92, 1.0), "neblina_densidade": 0.0035,
+		"sol": Color(1.0, 0.95, 0.86), "sol_forca": 0.9,
 		"fundo": [Color("#3A1C8C"), Color("#7A3FD6")], "halo": Color("#FFD6F4"),
 		"portal": [Color("#FFC21A"), Color("#E8384F")], "gabinete": Color("#E8384F"), "coluna": Color("#1E62C8"), "neon": Color("#FF4FC8"),
 		"parede": Color("#2A63C4"),
@@ -32,8 +32,8 @@ const CONFIG := {
 		"ceu": [Color("#040A26"), Color("#0E2560"), Color("#2C6AB8"), Color("#14244E")],
 		"estrelas": 1.0, "nebulosa": Color("#2FC8FF"), "cor_sol": Color("#CFE0FF"), "forca_sol": 0.35,
 		"ambiente": Color(0.6, 0.7, 1.0), "ambiente_forca": 0.78,
-		"neblina": Color(0.14, 0.24, 0.5), "neblina_densidade": 0.006,
-		"sol": Color(0.9, 0.94, 1.0), "sol_forca": 1.05,
+		"neblina": Color(0.14, 0.24, 0.5), "neblina_densidade": 0.0045,
+		"sol": Color(0.9, 0.94, 1.0), "sol_forca": 0.92,
 		"fundo": [Color("#0B1450"), Color("#2A3FB0")], "halo": Color("#9FE8FF"),
 		"portal": [Color("#4FD8FF"), Color("#3B2FA8")], "gabinete": Color("#3B3FA8"), "coluna": Color("#6A3FD0"), "neon": Color("#4FE3FF"),
 		"parede": Color("#3B4FC8"),
@@ -47,8 +47,8 @@ const CONFIG := {
 		"ceu": [Color("#0A4F86"), Color("#1A94C0"), Color("#86E6DE"), Color("#E8D29A")],
 		"raios": 1.0, "cor_sol": Color("#E6FFF8"), "forca_sol": 0.5,
 		"ambiente": Color(0.5, 0.82, 0.92), "ambiente_forca": 0.72,
-		"neblina": Color(0.32, 0.72, 0.84), "neblina_densidade": 0.014,
-		"sol": Color(0.88, 1.0, 0.96), "sol_forca": 1.0,
+		"neblina": Color(0.32, 0.72, 0.84), "neblina_densidade": 0.0105,
+		"sol": Color(0.88, 1.0, 0.96), "sol_forca": 0.86,
 		"fundo": [Color("#064A70"), Color("#0FA0B8")], "halo": Color("#C8FFF4"),
 		"portal": [Color("#2EE6C8"), Color("#FF7A5C")], "gabinete": Color("#0E8C9C"), "coluna": Color("#FF7A5C"), "neon": Color("#5CFFD8"),
 		"parede": Color("#18A6B8"),
@@ -56,14 +56,14 @@ const CONFIG := {
 		# canaleta de água (reflexos e bolhinhas) e para-choques coral
 		"canaleta_modo": 2, "canaleta": [Color("#0C86A6"), Color("#56E0EA"), Color("#E9FFFB")],
 		"bumper": [Color("#FFFFFF"), Color("#FF7A5C")],
-		"chao": [Color("#F9DCA2"), Color("#EDC98A"), Color("#FFB09E"), Color("#9EDDE6")], "chao_modo": 2,
+		"chao": [Color("#F0C47C"), Color("#E0AC62"), Color("#FF9A86"), Color("#7CD2E0")], "chao_modo": 2,
 	},
 	"dinos": {
 		"ceu": [Color("#3FA7E8"), Color("#9BD8F0"), Color("#FFE4AE"), Color("#6BBF59")],
 		"cor_sol": Color("#FFE7B0"),
-		"ambiente": Color(0.72, 0.72, 0.62), "ambiente_forca": 0.62,
-		"neblina": Color(0.92, 0.9, 0.78), "neblina_densidade": 0.006,
-		"sol": Color(1.0, 0.93, 0.8), "sol_forca": 1.1,
+		"ambiente": Color(0.72, 0.72, 0.62), "ambiente_forca": 0.68,
+		"neblina": Color(0.92, 0.9, 0.78), "neblina_densidade": 0.0045,
+		"sol": Color(1.0, 0.93, 0.8), "sol_forca": 0.92,
 		"fundo": [Color("#14501E"), Color("#3E9A2E")], "halo": Color("#FFF2A8"),
 		"portal": [Color("#9BE04A"), Color("#FF8A1E")], "gabinete": Color("#8A5228"), "coluna": Color("#2E9A3E"), "neon": Color("#B6FF3B"),
 		"parede": Color("#3E9A3A"),
@@ -97,6 +97,22 @@ var leve := false
 var detalhes := true
 var _malhas_vento := {}
 var _mats_leve: Array = []
+## SONS DE AMBIENTE (6.9): cada fase tem as suas VOZES — a baleia, o
+## pterodáctilo, o dino, o vulcão, o carrossel, o disco voador... Cada uma
+## toca quando o bicho/objeto está NA TELA, sai do lado em que ele está
+## (Sons.tocar_em) e vem JUNTO com uma ação dele (o dino levanta a cabeça
+## e ruge, o vulcão treme e solta mais fumaça, o carrossel acelera com a
+## musiquinha, a baleia bate o rabo cantando). Organizado: um som de
+## ambiente de cada vez, com uma folga entre eles, mais baixo que os sons
+## da jogada — e só quando o principal deixa (som_ambiente: na espera da
+## jogada, na abertura e nas telas; não durante a bola, o resultado e o
+## replay).
+var som_ambiente := false
+var _vozes := {}          # tema -> [{no, som, cada, prox, vol, tom, acao, item}]
+var _relogio := 0.0
+var _prox_amb := 4.0
+const AMB_FOLGA := Vector2(3.0, 5.5)
+const AMB_VOLUME := 0.6
 
 
 func construir(m) -> void:
@@ -110,6 +126,7 @@ func construir(m) -> void:
 		add_child(g)
 		grupos[nome] = g
 		_anim[nome] = []
+		_vozes[nome] = []
 	_parque()
 	_espaco()
 	_mar()
@@ -128,6 +145,8 @@ func construir(m) -> void:
 					fora.append(item[k])
 			if item.has("cabines"):
 				fora.append_array(item["cabines"])
+		for v in _vozes[nome]:
+			fora.append(v["no"])
 		Lote.juntar(grupos[nome], fora)
 
 
@@ -150,7 +169,7 @@ func _mat(contorno: float, tinta: Color, extra := {}) -> ShaderMaterial:
 		contorno = 0.0
 	var chave := "%s|%s|%s" % [contorno, tinta.to_html(), str(extra)]
 	if not _mats.has(chave):
-		var p := {"borda": 0.3, "tinta": tinta}
+		var p := {"borda": 0.16, "tinta": tinta}
 		p.merge(extra, true)
 		_mats[chave] = _toon(contorno, p)
 	return _mats[chave]
@@ -175,7 +194,7 @@ func _mat_modelo(nome: String, contorno: float, tinta: Color, extra := {}, vento
 		m.shader = Materiais.shader("res://shaders/toon_leve_tex_vento.shader" if vento else "res://shaders/toon_leve_tex.shader")
 		m.set_meta("atlas", true)
 		m.set_shader_param("textura", load(ATLAS))
-		var p := {"borda": 0.3, "tinta": tinta}
+		var p := {"borda": 0.16, "tinta": tinta}
 		p.merge(extra, true)
 		for k in p:
 			if k != "especular" and k != "tamanho_especular":
@@ -240,7 +259,7 @@ func _aplicar_luz(mats: Array) -> void:
 ## sombra, o quanto a borda clara soma em cada uma e a das partes que
 ## brilham — as contas que eram feitas em cada vértice, iguais em todos.
 const MEIO := 0.25
-const TELA_MEIO := 0.283332
+const TELA_MEIO := 0.276307
 
 
 func _fatores(m: ShaderMaterial, sol: Vector3, amb: Vector3) -> void:
@@ -278,8 +297,8 @@ static func _tela_g4(c: Vector3) -> Vector3:
 	x = x * (Vector3.ONE * 1.2094 - x * (Vector3.ONE * 0.015 + x * 0.25))
 	var lum := x.dot(Vector3(0.299, 0.587, 0.114))
 	var sat: float = max(x.x, max(x.y, x.z)) - min(x.x, min(x.y, x.z))
-	x = Vector3.ONE * lum + (x - Vector3.ONE * lum) * (1.08 + 0.32 * (1.0 - sat))
-	x = x * 1.07 - Vector3.ONE * 0.035
+	x = Vector3.ONE * lum + (x - Vector3.ONE * lum) * (1.14 + 0.34 * (1.0 - sat))
+	x = x * 1.08 - Vector3.ONE * 0.045
 	return Vector3(clamp(x.x, 0.0, 1.0), clamp(x.y, 0.0, 1.0), clamp(x.z, 0.0, 1.0))
 
 
@@ -528,7 +547,9 @@ func _parque() -> void:
 	_animar(T, {"tipo": "roda", "roda": roda, "cabines": cabines, "raio": 3.8, "vel": 0.16})
 	# carrossel (gira devagar) e tendas
 	var car := _obj(T, "carrossel", Vector3(6.4, _chao(6.4, -21.0) - 0.05, -21.0), 0.0, 1.2)
-	_animar(T, {"tipo": "girar", "no": car, "vel": 0.5})
+	var gira_car := {"tipo": "girar", "no": car, "vel": 0.5}
+	_animar(T, gira_car)
+	_voz(T, car, "amb_carrossel", 16.0, 26.0, 0.7, "musica", gira_car)
 	_obj(T, "tenda", Vector3(-9.5, _chao(-9.5, -13.0) - 0.05, -13.0), 0.6, 1.1)
 	_obj(T, "tenda", Vector3(10.5, _chao(10.5, -33.0) - 0.05, -33.0), -0.4, 1.3)
 	_obj(T, "carrossel", Vector3(-12.0, _chao(-12.0, -38.0) - 0.05, -38.0), 0.0, 1.0)
@@ -608,8 +629,10 @@ func _espaco() -> void:
 	# e acima do letreiro (nunca atravessa o planeta nem some atrás do arco),
 	# inclinando nas curvas como um aviãozinho
 	var ovni := _obj(T, "ovni", Vector3(0, 5.0, -12.1), 0.0, 1.0, 0.004)
-	_animar(T, {"tipo": "passeio", "no": ovni, "centro": Vector3(0, 5.0, -12.1), "raio": Vector3(3.1, 0.25, 0.65),
-		"vel": 0.3, "girar": 1.6, "ang": 0.0})
+	var voo_ovni := {"tipo": "passeio", "no": ovni, "centro": Vector3(0, 5.0, -12.1), "raio": Vector3(3.1, 0.25, 0.65),
+		"vel": 0.3, "girar": 1.6, "ang": 0.0}
+	_animar(T, voo_ovni)
+	_voz(T, ovni, "amb_ovni", 12.0, 20.0, 0.75, "balancar", voo_ovni)
 	# planetinhas coloridos no céu
 	for i in _q(8):
 		var lado := -1.0 if i % 2 == 0 else 1.0
@@ -624,8 +647,11 @@ func _espaco() -> void:
 		var e := _obj(T, "estrela_3d", base, 0.0, rnd.randf_range(0.6, 0.9), 0.003)
 		# balança de um lado para o outro (girando inteira ela ficava de
 		# perfil, um palitinho amarelo)
-		_animar(T, {"tipo": "boiar", "no": e, "base": base, "fase": rnd.randf() * TAU, "vel": rnd.randf_range(0.7, 1.1),
-			"amp": Vector3(0.0, 0.2, 0.0), "olhar": -lado * 0.35, "vira": 0.45})
+		var boia := {"tipo": "boiar", "no": e, "base": base, "fase": rnd.randf() * TAU, "vel": rnd.randf_range(0.7, 1.1),
+			"amp": Vector3(0.0, 0.2, 0.0), "olhar": -lado * 0.35, "vira": 0.45}
+		_animar(T, boia)
+		if i < 3:
+			_voz(T, e, "amb_estrela", 14.0, 24.0, 0.55, "piruetar", boia)
 	_espalhar(T, ["cristal", "pedra_lua", "cristal", "pedra_lua", "pedra_lua", "foguete"], _q(38), 77,
 		{"cristal": 1.3, "pedra_lua": 1.6, "foguete": 0.8}, foguetes)
 	var d := _destaques(T, [["cristal", 0.9, 0.004], ["cristal", 1.0, 0.004], ["pedra_lua", 1.0, 0.004], ["cristal", 0.8, 0.004],
@@ -682,15 +708,20 @@ func _mar() -> void:
 	for g in grupos[T].get_children():
 		if g is MeshInstance and (g as MeshInstance).mesh != null and (g as MeshInstance).mesh.resource_path.ends_with("alga.res"):
 			_animar(T, {"tipo": "alga", "no": g, "fase": rnd.randf() * TAU, "base": (g as Spatial).rotation})
-	# cardumes de peixinhos
-	for c in (3 if leve else 5):
+	# CARDUMES de peixinhos (6.9): cada cardume de uma espécie, com as cores
+	# dela (palhaço, azul, amarelo) — eram bolotas brancas tingidas; 4 de 4
+	# (eram 5 de 5: cada peixe é um desenho a mais e eles têm mais forma)
+	var especies := ["peixe", "peixe_azul", "peixe_amarelo", "peixe"]
+	for c in (3 if leve else 4):
 		var centro := Vector3((-1.0 if c % 2 == 0 else 1.0) * rnd.randf_range(3.0, 7.0), rnd.randf_range(2.6, 5.5), rnd.randf_range(-20.0, -4.0))
-		var cor: Color = CORES_BICHOS[c % CORES_BICHOS.size()]
+		var especie: String = especies[c % especies.size()]
 		var vel := rnd.randf_range(0.25, 0.45) * (1.0 if c % 2 == 0 else -1.0)
-		for k in (3 if leve else 5):
-			var p := _obj(T, "peixe", centro, 0.0, rnd.randf_range(0.7, 1.0), 0.003, cor)
+		for k in (3 if leve else 4):
+			var p := _obj(T, especie, centro, 0.0, rnd.randf_range(0.75, 1.05), 0.003)
 			_animar(T, {"tipo": "peixe", "no": p, "centro": centro + Vector3(rnd.randf_range(-0.4, 0.4), rnd.randf_range(-0.3, 0.3), 0),
 				"raio": Vector2(rnd.randf_range(2.2, 3.0), rnd.randf_range(1.4, 2.0)), "vel": vel, "fase": k * 0.22, "nado": rnd.randf() * TAU})
+			if k == 0:
+				_voz(T, p, "amb_peixe", 12.0, 22.0, 0.6)
 	# águas-vivas subindo e descendo
 	for i in _q(7):
 		var lado := -1.0 if i % 2 == 0 else 1.0
@@ -698,15 +729,20 @@ func _mar() -> void:
 		var cor: Color = [Color("#FFB36B"), Color("#9FF0C8"), Color("#8FE9FF")][i % 3]
 		var av := _obj(T, "agua_viva", base, 0.0, rnd.randf_range(0.7, 1.0), 0.003, cor)
 		_animar(T, {"tipo": "agua_viva", "no": av, "base": base, "fase": rnd.randf() * TAU, "vel": rnd.randf_range(0.8, 1.2)})
+	# a BALEIA canta lá no alto (ela é do Mundo, desenhada no céu)
+	_voz(T, _emissor(T, Vector3(4.0, 16.0, -40.0)), "amb_baleia", 17.0, 27.0, 0.75, "baleia")
 	# tartarugas atravessando o mar lá no alto
+	# (a primeira passa mais perto e mais baixo, bem à vista de quem joga)
 	for i in _q(2):
-		var tt := _obj(T, "tartaruga", Vector3(0, 7.5 + i * 2.0, -24.0 - i * 10.0), PI / 2 * (1 if i == 0 else -1), 1.8 + i * 0.4)
+		var tt := _obj(T, "tartaruga", Vector3(0, 5.6 + i * 3.0, -17.0 - i * 13.0), PI / 2 * (1 if i == 0 else -1), 1.5 + i * 0.7)
 		_animar(T, {"tipo": "atravessar", "no": tt, "vel": 1.1 * (1 if i == 0 else -1), "limite": 28.0})
 	# bolhas subindo
 	for i in (3 if leve else 8):
 		var lado := -1.0 if i % 2 == 0 else 1.0
 		var pos := Vector3(lado * rnd.randf_range(1.8, 6.0), 0.1, rnd.randf_range(-18.0, 1.0))
 		var b := _particulas(T, pos, "bolha", 10, 4.0, 0.16)
+		if i % 3 == 0:
+			_voz(T, _emissor(T, pos + Vector3(0, 1.5, 0)), "amb_bolhas", 9.0, 16.0, 0.5)
 		b.direction = Vector3.UP
 		b.spread = 12.0
 		b.gravity = Vector3(0, 0.25, 0)
@@ -722,10 +758,18 @@ func _dinos() -> void:
 	var T := "dinos"
 	var rnd := RandomNumberGenerator.new()
 	rnd.seed = 606
-	# vulcão fumegando lá no fundo
-	_obj(T, "vulcao", Vector3(5.5, -0.4, -48.0), 0.3, 1.9)
-	_obj(T, "vulcao", Vector3(-16.0, -0.4, -40.0), -0.5, 1.1)
-	var fum := _particulas(T, Vector3(5.5, 9.3, -48.0), "fumaca", 8 if leve else 14, 5.0, 2.4)
+	# VULCÃO fumegando À ESQUERDA do gabinete, inteiro à vista de quem joga
+	# (6.9; antes ficava bem atrás do gabinete, como o navio do mar, e só
+	# a fumaça aparecia); o menor, do outro lado
+	var vx := -9.0
+	var vz := -32.0
+	var vulcao := _obj(T, "vulcao", Vector3(vx, -0.4, vz), 0.3, 2.1)
+	_obj(T, "vulcao", Vector3(17.0, -0.4, -46.0), -0.5, 1.1)
+	var fum := _particulas(T, Vector3(vx, 10.3, vz), "fumaca", 8 if leve else 14, 5.0, 2.4)
+	# de vez em quando ele ronca, treme e solta fumaça mais depressa
+	var ronco := {"tipo": "vulcao", "no": vulcao, "base": vulcao.translation, "fumaca": fum, "tremer": 0.0}
+	_animar(T, ronco)
+	_voz(T, vulcao, "amb_vulcao", 18.0, 28.0, 0.8, "tremer", ronco)
 	fum.direction = Vector3(0.25, 1, 0)
 	fum.spread = 18.0
 	fum.gravity = Vector3(0.15, 0.15, 0)
@@ -743,16 +787,28 @@ func _dinos() -> void:
 	_torres(T, "palmeira", 0.85, 0.0)
 	# dino pescoçudo espiando atrás dos pinos + outro lá longe
 	var dino := _obj(T, "dino", Vector3(3.7, -0.02, Medidas.Z_FUNDO - 0.9), -0.55, 1.0, 0.004)
-	_animar(T, {"tipo": "respirar", "no": dino, "fase": 0.0, "giro": dino.rotation.y})
+	var resp1 := {"tipo": "respirar", "no": dino, "fase": 0.0, "giro": dino.rotation.y}
+	_animar(T, resp1)
 	var dino2 := _obj(T, "dino", Vector3(-8.5, _chao(-8.5, -25.0) - 0.05, -25.0), 0.7, 1.5)
-	_animar(T, {"tipo": "respirar", "no": dino2, "fase": 1.7, "giro": dino2.rotation.y})
+	var resp2 := {"tipo": "respirar", "no": dino2, "fase": 1.7, "giro": dino2.rotation.y}
+	_animar(T, resp2)
+	# o dino levanta a cabeça e ruge (o de perto mais vezes)
+	_voz(T, dino, "amb_dino", 13.0, 20.0, 0.85, "rugir", resp1)
+	_voz(T, dino2, "amb_dino", 20.0, 30.0, 0.7, "rugir", resp2, 0.85)
+	_voz(T, _emissor(T, Vector3(-3.6, 2.5, -9.0)), "amb_passaros", 11.0, 19.0, 0.55)
+	_voz(T, _emissor(T, Vector3(4.2, 2.8, -15.0)), "amb_passaros", 13.0, 21.0, 0.5)
 	# pterossauros voando em círculos
 	for i in _q(3):
 		var p := _obj(T, "ptero", Vector3.ZERO, 0.0, rnd.randf_range(0.9, 1.3), 0.003)
+		_voz(T, p, "amb_ptero", 10.0, 18.0, 0.7, "", null, rnd.randf_range(0.9, 1.1))
 		_animar(T, {"tipo": "voo", "no": p, "centro": Vector3(rnd.randf_range(-3.0, 3.0), rnd.randf_range(6.0, 8.5), rnd.randf_range(-22.0, -9.0)),
 			"raio": rnd.randf_range(4.0, 7.0), "vel": rnd.randf_range(0.25, 0.4) * (1.0 if i % 2 == 0 else -1.0), "fase": rnd.randf() * TAU})
+	# (nada nasce dentro do vulcão)
+	var no_vulcao: Array = []
+	for k in 9:
+		no_vulcao.append(Vector2(vx, vz) + Vector2(cos(k * TAU / 8.0), sin(k * TAU / 8.0)) * (6.0 if k < 8 else 0.0))
 	_espalhar(T, ["palmeira", "samambaia", "pedra", "flor_gigante", "samambaia", "palmeira", "ovo_dino", "pedra"], _q(44), 2027,
-		{"palmeira": 1.0, "samambaia": 1.4, "pedra": 1.3, "flor_gigante": 1.3, "ovo_dino": 1.2})
+		{"palmeira": 1.0, "samambaia": 1.4, "pedra": 1.3, "flor_gigante": 1.3, "ovo_dino": 1.2}, no_vulcao)
 	var d := _destaques(T, [["samambaia", 1.0, 0.004], ["flor_gigante", 1.0, 0.004], ["ovo_dino", 1.0, 0.004], ["flor_gigante", 0.9, 0.004],
 		["samambaia", 1.2], ["pedra", 1.0], ["ovo_dino", 1.0], ["samambaia", 1.1]])
 	# os ovos de dinossauro tremem de vez em quando (alguém quer nascer!)
@@ -846,14 +902,88 @@ static func _malha_borboleta(meio: Color, beirada: Color) -> ArrayMesh:
 
 
 # ================================================================ animação
+## Uma voz de ambiente da fase: `som` (sons/amb_*.wav) sai de `no` a cada
+## `cada_min`..`cada_max` s (se ele estiver na tela), com a `acao` junto
+## (no item da animação dele).
+func _voz(tema: String, no: Spatial, som: String, cada_min: float, cada_max: float, vol := 0.6,
+		acao := "", item = null, tom := 1.0) -> void:
+	_vozes[tema].append({"no": no, "som": som, "cada": Vector2(cada_min, cada_max),
+		"prox": rand_range(2.0, cada_min), "vol": vol, "tom": tom, "acao": acao, "item": item})
+
+
+## Um ponto parado de onde sai um som (passarinhos, bolhas, a baleia).
+func _emissor(tema: String, pos: Vector3) -> Spatial:
+	var e := Spatial.new()
+	e.translation = pos
+	(grupos[tema] as Spatial).add_child(e)
+	return e
+
+
+## O ponto está na tela (na frente da câmera, dentro do quadro com folga)?
+func _na_tela(no: Spatial) -> bool:
+	var cam := get_viewport().get_camera()
+	if cam == null or not no.is_inside_tree():
+		return false
+	var p := no.global_transform.origin
+	if cam.is_position_behind(p):
+		return false
+	var t := cam.unproject_position(p)
+	var r := get_viewport().get_visible_rect().size
+	return t.x > -r.x * 0.05 and t.x < r.x * 1.05 and t.y > -r.y * 0.05 and t.y < r.y * 1.05
+
+
+## O MAESTRO DOS SONS DE AMBIENTE: na vez (folga desde o último), toca a
+## voz mais atrasada entre as que estão na tela, com a ação dela.
+func _sons_ambiente(delta: float) -> void:
+	_relogio += delta
+	if not som_ambiente or not detalhes or _relogio < _prox_amb:
+		return
+	var escolhida = null
+	for v in _vozes[atual]:
+		if _relogio >= float(v["prox"]) and (escolhida == null or float(v["prox"]) < float(escolhida["prox"])) \
+				and _na_tela(v["no"]):
+			escolhida = v
+	if escolhida == null:
+		return
+	var v: Dictionary = escolhida
+	# (o Sons pelo caminho, não pelo nome: as ferramentas -s do Godot 3 leem
+	# as classes antes dos autoloads)
+	var sons := get_node_or_null("/root/Sons")
+	if sons:
+		sons.tocar_em(v["no"], v["som"], AMB_VOLUME * float(v["vol"]), float(v["tom"]) * rand_range(0.96, 1.04))
+	match v["acao"]:
+		"rugir":
+			v["item"]["rugir"] = 1.5
+		"tremer":
+			v["item"]["tremer"] = 2.0
+		"musica":
+			v["item"]["musica"] = 5.0
+		"balancar":
+			v["item"]["balancar"] = 2.2
+		"piruetar":
+			v["item"]["pirueta"] = 1.0
+		"baleia":
+			if mundo and mundo.has_method("baleia_cantar"):
+				mundo.baleia_cantar(3.5)
+	var c: Vector2 = v["cada"]
+	v["prox"] = _relogio + rand_range(c.x, c.y)
+	_prox_amb = _relogio + rand_range(AMB_FOLGA.x, AMB_FOLGA.y)
+
+
 func _process(delta: float) -> void:
 	if atual == "":
 		return
 	_t = fposmod(_t + delta, 3600.0)
+	_sons_ambiente(delta)
 	for item in _anim[atual]:
 		match item["tipo"]:
 			"girar":
-				(item["no"] as Spatial).rotate_y(float(item["vel"]) * delta)
+				var vel: float = item["vel"]
+				if float(item.get("musica", 0.0)) > 0.0:
+					# com a musiquinha o carrossel gira um pouco mais depressa
+					item["musica"] = float(item["musica"]) - delta
+					vel *= 1.0 + 0.6 * clamp(float(item["musica"]), 0.0, 1.0)
+				(item["no"] as Spatial).rotate_y(vel * delta)
 			"nuvem":
 				var no: Spatial = item["no"]
 				no.translation.x += float(item["vel"]) * delta
@@ -871,6 +1001,11 @@ func _process(delta: float) -> void:
 					no.rotation.y += float(item["girar"]) * delta
 				if item.has("vira"):
 					no.rotation.y = float(item["olhar"]) + sin(_t * 0.6 * v + f) * float(item["vira"])
+				if float(item.get("pirueta", 0.0)) > 0.0:
+					# o brilhinho: uma pirueta inteira
+					item["pirueta"] = float(item["pirueta"]) - delta
+					var u := 1.0 - clamp(float(item["pirueta"]), 0.0, 1.0)
+					no.rotation.y += TAU * (u * u * (3.0 - 2.0 * u))
 			"girar_proprio":
 				(item["no"] as Spatial).rotate_object_local(item["eixo"], float(item["vel"]) * delta)
 			"passeio":
@@ -882,7 +1017,12 @@ func _process(delta: float) -> void:
 				var r: Vector3 = item["raio"]
 				no.translation = (item["centro"] as Vector3) + Vector3(sin(a) * r.x, sin(2.0 * a) * r.y, cos(a) * r.z)
 				item["ang"] = fposmod(float(item["ang"]) + float(item["girar"]) * delta, TAU)
-				no.transform.basis = Basis(Vector3(0, 0, 1), -cos(a) * 0.2) * Basis(Vector3.UP, float(item["ang"]))
+				var balanco := 0.0
+				if float(item.get("balancar", 0.0)) > 0.0:
+					# "uuu-uuu": o disco balança de um lado para o outro
+					item["balancar"] = float(item["balancar"]) - delta
+					balanco = sin(_t * 14.0) * 0.18 * clamp(float(item["balancar"]), 0.0, 1.0)
+				no.transform.basis = Basis(Vector3(0, 0, 1), -cos(a) * 0.2 + balanco) * Basis(Vector3.UP, float(item["ang"]))
 			"abrir":
 				# espera, abre com um pulinho no fim (passa um pouco e volta,
 				# como tampa que bate no batente) e fica aberta
@@ -945,6 +1085,28 @@ func _process(delta: float) -> void:
 				var f: float = item["fase"]
 				no.rotation.y = float(item["giro"]) + sin(_t * 0.35 + f) * 0.12
 				no.rotation.z = sin(_t * 0.9 + f) * 0.025
+				if float(item.get("rugir", 0.0)) > 0.0:
+					# RAWR: empina, estica o pescoço e volta
+					item["rugir"] = float(item["rugir"]) - delta
+					var u := 1.0 - clamp(float(item["rugir"]) / 1.5, 0.0, 1.0)
+					var k := sin(PI * u)
+					no.rotation.x = -0.12 * k
+					no.scale = Vector3(1.0, 1.0 + 0.05 * k, 1.0) * _escala_base(item)
+				elif no.rotation.x != 0.0:
+					no.rotation.x = 0.0
+					no.scale = Vector3.ONE * _escala_base(item)
+			"vulcao":
+				# o ronco: treme um pouquinho e a fumaça sai mais depressa
+				var no: Spatial = item["no"]
+				var fum: CPUParticles = item["fumaca"]
+				if float(item["tremer"]) > 0.0:
+					item["tremer"] = float(item["tremer"]) - delta
+					var k: float = clamp(float(item["tremer"]), 0.0, 1.0)
+					no.translation = (item["base"] as Vector3) + Vector3(sin(_t * 41.0), 0, cos(_t * 37.0)) * 0.05 * k
+					fum.speed_scale = 1.0 + 1.6 * k
+				elif fum.speed_scale != 1.0:
+					no.translation = item["base"]
+					fum.speed_scale = 1.0
 			"voo":
 				var no: Spatial = item["no"]
 				var v: float = item["vel"]

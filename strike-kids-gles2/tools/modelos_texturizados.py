@@ -64,32 +64,35 @@ from malhas_leves import ler_msh, gravar_msh, VERTEX, NORMAL, COLOR, TEX_UV, TRI
 # carrossel, as cabines, as pétalas) não viram cacos.
 ALVO = {
     # selva dos dinos
-    "dino": 1400, "ptero": 1100, "vulcao": 900, "flor_gigante": 500, "palmeira": 480,
+    "dino": 1400, "ptero": 1100, "vulcao": 1500, "flor_gigante": 500, "palmeira": 480,
     "samambaia": 560, "ovo_dino": 440, "pedra": 300, "nuvem": 380,
     # espaço
     "planeta_anel": 1200, "foguete": 750, "ovni": 900, "planeta": 600, "cristal": 260,
     "pedra_lua": 260, "estrela_3d": 300,
     # fundo do mar
-    "navio": 2400, "tartaruga": 1100, "agua_viva": 700, "peixe": 420, "concha": 360,
-    "coral": 300, "coral_roxo": 650, "alga": 300, "estrela_mar": 300,
+    # (6.9: peixes de 3 espécies com mais forma, mas 16 em vez de 25; corais e
+    # água-viva lisos; vulcão e carrossel, os destaques, com mais forma)
+    "navio": 2400, "tartaruga": 1400, "agua_viva": 1000, "peixe": 620, "peixe_azul": 620, "peixe_amarelo": 620,
+    "concha": 360, "coral": 650, "coral_roxo": 850, "alga": 300, "estrela_mar": 300,
     # o baú em duas peças (o corpo e a tampa, que abre)
     "bau": 420, "bau_tampa": 300,
     # parque (carrossel e tenda: três de cada, sempre longe)
-    "carrossel": 1250, "roda": 1600, "roda_base": 300, "cabine": 320, "tenda": 650,
+    "carrossel": 2200, "roda": 1600, "roda_base": 300, "cabine": 320, "tenda": 650,
     "torre": 700, "arco_iris": 900, "arvore_verde": 300, "arvore_laranja": 300,
     "arvore_escura": 300, "bengala": 400, "cogumelo": 400, "cupcake": 500, "donut": 420,
     "pirulito": 340, "presente": 400, "balao": 240, "lampada": 64,
 }
 # erro máximo da forma de cada peça (fração do tamanho DELA); o padrão é ERRO_FORMA
-ERRO = {"roda": 0.012, "peixe": 0.011, "ovo_dino": 0.04, "cristal": 0.05, "palmeira": 0.05}
+ERRO = {"roda": 0.012, "peixe": 0.011, "peixe_azul": 0.011, "peixe_amarelo": 0.011, "ovo_dino": 0.04,
+        "cristal": 0.05, "palmeira": 0.05}
 # textura de cada objeto (lado em pixels; o padrão é 512): 1024 nos grandes e
 # nos que têm rosto ou desenho miúdo. O atlas cresce, mas só a memória: a
 # placa lê a textura do tamanho que aparece (mipmap), o custo por pixel é o mesmo
-TEX_1024 = ("ptero", "navio", "dino", "carrossel", "tartaruga", "peixe", "roda", "tenda",
-            "foguete", "planeta_anel")
+TEX_1024 = ("ptero", "navio", "dino", "carrossel", "tartaruga", "roda", "tenda",
+            "foguete", "planeta_anel", "vulcao")
 TEX_512 = ()
 TEX_128 = ()
-TEX_256 = ("lampada", "bau_tampa")
+TEX_256 = ("lampada", "bau_tampa", "peixe", "peixe_azul", "peixe_amarelo")
 # SEM TEXTURA: as peças de uma cor só ou quase (plantas, pedras, nuvens,
 # balões, lâmpadas) espalhadas às dezenas pelo cenário — a textura não
 # acrescenta desenho e os cortes do mapa UV somariam vértices em cada
@@ -113,9 +116,9 @@ def s2l(c):
 def viva(c):
     lum = c @ np.array([0.299, 0.587, 0.114])
     sat = c.max(axis=1) - c.min(axis=1)
-    k = 1.08 + 0.32 * (1.0 - sat)
+    k = 1.14 + 0.34 * (1.0 - sat)
     c = lum[:, None] + (c - lum[:, None]) * k[:, None]
-    return np.clip(c * 1.07 - 0.035, 0.0, 1.0)
+    return np.clip(c * 1.08 - 0.045, 0.0, 1.0)
 
 
 def tela_g4(x):

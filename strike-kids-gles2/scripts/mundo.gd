@@ -117,6 +117,7 @@ var _texturas_chao: Array = []
 ## por vértice, metade da decoração, céu simples e sem neblina. A pista,
 ## os pinos, a máquina e os bichinhos são os mesmos do COMPLETO.
 var leve := false
+var _fundos := {}
 ## detalhes extras (6.7): vento nas plantas, enfeites que se mexem, borboletas
 var detalhes := true
 
@@ -174,6 +175,11 @@ func aplicar_tema(nome: String) -> void:
 	mat_ceu.set_shader_param("estrelas", c.get("estrelas", 0.0))
 	mat_ceu.set_shader_param("cor_nebulosa", c.get("nebulosa", Color(0.9, 0.4, 1.0)))
 	mat_ceu.set_shader_param("raios", c.get("raios", 0.0))
+	# o fundo pintado da fase (a paisagem lá longe), com os detalhes extras
+	var fundo: Texture = _fundos.get(nome)
+	mat_ceu.set_shader_param("faixa_liga", 1.0 if fundo != null and detalhes else 0.0)
+	if fundo != null:
+		mat_ceu.set_shader_param("faixa", fundo)
 	# o fundo (se algo não cobrir a tela) é o horizonte do céu
 	ambiente.background_color = ceu_cores[2]
 	# a pista e o piso não usam o cálculo de luz do motor (são leves): a luz
@@ -417,11 +423,26 @@ func _mostrar_astro(nome: String) -> void:
 	mat_ceu.set_shader_param("dir_sol", dir)
 
 
+## A baleia CANTA (o som vem do Temas, que chama aqui): por `dur` segundos
+## ela bate o rabo mais forte, balança e respira fundo.
+var _canto := 0.0
+
+
+func baleia_cantar(dur: float) -> void:
+	_canto = dur
+
+
 ## A baleia nada de um lado para o outro, sobe e desce de leve e vira nas
 ## pontas (de frente para a câmera bem na virada).
 func _nadar_baleia() -> void:
 	if _astro_atual != "baleia":
 		return
+	if _canto > 0.0:
+		_canto = max(_canto - get_process_delta_time(), 0.0)
+		var k: float = clamp(_canto, 0.0, 1.0) * clamp((3.5 - _canto) * 3.0, 0.0, 1.0)
+		_mat_astro.set_shader_param("rabo", 0.07 + 0.1 * k)
+		_mat_astro.set_shader_param("respira", 0.015 + 0.035 * k)
+		_mat_astro.set_shader_param("balanco", 0.05 + 0.07 * k)
 	var w := TAU / BALEIA_VOLTA
 	var x := sin(_t * w) * BALEIA_ALCANCE
 	var ida := cos(_t * w)
@@ -602,6 +623,12 @@ func _ambiente() -> void:
 	mat_ceu = ShaderMaterial.new()
 	mat_ceu.shader = load("res://shaders/ceu_leve.shader" if leve else "res://shaders/ceu.shader")
 	mat_ceu.set_shader_param("mapa_estrelas", load("res://texturas/estrelas_ceu.png"))
+	# os fundos pintados das 4 fases já carregados (trocar de fase não lê
+	# do disco: travaria)
+	for t in Temas.ORDEM:
+		var caminho: String = "res://texturas/fundo_%s.png" % t
+		if ResourceLoader.exists(caminho):
+			_fundos[t] = load(caminho)
 	ceu = MeshInstance.new()
 	ceu.name = "ceu"
 	var esfera := SphereMesh.new()

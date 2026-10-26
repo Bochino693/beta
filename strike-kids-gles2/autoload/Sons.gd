@@ -173,6 +173,34 @@ func tocar(nome: String, volume := 1.0, tom := 1.0) -> void:
 		pv.play()
 
 
+## SOM QUE SAI DE UM OBJETO DO CENÁRIO (6.9: o pterodáctilo voando, o dino,
+## o vulcão, o carrossel...): toca num AudioStreamPlayer3D preso a ele, e
+## o som sai do lado da tela em que ele está (sem perder volume com a
+## distância: eles ficam longe da câmera).
+func tocar_em(no: Spatial, nome: String, volume := 1.0, tom := 1.0) -> void:
+	if no == null or not no.is_inside_tree():
+		return
+	if registrar:
+		registro.append([Engine.get_idle_frames(), nome, volume, tom])
+	var s := _carregar(nome)
+	if s == null:
+		return
+	var vol := _vol_efeitos() * volume
+	if vol <= 0.001:
+		return
+	var p := no.get_node_or_null("som") as AudioStreamPlayer3D
+	if p == null:
+		p = AudioStreamPlayer3D.new()
+		p.name = "som"
+		p.attenuation_model = AudioStreamPlayer3D.ATTENUATION_DISABLED
+		p.doppler_tracking = AudioStreamPlayer3D.DOPPLER_TRACKING_DISABLED
+		no.add_child(p)
+	p.stream = s
+	p.unit_db = _db(vol)
+	p.pitch_scale = tom
+	p.play()
+
+
 func _livre() -> AudioStreamPlayer:
 	for p in _pool:
 		if not p.playing:

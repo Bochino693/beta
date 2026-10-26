@@ -23,6 +23,12 @@ REGRAS = [
     ("texturas/chao_*.png", {"compress/mode": "0", "flags/srgb": "0", "flags/repeat": "1",
                              "flags/mipmaps": "true", "flags/filter": "true", "detect_3d": "false",
                              "size_limit": "0"}),
+    # comprimidas na placa de vídeo (ETC1): o atlas do cenário e a cortina da bola
+    ("texturas/cenario/atlas.png", {"compress/mode": "2", "compress/lossy_quality": "1.0", "flags/repeat": "0",
+                                    "flags/mipmaps": "true", "detect_3d": "false"}),
+    ("texturas/cortina_bola.png", {"compress/mode": "2"}),
+    ("texturas/fundo_*.png", {"compress/mode": "2", "compress/lossy_quality": "1.0", "flags/repeat": "0",
+                              "flags/mipmaps": "true", "detect_3d": "false", "size_limit": "0"}),
     ("texturas/madeira.png", {"compress/mode": "2", "compress/lossy_quality": "1.0", "flags/repeat": "1",
                               "flags/mipmaps": "true", "detect_3d": "false", "size_limit": "0"}),
     ("texturas/bola_*.png", {"compress/mode": "2", "flags/repeat": "1", "flags/mipmaps": "true",

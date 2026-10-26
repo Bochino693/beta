@@ -1096,22 +1096,78 @@ def estrela_mar():
     return malha("estrela_mar", forma, 0.0125, pal, [Pintura(bolinhas, pal.bolinha)], ((-0.45, -0.1, -0.45), (0.45, 0.3, 0.45)))
 
 
-def peixe():
-    # TINTA: corpo branco, nadadeiras cinza bem clarinho; nada para +Z
-    pal = Paleta(corpo=hex_cor("#FFFFFF"), nadadeira=hex_cor("#D9D9E6"), boca=hex_cor("#3A2A40"))
-    corpo = Elipsoide((0, 0, 0.04), (0.13, 0.17, 0.21), pal.corpo)
-    rabo = unir(Elipsoide((0, 0.075, -0.235), (0.026, 0.105, 0.07), pal.nadadeira, rot=rot_x(0.68)),
-                Elipsoide((0, -0.075, -0.235), (0.026, 0.105, 0.07), pal.nadadeira, rot=rot_x(-0.68)),
-                Elipsoide((0, 0.0, -0.17), (0.05, 0.07, 0.07), pal.nadadeira), k=0.035)
-    dorsal = Elipsoide((0, 0.15, -0.02), (0.022, 0.07, 0.1), pal.nadadeira, rot=rot_x(-0.35))
-    laterais = [Elipsoide((s * 0.12, -0.05, 0.02), (0.02, 0.045, 0.075), pal.nadadeira,
-                          rot=rot_y(s * 0.6) @ rot_x(0.5)) for s in (-1, 1)]
-    forma = unir(corpo, rabo, dorsal, *laterais, k=0.035)
+def _peixe_tropical(nome, pal, pinturas_corpo):
+    """PEIXE TROPICAL (6.9): corpo achatado de lado (de peixe de verdade, não
+    uma bolota), cabeça redonda, rabo de dois lobos, nadadeira de cima alta,
+    a de baixo e as do peito; o desenho de cada espécie vem pintado (listras,
+    manchas) com as cores dele — nada de tinta por cima. Nada para +Z."""
+    corpo = unir(Elipsoide((0, 0, -0.01), (0.072, 0.15, 0.2), pal.corpo),
+                 Elipsoide((0, 0.012, 0.085), (0.078, 0.125, 0.12), pal.corpo), k=0.05)
+    pedunculo = Elipsoide((0, 0, -0.19), (0.04, 0.055, 0.08), pal.corpo)
+    rabo = unir(Elipsoide((0, 0.085, -0.28), (0.016, 0.105, 0.07), pal.nadadeira, rot=rot_x(0.72)),
+                Elipsoide((0, -0.085, -0.28), (0.016, 0.105, 0.07), pal.nadadeira, rot=rot_x(-0.72)), k=0.02)
+    dorsal = Elipsoide((0, 0.155, -0.04), (0.014, 0.085, 0.15), pal.nadadeira, rot=rot_x(-0.32))
+    anal = Elipsoide((0, -0.135, -0.09), (0.013, 0.055, 0.085), pal.nadadeira, rot=rot_x(0.4))
+    peito = [Elipsoide((s * 0.075, -0.03, 0.05), (0.012, 0.04, 0.07), pal.nadadeira,
+                       rot=rot_y(s * 0.7) @ rot_x(0.6)) for s in (-1, 1)]
+    forma = unir(corpo, pedunculo, k=0.05)
+    forma = unir(forma, rabo, dorsal, anal, *peito, k=0.025)
     rosto = RostoPintado(forma, pal)
     for s in (-1, 1):
-        rosto.olho((s * 0.05, 0.035, 0.1), (s * 1.0, 0.18, 0.35), 0.052, afundar=0.55, brilho=(0.0, 0.6, 0.35))
-    rosto.traco(sorriso_pontos(0.0, -0.035, 0.1, 0.03, 0.014, 7), (0, 0, 1), 0.0085)
-    return malha("peixe", forma, 0.012, pal, rosto.pinturas, ((-0.3, -0.3, -0.4), (0.3, 0.3, 0.35)))
+        rosto.olho((s * 0.045, 0.04, 0.13), (s * 1.0, 0.15, 0.4), 0.05, afundar=0.5, brilho=(0.0, 0.6, 0.35))
+    rosto.traco(sorriso_pontos(0.0, -0.025, 0.13, 0.026, 0.012, 7), (0, 0, 1), 0.008)
+    pint = [Pintura(r, c) for r, c in pinturas_corpo(pal)]
+    return malha(nome, forma, 0.011, pal, pint + rosto.pinturas, ((-0.3, -0.42, -0.45), (0.3, 0.42, 0.36)))
+
+
+def _na_nadadeira(P, folga=0.0):
+    """Pontos da pele nas nadadeiras (longe do miolo do corpo)."""
+    q = P / np.array([0.072, 0.15, 0.2])
+    return (comprimento(q) > 1.08 + folga) | (P[:, 2] < -0.23)
+
+
+def peixe():
+    """Peixe-palhaço: laranja com três faixas brancas contornadas de preto."""
+    pal = Paleta(corpo=hex_cor("#FF8A1E"), nadadeira=hex_cor("#FF7A12"), branco=hex_cor("#FFFFFF"),
+                 preto=hex_cor("#2A1A2E"), boca=hex_cor("#3A2A40"))
+
+    def faixas(pal):
+        def faixa(z0, z1, borda):
+            return lambda P: (P[:, 2] > z0 - borda) & (P[:, 2] < z1 + borda) & ~_na_nadadeira(P, 0.25)
+        regs = []
+        for z0, z1 in ((0.07, 0.115), (-0.045, 0.01), (-0.2, -0.165)):
+            regs.append((faixa(z0, z1, 0.012), pal.preto))
+            regs.append((faixa(z0, z1, 0.0), pal.branco))
+        regs.append((lambda P: _na_nadadeira(P, 0.12) & (comprimento(P / np.array([0.1, 0.2, 0.26])) > 1.0), pal.preto))
+        return regs
+    return _peixe_tropical("peixe", pal, faixas)
+
+
+def peixe_azul():
+    """Cirurgião-patela: azul forte com a "paleta" escura e o rabo amarelo."""
+    pal = Paleta(corpo=hex_cor("#2E6BFF"), nadadeira=hex_cor("#2E6BFF"), escuro=hex_cor("#1A1E5A"),
+                 amarelo=hex_cor("#FFD43B"), boca=hex_cor("#3A2A40"))
+
+    def desenho(pal):
+        def paleta_escura(P):
+            u = P[:, 2] + 0.55 * (P[:, 1] - 0.02)
+            return (np.abs(P[:, 1] - 0.03 - 0.25 * (0.1 - P[:, 2])) < 0.035 + 0.02 * np.cos(P[:, 2] * 12)) & (P[:, 2] < 0.08) & ~_na_nadadeira(P, 0.2) & (u > -0.3)
+        return [(paleta_escura, pal.escuro),
+                (lambda P: P[:, 2] < -0.215, pal.amarelo),
+                (lambda P: (P[:, 1] > 0.17) & (P[:, 2] > -0.2), pal.escuro)]
+    return _peixe_tropical("peixe_azul", pal, desenho)
+
+
+def peixe_amarelo():
+    """Peixe-borboleta: amarelo-sol, carinha branca e nadadeiras laranja."""
+    pal = Paleta(corpo=hex_cor("#FFE14D"), nadadeira=hex_cor("#FF9F2E"), branco=hex_cor("#FFFBEA"),
+                 laranja=hex_cor("#FF7A1A"), boca=hex_cor("#3A2A40"))
+
+    def desenho(pal):
+        return [(lambda P: (P[:, 2] > 0.1) & ~_na_nadadeira(P, 0.2), pal.branco),
+                (lambda P: (np.abs(P[:, 2] + 0.02 - 0.3 * P[:, 1]) < 0.022) & ~_na_nadadeira(P, 0.2), pal.laranja),
+                (lambda P: (np.abs(P[:, 2] + 0.12 - 0.3 * P[:, 1]) < 0.018) & ~_na_nadadeira(P, 0.2), pal.laranja)]
+    return _peixe_tropical("peixe_amarelo", pal, desenho)
 
 
 def agua_viva():
@@ -1132,6 +1188,13 @@ def agua_viva():
         for j in range(len(pts) - 1):
             ra = 0.032 - 0.0025 * j
             tent.append(Capsula(pts[j], pts[j + 1], ra, pal.tentaculo, rb=ra - 0.0025))
+    # os braços do meio: fitas onduladas, mais grossas que os tentáculos
+    for i in range(4):
+        a = 2 * PI * i / 4 + 0.75
+        pts = [(0.05 * math.cos(a) + 0.03 * math.sin(j * 1.6 + i) * math.cos(a + 1.57), -0.08 - 0.045 * j,
+                0.05 * math.sin(a) + 0.03 * math.sin(j * 1.6 + i) * math.sin(a + 1.57)) for j in range(7)]
+        for j in range(len(pts) - 1):
+            tent.append(Capsula(pts[j], pts[j + 1], 0.045 - 0.004 * j, pal.dentro, rb=0.041 - 0.004 * j))
     forma = corpo.solda(unir(*tent, k=0.015), 0.03)
     dirs = [d for d in sorte(14, 3) if d[1] > 0.45]
 
@@ -1261,16 +1324,16 @@ def navio():
 
 
 def tartaruga():
-    pal = Paleta(casco=hex_cor("#3FB97A"), linha=hex_cor("#2A8A5A"), pele=hex_cor("#9BE15D"),
-                 barriga=hex_cor("#FFF1B8"), centro=hex_cor("#5ED16A"))
+    pal = Paleta(casco=hex_cor("#3FB97A"), linha=hex_cor("#1F7A4A"), pele=hex_cor("#9BE15D"),
+                 barriga=hex_cor("#FFF1B8"), centro=hex_cor("#62D96E"), borda=hex_cor("#C9F59A"))
     casco = Intersecao(Elipsoide((0, 0.2, -0.04), (0.36, 0.26, 0.42), pal.casco), SemiEspaco((0, 0.16, 0), (0, -1, 0)), 0.03)
     barriga = Elipsoide((0, 0.17, -0.03), (0.35, 0.09, 0.41), pal.barriga)
     cabeca = Esfera((0, 0.3, 0.5), 0.15, pal.pele)
     pescoco = Capsula((0, 0.2, 0.25), (0, 0.27, 0.45), 0.1, pal.pele)
     nad = []
     for s in (-1, 1):
-        nad.append(Elipsoide((s * 0.38, 0.11, 0.2), (0.22, 0.045, 0.1), pal.pele, rot=rot_y(s * 0.55)))
-        nad.append(Elipsoide((s * 0.27, 0.09, -0.37), (0.13, 0.04, 0.08), pal.pele, rot=rot_y(-s * 0.6)))
+        nad.append(Elipsoide((s * 0.42, 0.11, 0.2), (0.28, 0.045, 0.11), pal.pele, rot=rot_y(s * 0.55)))
+        nad.append(Elipsoide((s * 0.29, 0.09, -0.38), (0.15, 0.04, 0.085), pal.pele, rot=rot_y(-s * 0.6)))
     rabo = Capsula((0, 0.14, -0.44), (0, 0.11, -0.54), 0.045, pal.pele, rb=0.02)
     forma = unir(casco.solda(barriga, 0.03), unir(pescoco, cabeca, k=0.06), unir(*nad), rabo, k=0.04)
 
@@ -1289,7 +1352,11 @@ def tartaruga():
     rosto.traco(sorriso_pontos(0.0, 0.255, 0.5, 0.05, 0.022, 7), (0, 0, 1), 0.011)
     rosto.bochecha((0.1, 0.27, 0.5), (0.7, 0, 1), (0.03, 0.02, 0.008))
     rosto.bochecha((-0.1, 0.27, 0.5), (-0.7, 0, 1), (0.03, 0.02, 0.008))
-    m = malha("tartaruga", forma, 0.026, pal, [Pintura(centro, pal.centro), Pintura(linhas, pal.linha)] + rosto.pinturas,
+    def borda_casco(P):
+        q = (P - np.array([0, 0.2, -0.04])) / np.array([0.36, 0.26, 0.42])
+        return (comprimento(q) > 0.9) & (P[:, 1] > 0.17) & (P[:, 1] < 0.215)
+    m = malha("tartaruga", forma, 0.026, pal, [Pintura(centro, pal.centro), Pintura(linhas, pal.linha),
+                                               Pintura(borda_casco, pal.borda)] + rosto.pinturas,
               ((-0.8, -0.2, -0.8), (0.8, 0.7, 0.9)))
     # barriga e nadadeiras encostando no chão
     return m.transladar((0.0, -0.048, 0.0))
@@ -1378,7 +1445,7 @@ def samambaia():
 
 def vulcao():
     pal = Paleta(terra=hex_cor("#B97650"), escura=hex_cor("#9C6043"), clara=hex_cor("#CC8C62"),
-                 lava=hex_cor("#FF7A1A"), lava_clara=hex_cor("#FFC93B"), pedra=hex_cor("#8A6352"))
+                 lava=hex_cor("#FF6A12", 0.5), lava_clara=hex_cor("#FFC93B", 0.5), pedra=hex_cor("#8A6352"))
     perfil = [(-0.4, 0.0), (-0.4, 4.62), (0.0, 4.4), (0.4, 3.82), (1.0, 3.16), (1.8, 2.52), (2.7, 1.98),
               (3.6, 1.58), (4.35, 1.34), (4.78, 1.22), (4.88, 1.08), (4.8, 0.9), (4.55, 0.76), (4.4, 0.0)]
     corpo = Arredondada(Torno((0, 0, 0), perfil, pal.terra), 0.1)
@@ -1846,7 +1913,7 @@ OBJETOS = {
     "cristal": cristal, "pedra_lua": pedra_lua, "estrela_3d": estrela_3d,
     # fundo do mar
     "coral": coral, "coral_roxo": coral_roxo, "alga": alga, "concha": concha, "estrela_mar": estrela_mar,
-    "peixe": peixe, "agua_viva": agua_viva, "bau": bau, "tartaruga": tartaruga, "navio": navio,
+    "peixe": peixe, "peixe_azul": peixe_azul, "peixe_amarelo": peixe_amarelo, "agua_viva": agua_viva, "bau": bau, "tartaruga": tartaruga, "navio": navio,
     # selva dos dinos
     "palmeira": palmeira, "samambaia": samambaia, "vulcao": vulcao, "ovo_dino": ovo_dino,
     "dino": dino, "ptero": ptero, "pedra": pedra, "flor_gigante": flor_gigante,

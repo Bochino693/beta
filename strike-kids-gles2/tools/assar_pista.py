@@ -125,8 +125,8 @@ def tabuas(madeira, X, Zm, w):
     tom_t = rng.uniform(0.0, 1.0, nb).astype(np.float32)
     off_u = rng.uniform(0.0, 1.0, nb).astype(np.float32)
     off_v = rng.uniform(0.0, 1.0, nb).astype(np.float32)
-    claro = srgb_lin([0.97, 0.77, 0.45])
-    dourado = srgb_lin([0.90, 0.59, 0.27])
+    claro = srgb_lin([0.93, 0.67, 0.35])
+    dourado = srgb_lin([0.83, 0.49, 0.2])
     t = tom_t[bi][..., None]
     base = claro * (1.0 - t) + dourado * t
     # o veio: a textura de madeira, esticada ao longo da tábua (cada tábua
@@ -134,7 +134,7 @@ def tabuas(madeira, X, Zm, w):
     g = bilinear(madeira, fx * 0.22 + off_u[bi], -Zm / (REPETE * 1.6) + off_v[bi])
     gl = (g * np.array([0.299, 0.587, 0.114], np.float32)).sum(-1)
     gl = (gl - gl.mean()) / max(gl.std(), 1e-4)
-    c = base * (1.0 + 0.085 * np.clip(gl, -2.5, 2.5))[..., None]
+    c = base * (1.0 + 0.11 * np.clip(gl, -2.5, 2.5))[..., None]
     # emendas de topo (cada tábua tem 2 ou 3 ao longo da pista)
     d = -Zm
     emenda = np.zeros(d.shape, np.float32)
