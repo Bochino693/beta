@@ -39,6 +39,7 @@ const ITENS := [
 	["Som na demonstração", "som", "som_na_demo", "bool", []],
 	["Qualidade gráfica", "video", "qualidade", "lista", ["auto", "alta", "media", "baixa"]],
 	["Cenário (fundo)", "video", "cenario", "lista", ["leve", "completo"]],
+	["Detalhes extras (vento, enfeites, borboletas)", "video", "detalhes", "bool", []],
 	["Resolução da imagem (TV Box)", "video", "resolucao", "lista", ["auto", "720p", "900p", "1080p", "tela"]],
 	["Quadros por segundo", "video", "qps", "lista", ["auto", "60", "30"]],
 	["Desenho da tela", "video", "desenho", "lista", ["auto", "direto", "imagem"]],

@@ -63,6 +63,10 @@ const PADRAO := {
 		# 0 = esta máquina ainda não mediu (o "fator" antigo era sobre 720)
 		"fator_1080": 0.0,
 		"medidor": false,          # painel de desempenho na tela (F3 no PC)
+		# DETALHES EXTRAS (6.7): plantas balançando ao vento, enfeites perto
+		# da pista que se mexem, borboletas e os pinos mais redondos de perto.
+		# Desligado = o cenário e os pinos da 6.6 (para comparar na TV Box)
+		"detalhes": true,
 		"qualidade_auto": "",      # o que o TESTE DE DESEMPENHO recomendou
 		"testar": false,           # pedido do menu: rodar o teste ao voltar
 	},
@@ -189,6 +193,13 @@ func velocidade() -> float:
 ## TV Box rodar lisa. O padrão vem do project.godot (strike/video/cenario:
 ## "leve" nesta versão; o pacote da versão ALTA traz "completo"); o
 ## operador troca no menu. STRIKE_CENARIO=leve|completo vale nos testes.
+## Detalhes extras ligados (menu do operador; STRIKE_DETALHES=0/1 nos testes).
+func detalhes() -> bool:
+	if OS.has_environment("STRIKE_DETALHES"):
+		return OS.get_environment("STRIKE_DETALHES") != "0"
+	return bool(valor("video", "detalhes"))
+
+
 func cenario_leve() -> bool:
 	if OS.has_environment("STRIKE_CENARIO"):
 		return OS.get_environment("STRIKE_CENARIO") != "completo"

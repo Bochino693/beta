@@ -454,7 +454,7 @@ func _montar_atores() -> void:
 	var lugar: Node = raiz_3d
 	pinos = Pinos.new()
 	lugar.add_child(pinos)
-	pinos.montar()
+	pinos.montar(Ajustes.detalhes())
 	pinos.connect("batida", self, "_batida_pino")
 	maquina = Maquina.new()
 	lugar.add_child(maquina)
@@ -2224,7 +2224,7 @@ func menu_aberto() -> bool:
 ## O que muda a MONTAGEM do jogo (e não dá para trocar com ele montado).
 func _ajustes_que_remontam() -> Dictionary:
 	return {"cenario": Ajustes.cenario_leve(), "contornos": _qualidade_escolhida() != "baixa", "em_pe": Tela.em_pe(),
-		"direto": _desenho_direto()}
+		"direto": _desenho_direto(), "detalhes": Ajustes.detalhes()}
 
 
 func _aviso_remontar() -> void:
