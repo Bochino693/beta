@@ -5,48 +5,42 @@ extends Reference
 ## pinos é a física de verdade: a bola bate, os pinos voam, batem uns
 ## nos outros, nas paredes, e caem. Nenhum pino é empurrado "de mentira".
 ##
-## A mira é sempre o STRIKE (o "bolso" entre os pinos 1 e 3, ou 1 e 2). O
-## sensor diz POR ONDE a bola passou (5 posições): no centro é mais fácil
-## acertar o bolso; nas pontas a bola chega torta. A dificuldade escolhida
-## pelo operador define o quanto a bola "erra" o bolso.
-##
-## Para o resultado ser justo e ajustável, as linhas vêm de uma tabela de
-## jogadas simuladas com a mesma física (tools/testes/calibrar.gd ->
-## dados/tabela_jogadas.json): o jogo sorteia quão boa foi a jogada e pega
-## uma linha que, na simulação, rendeu aquilo. Na hora, a física pode dar um
-## pino a mais ou a menos — como no boliche de verdade.
-##
-##   Z = esquerda   X = meio-esquerda   C = CENTRO   V = meio-direita   B = direita
+## A BOLA VAI PARA ONDE A CRIANÇA JOGOU (6.5): o sensor diz por onde a bola
+## passou e ela segue por ali até os pinos —
+##   Z (A) = canto esquerdo: pega o 4, o 7 e o 8 (2 ou 3 pinos)
+##   X (S) = lado esquerdo: o 2, o 4, o 5, o 7, o 8... (uns 6 ou 7)
+##   C (D) = CENTRO: o "bolso" entre o 1 e o 3 (ou o 1 e o 2) — o strike
+##   V (F) e B (G) = o mesmo do lado direito.
+## Antes a mira era sempre o strike e o sensor só mudava a chance: jogando
+## no canto saía strike. A dificuldade escolhida pelo operador define o
+## quanto a bola se espalha em volta da linha (e, sem para-choques, a
+## chance de ir para a canaleta pelos cantos).
+## No centro as linhas vêm de uma tabela de jogadas simuladas com a mesma
+## física (tools/testes/calibrar.gd -> dados/tabela_jogadas.json): o jogo
+## sorteia quão boa foi a jogada e pega uma linha do bolso que, na
+## simulação, rendeu aquilo.
 
+## por onde a bola passa na linha de falta (z = 0,35)
 const LINHA := {"Z": -0.43, "X": -0.21, "C": 0.0, "V": 0.21, "B": 0.43}
+## por onde ela passa na fileira do pino 1 (fora do centro): o canto pega
+## 4-7-8 (com para-choques ela não passa de 0,52 — encosta neles); o lado,
+## 2-4-5-7-8 (tools/testes/calibrar.gd: média 3 e 7 pinos)
+const MIRA := {"Z": -0.5, "X": -0.28, "V": 0.28, "B": 0.5}
+## quanto a linha se espalha (metros, para cada lado) por dificuldade
+const ESPALHA := {"facil": 0.03, "normal": 0.05, "dificil": 0.08}
 const ARQUIVO := "res://dados/tabela_jogadas.json"
 
-## Chance (%) de cada resultado na 1ª bola, por posição e dificuldade.
+## Chance (%) de cada resultado na 1ª bola NO CENTRO, por dificuldade.
 ## Chave = pinos derrubados.
 const TABELA := {
-	"facil": {
-		"C": {10: 60, 9: 14, 8: 10, 7: 8, 6: 5, 5: 3},
-		"X": {10: 34, 9: 17, 8: 15, 7: 13, 6: 10, 5: 7, 4: 4},
-		"Z": {10: 14, 9: 12, 8: 14, 7: 15, 6: 14, 5: 12, 4: 10, 3: 6, 2: 3},
-	},
-	"normal": {
-		"C": {10: 42, 9: 18, 8: 14, 7: 11, 6: 8, 5: 5, 4: 2},
-		"X": {10: 22, 9: 16, 8: 16, 7: 15, 6: 12, 5: 10, 4: 6, 3: 3},
-		"Z": {10: 7, 9: 9, 8: 12, 7: 14, 6: 15, 5: 14, 4: 12, 3: 9, 2: 6, 1: 2},
-	},
-	"dificil": {
-		"C": {10: 28, 9: 18, 8: 16, 7: 14, 6: 10, 5: 8, 4: 6},
-		"X": {10: 12, 9: 13, 8: 15, 7: 16, 6: 15, 5: 12, 4: 9, 3: 8},
-		"Z": {10: 4, 9: 6, 8: 9, 7: 12, 6: 14, 5: 15, 4: 14, 3: 12, 2: 9, 1: 5},
-	},
+	"facil": {"C": {10: 60, 9: 14, 8: 10, 7: 8, 6: 5, 5: 3}},
+	"normal": {"C": {10: 42, 9: 18, 8: 14, 7: 11, 6: 8, 5: 5, 4: 2}},
+	"dificil": {"C": {10: 28, 9: 18, 8: 16, 7: 14, 6: 10, 5: 8, 4: 6}},
 }
 
-## Chance (%) da bola acertar em cheio o que sobrou (spare), conforme a
-## linha do sensor passa perto do grupo de pinos.
-const SPARE := {"facil": [72, 45, 20], "normal": [58, 32, 12], "dificil": [42, 22, 7]}
-
-## Sem para-choques: chance (%) de canaleta na 1ª bola, por posição.
-const CANALETA := {"C": 0, "X": 4, "Z": 12}
+## Sem para-choques: chance (%) de canaleta, por dificuldade e posição
+## (cantos e lados; no centro, nunca)
+const CANALETA := {"facil": {"Z": 10, "X": 0}, "normal": {"Z": 20, "X": 3}, "dificil": {"Z": 30, "X": 6}}
 
 var zona := "C"
 var origem_x := 0.0         # por onde a bola passa na linha de falta (z = 0,35)
@@ -85,24 +79,45 @@ static func planejar(z: String, em_pe: Array, primeira_bola: bool, dificuldade: 
 	var j = load("res://scripts/jogada.gd").new()
 	j.zona = z
 	var linha: float = LINHA.get(z, 0.0)
-	var grupo := "C" if z == "C" else ("X" if z in ["X", "V"] else "Z")
 	var dif: String = dificuldade if TABELA.has(dificuldade) else "facil"
 	var desejado := -1
 	var forcados := forcar()
 	if not forcados.empty():
 		desejado = Compat.iclamp(int(forcados.pop_front()), 0, em_pe.size())
 	if primeira_bola and em_pe.size() == 10:
-		if desejado < 0:
-			desejado = _sortear(TABELA[dif][grupo])
-			if not protecao and randi() % 100 < int(CANALETA[grupo]):
-				desejado = 0
-		if desejado == 0 and not protecao:
-			_canaleta(j, linha)
+		# resultado pedido (testes, vídeo de divulgação): a linha da tabela
+		if desejado >= 0:
+			if desejado == 0 and not protecao:
+				_canaleta(j, linha)
+				return j
+			if _da_tabela(j, z, desejado, protecao):
+				return j
+		elif z == "C":
+			if _da_tabela(j, z, _sortear(TABELA[dif]["C"]), protecao):
+				return j
+		else:
+			var lado := "Z" if z in ["Z", "B"] else "X"
+			if not protecao and randi() % 100 < int(CANALETA[dif][lado]):
+				_canaleta(j, linha)
+				return j
+			_na_linha(j, z, dif, protecao)
 			return j
-		if _da_tabela(j, z, desejado, protecao):
-			return j
-	_resto(j, linha, em_pe, dif, desejado, protecao)
+	_resto(j, z, em_pe, dif, desejado, protecao)
 	return j
+
+
+## A bola segue a linha da posição do sensor (espalhando um pouco).
+static func _na_linha(j, z: String, dif: String, protecao: bool) -> void:
+	var e: float = ESPALHA[dif]
+	j.origem_x = LINHA[z]
+	j.alvo_x = _limite(float(MIRA.get(z, 0.0)) + rand_range(-e, e), protecao)
+	j.velocidade = rand_range(7.4, 8.6)
+	j.efeito = 0.0
+	j.esperado = -1
+
+
+static func _limite(x: float, protecao: bool) -> float:
+	return clamp(x, -0.58 if protecao else -0.62, 0.58 if protecao else 0.62)
 
 
 static func _sortear(tabela: Dictionary) -> int:
@@ -247,25 +262,26 @@ static func _media(a: Array) -> float:
 const ALCANCE := 0.2
 
 
-## Mira no que sobrou: a faixa da bola que pega mais pinos (com o da
-## frente). Grupo largo demais (7-10, 4-6): ela pega o pedaço da frente e
-## o resto fica com os pinos que voam. Errou a mira? A bola passa raspando
-## ou de lado.
-static func _resto(j, linha: float, em_pe: Array, dif: String, desejado: int, protecao: bool) -> void:
+## As bolas seguintes também vão para onde a criança jogou. Uma ajudinha:
+## se tem pino em pé perto da linha (até AJUDA), a bola passa pelo MEIO da
+## faixa (2 x ALCANCE) que pega mais deles — senão ela segue a linha e
+## passa direto (pinos do outro lado ficam de pé: tem que mirar).
+const AJUDA := 0.15
+
+
+static func _resto(j, z: String, em_pe: Array, dif: String, desejado: int, protecao: bool) -> void:
+	var linha: float = LINHA.get(z, 0.0)
+	var na_mira: float = MIRA.get(z, 0.0)
 	j.origem_x = clamp(linha, -0.45, 0.45)
 	j.velocidade = rand_range(8.0, 8.8)
 	j.efeito = 0.0
 	if em_pe.empty():
-		j.alvo_x = 0.0
+		j.alvo_x = na_mira
 		return
 	# o pino "chave" (o mais da frente; empate: o mais central)
 	var chave: int = em_pe[0]
-	var xmin := 9.0
-	var xmax := -9.0
 	for n in em_pe:
 		var p := Pinos.posicao_do_pino(n)
-		xmin = min(xmin, p.x)
-		xmax = max(xmax, p.x)
 		var pc := Pinos.posicao_do_pino(chave)
 		if p.z > pc.z + 0.01 or (abs(p.z - pc.z) < 0.01 and abs(p.x) < abs(pc.x)):
 			chave = n
@@ -278,9 +294,11 @@ static func _resto(j, linha: float, em_pe: Array, dif: String, desejado: int, pr
 		var p := Pinos.posicao_do_pino(n)
 		var d := Medidas.Z_PINO1 - p.z
 		ax[n] = (p.x + j.origem_x * d / vai) / (1.0 + d / vai)
-	var mira: float = ax[chave]
+	# a faixa que pega mais pinos — só as que passam perto da linha (ou
+	# qualquer uma, quando o resultado foi pedido: testes)
+	var mira := na_mira
 	var nota_melhor := -1.0
-	var cabem := 1
+	var cabem := 0
 	var largura := 0.0
 	for a in em_pe:
 		var x0: float = ax[a]
@@ -295,34 +313,27 @@ static func _resto(j, linha: float, em_pe: Array, dif: String, desejado: int, pr
 				lo = min(lo, x)
 				hi = max(hi, x)
 				nota += 1.5 if n == chave else 1.0
+		var meio := (lo + hi) * 0.5
+		if desejado < 0 and abs(meio - na_mira) > AJUDA + (hi - lo) * 0.5:
+			continue
 		if nota > nota_melhor:
 			nota_melhor = nota
-			mira = (lo + hi) * 0.5
+			mira = meio
 			cabem = dentro
 			largura = hi - lo
 	# um pino só (ou um atrás do outro): em cheio, um pouquinho de cada lado
-	if largura < 0.02:
+	if cabem > 0 and largura < 0.02:
 		mira += rand_range(-0.03, 0.03)
-	var dist := 0.0
-	if linha < xmin:
-		dist = xmin - linha
-	elif linha > xmax:
-		dist = linha - xmax
-	var chances: Array = SPARE[dif]
-	var chance: int = chances[0] if dist < 0.12 else (chances[1] if dist < 0.32 else chances[2])
-	var acertou := randi() % 100 < chance
+	var e: float = ESPALHA[dif]
 	if desejado >= 0:
-		acertou = desejado >= em_pe.size()
-	if acertou:
-		j.alvo_x = mira + rand_range(-0.015, 0.015)
-		# (grupo largo demais: a bola mesmo só pega os da faixa)
-		j.esperado = cabem
-	else:
-		# erra para o lado de fora do grupo (raspando ou passando direto)
-		var fora := sign(mira) if mira != 0.0 else (1.0 if randf() < 0.5 else -1.0)
-		var erro := rand_range(0.1, 0.32)
-		if desejado == 0:
-			erro = 0.45
-		j.alvo_x = mira + fora * erro
-		j.esperado = -1
-	j.alvo_x = clamp(j.alvo_x, -0.58 if protecao else -0.62, 0.58 if protecao else 0.62)
+		if desejado >= em_pe.size():
+			j.alvo_x = _limite(mira + rand_range(-0.015, 0.015), protecao)
+			j.esperado = cabem
+		else:
+			# erra para o lado de fora do grupo (raspando ou passando direto)
+			var fora := sign(mira) if mira != 0.0 else (1.0 if randf() < 0.5 else -1.0)
+			j.alvo_x = _limite(mira + fora * (0.45 if desejado == 0 else rand_range(0.1, 0.32)), protecao)
+			j.esperado = -1
+		return
+	j.alvo_x = _limite(mira + rand_range(-e, e), protecao)
+	j.esperado = cabem if cabem > 0 else -1

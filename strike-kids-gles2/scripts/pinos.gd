@@ -61,8 +61,21 @@ static func formas_do_pino() -> Array:
 	return r
 
 
+## O PINO DE LONGE (modelos/pino_longe.res: 386 triângulos no lugar de 734,
+## as listras no lugar): com a câmera longe dos pinos — a vista da pista, de
+## onde a criança joga, a 12 m — eles ocupam poucos pixels e o contorno
+## desenha cada um duas vezes. Perto (vista dos pinos, replay) o completo.
+const PERTO := 8.0
+const LONGE := 9.0
+var _malha_perto: Mesh
+var _malha_longe: Mesh
+var _de_longe := false
+
+
 func montar() -> void:
 	var malha: Mesh = load("res://modelos/pino.res")
+	_malha_perto = malha
+	_malha_longe = load("res://modelos/pino_longe.res") if ResourceLoader.exists("res://modelos/pino_longe.res") else malha
 	var formas := formas_do_pino()
 	var rosto := Materiais.textura("rosto_pino")
 	var meta: Dictionary = malha.get_meta("rosto", {})
@@ -169,6 +182,7 @@ func _physics_process(_d: float) -> void:
 
 
 func _process(_d: float) -> void:
+	_escolher_malha()
 	var mm := _sombras.multimesh
 	if _ultimas.size() != pinos.size():
 		_ultimas.resize(pinos.size())
@@ -201,6 +215,21 @@ func _process(_d: float) -> void:
 			b = Basis(Vector3.UP, giro) * Basis().scaled(Vector3(max(f * (1.0 + deitado * 0.2), 0.001), 1.0, max(f * (1.0 + deitado * 1.6), 0.001)))
 		var centro = g + Vector3(eixo.x, 0, eixo.z) * 0.19 * deitado
 		mm.set_instance_transform(i, Transform(b, Vector3(centro.x, chao, centro.z)))
+
+
+## Perto ou longe: a distância da câmera até o meio do triângulo dos pinos
+## (com folga para não ficar trocando na divisa).
+func _escolher_malha() -> void:
+	var cam := get_viewport().get_camera()
+	if cam == null or pinos.empty():
+		return
+	var d := cam.global_transform.origin.distance_to(Vector3(0.0, 0.3, Medidas.Z_PINO1 - 0.5))
+	var longe := d > LONGE if not _de_longe else d > PERTO
+	if longe == _de_longe:
+		return
+	_de_longe = longe
+	for p in pinos:
+		(p as Pino).malha.mesh = _malha_longe if longe else _malha_perto
 
 
 func em_pe() -> Array:

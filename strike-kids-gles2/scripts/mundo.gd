@@ -250,7 +250,6 @@ func aplicar_tema(nome: String) -> void:
 	var bp: Array = c["bumper"]
 	mat_bumper.set_shader_param("cor_a", bp[0])
 	mat_bumper.set_shader_param("cor_b", bp[1])
-	mat_bumper.set_shader_param("cor_luz", c.get("neon", portal[0]))
 	var chao: Array = c["chao"]
 	var modo_chao := int(c["chao_modo"])
 	mat_terreno.set_shader_param("modo", modo_chao)
@@ -590,13 +589,12 @@ func _pista() -> void:
 			Materiais.cor_toon(Color("#FFFFFF"), 0.0, {"emissao": Color(0.35, 0.85, 1.0), "borda": 0.0}), false, false)
 		luzes.name = "luz_divisoria_%d" % s
 
-	# --- para-choques (bumpers) listrados de doce, com as luzes do neon do
-	# cenário correndo até os pinos (com eles ligados — o normal — é o que
-	# se vê das canaletas)
+	# --- para-choques (bumpers) listrados de doce: só as listras (os
+	# efeitos animados ficam POR BAIXO, na calha — canaleta.shader)
 	# cápsula simples + listras pelo shader (nítidas em 4K e levinhas)
 	var mb := _capsula_em_pe(0.07, 1.14, 10, 2)
 	var mat_b := ShaderMaterial.new()
-	mat_b.shader = load("res://shaders/para_choque.shader")
+	mat_b.shader = load("res://shaders/doce_listrado.shader")
 	# a luz do cenário por vértice, como nos toons (Materiais.definir_luz)
 	Materiais.registrar(mat_b)
 	mat_bumper = mat_b
@@ -1450,8 +1448,6 @@ func _process(delta: float) -> void:
 	mat_pista.set_shader_param("luz", _luz)
 	var fase := fposmod(_t * 2.2, 1.0)
 	mat_pista.set_shader_param("fase", fase)
-	mat_bumper.set_shader_param("fase", fase)
-	mat_bumper.set_shader_param("luz", _luz)
 	# o tempo das canaletas já numa volta (canaleta.shader)
 	for m in mats_canaleta:
 		m.set_shader_param("fase", fposmod(_t * 1.3, 1.0))

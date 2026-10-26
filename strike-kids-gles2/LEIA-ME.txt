@@ -79,6 +79,42 @@ O QUE MUDOU PARA RODAR NA OPENGL ES 2.0
     Godot 4 (nao substitui).
 
 
+VERSAO 6.5: A BOLA VAI PARA ONDE A CRIANCA JOGOU, E SEM TRAVAR
+--------------------------------------------------------------
+  * MIRA DE VERDADE (scripts/jogada.gd): a bola segue a posicao do sensor
+    ate os pinos - antes a mira era sempre o strike e o sensor so mudava a
+    chance (jogando no canto saia strike):
+      A = canto esquerdo: pega o 4, o 7 e o 8 (media 4 pinos, sem strike)
+      S = lado esquerdo: o 2, o 4, o 5, o 7, o 8... (media 7, sem strike)
+      D = CENTRO: o "bolso" do strike (metade das bolas e strike)
+      F e G = o mesmo do lado direito.
+    (tools/testes/calibrar.gd --validar=normal, 80 bolas por posicao, com
+    para-choques.) Sem para-choques, A e G podem ir para a canaleta (10%,
+    20% ou 30% conforme a dificuldade). A dificuldade espalha a bola em
+    volta da linha (3, 5 ou 8 cm). Nas bolas seguintes tambem: se tem pino
+    perto da linha a bola passa no meio do grupo; pino do outro lado fica
+    em pe - tem que mirar.
+  * PARA-CHOQUES SO LISTRADOS: as luzes que corriam neles sairam. Os
+    efeitos ficam POR BAIXO, na calha: luzinhas correndo ate os pinos
+    (parque, espaco e selva), agua com reflexos e bolhinhas (mar), rebites
+    (espaco), fibras do bambu (selva). A conta da cor da calha saiu do
+    pixel para o vertice (o pixel so mistura e soma os efeitos).
+  * SEM TRAVAR (o que a placa de video da Mali-450 desenha a cada quadro):
+      - PINOS DE LONGE: com a camera longe dos pinos (a vista da pista, de
+        onde a crianca joga) eles usam uma versao de 386 triangulos com as
+        listras no lugar (modelos/pino_longe.res) - perto, a completa;
+      - CENARIO DE LONGE: as pecas que ficam pequenas na tela usam
+        <nome>_longe.res (a mesma textura, menos triangulos; feitas pelo
+        tools/modelos_texturizados.py);
+      - SHADER DO CENARIO: a luz que e igual no material inteiro (sol,
+        sombra, borda clara, partes acesas, cor da neblina) e calculada
+        UMA vez na CPU a cada cenario (Temas.luz); no vertice sobrou uma
+        curva de cor (na 6.3 eram 5) e os varyings voltaram ao tamanho da
+        6.3.
+    Vista da pista, indices por quadro (6.3 -> 6.5): selva 258 -> 257
+    mil, parque 249 -> 252 mil, espaco 230 -> 216 mil, mar 254 -> 234 mil
+    - e com o vertice do cenario bem mais barato que o da 6.3.
+
 VERSAO 6.4: JOGADA SO NA HORA CERTA E CENARIO DE DESENHO ANIMADO
 -----------------------------------------------------------------
   * TRAVA DA JOGADA: sensores, teclas, placa e toque na tela so valem
