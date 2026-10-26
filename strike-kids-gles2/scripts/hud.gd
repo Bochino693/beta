@@ -743,21 +743,28 @@ func _montar_replay() -> void:
 
 ## Faixas pretas de cinema (abertura), sem o selo de replay.
 func tarjas(ligado: bool) -> void:
+	_mover_tarjas(rect_size.y * (0.09 if retrato else 0.1) if ligado else 0.0, 0.4)
+
+
+var _tw_tarjas: SceneTreeTween
+
+
+## As faixas vão até a altura `h`. Um movimento novo PARA o anterior: o
+## START no comecinho da abertura (faixas ainda descendo) fechava as faixas
+## e a descida, mais longa, terminava depois — elas ficavam na tela.
+func _mover_tarjas(h: float, dur: float) -> void:
+	if _tw_tarjas and _tw_tarjas.is_valid():
+		_tw_tarjas.kill()
 	var T := rect_size
-	var h := T.y * (0.09 if retrato else 0.1) if ligado else 0.0
-	var tw := create_tween().set_parallel(true)
-	tw.tween_property(_tarja_cima, "rect_size:y", h, 0.4).set_trans(Tween.TRANS_QUAD)
-	tw.tween_property(_tarja_baixo, "rect_size:y", h, 0.4).set_trans(Tween.TRANS_QUAD)
-	tw.tween_property(_tarja_baixo, "rect_position:y", T.y - h, 0.4).set_trans(Tween.TRANS_QUAD)
+	_tw_tarjas = create_tween().set_parallel(true)
+	_tw_tarjas.tween_property(_tarja_cima, "rect_size:y", h, dur).set_trans(Tween.TRANS_QUAD)
+	_tw_tarjas.tween_property(_tarja_baixo, "rect_size:y", h, dur).set_trans(Tween.TRANS_QUAD)
+	_tw_tarjas.tween_property(_tarja_baixo, "rect_position:y", T.y - h, dur).set_trans(Tween.TRANS_QUAD)
 
 
 func modo_replay(ligado: bool) -> void:
 	var T := rect_size
-	var h := T.y * (0.1 if retrato else 0.12) if ligado else 0.0
-	var tw := create_tween().set_parallel(true)
-	tw.tween_property(_tarja_cima, "rect_size:y", h, 0.35).set_trans(Tween.TRANS_QUAD)
-	tw.tween_property(_tarja_baixo, "rect_size:y", h, 0.35).set_trans(Tween.TRANS_QUAD)
-	tw.tween_property(_tarja_baixo, "rect_position:y", T.y - h, 0.35).set_trans(Tween.TRANS_QUAD)
+	_mover_tarjas(T.y * (0.1 if retrato else 0.12) if ligado else 0.0, 0.35)
 	_replay.visible = ligado
 	_replay_ponto.visible = ligado
 	# na demonstração (tela inicial) o logo grande sai da frente do selo REPLAY
