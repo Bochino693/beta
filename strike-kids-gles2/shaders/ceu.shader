@@ -20,10 +20,20 @@ uniform float estrelas = 0.0;
 uniform vec4 cor_nebulosa : hint_color = vec4(0.9, 0.4, 1.0, 1.0);
 uniform float raios = 0.0;
 uniform sampler2D mapa_estrelas : hint_black;
+// FUNDO PINTADO (6.9, tools/assar_fundos.py): a paisagem distante de cada
+// fase numa faixa em volta da frente da pista (montanhas e vulcão, castelo
+// e circo, nebulosas e planetas, algas e recifes), já com a cor da tela.
+// Uma leitura de textura por pixel do céu, nenhum vértice a mais. A
+// coordenada sai do vértice (ângulos da direção) e vai direto para a
+// leitura (precisa na Mali-400); nas bordas a faixa se mistura ao céu.
+uniform sampler2D faixa : hint_black;
+uniform float faixa_liga = 0.0;
+uniform vec3 faixa_area = vec3(75.0, 40.0, -6.0);   // graus: arco para cada lado, alto, baixo
 
 varying vec3 dir;
 varying float nebulosa;
 varying float raio_luz;
+varying vec2 uv_faixa;
 
 
 // COR VIVA: realça mais as cores menos saturadas (céu, madeira, chão) e
@@ -33,8 +43,8 @@ varying float raio_luz;
 vec3 viva(vec3 c) {
 	float lum = dot(c, vec3(0.299, 0.587, 0.114));
 	float sat = max(c.r, max(c.g, c.b)) - min(c.r, min(c.g, c.b));
-	c = mix(vec3(lum), c, 1.08 + 0.32 * (1.0 - sat));
-	return clamp(c * 1.07 - 0.035, 0.0, 1.0);
+	c = mix(vec3(lum), c, 1.14 + 0.34 * (1.0 - sat));
+	return clamp(c * 1.08 - 0.045, 0.0, 1.0);
 }
 
 // a cor CRUA, como o shader do Godot 4 a entregava, até a tela: lá ela
@@ -49,6 +59,9 @@ vec3 tela_g4(vec3 x) {
 void vertex() {
 	vec3 d = normalize(VERTEX);
 	dir = d;
+	float az = degrees(atan(d.x, -d.z));
+	float el = degrees(asin(clamp(d.y, -1.0, 1.0)));
+	uv_faixa = vec2(az / (2.0 * faixa_area.x) + 0.5, (faixa_area.y - el) / (faixa_area.y - faixa_area.z));
 	// só a rotação da câmera: o céu fica no infinito, atrás de tudo
 	vec3 v = (INV_CAMERA_MATRIX * vec4(d, 0.0)).xyz;
 	POSITION = PROJECTION_MATRIX * vec4(v, 1.0);
@@ -92,5 +105,13 @@ void fragment() {
 	float s4 = s2 * s2;
 	float s8 = s4 * s4;
 	c += cor_sol.rgb * (s8 * s4 * 0.25) * forca_sol;
-	ALBEDO = tela_g4(c);
+	vec3 cor = tela_g4(c);
+	if (faixa_liga > 0.5 && dir.z < 0.0) {
+		vec2 u = uv_faixa;
+		float k = clamp(min(u.x, 1.0 - u.x) * 10.0, 0.0, 1.0) * clamp(u.y * 7.0, 0.0, 1.0) * step(u.y, 1.0);
+		if (k > 0.0) {
+			cor = mix(cor, texture(faixa, uv_faixa).rgb, k);
+		}
+	}
+	ALBEDO = cor;
 }

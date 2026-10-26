@@ -1486,6 +1486,9 @@ func _orcamento_bichos() -> void:
 
 
 func _process(delta: float) -> void:
+	# sons de ambiente das fases (Temas): na espera da jogada, na abertura e
+	# nas telas — não durante a bola, o resultado, o replay e as fotos
+	mundo.temas.som_ambiente = estado in [E.PRONTO, E.ATRACAO, E.DEMO, E.JOGADORES, E.PERSONAGEM, E.FIM] and _menu == null
 	_medir_jogada()
 	_orcamento_bichos()
 	_medir_fps(delta)

@@ -79,6 +79,65 @@ O QUE MUDOU PARA RODAR NA OPENGL ES 2.0
     Godot 4 (nao substitui).
 
 
+VERSAO 6.9: CENARIO RICO E VIVO, CORES DEFINIDAS E SONS DE AMBIENTE
+--------------------------------------------------------------------
+O EQUILIBRIO: na vista de quem joga (a pista de frente, a maior parte do
+tempo) o quadro desenhava so 150-180 mil indices - sobrava espaco; quem
+estava no limite eram as vistas largas (abertura, escolha, fim). A 6.9 poe
+a riqueza onde ela aparece e quase nao custa:
+  * CORES VIVAS, NAO CLARAS, BEM DEFINIDAS (sem conta a mais na placa):
+      - o lado do sol multiplicava as cores por ~1,4 e estourava para o
+        pastel: o sol do cenario ficou mais fraco (0,86-0,92) e a sombra
+        mais colorida (ambiente maior) - as cores ficam saturadas;
+      - a curva de cor de todos os shaders (viva) com mais saturacao e um
+        pouco mais de contraste;
+      - neblina 25% menor (o fundo nao some no branco/verde-agua);
+      - a borda clara dos objetos pela metade (contorno mais definido);
+      - pista de madeira cor de mel mais rica (tools/assar_pista.py) e o
+        piso dos jogadores mais quente; areia do mar dourada.
+  * FUNDOS PINTADOS (tools/assar_fundos.py, texturas/fundo_<fase>.png): a
+    paisagem distante numa faixa panoramica que o ceu desenha atras de tudo
+    - montanhas, mata e o vulcao fumegando na selva; colinas, castelo de
+    conto de fadas, circo, montanha-russa e baloes no parque; nebulosas,
+    galaxia, planeta com anel e o chao da lua no espaco; raios de luz,
+    floresta de algas, cardumes, bolhas e recife colorido no mar. Custa uma
+    leitura de textura por pixel do ceu e NENHUM vertice (os mesmos 48 x 24
+    da esfera). ETC1, 4096 x 1024 (2,7 MB cada com os mipmaps).
+  * VULCAO A VISTA: estava bem atras do gabinete (como o navio); agora fica
+    a esquerda do gabinete, inteiro, com a lava que brilha e a fumaca.
+  * MODELOS REFEITOS (tools/cenario_sdf/temas.py + tools/modelos_texturizados.py):
+      - PEIXES: tres especies com as cores proprias (palhaco laranja com
+        faixas brancas, azul com rabo amarelo, amarelo com carinha branca),
+        corpo achatado, rabo de dois lobos e nadadeiras - eram bolotas
+        brancas tingidas. 4 cardumes de 4 (eram 5 de 5);
+      - TARTARUGA: casco com borda clara e nadadeiras maiores; uma passa
+        mais perto e mais baixo, a vista;
+      - AGUA-VIVA: mais lisa, com bracos em fita;
+      - CORAIS e CARROSSEL: mais forma (menos facetados);
+      - VULCAO: mais forma e a LAVA ACESA (brilha no escuro da sombra).
+    O atlas continua 4096 x 4096 (os peixes, pequenos na tela, com 256).
+  * SONS DE AMBIENTE (tools/sons_ambiente.py, sons/amb_*.wav), fofos e
+    SINCRONIZADOS com o que aparece: a baleia canta e bate o rabo; o
+    pterodactilo faz "kii-kii!" quando passa; o dino levanta a cabeca e faz
+    "rawr~"; o vulcao ronca, treme e solta mais fumaca; passarinhos na
+    selva; a caixinha de musica do carrossel (ele acelera junto); o disco
+    voador faz "uuu-uuu" e balanca; as estrelas fazem um brilhinho e dao
+    uma pirueta; bolhas e o "blub" dos peixinhos. ORGANIZADOS: um de cada
+    vez, com folga entre eles, mais baixos que os sons da jogada, so com o
+    bicho na tela e saindo do lado em que ele esta; tocam na espera da
+    jogada, na abertura e nas telas - nunca durante a bola, o resultado e o
+    replay. "Detalhes extras" desligado tira os fundos pintados e os sons
+    de ambiente (para comparar na TX9).
+  * CUSTO (tools/testes/orcamento.gd, indices por quadro, 6.8 -> 6.9):
+      vista de jogar (tools/testes/vistas_jogo.gd, sem os bichinhos, que
+      ficam fora do quadro): dinos 168 -> 176 mil, parque 182 -> 184 mil,
+      espaco 151 mil (igual), mar 164 -> 177 mil;
+      vistas largas (com os bichinhos): dinos fim 256 -> 262 mil, parque
+      fim 277 -> 280 mil, espaco igual, mar fim 259 -> 270 mil (+4%).
+  * Testes: roteiro de 2 jogadores com desempate (ROTEIRO OK, trava OK,
+    sons de ambiente tocados em todas as fases) e START LIVRE OK.
+
+
 VERSAO 6.8: BICHINHOS COM 3 NIVEIS DE DETALHE, SOL E LUA 3D, DESEMPATE
 ----------------------------------------------------------------------
 A ESTRATEGIA (o limite da Mali-450): o que pesa sao os vertices de cada

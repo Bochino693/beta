@@ -44,8 +44,8 @@ varying vec3 olhar;
 vec3 viva(vec3 c) {
 	float lum = dot(c, vec3(0.299, 0.587, 0.114));
 	float sat = max(c.r, max(c.g, c.b)) - min(c.r, min(c.g, c.b));
-	c = mix(vec3(lum), c, 1.08 + 0.32 * (1.0 - sat));
-	return clamp(c * 1.07 - 0.035, 0.0, 1.0);
+	c = mix(vec3(lum), c, 1.14 + 0.34 * (1.0 - sat));
+	return clamp(c * 1.08 - 0.045, 0.0, 1.0);
 }
 
 // a mesma curva de tela do Godot 4 ("filmic", branco 1,6, + sRGB),
