@@ -144,10 +144,11 @@ func construir() -> void:
 	_montar_podios()
 	temas = Temas.new()
 	add_child(temas)
+	temas.cenario_leve = Ajustes.cenario3d_leve()
 	temas.construir(self)
 	# o pterossauro do símbolo da selva: o mesmo material dos do cenário
 	# (com a textura deles; o símbolo é montado antes do cenário)
-	_ptero_simbolo.material_override = temas._mat_modelo("ptero", 0.003, Color.white)
+	_ptero_simbolo.material_override = temas.mat_asas("dinos")
 	# peças paradas com o mesmo material viram uma malha só (menos desenhos)
 	# (o céu e o astro ficam de fora: são desenhados no infinito)
 	var fora: Array = [temas, ceu, _astro]
@@ -1492,30 +1493,60 @@ func _bolha_marca() -> Spatial:
 	return b
 
 
-## Selva dos Dinos: um pterossauro batendo asas, segurando a plaquinha de
-## madeira com a logo.
+## Selva dos Dinos: um pterossauro BATENDO AS ASAS para se manter no ar
+## (7.0: as asas giram no ombro — toon_leve_tex_asas — e o corpo sobe a cada
+## batida), segurando pelas patas a plaquinha de madeira com a logo: as duas
+## cordinhas saem dos cantos de cima da placa (argolinhas douradas) e
+## terminam exatamente nas patas dele. Ele, as cordas e a placa formam uma
+## peça só ("voo"), que sobe e desce junta no ritmo das asas.
+const PTERO_MARCA_POS := Vector3(0, 0.66, 0.02)
+const PTERO_MARCA_ESC := 0.62
+const PTERO_PE := Vector3(0.06, -0.135, -0.215)    # a pata no modelo (tools/cenario_sdf/temas.py)
+const ASAS_MARCA := 6.2                            # batidas (rad/s)
+
+
 func _ptero_marca() -> Spatial:
 	var b := _novo_simbolo("ptero_marca", 1.0)
+	var voo := Spatial.new()
+	voo.name = "voo"
+	b.add_child(voo)
 	var moldura := CubeMesh.new()
 	moldura.size = Vector3(0.74, 0.52, 0.05)
-	_peca_simbolo(b, moldura, Materiais.cor_toon(Color("#7A4A22"), 0.003, {"borda": 0.25}), Vector3(0, 0, -0.012))
+	_peca_simbolo(voo, moldura, Materiais.cor_toon(Color("#7A4A22"), 0.003, {"borda": 0.25}), Vector3(0, 0, -0.012))
 	var placa := CubeMesh.new()
 	placa.size = Vector3(0.68, 0.46, 0.05)
-	_peca_simbolo(b, placa, _mat_logo(Color("#FFE9C2"), 0.62, Vector2.ZERO, 1.0, {"borda": 0.2, "especular": 0.0}))
-	# cordinhas até os pés do pterossauro
+	_peca_simbolo(voo, placa, _mat_logo(Color("#FFE9C2"), 0.62, Vector2.ZERO, 1.0, {"borda": 0.2, "especular": 0.0}))
+	# as cordinhas: do canto de cima da placa até a pata
 	var mc := Materiais.cor_toon(Color("#5A3A1A"), 0.0, {"borda": 0.0, "luz_minima": 0.5})
+	var ouro := Materiais.cor_toon(Color("#FFC93B"), 0.0, {"borda": 0.3, "luz_minima": 0.5})
 	for lado in [-1.0, 1.0]:
-		var c := CylinderMesh.new()
-		c.top_radius = 0.006
-		c.bottom_radius = 0.006
-		c.height = 0.36
-		c.radial_segments = 5
-		var mi := _peca_simbolo(b, c, mc, Vector3(lado * 0.17, 0.4, 0.0))
-		mi.rotation.z = lado * 0.45
-	_ptero_simbolo = _peca_simbolo(b, load("res://modelos/cenario/ptero.res"), null, Vector3(0, 0.66, 0.02))
-	_ptero_simbolo.scale = Vector3.ONE * 0.62
+		var canto := Vector3(lado * 0.3, 0.258, -0.012)
+		var pe := PTERO_MARCA_POS + Vector3(lado * PTERO_PE.x, PTERO_PE.y, PTERO_PE.z) * PTERO_MARCA_ESC
+		_corda(voo, canto, pe, 0.0065, mc)
+		var argola := SphereMesh.new()
+		argola.radius = 0.016
+		argola.height = 0.032
+		argola.radial_segments = 8
+		argola.rings = 4
+		_peca_simbolo(voo, argola, ouro, canto)
+	_ptero_simbolo = _peca_simbolo(voo, load("res://modelos/cenario/ptero.res"), null, PTERO_MARCA_POS)
+	_ptero_simbolo.scale = Vector3.ONE * PTERO_MARCA_ESC
 	_ptero_simbolo.name = "ptero"
 	return b
+
+
+## Uma cordinha (cilindro fino) de `a` até `b`.
+func _corda(pai: Spatial, a: Vector3, b: Vector3, raio: float, mat: Material) -> void:
+	var c := CylinderMesh.new()
+	c.top_radius = raio
+	c.bottom_radius = raio
+	c.height = a.distance_to(b)
+	c.radial_segments = 5
+	c.rings = 1
+	var y := (b - a).normalized()
+	var x := y.cross(Vector3.FORWARD if abs(y.z) < 0.9 else Vector3.RIGHT).normalized()
+	var mi := _peca_simbolo(pai, c, mat, (a + b) * 0.5)
+	mi.transform.basis = Basis(x, y, x.cross(y))
 
 
 func _mostrar_marca(nome: String) -> void:
@@ -1796,10 +1827,15 @@ func _mexer_marca() -> void:
 				bi.visible = f < 0.92
 		"dinos":
 			balao.rotation = Vector3(sin(_t * 0.7) * 0.05, sin(_t * 0.4) * 0.22, sin(_t * 0.9) * 0.06)
-			var pt := balao.get_node("ptero") as Spatial
-			# bate asas: o corpo sobe e desce um tiquinho, inclinando
-			pt.translation.y = 0.66 + sin(_t * 5.0) * 0.025
-			pt.rotation.x = sin(_t * 5.0) * 0.08
+			# bate as asas (o shader) e, a cada batida para baixo, o bicho
+			# sobe um pouquinho levando a placa junto, e balança de leve
+			var batida := fposmod(_t * ASAS_MARCA, TAU)
+			var ma := _ptero_simbolo.material_override as ShaderMaterial
+			if ma:
+				ma.set_shader_param("asa_tempo", batida)
+			var voo := balao.get_node("voo") as Spatial
+			voo.translation.y = -cos(batida) * 0.028
+			voo.rotation.x = sin(batida) * 0.035
 		_:
 			balao.rotation = Vector3(sin(_t * 0.5) * 0.05, sin(_t * 0.45) * 0.3, sin(_t * 0.6) * 0.08)
 

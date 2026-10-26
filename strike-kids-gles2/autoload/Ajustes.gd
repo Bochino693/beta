@@ -67,6 +67,10 @@ const PADRAO := {
 		# da pista que se mexem, borboletas e os pinos mais redondos de perto.
 		# Desligado = o cenário e os pinos da 6.6 (para comparar na TV Box)
 		"detalhes": true,
+		# CENÁRIO 3D (7.0): "auto" (o caprichado; o governador do quadro passa
+		# para o leve se a TV Box não segurar), "alto" ou "leve" fixos
+		"cenario3d": "auto",
+		"cenario3d_medido": "",    # o que o automático viu ("leve" = não segurou o alto)
 		"qualidade_auto": "",      # o que o TESTE DE DESEMPENHO recomendou
 		"testar": false,           # pedido do menu: rodar o teste ao voltar
 	},
@@ -152,6 +156,8 @@ func definir(secao: String, chave: String, v) -> void:
 	elif secao == "video" and chave == "desenho":
 		# o operador escolheu: o que o automático tinha visto recomeça
 		_cfg.set_value("video", "desenho_medido", "")
+	elif secao == "video" and chave == "cenario3d":
+		_cfg.set_value("video", "cenario3d_medido", "")
 	_salvar()
 	emit_signal("mudaram")
 
@@ -198,6 +204,20 @@ func detalhes() -> bool:
 	if OS.has_environment("STRIKE_DETALHES"):
 		return OS.get_environment("STRIKE_DETALHES") != "0"
 	return bool(valor("video", "detalhes"))
+
+
+## O cenário 3D no nível LEVE (7.0: um passo mais leve em cada peça)?
+## Detalhes extras desligados também (para comparar na TV Box);
+## STRIKE_CENARIO3D=alto|leve vale nos testes.
+func cenario3d_leve() -> bool:
+	if OS.has_environment("STRIKE_CENARIO3D"):
+		return OS.get_environment("STRIKE_CENARIO3D") == "leve"
+	if not detalhes():
+		return true
+	var c := str(valor("video", "cenario3d"))
+	if c == "auto":
+		return str(valor("video", "cenario3d_medido")) == "leve"
+	return c == "leve"
 
 
 func cenario_leve() -> bool:

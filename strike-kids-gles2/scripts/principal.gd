@@ -2309,6 +2309,9 @@ func fechar_menu() -> void:
 		_qualidade_viewport()
 	_ler_nitidez()
 	_tela_mudou(Tela.tamanho())
+	# o nível do cenário 3D (7.0) troca na hora
+	if Ajustes.cenario3d_leve() != mundo.temas.cenario_leve:
+		mundo.temas.nivel_cenario(Ajustes.cenario3d_leve())
 	if bool(Ajustes.valor("video", "medidor")) != _medidor_antes:
 		medidor.mostrar(bool(Ajustes.valor("video", "medidor")))
 	if _resultado_teste != null:
@@ -2583,7 +2586,13 @@ func _medir_fps(_delta: float) -> void:
 			return
 		_fps_ruins = 0
 		var auto := str(Ajustes.valor("video", "qualidade")) == "auto"
-		if auto and _qualidade == "alta":
+		if str(Ajustes.valor("video", "cenario3d")) == "auto" and not mundo.temas.cenario_leve:
+			# 0) o CENÁRIO 3D mais leve (7.0): um passo mais leve em cada peça
+			# do cenário — trocar é só mostrar um lote e esconder outro
+			mundo.temas.nivel_cenario(true)
+			Ajustes.definir("video", "cenario3d_medido", "leve")
+			print("Cenário 3D automático: leve (%d quadros/s, %d%% atrasados)" % [int(fps), int(atrasados * 100.0)])
+		elif auto and _qualidade == "alta":
 			_qualidade_pendente = "media"
 			print("Qualidade automática: média (%d quadros/s, %d%% atrasados, placa %.1f ms) no próximo clarão" % [int(fps), int(atrasados * 100.0), placa])
 		elif not _direto and _fator > FATOR_MIN + 0.01:

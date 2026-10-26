@@ -40,6 +40,7 @@ const ITENS := [
 	["Qualidade gráfica", "video", "qualidade", "lista", ["auto", "alta", "media", "baixa"]],
 	["Cenário (fundo)", "video", "cenario", "lista", ["leve", "completo"]],
 	["Detalhes extras (vento, enfeites, borboletas)", "video", "detalhes", "bool", []],
+	["Cenário 3D (auto = alivia sozinho)", "video", "cenario3d", "lista", ["auto", "alto", "leve"]],
 	["Resolução da imagem (TV Box)", "video", "resolucao", "lista", ["auto", "720p", "900p", "1080p", "tela"]],
 	["Quadros por segundo", "video", "qps", "lista", ["auto", "60", "30"]],
 	["Desenho da tela", "video", "desenho", "lista", ["auto", "direto", "imagem"]],

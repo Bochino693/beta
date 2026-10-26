@@ -79,6 +79,110 @@ O QUE MUDOU PARA RODAR NA OPENGL ES 2.0
     Godot 4 (nao substitui).
 
 
+VERSAO 7.0: TUDO 3D, LISO E CAPRICHADO - SEM NADA SE ATRAVESSANDO
+-----------------------------------------------------------------
+O QUE ESTAVA FEIO E POR QUE: as fontes dos modelos (tools/cenario_sdf)
+sao lisas e bonitas; o que estragava era a REIMPORTACAO para o jogo - o
+simplificador antigo (meshoptimizer) so podia escolher entre os pontos
+que ja existiam e, com poucos triangulos, as folhas, as curvas e os
+rostos saiam AMASSADOS, com "rugas" na textura. E as pecas eram postas
+no cenario com espacamento fixo, sem saber o tamanho de cada uma: o dino
+dentro do vulcao, a palmeira atravessando a cabeca dele, pe no ar no
+morro.
+  * REIMPORTACAO DE QUALIDADE (tools/modelos_texturizados.py):
+      - o simplificador do MeshLab (pymeshlab, "quadric edge collapse" com
+        POSICAO OTIMA): cada ponto que sobra vai para onde a forma da fonte
+        pede, os triangulos saem bem formados e as normais sao as da
+        fonte (lisas) - nada de rugas nem amassados;
+      - ~2,5 vezes mais triangulos nos objetos de perto (dino 1.400 ->
+        3.500, carrossel 2.200 -> 5.200, arvores 300 -> 900, balao 240 ->
+        700...), tabela ALVO;
+      - TRES VERSOES de cada objeto, com o mesmo desenho: de PERTO (a
+        caprichada), do MEIO (~45%, como a 6.9) e de LONGE (~18%) - o jogo
+        escolhe pelo tamanho na tela (scripts/temas.gd: PERTO, LONGE);
+      - UM ATLAS POR FASE (texturas/cenario/atlas_<fase>.png, 4096 x 4096,
+        o maior que a Mali-450 aceita): cada fase com a imagem inteira para
+        os objetos dela - os principais com 2048, a maioria com 1024 (eram
+        1024 e 512 dividindo UMA imagem com as quatro fases).
+  * NADA SE ATRAVESSANDO, TUDO NO CHAO (scripts/temas.gd):
+      - cada peca marca o lugar dela (um circulo do tamanho da PEGADA,
+        pela caixa do modelo e a escala) e nenhuma outra nasce dentro; as
+        compridas (navio, arco-iris, roda-gigante) marcam uma fileira;
+      - primeiro as grandes (vulcao, navio, dinos, carrossel, castelo),
+        depois os destaques perto da pista e por ultimo as espalhadas;
+      - ASSENTADAS: cada peca inclina um pouco com o morro (no maximo 9
+        graus; as altas e finas - arvores, palmeiras, pirulitos - quase
+        nada) e desce ate a parte mais baixa encostar no chao: nenhum pe
+        no ar;
+      - o dino pescocudo saiu de perto da palmeira e o outro de dentro do
+        vulcao; o vulcao foi um pouco para tras;
+      - o NAVIO PIRATA (comprido) estava na rampa entre a pista e o morro
+        (2,7 m de desnivel de uma ponta a outra): posto com a quilha no
+        chao, sumia enterrado. Foi para o ALTO DO MORRO da esquerda, de
+        perfil, de proa um pouquinho para baixo: a quilha encosta inteira
+        na areia e ele aparece inteiro nas vistas largas.
+  * MODELOS REFEITOS: agua-viva (sino liso com babado, bracos em fita e
+    tentaculos finos com cachinho), samambaia (folhas lisas com os
+    foliolos pintados e brotos enrolados), cristais que BRILHAM (a luz
+    propria deles pulsa; nao flutuam mais nem entram no chao).
+  * O CASTELO E O SATURNO VIRARAM 3D: eram pinturas no fundo; agora sao
+    modelos como os outros (o castelo no alto do morro do parque, o
+    Saturno no ceu do espaco). Os FUNDOS PINTADOS ficaram so com a
+    paisagem (ceu, nuvens, morros, a mata, as nebulosas e estrelas, os
+    raios de luz e o recife na nevoa) - nenhum objeto pintado.
+  * MAIS DECORACAO (modelos novos): filhote de TRICERATOPS (selva, com
+    rugido fininho), ARBUSTOS floridos (parque e selva), CANTEIROS DE
+    FLORES e POSTES DE LUZ com a lampada acesa (parque, dos dois lados
+    da pista), ANEMONAS (mar) e um SATELITE fofinho dando a volta no ceu
+    (espaco); mais pecas espalhadas em cada fase.
+  * BAU DO TESOURO: comeca FECHADO e e uma das "vozes" do cenario - na
+    vez dele a tampa abre com um pulinho (0,9 s), o brilho toca e sobem
+    faiscas douradas; mostra o tesouro 5,5 s, fecha e depois abre de novo.
+    Sem as cunhas pretas na madeira (a luz por ponto escurecia o
+    triangulo inteiro quando um canto dele ficava na borda arredondada):
+    as faces lisas e as bordas com VINCO (tools/modelos_texturizados.py,
+    VINCO), e a tinta quente que deixa o ouro dourado debaixo d'agua (a
+    luz do mar o deixava verde-limao).
+  * PTERODACTILOS BATENDO AS ASAS (shaders/toon_leve_tex_asas.shader): as
+    asas giram no ombro e o corpo sobe a cada batida; os que voam
+    planam de vez em quando. O da placa da Lazer & Sport segura as duas
+    cordinhas pelas PATAS (as cordas saem das argolinhas douradas dos
+    cantos da placa e terminam nos pes dele), e sobe e desce com a placa
+    no ritmo das asas.
+  * O GOVERNADOR DO QUADRO: cada peca parada do cenario tem a versao
+    ALTA e a LEVE (um passo mais leve), cada uma no seu lote; trocar e so
+    mostrar uma e esconder a outra. Se a TV Box nao segurar os quadros,
+    o PRIMEIRO alivio e o cenario LEVE (antes de diminuir a imagem ou
+    travar em 30) - e fica guardado. Menu do operador: "Cenario 3D" =
+    auto (o padrao), alto ou leve; "Detalhes extras" desligado tambem
+    deixa o cenario leve.
+  * O NIVEL DE CADA PECA pelo tamanho na tela agora conta a ALTURA (a
+    nuvem, o pterodactilo e o planeta la no alto, bem em cima da pista,
+    ficam com a versao do meio ou de longe), os pterodactilos pelo centro
+    do voo e as 8 cabines da roda-gigante pela distancia da roda (elas
+    ganharam versoes de meio e de longe).
+  * CUSTO (tools/testes/vistas_jogo.gd, indices por quadro, sem os
+    bichinhos; 6.9 -> 7.0 com o cenario ALTO / LEVE):
+      vista de jogar: selva 176 -> 233 / 190 mil, parque 184 -> 248 / 201
+      mil, espaco 151 -> 192 / 165 mil, mar 177 -> 229 / 190 mil;
+      vista larga (espera, escolha, fim): selva 242 / 197, parque
+      274 / 215, espaco 206 / 176, mar 255 / 208 mil.
+    A pista, a maquina, os pinos e o ceu sao uns 125-130 mil; o resto e o
+    cenario. O ALTO fica dentro do que a TX9 ja desenhou lisa (250-258 mil
+    na vista da pista, 6.8); o LEVE custa o mesmo que a 6.9, com os
+    modelos novos. As texturas: 4 atlas de 4096 x 4096 em ETC1 (11 MB
+    cada com os mipmaps; os 4 ficam na memoria: ~45 MB, eram 11 MB - cabe
+    folgado numa TV Box de 1 GB).
+    PARA CONFERIR NA TX9: Menu do operador > "Cenario 3D" = alto, rodar o
+    TESTE DE DESEMPENHO; depois "leve" e rodar de novo. No "auto" (o
+    padrao) o jogo escolhe sozinho e guarda.
+  * Testes: roteiro de 2 jogadores com desempate (ROTEIRO OK, TRAVA OK
+    nas 9 bolas, sons de ambiente tocados em todas as fases), START LIVRE
+    OK, as vistas das 4 fases com o cenario alto e o leve, o bau abrindo,
+    mostrando e fechando no tempo certo e as asas e as cordinhas da placa
+    conferidas quadro a quadro - nenhum erro de script.
+
+
 VERSAO 6.9: CENARIO RICO E VIVO, CORES DEFINIDAS E SONS DE AMBIENTE
 --------------------------------------------------------------------
 O EQUILIBRIO: na vista de quem joga (a pista de frente, a maior parte do

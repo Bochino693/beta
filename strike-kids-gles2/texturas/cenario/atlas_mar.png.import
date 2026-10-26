@@ -2,8 +2,8 @@
 
 importer="texture"
 type="StreamTexture"
-path.s3tc="res://.import/atlas.png-3d0947f2faedca47860bece6524ed84e.s3tc.stex"
-path.etc="res://.import/atlas.png-3d0947f2faedca47860bece6524ed84e.etc.stex"
+path.s3tc="res://.import/atlas_mar.png-945989fbbf4e88be1033a97d22f6356b.s3tc.stex"
+path.etc="res://.import/atlas_mar.png-945989fbbf4e88be1033a97d22f6356b.etc.stex"
 metadata={
 "imported_formats": [ "s3tc", "etc" ],
 "vram_texture": true
@@ -11,8 +11,8 @@ metadata={
 
 [deps]
 
-source_file="res://texturas/cenario/atlas.png"
-dest_files=[ "res://.import/atlas.png-3d0947f2faedca47860bece6524ed84e.s3tc.stex", "res://.import/atlas.png-3d0947f2faedca47860bece6524ed84e.etc.stex" ]
+source_file="res://texturas/cenario/atlas_mar.png"
+dest_files=[ "res://.import/atlas_mar.png-945989fbbf4e88be1033a97d22f6356b.s3tc.stex", "res://.import/atlas_mar.png-945989fbbf4e88be1033a97d22f6356b.etc.stex" ]
 
 [params]
 

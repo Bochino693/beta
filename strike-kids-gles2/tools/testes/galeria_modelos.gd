@@ -62,7 +62,10 @@ func _idle(_d: float) -> bool:
 			_mi.queue_free()
 		_mi = MeshInstance.new()
 		_mi.mesh = load(modelos.plus_file(_nomes[_i]))
-		_mi.material_override = p.mundo.temas._mat_modelo(_nomes[_i].get_basename(), contorno, Color.white)
+		# (as versões de meio e de longe usam o atlas da fase do objeto)
+		var base: String = _nomes[_i].get_basename().trim_suffix("_meio").trim_suffix("_longe")
+		_mi.material_override = p.mundo.temas._mat_modelo(_nomes[_i].get_basename(), contorno, Color.white, {}, false,
+			p.mundo.temas.tema_do_modelo(base))
 		_mi.translation = ONDE
 		p.mundo.add_child(_mi)
 		var caixa: AABB = _mi.mesh.get_aabb()
