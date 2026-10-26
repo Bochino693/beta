@@ -167,6 +167,8 @@ var _medidor_antes := false
 ## preparando os desenhos por trás da capa de carregamento (aquecer.gd): a
 ## abertura e os controles esperam
 var _preparando := true
+## START apertado na capa: vale quando a abertura aparecer
+var _start_guardado := false
 ## FÔLEGO DA FÍSICA (máquina fraca): quando a jogada pesa e os quadros
 ## demoram, o Godot faz cada vez mais passos de física por quadro (até 8)
 ## para alcançar o relógio — e cada quadro demora ainda mais: a jogada
@@ -269,6 +271,9 @@ func _preparado() -> void:
 	_mostrar_3d(true)
 	hud.visible = true
 	_abertura()
+	if _start_guardado:
+		_start_guardado = false
+		_start_na_abertura()
 
 
 ## ENSAIO GERAL da preparação (aquecer.gd), por baixo da capa: a tela do
@@ -385,6 +390,9 @@ func _ligar_roteiro_de_teste() -> void:
 		if a.begins_with("--glifos") and ResourceLoader.exists("res://tools/testes/glifos.gd"):
 			add_child(load("res://tools/testes/glifos.gd").new())
 	for a in OS.get_cmdline_args():
+		if a.begins_with("--start-livre") and ResourceLoader.exists("res://tools/testes/start_livre.gd"):
+			add_child(load("res://tools/testes/start_livre.gd").new())
+			return
 		if a.begins_with("--roteiro") and ResourceLoader.exists("res://tools/testes/roteiro.gd"):
 			add_child(load("res://tools/testes/roteiro.gd").new())
 			return
@@ -702,6 +710,7 @@ func _tela_mudou(_t: Vector2) -> void:
 # ================================================================ entrada
 func _input(event: InputEvent) -> void:
 	if _preparando:
+		_na_capa(event)
 		return
 	if event is InputEventKey and event.is_pressed() and not event.is_echo() and (event as InputEventKey).scancode == KEY_F3:
 		medidor.alternar()
@@ -727,6 +736,16 @@ func _input(event: InputEvent) -> void:
 		_jogada_recebida(_zona(z))
 
 
+## Na capa (o jogo ainda montando): a ficha já conta e o START fica
+## guardado para valer assim que a abertura aparecer.
+func _na_capa(event: InputEvent) -> void:
+	if ArcadeControls.eh_credito(event):
+		Ajustes.adicionar_credito()
+		Sons.tocar("moeda", 0.65)
+	elif ArcadeControls.eh_start(event):
+		_start_guardado = true
+
+
 func _zona(tecla: String) -> String:
 	# ArcadeControls devolve Z X C V B (as mesmas letras das zonas)
 	return tecla
@@ -737,6 +756,12 @@ func _start() -> void:
 	if _modal_inativo > 0.0:
 		_fechar_inatividade()
 		return
+	# a DEMONSTRAÇÃO (os bichinhos jogando) passa pelos estados da jogada —
+	# arremesso, bola rolando, resultado, replay: o START vale nela inteira,
+	# como na abertura e na atração
+	if demo and estado in [E.DEMO, E.ARREMESSO, E.ROLANDO, E.RESULTADO, E.REPLAY]:
+		_start_na_espera()
+		return
 	match estado:
 		E.TESTE:
 			if _resultado_teste != null:
@@ -744,10 +769,7 @@ func _start() -> void:
 				_resultado_teste = null
 				_atracao()
 		E.ABERTURA, E.ATRACAO, E.DEMO:
-			if Ajustes.pode_comecar():
-				_escolher_jogadores()
-			else:
-				hud.texto_grande("INSIRA FICHA", Color("#FFF6A8"), 1.0, 0.55)
+			_start_na_espera()
 		E.JOGADORES:
 			# como no Dragon Bowling: o 2º START = 2 jogadores (mostra e já começa)
 			if _escolha_n == 1:
@@ -760,6 +782,25 @@ func _start() -> void:
 		E.FIM:
 			if _fim_t > 2.5 and Ajustes.pode_comecar():
 				_escolher_jogadores()
+
+
+## START na espera (abertura, atração ou demonstração, a qualquer momento):
+## com crédito (ou no modo livre) já vai para a escolha dos jogadores — o
+## que estava acontecendo para na hora.
+func _start_na_espera() -> void:
+	if Ajustes.pode_comecar():
+		_escolher_jogadores()
+	else:
+		hud.texto_grande("INSIRA FICHA", Color("#FFF6A8"), 1.0, 0.55)
+
+
+## O START apertado na capa vale assim que a abertura aparece na tela (a
+## imagem que fica parada atrás do "QUANTOS VÃO JOGAR?" é a dela).
+func _start_na_abertura() -> void:
+	for i in 2:
+		yield(VisualServer, "frame_post_draw")
+	if estado == E.ABERTURA and _menu == null:
+		_start()
 
 
 func _jogada_recebida(zona: String) -> void:
@@ -954,7 +995,7 @@ func _posicionar_atracao() -> void:
 
 
 func _atualizar_atracao() -> void:
-	if not (estado in [E.ATRACAO, E.DEMO, E.ABERTURA]):
+	if not (estado in [E.ATRACAO, E.DEMO, E.ABERTURA] or demo):
 		return
 	var r1 := Ajustes.recorde(1)
 	var txt := ""
@@ -978,6 +1019,7 @@ func _escolher_jogadores() -> void:
 	Sons.tocar("start")
 	Sons.mudo_demo = false
 	Sons.atualizar_volume()
+	Sons.musica("musica_menu")
 	hud.soltar_marca()
 	hud.atracao(false)
 	hud.tela_fim(false)
@@ -2240,6 +2282,7 @@ func _limpar() -> void:
 	bola.acender(0.0)
 	bola.fogo(false)
 	bola.guardar()
+	mundo.bola_z = 100.0
 	hud.modo_replay(false)
 	hud.inatividade(false)
 	hud.foto_tela(false)

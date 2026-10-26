@@ -79,6 +79,29 @@ O QUE MUDOU PARA RODAR NA OPENGL ES 2.0
     Godot 4 (nao substitui).
 
 
+VERSAO 6.6: START E FICHA VALEM A QUALQUER MOMENTO DA ESPERA
+------------------------------------------------------------
+  * START NA DEMONSTRACAO: com os bichinhos jogando sozinhos (a
+    demonstracao da tela de espera), o START nao valia - a demonstracao
+    passa pelas mesmas etapas da jogada (arremesso, bola rolando,
+    resultado, replay do strike) e o START so era aceito na espera parada.
+    Agora vale em qualquer momento da abertura, da espera e da
+    demonstracao: com credito (ou no modo livre) vai na hora para o
+    "QUANTOS VAO JOGAR?"; sem credito aparece INSIRA FICHA e a
+    demonstracao continua.
+  * FICHA: conta em qualquer momento, inclusive na capa (com o jogo ainda
+    carregando - antes a ficha colocada ali se perdia), e o CREDITOS: da
+    tela atualiza na hora tambem durante a demonstracao.
+  * START NA CAPA: fica guardado e vale assim que a abertura aparece.
+  * O que estava acontecendo para limpo: camera lenta, replay, faixas de
+    cinema da abertura, bola e o brilho dela na pista (o brilho ficava
+    parado no meio da pista quando a jogada era interrompida).
+  * Teste: tools/testes/start_livre.gd (godot3 --path . --
+    --start-livre=<pasta>) aperta FICHA e START na capa, em 6 pontos da
+    abertura e em cada etapa da demonstracao, confere a limpeza e joga uma
+    partida em seguida. Na 6.5: 17 erros; na 6.6: START LIVRE OK.
+
+
 VERSAO 6.5: A BOLA VAI PARA ONDE A CRIANCA JOGOU, E SEM TRAVAR
 --------------------------------------------------------------
   * MIRA DE VERDADE (scripts/jogada.gd): a bola segue a posicao do sensor
