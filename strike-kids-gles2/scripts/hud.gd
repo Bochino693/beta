@@ -88,6 +88,7 @@ var _aviso_android_texto: Label
 var _tempo := 0.0
 var _convite := false
 var _retratos := {}
+var _duelo: Control
 # fotos das crianças (câmera da máquina)
 var _foto_tela: Control
 var _foto_fundo: ColorRect
@@ -378,6 +379,8 @@ func atualizar_placar(placar: Placar) -> void:
 			cel.rect_min_size = Vector2(46, 46) * u
 			cel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			var cor_cel := Color(1, 1, 1, 0.22)
+			if r >= placar.rodadas_normais:
+				cor_cel = Color(1.0, 0.83, 0.23, 0.45)   # a rodada extra (desempate)
 			var txt := ""
 			if bolas.size() > 0:
 				cor_cel = Color(1, 1, 1, 0.95)
@@ -408,7 +411,7 @@ func atualizar_placar(placar: Placar) -> void:
 		var painel_c: Control = c["painel"]
 		painel_c.modulate = Color(1, 1, 1, 1) if ativo or placar.jogadores.size() == 1 else Color(0.78, 0.78, 0.85, 0.9)
 		painel_c.rect_scale = Vector2.ONE * (1.0 if ativo else 0.94)
-	_info.text = "RODADA %d de %d" % [placar.rodada_atual + 1, placar.rodadas]
+	_info.text = "DESEMPATE!" if placar.desempate else "RODADA %d de %d" % [placar.rodada_atual + 1, placar.rodadas_normais]
 	for b in _bolas_box.get_children():
 		b.queue_free()
 	for k in placar.tentativas:
@@ -558,7 +561,9 @@ func letreiro(nome: String, sub := "", dur := 1.7, altura := 0.38) -> void:
 	tr.rect_pivot_offset = tr.rect_size / 2
 	tr.rect_scale = Vector2.ZERO
 	tr.rect_rotation = -12.0
-	_centro.add_child(tr)
+	# (no fim de jogo, por cima dos cartões: a camada do fim fica acima)
+	var pai: Control = _fim if _fim.visible else _centro
+	pai.add_child(tr)
 	var tw := create_tween()
 	tw.tween_property(tr, "rect_scale", Vector2.ONE * 1.18, 0.22).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	tw.parallel().tween_property(tr, "rect_rotation", 3.0, 0.22)
@@ -574,8 +579,9 @@ func letreiro(nome: String, sub := "", dur := 1.7, altura := 0.38) -> void:
 		l.rect_size = Vector2(T.x, 90 * u)
 		l.rect_position = Vector2(0, tr.rect_position.y + alt + 10 * u)
 		l.rect_pivot_offset = l.rect_size / 2
+		_caber(l, 58 * u, T.x * 0.92)
 		l.rect_scale = Vector2.ZERO
-		_centro.add_child(l)
+		pai.add_child(l)
 		var t2 := create_tween()
 		t2.tween_interval(0.18)
 		t2.tween_property(l, "rect_scale", Vector2.ONE, 0.3).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
@@ -599,6 +605,71 @@ func texto_grande(texto: String, cor := Color("#FFF6A8"), dur := 1.4, altura := 
 	tw.tween_interval(dur)
 	tw.tween_property(l, "modulate:a", 0.0, 0.3)
 	tw.tween_callback(l, "queue_free")
+
+
+## DUELO do desempate: os cartões dos dois (a foto da criança ou o mascote,
+## o nome e os pontos), no mesmo desenho dos cartões do fim de jogo, entram
+## dos lados com o "=" dourado no meio; saem depois de `dur` segundos.
+## jogadores: [{personagem, pontos, foto}].
+func duelo(jogadores: Array, dur := 4.0) -> void:
+	if _duelo != null and is_instance_valid(_duelo):
+		_duelo.queue_free()
+	_duelo = Control.new()
+	_duelo.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_centro.add_child(_duelo)
+	var T := rect_size
+	var w: float = min(T.x * 0.38, 400 * u)
+	var h := 236 * u
+	var d := 150 * u
+	var meio := 150 * u
+	var y := T.y * (0.74 if retrato else 0.6)
+	for i in Compat.imin(jogadores.size(), 2):
+		var j: Dictionary = jogadores[i]
+		var c := Painel3D.new(COR_BOB if j["personagem"] == "bob" else COR_MIA, 40, 16, 7)
+		c.rect_size = Vector2(w, h)
+		var x_fim: float = T.x / 2 - meio / 2 - w if i == 0 else T.x / 2 + meio / 2
+		var x_fora: float = -w - 60 * u if i == 0 else T.x + 60 * u
+		c.rect_position = Vector2(x_fora, y)
+		_duelo.add_child(c)
+		var ft: Texture = j.get("foto")
+		var fr := TextureRect.new()
+		fr.texture = ft if ft != null else _retratos.get(j["personagem"])
+		fr.expand = true
+		fr.stretch_mode = TextureRect.STRETCH_SCALE
+		fr.material = material_foto(Color.white)
+		fr.rect_size = Vector2(d, d)
+		fr.rect_position = Vector2((w - d) / 2, -d * 0.5)
+		c.add_child(fr)
+		var nome := rotulo(str(j["personagem"]).to_upper(), 46 * u, Color.white, 10 * u, MARINHO, fonte_titulo)
+		nome.rect_size = Vector2(w, 58 * u)
+		nome.rect_position = Vector2(0, d * 0.5 + 4 * u)
+		c.add_child(nome)
+		var pts := rotulo(str(int(j["pontos"])), 96 * u, CREME, 20 * u, MARINHO, fonte_titulo)
+		pts.rect_size = Vector2(w, 100 * u)
+		pts.rect_position = Vector2(0, d * 0.5 + 54 * u)
+		c.add_child(pts)
+		var tw := c.create_tween()
+		tw.tween_interval(0.15 + i * 0.12)
+		tw.tween_property(c, "rect_position:x", x_fim, 0.45).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		tw.tween_interval(dur)
+		tw.tween_property(c, "rect_position:x", x_fora, 0.35).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_IN)
+	# o "=" dourado entre os dois
+	var b := Painel3D.new(DESTAQUE, meio * 0.4, 12, 6)
+	b.rect_size = Vector2(meio * 0.8, meio * 0.8)
+	b.rect_position = Vector2(T.x / 2 - meio * 0.4, y + h / 2 - meio * 0.4)
+	b.rect_pivot_offset = b.rect_size / 2
+	b.rect_scale = Vector2.ZERO
+	_duelo.add_child(b)
+	var igual := rotulo("=", 96 * u, CREME, 20 * u, MARINHO, fonte_titulo)
+	igual.rect_size = b.rect_size
+	b.add_child(igual)
+	var tb := b.create_tween()
+	tb.tween_interval(0.5)
+	tb.tween_property(b, "rect_scale", Vector2.ONE * 1.15, 0.25).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tb.tween_property(b, "rect_scale", Vector2.ONE, 0.15)
+	tb.tween_interval(dur - 0.3)
+	tb.tween_property(b, "rect_scale", Vector2.ZERO, 0.25).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_IN)
+	tb.tween_callback(_duelo, "queue_free")
 
 
 ## "+120" voando até o placar do jogador.
@@ -1256,10 +1327,18 @@ func tela_fim(ligado: bool, dados := {}) -> void:
 		_cartao_fim(js[i], i, js.size(), area_c, dados.get("vencedor", -9) == i and js.size() > 1)
 	_quadro_classificacao(dados.get("classificacao", []), js, area_q)
 	# (só se ainda for este fim de jogo: com START logo, a partida nova já começou)
+	# (com rodada extra: quem venceu no desempate, ou os dois campeões)
+	# (um depois do outro: o do recorde espera o do empate / desempate sair)
+	var extra: bool = dados.get("desempate", false)
+	var t_recorde := 3.4
 	if dados.get("vencedor", -9) == -1 and js.size() > 1:
-		_atrasado(3.0, "_letreiro_do_fim", [vez, "empate", "", 2.5, 0.55])
+		_atrasado(3.0, "_letreiro_do_fim", [vez, "empate", "OS DOIS SÃO CAMPEÕES!" if extra else "", 2.5, 0.55])
+		t_recorde = 5.2
+	elif extra and js.size() > 1:
+		_atrasado(3.0, "_letreiro_do_fim", [vez, "venceu", "NO DESEMPATE!", 2.5, 0.55])
+		t_recorde = 5.2
 	if dados.get("recorde", false):
-		_atrasado(3.4, "_letreiro_do_fim", [vez, "novo_recorde", "%d PONTOS" % dados.get("recorde_valor", 0), 3.0, 0.42 if retrato else 0.3])
+		_atrasado(t_recorde, "_letreiro_do_fim", [vez, "novo_recorde", "%d PONTOS" % dados.get("recorde_valor", 0), 3.0, 0.42 if retrato else 0.3])
 	# botão "jogar de novo"
 	var bw: float = min(T.x * 0.92, 940 * u)
 	var botao := Painel3D.new(DESTAQUE, 58, 14, 7)

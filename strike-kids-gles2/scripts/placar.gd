@@ -16,6 +16,10 @@ var jogador_atual := 0
 var rodada_atual := 0       # 0..rodadas-1
 var bola_atual := 0         # 0..tentativas-1
 var pinos_na_rodada := 0
+# DESEMPATE: 2 jogadores empatados no fim das rodadas jogam mais uma, a
+# rodada extra (na 4ª pista, a que não saiu no sorteio da partida)
+var rodadas_normais := 3
+var desempate := false
 
 
 func comecar(personagens: Array, n_rodadas: int, n_tentativas: int) -> void:
@@ -23,6 +27,8 @@ func comecar(personagens: Array, n_rodadas: int, n_tentativas: int) -> void:
 	for p in personagens:
 		jogadores.append({"personagem": p, "rodadas": [], "pontos": 0, "strikes": 0, "spares": 0, "pinos": 0, "seguidos": 0})
 	rodadas = n_rodadas
+	rodadas_normais = n_rodadas
+	desempate = false
 	tentativas = n_tentativas
 	jogador_atual = 0
 	rodada_atual = 0
@@ -84,6 +90,23 @@ func avancar(fim_rodada: bool) -> String:
 	return "rodada"
 
 
+## Empate de 2 jogadores no fim das rodadas (e a extra ainda não foi jogada).
+func pede_desempate() -> bool:
+	return jogadores.size() == 2 and not desempate and vencedor() == -1
+
+
+## Abre a RODADA EXTRA de desempate: mais uma rodada para cada um, do começo.
+func rodada_extra() -> void:
+	desempate = true
+	rodadas += 1
+	for j in jogadores:
+		j["rodadas"].append([])
+	rodada_atual = rodadas - 1
+	jogador_atual = 0
+	bola_atual = 0
+	pinos_na_rodada = 0
+
+
 func total(i: int) -> int:
 	return int(jogadores[i]["pontos"])
 
@@ -96,9 +119,10 @@ func vencedor() -> int:
 	return 0 if total(0) > total(1) else 1
 
 
-## Pontuação máxima possível (para as estrelas do fim).
+## Pontuação máxima possível (para as estrelas do fim; a rodada extra do
+## desempate não conta).
 func maximo() -> int:
-	return rodadas * (10 * PONTOS_PINO + BONUS_STRIKE)
+	return rodadas_normais * (10 * PONTOS_PINO + BONUS_STRIKE)
 
 
 func estrelas(i: int) -> int:

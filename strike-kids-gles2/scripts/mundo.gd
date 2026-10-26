@@ -317,49 +317,52 @@ static func _vezes(c: Color, forca: float) -> Color:
 
 
 # ================================================================ sol e lua
-## SOL E LUA COM ROSTINHO no céu: sol no Parque, nos Dinos e no Mar (visto
-## de dentro d'água, mais azulado) e a lua no Espaço. Um quadradinho sempre
-## de frente para a câmera, desenhado NA DIREÇÃO do sol do céu e sempre à
-## mesma distância da câmera (astro.shader) — como o céu, ele fica "no
-## infinito": por mais que a câmera passeie (pinos, caçapa, trilhos), o
-## rostinho fica exatamente onde o céu desenha o brilho do sol, e atrás de
-## todo o cenário. Os raios giram e o rosto pisca no próprio shader.
-## As 3 imagens (pequenas) ficam carregadas desde o começo: trocar de
-## cenário não lê nada do disco.
-## [imagem, onde fica visto da área de jogo, tamanho (m) a ~67 m, tinta]
+## SOL, LUA E BALEIA NO CÉU (6.8, em 3D): o sol no Parque e nos Dinos, a lua
+## no Espaço e, no Fundo do Mar (lá não tem sol), uma BALEIA fofinha
+## nadando lá em cima, perto da superfície. Cada um é um objeto 3D pequeno
+## (sol ~650 triângulos, lua ~770, baleia ~620; um desenho só, como o
+## quadradinho de antes) desenhado pelo astro3d.shader NA DIREÇÃO do sol do
+## céu e sempre à mesma distância da câmera — como o céu, fica "no
+## infinito": por mais que a câmera passeie, ele fica onde o céu desenha o
+## brilho do sol, e atrás de todo o cenário. Volume e borda de desenho pela
+## normal; o rosto é a arte de sempre (a baleia tem a dela) e pisca; o sol
+## gira os raios, todos balançam a cabeça e respiram, e a baleia nada de
+## um lado para o outro (vira nas pontas) batendo o rabo.
+## [qual, onde fica visto da área de jogo, tamanho (m) a ~67 m]
 const ASTROS := {
-	"parque": ["sol", Vector3(9.8, 25.2, -59.4), 8.5, Color(1, 1, 1, 1)],
-	"dinos": ["sol", Vector3(9.8, 25.2, -59.4), 8.5, Color(1, 1, 1, 1)],
-	"mar": ["sol", Vector3(9.8, 25.2, -59.4), 8.0, Color(0.86, 1.0, 1.0, 0.82)],
-	"espaco": ["lua", Vector3(-1.1, 26.3, -59.7), 7.2, Color(1, 1, 1, 1)],
+	"parque": ["sol", Vector3(9.8, 25.2, -59.4), 8.5],
+	"dinos": ["sol", Vector3(9.8, 25.2, -59.4), 8.5],
+	"mar": ["baleia", Vector3(5.0, 24.0, -60.0), 13.0],
+	"espaco": ["lua", Vector3(-1.1, 26.3, -59.7), 7.2],
 }
 ## de onde as posições acima foram escolhidas (a área de jogo)
 const ASTRO_REFERENCIA := Vector3(0.0, 1.2, 2.4)
-## distância do rostinho até a câmera: atrás de tudo do cenário e antes do
-## fim da visão da câmera (160 m)
+## distância do astro até a câmera: atrás de tudo do cenário e antes do fim
+## da visão da câmera (160 m)
 const ASTRO_DISTANCIA := 140.0
+## a baleia: quanto vai para cada lado (em tamanhos dela) e o tempo da volta (s)
+const BALEIA_ALCANCE := 1.6
+const BALEIA_VOLTA := 46.0
 var _astro: MeshInstance
 var _mat_astro: ShaderMaterial
+var _malhas_astro := {}
 var _img_astro := {}
+var _astro_atual := ""
 
 
 func _astro_no_ceu() -> void:
-	for n in ["sol", "lua", "sol_raios"]:
+	for n in ["sol", "lua", "baleia"]:
 		_img_astro[n] = load("res://ui/ceu/%s.png" % n)
+	_malhas_astro = {"sol": _malha_sol(), "lua": _malha_lua(), "baleia": _malha_baleia()}
 	_mat_astro = ShaderMaterial.new()
-	_mat_astro.shader = load("res://shaders/astro.shader")
+	_mat_astro.shader = load("res://shaders/astro3d.shader")
 	_mat_astro.set_shader_param("distancia", ASTRO_DISTANCIA)
-	# o primeiro dos transparentes: o que estiver na frente (bolhas,
-	# partículas) é desenhado por cima dele
-	_mat_astro.render_priority = Material.RENDER_PRIORITY_MIN
 	_astro = MeshInstance.new()
 	_astro.name = "astro"
-	var q := QuadMesh.new()
-	q.size = Vector2.ONE
-	_astro.mesh = q
+	_astro.mesh = _malhas_astro["sol"]
 	_astro.material_override = _mat_astro
 	_astro.cast_shadow = GeometryInstance.SHADOW_CASTING_SETTING_OFF
-	# o shader coloca o quadrado longe, na frente da câmera: a caixa de
+	# o shader coloca o objeto longe, na frente da câmera: a caixa de
 	# visibilidade cobre toda a visão (nunca some por engano)
 	_astro.set_custom_aabb(AABB(Vector3(-400, -400, -400), Vector3(800, 800, 800)))
 	add_child(_astro)
@@ -367,18 +370,221 @@ func _astro_no_ceu() -> void:
 
 func _mostrar_astro(nome: String) -> void:
 	var a: Array = ASTROS.get(nome, ASTROS["parque"])
-	var e_sol: bool = a[0] == "sol"
+	var qual: String = a[0]
+	_astro_atual = qual
 	var rel: Vector3 = (a[1] as Vector3) - ASTRO_REFERENCIA
 	var dir := rel.normalized()
-	_mat_astro.set_shader_param("rosto", _img_astro[a[0]])
-	_mat_astro.set_shader_param("raios", _img_astro["sol_raios"] if e_sol else null)
-	_mat_astro.set_shader_param("usa_raios", 1.0 if e_sol else 0.0)
-	_mat_astro.set_shader_param("tinta", a[3])
-	_mat_astro.set_shader_param("direcao", dir)
+	_astro.mesh = _malhas_astro[qual]
+	var m := _mat_astro
+	m.set_shader_param("rosto", _img_astro[qual])
+	m.set_shader_param("direcao", dir)
 	# o mesmo tamanho na tela que teria a ~67 m, agora a ASTRO_DISTANCIA
-	_mat_astro.set_shader_param("tamanho", float(a[2]) * ASTRO_DISTANCIA / rel.length())
-	# o brilho do sol do céu fica bem atrás dele, de qualquer ponto de vista
+	m.set_shader_param("tamanho", float(a[2]) * ASTRO_DISTANCIA / rel.length())
+	m.set_shader_param("giro_y", 0.0)
+	m.set_shader_param("deslocamento", Vector2.ZERO)
+	match qual:
+		"sol":
+			# o disco da arte (raio 0,3145 do quadro) cobre a esfera (raio 0,3)
+			m.set_shader_param("rosto_lado", 0.0)
+			m.set_shader_param("rosto_centro", Vector2.ZERO)
+			m.set_shader_param("rosto_escala", 0.3 / 0.3145)
+			m.set_shader_param("balanco", 0.1)
+			m.set_shader_param("respira", 0.025)
+			m.set_shader_param("rabo", 0.0)
+			m.set_shader_param("cor_borda", Color("#D9660F"))
+			m.set_shader_param("nevoa", Color(0, 0, 0, 0))
+		"lua":
+			m.set_shader_param("rosto_lado", 0.0)
+			m.set_shader_param("rosto_centro", Vector2.ZERO)
+			m.set_shader_param("rosto_escala", 0.45 / 0.4512)
+			m.set_shader_param("balanco", 0.08)
+			m.set_shader_param("respira", 0.02)
+			m.set_shader_param("rabo", 0.0)
+			m.set_shader_param("cor_borda", Color("#A07A2A"))
+			m.set_shader_param("nevoa", Color(0, 0, 0, 0))
+		"baleia":
+			# o rosto dos dois lados da cabeça (a cabeça fica no +X)
+			m.set_shader_param("rosto_lado", 1.0)
+			m.set_shader_param("rosto_centro", Vector2(0.3, 0.03))
+			m.set_shader_param("rosto_escala", 0.42)
+			m.set_shader_param("balanco", 0.05)
+			m.set_shader_param("respira", 0.015)
+			m.set_shader_param("rabo", 0.07)
+			m.set_shader_param("cor_borda", Color("#1D4E9E"))
+			# vista de dentro d'água: um pouco da cor da água por cima
+			m.set_shader_param("nevoa", Color(0.55, 0.85, 1.0, 0.22))
+	# o brilho do sol do céu (no mar: a luz da superfície) fica atrás dele
 	mat_ceu.set_shader_param("dir_sol", dir)
+
+
+## A baleia nada de um lado para o outro, sobe e desce de leve e vira nas
+## pontas (de frente para a câmera bem na virada).
+func _nadar_baleia() -> void:
+	if _astro_atual != "baleia":
+		return
+	var w := TAU / BALEIA_VOLTA
+	var x := sin(_t * w) * BALEIA_ALCANCE
+	var ida := cos(_t * w)
+	_mat_astro.set_shader_param("deslocamento", Vector2(x, sin(_t * 0.6) * 0.08))
+	# indo para a direita, a cabeça (+X) para a direita; para a esquerda, virada
+	_mat_astro.set_shader_param("giro_y", (1.0 - smoothstep(-0.35, 0.35, ida)) * PI)
+
+
+## SOL: esfera (o disco da arte cobre a frente) e 12 raios em volta — cada
+## um com uma aresta levantada para a câmera (meia face clara, meia
+## escura, como na arte). Os raios têm UV2.x = 1 (o shader os gira).
+static func _malha_sol() -> ArrayMesh:
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	_esfera_cor(st, 0.3, 22, 14, Color("#FFC93A"), Color("#FFC93A"))
+	var clara := Color("#FFD84A")
+	var escura := Color("#FF9E1F")
+	for i in 12:
+		var a := TAU * float(i) / 12.0
+		var r1 := 0.5 if i % 2 == 0 else 0.43
+		var r0 := 0.27
+		var w := 0.075
+		var ax := Vector2(cos(a), sin(a))
+		var lado := Vector2(-ax.y, ax.x)
+		var bl := ax * r0 - lado * w
+		var br := ax * r0 + lado * w
+		var ponta := ax * r1
+		var meio := ax * (r0 + (r1 - r0) * 0.3)
+		var vbl := Vector3(bl.x, bl.y, -0.02)
+		var vbr := Vector3(br.x, br.y, -0.02)
+		var vp := Vector3(ponta.x, ponta.y, -0.01)
+		var vm := Vector3(meio.x, meio.y, 0.07)
+		_tri_raio(st, vbl, vm, vp, clara)
+		_tri_raio(st, vm, vbr, vp, escura)
+		_tri_raio(st, vbl, vbr, vm, clara)
+	st.index()
+	return st.commit()
+
+
+static func _tri_raio(st: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, cor: Color) -> void:
+	var n := (b - a).cross(c - a).normalized()
+	if n.z < 0.0:
+		# virado para a câmera (+Z)
+		var t := b
+		b = c
+		c = t
+		n = -n
+	for v in [a, b, c]:
+		st.add_color(cor)
+		st.add_normal(n)
+		st.add_uv2(Vector2(1.0, 0.0))
+		st.add_vertex(v)
+
+
+## LUA: uma esfera (o disco da arte, com as crateras e o rosto, cobre a frente).
+static func _malha_lua() -> ArrayMesh:
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	_esfera_cor(st, 0.45, 24, 16, Color("#FFF0B8"), Color("#F2D98A"))
+	st.index()
+	return st.commit()
+
+
+## Esfera em volta da origem; a cor vai de `cima` (no topo) a `baixo`.
+static func _esfera_cor(st: SurfaceTool, raio: float, gomos: int, aneis: int, cima: Color, baixo: Color) -> void:
+	var base := []
+	for i in aneis + 1:
+		var fi := PI * float(i) / aneis
+		var linha := []
+		for j in gomos + 1:
+			var te := TAU * float(j) / gomos
+			var n := Vector3(sin(fi) * cos(te), cos(fi), sin(fi) * sin(te))
+			linha.append(n)
+		base.append(linha)
+	for i in aneis:
+		for j in gomos:
+			var quad := [base[i][j], base[i][j + 1], base[i + 1][j + 1], base[i + 1][j]]
+			for k in [0, 1, 2, 0, 2, 3]:
+				var n: Vector3 = quad[k]
+				st.add_color(baixo.linear_interpolate(cima, n.y * 0.5 + 0.5))
+				st.add_normal(n)
+				st.add_uv2(Vector2.ZERO)
+				st.add_vertex(n * raio)
+
+
+## BALEIA: o corpo girado em volta do eixo X (cabeça no +X, rabo no -X,
+## achatado de leve), a barriga clarinha, o rabo de duas pontas (em pé,
+## para aparecer de lado) e as nadadeiras. UV2.y: quanto o rabo bate (0 no
+## corpo, 1 na ponta do rabo).
+const PERFIL_BALEIA := [[0.5, 0.0], [0.485, 0.09], [0.45, 0.16], [0.38, 0.22], [0.27, 0.255], [0.12, 0.255],
+	[-0.03, 0.225], [-0.16, 0.175], [-0.28, 0.12], [-0.38, 0.08], [-0.45, 0.055], [-0.47, 0.0]]
+
+
+static func _malha_baleia() -> ArrayMesh:
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var azul := Color("#4B97F5")
+	var barriga := Color("#CFEFFF")
+	var gomos := 20
+	var aneis := []
+	for p in PERFIL_BALEIA:
+		var x: float = p[0]
+		var r: float = p[1]
+		var anel := []
+		for j in gomos + 1:
+			var a := TAU * float(j) / gomos
+			var c := cos(a)
+			var s := sin(a)
+			var v := Vector3(x, c * r * 0.9, s * r)
+			var n := Vector3(0.0, c / 0.9, s).normalized()
+			anel.append([v, n])
+		aneis.append(anel)
+	for i in aneis.size() - 1:
+		# a normal ganha a inclinação do perfil (o nariz e o rabo afinando)
+		var x0: float = PERFIL_BALEIA[i][0]
+		var x1: float = PERFIL_BALEIA[i + 1][0]
+		var dr: float = float(PERFIL_BALEIA[i + 1][1]) - float(PERFIL_BALEIA[i][1])
+		var inclina := -dr / max(abs(x1 - x0), 0.001) * sign(x0 - x1)
+		for j in gomos:
+			var quad := [aneis[i][j], aneis[i][j + 1], aneis[i + 1][j + 1], aneis[i + 1][j]]
+			for k in [0, 2, 1, 0, 3, 2]:
+				var v: Vector3 = quad[k][0]
+				var n: Vector3 = quad[k][1]
+				n = (n + Vector3(inclina * 0.6, 0, 0)).normalized()
+				var embaixo := clamp((-n.y - 0.15) * 3.0, 0.0, 1.0)
+				st.add_color(azul.linear_interpolate(barriga, embaixo))
+				st.add_normal(n)
+				st.add_uv2(Vector2(0.0, _peso_rabo(v.x)))
+				st.add_vertex(v)
+	# rabo: duas pontas (de cima e de baixo), dos dois lados
+	var ponta_cima := [Vector2(-0.44, 0.0), Vector2(-0.5, 0.1), Vector2(-0.58, 0.2), Vector2(-0.65, 0.21),
+		Vector2(-0.62, 0.09), Vector2(-0.56, 0.0)]
+	for sinal_y in [1.0, -0.8]:
+		var pts := []
+		for q in ponta_cima:
+			pts.append(Vector2(q.x, q.y * sinal_y))
+		_lamina(st, pts, Vector2(-0.53, 0.07 * sinal_y), 0.0, Color("#3F86E8"))
+	# nadadeiras (uma de cada lado, para baixo e para trás)
+	for lado in [1.0, -1.0]:
+		var nad := [Vector2(0.16, -0.12), Vector2(0.07, -0.2), Vector2(-0.02, -0.25), Vector2(0.02, -0.17), Vector2(0.1, -0.1)]
+		_lamina(st, nad, Vector2(0.08, -0.16), 0.22 * lado, Color("#3F86E8"))
+	st.index()
+	return st.commit()
+
+
+static func _peso_rabo(x: float) -> float:
+	return clamp((-x - 0.12) / 0.53, 0.0, 1.0)
+
+
+## Uma lâmina em pé (no plano XY, em z = `z`), em leque a partir de `centro`,
+## com as duas faces (uma para cada lado).
+static func _lamina(st: SurfaceTool, pts: Array, centro: Vector2, z: float, cor: Color) -> void:
+	for face in [1.0, -1.0]:
+		var n := Vector3(0, 0, face)
+		for k in pts.size():
+			var a: Vector2 = pts[k]
+			var b: Vector2 = pts[(k + 1) % pts.size()]
+			var tri := [centro, a, b] if face > 0.0 else [centro, b, a]
+			for p in tri:
+				st.add_color(cor)
+				st.add_normal(n)
+				st.add_uv2(Vector2(0.0, _peso_rabo(p.x)))
+				st.add_vertex(Vector3(p.x, p.y, z + face * 0.004))
 
 
 # ================================================================ ambiente
@@ -1534,6 +1740,7 @@ func _process(delta: float) -> void:
 	# o símbolo do cenário flutua — sobe e desce, vai e volta e balança
 	if balao.visible:
 		_mexer_marca()
+	_nadar_baleia()
 	mat_fundo.set_shader_param("fase", fposmod(_t * 0.4, 100.0))
 	mat_portal.set_shader_param("pulso", sin(_t * 2.2))
 	_mexer_tiras(delta)

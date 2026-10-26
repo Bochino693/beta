@@ -472,6 +472,8 @@ func _montar_atores() -> void:
 	lugar.add_child(efeitos)
 	for nome in ["bob", "mia"]:
 		var p := Personagem.new()
+		_detalhes_ligados = Ajustes.detalhes()
+		p.niveis = _detalhes_ligados
 		lugar.add_child(p)
 		p.montar(nome)
 		p.connect("soltou_bola", self, "_soltou_bola")
@@ -1036,7 +1038,7 @@ func _escolher_jogadores() -> void:
 	# escolha e fotos com a roupa de sempre; as fases já saem no sorteio e a
 	# roupinha da 1ª vai carregando em segundo plano enquanto escolhem
 	_roupa_de_sempre()
-	_sortear_temas(Ajustes.rodadas())
+	_sortear_temas(Ajustes.rodadas() + 1)
 	_temas_prontos = true
 	_pedir_roupas(_temas_partida[0])
 
@@ -1133,8 +1135,8 @@ func _comecar(lista: Array) -> void:
 	placar.comecar(lista, Ajustes.rodadas(), Ajustes.tentativas())
 	mundo.definir_protecao(Ajustes.protecao_canaleta())
 	maquina.instantaneo()
-	if not _temas_prontos or _temas_partida.size() != Compat.imax(Ajustes.rodadas(), 1):
-		_sortear_temas(Ajustes.rodadas())
+	if not _temas_prontos or _temas_partida.size() != Compat.imax(Ajustes.rodadas(), 1) + 1:
+		_sortear_temas(Ajustes.rodadas() + 1)
 		_pedir_roupas(_temas_partida[0])
 	_temas_prontos = false
 	Fotos.limpar_partida()
@@ -1211,7 +1213,9 @@ func _tema_da_rodada() -> String:
 
 
 ## FASES SORTEADAS: a fase de cada rodada sai num sorteio — todas aparecem
-## antes de alguma se repetir, e nunca a mesma duas rodadas seguidas.
+## antes de alguma se repetir, e nunca a mesma duas rodadas seguidas. Sai
+## sempre uma a mais que as rodadas: a do DESEMPATE (com 3 rodadas, as 3
+## primeiras são 3 pistas diferentes e a 4ª pista fica para o desempate).
 func _sortear_temas(n: int) -> void:
 	_temas_partida.clear()
 	var antes := ""
@@ -1302,8 +1306,10 @@ func _vez(nova_rodada: bool) -> void:
 		mundo.aplicar_tema(tema)
 		_vestir(tema)
 		# a roupinha da próxima fase já vai carregando durante esta rodada
-		if placar.rodada_atual + 1 < _temas_partida.size():
-			_pedir_roupas(_temas_partida[placar.rodada_atual + 1])
+		# (na última, com 2 jogadores, a da pista do desempate: se empatar)
+		var prox := placar.rodada_atual + 1
+		if prox < _temas_partida.size() and (prox < placar.rodadas or (placar.jogadores.size() == 2 and not placar.desempate)):
+			_pedir_roupas(_temas_partida[prox])
 		_no_clarao()
 		Sons.tocar("brilho")
 		Sons.tocar("whoosh", 0.6)
@@ -1321,7 +1327,11 @@ func _vez(nova_rodada: bool) -> void:
 		_plano_pista(false)
 	if nova_rodada:
 		var artigo := "DO" if _ativo == "bob" else "DA"
-		var sub := "RODADA %d" % (placar.rodada_atual + 1)
+		var sub := "RODADA %d DE %d" % [placar.rodada_atual + 1, placar.rodadas_normais]
+		if placar.desempate:
+			sub = "DESEMPATE!"
+		elif placar.rodada_atual + 1 == placar.rodadas_normais and placar.rodadas_normais > 1:
+			sub = "ÚLTIMA RODADA!"
 		hud.faixa(_ativo, "VEZ %s %s!" % [artigo, _ativo.to_upper()], sub, Fotos.foto("j%d" % placar.jogador_atual))
 		Sons.tocar("vez")
 		ArduinoBridge.send_led("BLUE" if _ativo == "bob" else "RED")
@@ -1444,8 +1454,40 @@ func _bola_no_retorno(nome: String) -> void:
 	Sons.tocar("pop", 0.55, 0.5)
 
 
+## O GERENTE DE POLÍGONOS (6.8): o orçamento da placa de vídeo é por
+## QUADRO. A cada quadro ele lê quantos índices o quadro anterior desenhou
+## e dá o bichinho de perto (o HD, Personagem) só para o maior na tela, e
+## só se o que ele custa a mais ainda couber: na comemoração (o bichinho
+## grande, pouco cenário atrás) cabe; com o cenário inteiro, não. Passando
+## do orçamento (com folga), ele volta para o normal sozinho.
+## (A Mali-450 da TX9 desenhou liso a vista da pista com ~250-258 mil.)
+const ORCAMENTO_QUADRO := 250000
+const FOLGA_QUADRO := 12000
+var _detalhes_ligados := false
+
+
+func _orcamento_bichos() -> void:
+	if not _detalhes_ligados or _parado_3d or _menu != null:
+		return
+	var gasto := int(Performance.get_monitor(Performance.RENDER_VERTICES_IN_FRAME))
+	var maior: Personagem = null
+	for nome in personagens:
+		var p: Personagem = personagens[nome]
+		if p.candidato_perto() and (maior == null or p.tamanho_na_tela() > maior.tamanho_na_tela()):
+			maior = p
+	for nome in personagens:
+		var p: Personagem = personagens[nome]
+		var quer: bool = p == maior
+		if quer and not p.pode_perto:
+			quer = gasto + p.custo_perto() < ORCAMENTO_QUADRO
+		elif quer:
+			quer = gasto < ORCAMENTO_QUADRO + FOLGA_QUADRO
+		p.permitir_perto(quer)
+
+
 func _process(delta: float) -> void:
 	_medir_jogada()
+	_orcamento_bichos()
 	_medir_fps(delta)
 	_folego_da_fisica()
 	_andar_lenta()
@@ -1735,6 +1777,9 @@ func _finalizar_jogada() -> void:
 		return
 	var proximo := placar.avancar(bool(res["fim_rodada"]))
 	bola.guardar()
+	if proximo == "fim" and placar.pede_desempate():
+		_desempate()
+		return
 	if proximo == "fim":
 		_fim_de_jogo()
 		return
@@ -1786,7 +1831,7 @@ func _plano_maquina() -> void:
 ## da direita, atrás da mesa) enquanto os pinos caem; depois volta para a
 ## mesa repondo os pinos.
 func _alcapao_maquina(abrindo: bool) -> void:
-	if estado != E.RESULTADO:
+	if estado != E.RESULTADO or _seq == _seq_desempate:
 		return
 	if abrindo:
 		cam.corte(Vector3(0.98, 1.08, Medidas.ALCAPAO_Z0 - 0.15), Vector3(-0.12, -0.45, Medidas.ALCAPAO_Z1 + 0.75), 56, 56)
@@ -1935,6 +1980,71 @@ func _quadro(t: float, com_pinos: bool) -> Dictionary:
 	return r
 
 
+# ================================================================ desempate
+## EMPATE no fim das rodadas (2 jogadores): os dois aparecem juntos com o
+## letreiro EMPATE! e o DUELO (os cartões de cada um com os pontos iguais);
+## depois o letreiro DESEMPATE! avisa a rodada extra, jogada na pista que
+## ficou de fora do sorteio (a 4ª, com 3 rodadas) — a troca de cenário
+## anuncia a pista e a faixa de cada um diz "DESEMPATE!". Empatou de novo:
+## fim com os dois campeões. (Os avisos são os mesmos letreiros, cartões e
+## faixas do resto do jogo.)
+var _seq_desempate := -1
+
+
+func _desempate() -> void:
+	estado = E.RESULTADO
+	var s := _novo_seq()
+	_seq_desempate = s
+	placar.rodada_extra()
+	_pedir_roupas(_tema_da_rodada())
+	hud.mostrar_sensores(false)
+	hud.mostrar_placar(true)
+	hud.atualizar_placar(placar)
+	hud.sequencia(0)
+	bola.fogo(false)
+	ArduinoBridge.send_led("MENU")
+	var t: Personagem = personagens["bob"]
+	var r: Personagem = personagens["mia"]
+	for pp in [t, r]:
+		pp.segurar_bola(false)
+		pp.jatos(false)
+		pp.destaque(0.0)
+		pp.olhar_alvo = null
+		pp.expressao("empolgado")
+	t.posicionar(Vector3(-0.62, 0, 2.3), 0)
+	r.posicionar(Vector3(0.62, 0, 2.3), 0)
+	t.tocar("quase", 0.25, true)
+	r.tocar("quase", 0.25, true)
+	cam.corte(Vector3(0, 1.3, 5.6), Vector3(0, 1.0, 2.3), 40, 44)
+	# a mesa já arruma os 10 pinos para a rodada extra (fora do quadro: o
+	# alçapão não puxa a câmera nesta sequência)
+	maquina.rack_novo()
+	hud.flash(Color.white, 0.7, 0.4)
+	Sons.tocar("whoosh")
+	Sons.tocar("brilho")
+	hud.letreiro("empate", "", 2.6, 0.25)
+	var js := []
+	for i in placar.jogadores.size():
+		var j: Dictionary = placar.jogadores[i]
+		js.append({"personagem": j["personagem"], "pontos": j["pontos"], "foto": Fotos.foto("j%d" % i)})
+	hud.duelo(js, 4.4)
+	if not yield(_esperar(2.6, s, false), "completed"):
+		return
+	t.tocar("torcida", 0.25, true)
+	r.tocar("torcida", 0.25, true)
+	Sons.tocar("torcida")
+	Sons.tocar("vez")
+	var onde := "NA PISTA QUE FALTAVA!" if placar.rodadas_normais < Temas.ORDEM.size() else "VALENDO A VITÓRIA!"
+	hud.letreiro("desempate", "RODADA EXTRA " + onde, 3.0, 0.25)
+	if not yield(_esperar(3.0, s, false), "completed"):
+		return
+	while maquina.trabalhando:
+		if not yield(_esperar(0.1, s, false), "completed"):
+			return
+	hud.mostrar_mapa(pinos.em_pe())
+	_vez(true)
+
+
 # ================================================================ fim de jogo
 func _fim_de_jogo() -> void:
 	estado = E.FIM
@@ -1947,7 +2057,7 @@ func _fim_de_jogo() -> void:
 	Sons.musica("musica_fim")
 	Sons.tocar("fim")
 	ArduinoBridge.send_led("MENU")
-	var dados := {"jogadores": [], "vencedor": placar.vencedor(), "recorde": false}
+	var dados := {"jogadores": [], "vencedor": placar.vencedor(), "recorde": false, "desempate": placar.desempate}
 	var melhor := 0
 	var melhor_i := 0
 	var quem := ""

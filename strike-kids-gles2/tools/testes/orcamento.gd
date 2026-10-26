@@ -25,6 +25,14 @@ var _vistas := [
 	["bola", Vector3(0.5, 2.1, Medidas.Z_PINO1 + 3.6), Vector3(0.0, 0.0, Medidas.Z_PINO1 - 5.0)],
 	# o resultado: de frente para os pinos, baixinha
 	["result", Vector3(0.55, 0.62, Medidas.Z_PINO1 + 2.5), Vector3(0.0, 0.5, Medidas.Z_PINO1 - 0.45)],
+	# a comemoração: close no Bob (em -0,6; 0; 1,6), de frente para ele,
+	# com a abertura de lá (principal.gd: 36 / 30)
+	["close", Vector3(-0.25, 0.9, -0.7), Vector3(-0.6, 0.72, 1.6), 36, 30],
+	# a escolha do bichinho (os dois nos pódios) e o fim da partida
+	["escolha", Vector3(0.0, 1.05, 6.1), Vector3(0.0, 0.78, 2.5), 32, 52],
+	["fim", Vector3(0.0, 1.35, 6.6), Vector3(0.0, 1.1, 2.3), 40, 44],
+	# o aviso de EMPATE (os dois juntos antes da rodada extra de desempate)
+	["empate", Vector3(0.0, 1.3, 5.6), Vector3(0.0, 1.0, 2.3), 40, 44],
 ]
 var _vista := 0
 var _espera := 0
@@ -124,12 +132,17 @@ func _idle(_d: float) -> bool:
 		if _espera < 40:
 			return false
 		var v: Array = _vistas[_vista]
-		if (_espera - 40) % 6 == 0:
-			p.cam.corte(v[1], v[2], 50, 50)
-		elif (_espera - 40) % 6 == 5:
+		# (12 quadros por vista: o nível de detalhe dos bichinhos assenta)
+		if (_espera - 40) % 12 == 0:
+			p.cam.corte(v[1], v[2], v[3] if v.size() > 3 else 50, v[4] if v.size() > 4 else 50)
+		elif (_espera - 40) % 12 == 11:
 			var desenhado := int(Performance.get_monitor(Performance.RENDER_VERTICES_IN_FRAME))
 			var chamadas := int(Performance.get_monitor(Performance.RENDER_DRAW_CALLS_IN_FRAME))
-			_linhas.append("%-7s %-8s desenhado=%7d indices  chamadas=%4d%s" % [t, v[0], desenhado, chamadas,
+			var nv := ""
+			if p.personagens["bob"].has_method("nivel"):
+				nv = "  bichos=%s/%s (%.2f/%.2f da tela)" % [p.personagens["bob"].nivel(), p.personagens["mia"].nivel(),
+					p.personagens["bob"].tamanho_na_tela(), p.personagens["mia"].tamanho_na_tela()]
+			_linhas.append("%-7s %-8s desenhado=%7d indices  chamadas=%4d%s%s" % [t, v[0], desenhado, chamadas, nv,
 				"   <-- ACIMA DO ORCAMENTO" if desenhado > ORCAMENTO else ""])
 			_vista += 1
 			if _vista >= _vistas.size():
