@@ -65,6 +65,11 @@ static func formas_do_pino() -> Array:
 ## as listras no lugar): com a câmera longe dos pinos — a vista da pista, de
 ## onde a criança joga, a 12 m — eles ocupam poucos pixels e o contorno
 ## desenha cada um duas vezes. Perto (vista dos pinos, replay) o completo.
+## O PINO DE PERTO (6.7, com os detalhes extras: modelos/pino_perto.res, 1500
+## triângulos tirados do original de 2400, com as listras e o rosto no
+## lugar): redondo na vista dos pinos e no replay, onde eles enchem a tela.
+## Só vale com a câmera a menos de PERTO metros — lá a pista e o cenário
+## aparecem pouco (a vista dos pinos fica bem abaixo do orçamento).
 const PERTO := 8.0
 const LONGE := 9.0
 var _malha_perto: Mesh
@@ -72,9 +77,12 @@ var _malha_longe: Mesh
 var _de_longe := false
 
 
-func montar() -> void:
+## `redondos`: o pino de perto mais redondo (detalhes extras).
+func montar(redondos := false) -> void:
 	var malha: Mesh = load("res://modelos/pino.res")
 	_malha_perto = malha
+	if redondos and ResourceLoader.exists("res://modelos/pino_perto.res"):
+		_malha_perto = load("res://modelos/pino_perto.res")
 	_malha_longe = load("res://modelos/pino_longe.res") if ResourceLoader.exists("res://modelos/pino_longe.res") else malha
 	var formas := formas_do_pino()
 	var rosto := Materiais.textura("rosto_pino")

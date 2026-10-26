@@ -92,12 +92,17 @@ var _t := 0.0
 ## cenário LEVE (Mundo.leve): metade da decoração, sem contorno, luz por
 ## vértice (toon_leve) e menos partículas
 var leve := false
+## detalhes extras (6.7, menu do operador): vento nas plantas, enfeites perto
+## da pista que se mexem e borboletas
+var detalhes := true
+var _malhas_vento := {}
 var _mats_leve: Array = []
 
 
 func construir(m) -> void:
 	mundo = m
 	leve = m.leve
+	detalhes = m.detalhes
 	for nome in ORDEM:
 		var g := Spatial.new()
 		g.name = nome
@@ -160,14 +165,14 @@ func _mat(contorno: float, tinta: Color, extra := {}) -> ShaderMaterial:
 const ATLAS := "res://texturas/cenario/atlas.png"
 
 
-func _mat_modelo(nome: String, contorno: float, tinta: Color, extra := {}) -> ShaderMaterial:
+func _mat_modelo(nome: String, contorno: float, tinta: Color, extra := {}, vento := false) -> ShaderMaterial:
 	var malha = load("res://modelos/cenario/%s.res" % nome)
 	if not (malha is ArrayMesh and (malha as ArrayMesh).surface_get_format(0) & Mesh.ARRAY_FORMAT_TEX_UV):
 		return _mat(contorno, tinta, extra)
-	var chave := "atlas|%s|%s" % [tinta.to_html(), str(extra)]
+	var chave := "atlas%s|%s|%s" % ["_vento" if vento else "", tinta.to_html(), str(extra)]
 	if not _mats.has(chave):
 		var m := ShaderMaterial.new()
-		m.shader = Materiais.shader("res://shaders/toon_leve_tex.shader")
+		m.shader = Materiais.shader("res://shaders/toon_leve_tex_vento.shader" if vento else "res://shaders/toon_leve_tex.shader")
 		m.set_meta("atlas", true)
 		m.set_shader_param("textura", load(ATLAS))
 		var p := {"borda": 0.3, "tinta": tinta}
@@ -295,7 +300,10 @@ func _obj(tema: String, nome: String, pos: Vector3, rot_y := 0.0, esc := 1.0, co
 		var de_longe := "res://modelos/cenario/%s_longe.res" % nome
 		if pai == null and ResourceLoader.exists(de_longe) and mi.mesh.get_aabb().size.length() * 0.5 * esc < LONGE * _ate_pista(pos):
 			mi.mesh = load(de_longe)
-	mi.material_override = _mat_modelo(nome, contorno, tinta)
+	var vento: bool = detalhes and VENTO.has(nome) and mi.mesh != null and pai == null and _ate_pista(pos) < VENTO_PERTO
+	if vento:
+		mi.mesh = _com_vento(mi.mesh, VENTO[nome])
+	mi.material_override = _mat_modelo(nome, contorno, tinta, {}, vento)
 	mi.translation = pos
 	mi.rotation.y = rot_y
 	mi.scale = Vector3.ONE * esc
@@ -306,6 +314,40 @@ func _obj(tema: String, nome: String, pos: Vector3, rot_y := 0.0, esc := 1.0, co
 	if nome == "bau":
 		_tampa_do_bau(tema, mi)
 	return mi
+
+
+## VENTO NAS PLANTAS (detalhes extras): [metros que o topo anda, rapidez].
+## Balançam no shader (toon_leve_tex_vento.shader) e continuam juntas no
+## Lote. Só as de perto da pista (a menos de VENTO_PERTO metros), onde o
+## balanço aparece: com um material a mais em cada região do cenário, as
+## peças que sobravam sozinhas não se juntavam (até 36 desenhos a mais no
+## parque); perto da pista são 1 ou 2 regiões.
+const VENTO_PERTO := 9.0
+const VENTO := {"palmeira": [0.11, 1.1], "samambaia": [0.05, 1.7], "flor_gigante": [0.06, 1.4],
+	"arvore_verde": [0.05, 1.0], "arvore_laranja": [0.05, 1.0], "arvore_escura": [0.05, 1.0],
+	"alga": [0.13, 1.2], "coral": [0.025, 0.9], "coral_roxo": [0.03, 0.9]}
+
+
+## A malha da planta com o quanto cada vértice balança no UV2: nada no pé,
+## crescendo com o quadrado da altura até `cfg[0]` metros no topo; y = a
+## rapidez. Feita uma vez por malha (a de perto e a de longe).
+func _com_vento(m: Mesh, cfg: Array) -> Mesh:
+	if _malhas_vento.has(m):
+		return _malhas_vento[m]
+	var arr := m.surface_get_arrays(0)
+	var v: PoolVector3Array = arr[Mesh.ARRAY_VERTEX]
+	var caixa := m.get_aabb()
+	var alt: float = max(caixa.size.y, 0.001)
+	var uv2 := PoolVector2Array()
+	uv2.resize(v.size())
+	for i in v.size():
+		var w: float = clamp((v[i].y - caixa.position.y) / alt, 0.0, 1.0)
+		uv2[i] = Vector2(float(cfg[0]) * w * w, float(cfg[1]))
+	arr[Mesh.ARRAY_TEX_UV2] = uv2
+	var nova := ArrayMesh.new()
+	nova.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr)
+	_malhas_vento[m] = nova
+	return nova
 
 
 ## Distância (no chão) até a pista, da linha de falta (z = 4, com quem
@@ -377,15 +419,43 @@ func _espalhar(tema: String, tipos: Array, qtd: int, semente: int, escala := {},
 		colocados += 1
 
 
-func _destaques(tema: String, itens: Array) -> void:
+func _destaques(tema: String, itens: Array) -> Array:
 	# itens: [nome, escala, contorno] na ordem de DESTAQUES
+	var feitos := []
 	for i in Compat.imin(itens.size(), DESTAQUES.size()):
 		var d: Array = DESTAQUES[i]
 		var it: Array = itens[i]
 		var x: float = d[0]
 		var z: float = d[1]
 		var y: float = 0.0 if (z > 0.0 and abs(x) < 3.3) else _chao(x, z)
-		_obj(tema, it[0], Vector3(x, y - 0.02, z), d[2], it[1], it[2] if it.size() > 2 else 0.0)
+		feitos.append(_obj(tema, it[0], Vector3(x, y - 0.02, z), d[2], it[1], it[2] if it.size() > 2 else 0.0))
+	return feitos
+
+
+## ENFEITES QUE SE MEXEM (detalhes extras): alguns dos destaques, os que
+## ficam pertinho da pista, ganham uma animação própria — `qual` diz o
+## índice em DESTAQUES e o jeito ("pular", "chocar", "levitar", "girar",
+## "olhar", "pulsar"). Cada um sai do Lote (um desenho a mais): poucos.
+func _vida(tema: String, feitos: Array, qual: Dictionary) -> void:
+	if not detalhes:
+		return
+	var i := 0
+	for k in qual:
+		var no: Spatial = feitos[k]
+		var item := {"tipo": qual[k], "no": no, "base": no.translation, "giro": no.rotation.y, "fase": i * 1.37, "cada": 3.6 + i * 0.7}
+		match qual[k]:
+			"pular":
+				item["altura"] = 0.16
+			"chocar":
+				item["cada"] = 4.5 + i * 1.1
+			"levitar":
+				item["vel"] = 0.9 + 0.2 * i
+			"girar":
+				item["vel"] = 0.35 if i % 2 == 0 else -0.3
+			"olhar":
+				item["vel"] = 0.5 + 0.15 * i
+		_animar(tema, item)
+		i += 1
 
 
 ## Lugares atrás da mureta dos jogadores (x, z, giro).
@@ -436,8 +506,11 @@ func _parque() -> void:
 	_espalhar(T, ["arvore_verde", "arvore_laranja", "arvore_escura", "pirulito", "cogumelo", "bengala",
 		"presente", "donut", "cupcake", "arvore_verde", "arvore_escura", "arvore_laranja"], _q(40), 2026,
 		{"arvore_verde": 1.25, "arvore_laranja": 1.25, "arvore_escura": 1.25})
-	_destaques(T, [["pirulito", 0.75, 0.004], ["pirulito", 0.85, 0.004], ["presente", 0.8, 0.004], ["cupcake", 0.75, 0.004],
+	var d := _destaques(T, [["pirulito", 0.75, 0.004], ["pirulito", 0.85, 0.004], ["presente", 0.8, 0.004], ["cupcake", 0.75, 0.004],
 		["bengala", 0.9], ["bengala", 0.9], ["cogumelo", 0.9], ["donut", 0.85]])
+	# pirulitos virando de um lado para o outro, presente e cogumelo pulando,
+	# cupcake fofinho e a rosquinha girando
+	_vida(T, d, {0: "olhar", 1: "olhar", 2: "pular", 3: "pulsar", 6: "pular", 7: "girar"})
 	# roda-gigante (gira) com as cabines sempre de pé
 	var rg := Spatial.new()
 	rg.translation = Vector3(-6.8, _chao(-6.8, -27.0) - 0.05, -27.0)
@@ -461,6 +534,7 @@ func _parque() -> void:
 	_obj(T, "carrossel", Vector3(-12.0, _chao(-12.0, -38.0) - 0.05, -38.0), 0.0, 1.0)
 	_nuvens(T, 14, 77)
 	_baloes(T)
+	_borboletas(T, 3 if leve else 5, 31)
 
 
 func _nuvens(tema: String, qtd: int, semente: int) -> void:
@@ -554,8 +628,10 @@ func _espaco() -> void:
 			"amp": Vector3(0.0, 0.2, 0.0), "olhar": -lado * 0.35, "vira": 0.45})
 	_espalhar(T, ["cristal", "pedra_lua", "cristal", "pedra_lua", "pedra_lua", "foguete"], _q(38), 77,
 		{"cristal": 1.3, "pedra_lua": 1.6, "foguete": 0.8}, foguetes)
-	_destaques(T, [["cristal", 0.9, 0.004], ["cristal", 1.0, 0.004], ["pedra_lua", 1.0, 0.004], ["cristal", 0.8, 0.004],
+	var d := _destaques(T, [["cristal", 0.9, 0.004], ["cristal", 1.0, 0.004], ["pedra_lua", 1.0, 0.004], ["cristal", 0.8, 0.004],
 		["pedra_lua", 1.1], ["cristal", 1.0], ["pedra_lua", 1.0], ["cristal", 1.1]])
+	# cristais flutuando (sem gravidade) e girando devagar
+	_vida(T, d, {0: "levitar", 1: "levitar", 3: "levitar", 5: "levitar"})
 	# estrelas cadentes de vez em quando (faíscas que atravessam o céu)
 	var cad := _particulas(T, Vector3(0, 13.0, -30.0), "faisca", 3, 1.6, 0.6, true)
 	cad.emission_shape = CPUParticles.EMISSION_SHAPE_BOX
@@ -590,9 +666,15 @@ func _mar() -> void:
 	_obj(T, "coral_roxo", Vector3(2.75, -0.02, Medidas.Z_FUNDO + 0.4), deg2rad(-25.0), 2.3, 0.004)
 	_espalhar(T, ["coral", "coral_roxo", "alga", "alga", "estrela_mar", "concha", "pedra", "coral"], _q(44), 31,
 		{"coral": 1.5, "coral_roxo": 1.5, "alga": 1.3, "estrela_mar": 1.6, "concha": 0.7, "pedra": 1.2}, ocupado)
-	_destaques(T, [["coral", 0.8, 0.004], ["alga", 0.8, 0.0], ["estrela_mar", 1.0, 0.004], ["concha", 0.8, 0.004],
+	var d := _destaques(T, [["coral", 0.8, 0.004], ["alga", 0.8, 0.0], ["estrela_mar", 1.0, 0.004], ["concha", 0.8, 0.004],
 		["coral_roxo", 0.9], ["alga", 0.9], ["concha", 0.5], ["estrela_mar", 1.0]])
-	# algas balançando na correnteza (as dos destaques e mais algumas)
+	# conchas abrindo e fechando de leve e o navio balançando no fundo
+	_vida(T, d, {3: "pulsar", 6: "pulsar"})
+	if detalhes:
+		_animar(T, {"tipo": "navio", "no": navio, "base": navio.rotation})
+	# algas balançando na correnteza (as dos destaques e mais algumas). As de
+	# perto da pista, com os detalhes extras, balançam no shader (vento): a
+	# malha delas é outra (com o UV2) e elas ficam no Lote
 	for g in grupos[T].get_children():
 		if g is MeshInstance and (g as MeshInstance).mesh != null and (g as MeshInstance).mesh.resource_path.ends_with("alga.res"):
 			_animar(T, {"tipo": "alga", "no": g, "fase": rnd.randf() * TAU, "base": (g as Spatial).rotation})
@@ -667,9 +749,96 @@ func _dinos() -> void:
 			"raio": rnd.randf_range(4.0, 7.0), "vel": rnd.randf_range(0.25, 0.4) * (1.0 if i % 2 == 0 else -1.0), "fase": rnd.randf() * TAU})
 	_espalhar(T, ["palmeira", "samambaia", "pedra", "flor_gigante", "samambaia", "palmeira", "ovo_dino", "pedra"], _q(44), 2027,
 		{"palmeira": 1.0, "samambaia": 1.4, "pedra": 1.3, "flor_gigante": 1.3, "ovo_dino": 1.2})
-	_destaques(T, [["samambaia", 1.0, 0.004], ["flor_gigante", 1.0, 0.004], ["ovo_dino", 1.0, 0.004], ["flor_gigante", 0.9, 0.004],
+	var d := _destaques(T, [["samambaia", 1.0, 0.004], ["flor_gigante", 1.0, 0.004], ["ovo_dino", 1.0, 0.004], ["flor_gigante", 0.9, 0.004],
 		["samambaia", 1.2], ["pedra", 1.0], ["ovo_dino", 1.0], ["samambaia", 1.1]])
+	# os ovos de dinossauro tremem de vez em quando (alguém quer nascer!)
+	_vida(T, d, {2: "chocar", 6: "chocar"})
+	_borboletas(T, 3 if leve else 5, 47)
 	_nuvens(T, 10, 88)
+
+
+# ================================================================ borboletas
+## BORBOLETAS (detalhes extras) voando sem pressa dos lados da pista, à vista
+## de quem joga: cada uma é uma malha de 28 triângulos (cor nos vértices) e
+## um desenho; as asas batem no shader (borboleta.shader).
+const CORES_BORBOLETA := [[Color("#FFE14D"), Color("#FF7A1A")], [Color("#FFB3E6"), Color("#C22EFF")],
+	[Color("#9BF0FF"), Color("#1E7BFF")], [Color("#C8FF8A"), Color("#2DB84A")]]
+var _malhas_borboleta := []
+var _mat_borboleta: ShaderMaterial
+
+
+func _borboletas(tema: String, qtd: int, semente: int) -> void:
+	if not detalhes:
+		return
+	if _malhas_borboleta.empty():
+		for par in CORES_BORBOLETA:
+			_malhas_borboleta.append(_malha_borboleta(par[0], par[1]))
+		_mat_borboleta = ShaderMaterial.new()
+		_mat_borboleta.shader = Materiais.shader("res://shaders/borboleta.shader")
+	var rnd := RandomNumberGenerator.new()
+	rnd.seed = semente
+	for i in qtd:
+		var mi := MeshInstance.new()
+		mi.mesh = _malhas_borboleta[(i + semente) % _malhas_borboleta.size()]
+		mi.material_override = _mat_borboleta
+		mi.cast_shadow = GeometryInstance.SHADOW_CASTING_SETTING_OFF
+		# grandonas, de desenho (asa de ~0,6 m): de quem joga dá para ver o bater
+		mi.scale = Vector3.ONE * rnd.randf_range(2.8, 3.4)
+		grupos[tema].add_child(mi)
+		var lado := -1.0 if i % 2 == 0 else 1.0
+		var centro := Vector3(lado * rnd.randf_range(1.9, 2.7), rnd.randf_range(0.9, 1.6), rnd.randf_range(-6.5, -1.0))
+		_animar(tema, {"tipo": "borboleta", "no": mi, "centro": centro,
+			"raio": Vector3(rnd.randf_range(0.3, 0.6), 0.3, rnd.randf_range(0.8, 1.5)),
+			"vel": rnd.randf_range(0.35, 0.55), "fase": rnd.randf() * TAU})
+
+
+## Um voo sem pressa, em laços, sempre olhando para onde vai.
+func _borboleta(item: Dictionary) -> void:
+	var no: Spatial = item["no"]
+	var f: float = item["fase"]
+	var r: Vector3 = item["raio"]
+	var t := _t * float(item["vel"]) + f
+	no.translation = (item["centro"] as Vector3) + Vector3(sin(t) * r.x,
+		sin(t * 2.3 + f) * r.y * 0.5 + sin(_t * 4.1 + f) * 0.03, sin(t * 0.7 + f * 0.5) * r.z)
+	var dx := cos(t) * r.x
+	var dz := 0.7 * cos(t * 0.7 + f * 0.5) * r.z
+	no.rotation = Vector3(0.0, atan2(dx, dz), 0.0)
+
+
+## Asas de cima e de baixo (leque a partir do corpo, a cor do meio para a
+## da beirada) dos dois lados e o corpinho. Olha para +Z; as asas ficam no
+## plano XZ (o shader as levanta).
+static func _malha_borboleta(meio: Color, beirada: Color) -> ArrayMesh:
+	var cima := [Vector2(0.0, 0.012), Vector2(0.03, 0.062), Vector2(0.068, 0.082), Vector2(0.094, 0.062),
+		Vector2(0.09, 0.022), Vector2(0.05, -0.004), Vector2(0.004, -0.006)]
+	var baixo := [Vector2(0.004, -0.006), Vector2(0.05, -0.012), Vector2(0.07, -0.04), Vector2(0.056, -0.07),
+		Vector2(0.026, -0.064), Vector2(0.004, -0.03)]
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	for lado in [1.0, -1.0]:
+		for asa in [[cima, Vector2(0.04, 0.03)], [baixo, Vector2(0.03, -0.03)]]:
+			var pontos: Array = asa[0]
+			var c: Vector2 = asa[1]
+			for k in pontos.size():
+				var a: Vector2 = pontos[k]
+				var b: Vector2 = pontos[(k + 1) % pontos.size()]
+				var tri := [[c, meio], [a, beirada], [b, beirada]]
+				if lado < 0.0:
+					tri = [[c, meio], [b, beirada], [a, beirada]]
+				for par in tri:
+					var p: Vector2 = par[0]
+					st.add_color(par[1])
+					st.add_normal(Vector3.UP)
+					st.add_vertex(Vector3(p.x * lado, 0.0, p.y))
+	# corpinho (um losango escuro em cima das asas)
+	var corpo := Color("#4A2E2A")
+	for tri in [[Vector3(0, 0.003, 0.04), Vector3(0.007, 0.003, 0.0), Vector3(-0.007, 0.003, 0.0)],
+			[Vector3(-0.007, 0.003, 0.0), Vector3(0.007, 0.003, 0.0), Vector3(0, 0.003, -0.055)]]:
+		for v in tri:
+			st.add_color(corpo)
+			st.add_normal(Vector3.UP)
+			st.add_vertex(v)
+	return st.commit()
 
 
 # ================================================================ animação
@@ -780,6 +949,56 @@ func _process(delta: float) -> void:
 				no.translation = (item["centro"] as Vector3) + Vector3(cos(a) * r, sin(_t * 1.4 + float(item["fase"])) * 0.4, sin(a) * r)
 				var dir := Vector3(-sin(a), 0, cos(a)) * sign(v)
 				no.rotation = Vector3(0, atan2(dir.x, dir.z), -sign(v) * 0.35 + sin(_t * 3.0) * 0.05)
+			"pular":
+				# de tempos em tempos um pulinho: estica subindo e amassa ao cair
+				var no: Spatial = item["no"]
+				var e := _escala_base(item)
+				var ciclo := fposmod(_t + float(item["fase"]), float(item["cada"]))
+				var base: Vector3 = item["base"]
+				if ciclo < 0.5:
+					var k := sin(PI * ciclo / 0.5)
+					no.translation = base + Vector3(0, k * float(item["altura"]), 0)
+					no.scale = Vector3(1.0 - 0.05 * k, 1.0 + 0.08 * k, 1.0 - 0.05 * k) * e
+				elif ciclo < 0.85:
+					var u := (ciclo - 0.5) / 0.35
+					var k := sin(PI * u) * (1.0 - u)
+					no.translation = base
+					no.scale = Vector3(1.0 + 0.12 * k, 1.0 - 0.16 * k, 1.0 + 0.12 * k) * e
+				elif ciclo < 0.85 + delta * 2.0:
+					no.scale = Vector3.ONE * e
+			"chocar":
+				# o ovo treme de vez em quando (balança e para)
+				var no: Spatial = item["no"]
+				var ciclo := fposmod(_t + float(item["fase"]), float(item["cada"]))
+				var giro: float = item["giro"]
+				if ciclo < 1.1:
+					var u := ciclo / 1.1
+					var k := (1.0 - u) * sin(u * TAU * 3.5)
+					no.rotation = Vector3(k * 0.05, giro, k * 0.12)
+				elif ciclo < 1.1 + delta * 2.0:
+					no.rotation = Vector3(0, giro, 0)
+			"levitar":
+				var no: Spatial = item["no"]
+				var v: float = item["vel"]
+				no.translation = (item["base"] as Vector3) + Vector3(0, 0.08 + sin(_t * v + float(item["fase"])) * 0.07, 0)
+				no.rotation.y += 0.25 * v * delta
+			"olhar":
+				# vira de um lado para o outro (girando inteiro, de perfil, o
+				# pirulito virava um palito)
+				var no: Spatial = item["no"]
+				no.rotation.y = float(item["giro"]) + sin(_t * float(item["vel"]) + float(item["fase"])) * 0.4
+			"pulsar":
+				# respira: um pouquinho mais baixo e largo, e volta
+				var no: Spatial = item["no"]
+				var k := sin(_t * 1.6 + float(item["fase"]))
+				no.scale = Vector3(1.0 + 0.03 * k, 1.0 - 0.05 * k, 1.0 + 0.03 * k) * _escala_base(item)
+			"navio":
+				# o navio naufragado balança de leve na correnteza
+				var no: Spatial = item["no"]
+				var b: Vector3 = item["base"]
+				no.rotation = b + Vector3(sin(_t * 0.37) * 0.015, 0, sin(_t * 0.5) * 0.025)
+			"borboleta":
+				_borboleta(item)
 
 
 func _escala_base(item: Dictionary) -> float:

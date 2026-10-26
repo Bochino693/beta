@@ -6,7 +6,7 @@ render_mode unshaded, blend_mix, depth_draw_opaque, cull_back;
 // e o reflexo do céu (fresnel) com a direção da câmera vinda do vértice.
 
 uniform sampler2D madeira : hint_albedo;
-uniform vec2 escala_uv = vec2(4.2, 1.6);
+uniform vec2 escala_uv = vec2(4.2, 3.2);
 uniform vec4 tom : hint_color = vec4(0.93, 0.84, 0.76, 1.0);
 uniform vec3 luz_cena = vec3(1.2, 1.2, 1.22);
 uniform vec4 cor_ceu : hint_color = vec4(0.85, 0.93, 1.0, 1.0);

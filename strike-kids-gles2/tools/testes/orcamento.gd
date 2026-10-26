@@ -21,6 +21,10 @@ var _vistas := [
 	["mascote", Vector3(0.9, 1.3, 4.6), Vector3(0.0, 0.7, 2.6)],
 	["pinos", Vector3(0.0, 0.9, -4.2), Vector3(0.0, 0.2, -7.6)],
 	["alto", Vector3(0.0, 4.5, 6.5), Vector3(0.0, 0.0, -2.0)],
+	# a câmera atrás da bola chegando nos pinos (pinos de perto + cenário do fundo)
+	["bola", Vector3(0.5, 2.1, Medidas.Z_PINO1 + 3.6), Vector3(0.0, 0.0, Medidas.Z_PINO1 - 5.0)],
+	# o resultado: de frente para os pinos, baixinha
+	["result", Vector3(0.55, 0.62, Medidas.Z_PINO1 + 2.5), Vector3(0.0, 0.5, Medidas.Z_PINO1 - 0.45)],
 ]
 var _vista := 0
 var _espera := 0

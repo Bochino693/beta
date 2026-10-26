@@ -117,6 +117,8 @@ var _texturas_chao: Array = []
 ## por vértice, metade da decoração, céu simples e sem neblina. A pista,
 ## os pinos, a máquina e os bichinhos são os mesmos do COMPLETO.
 var leve := false
+## detalhes extras (6.7): vento nas plantas, enfeites que se mexem, borboletas
+var detalhes := true
 
 
 ## Onde um objeto movido pela física APARECE neste quadro (Medidas.na_tela).
@@ -126,6 +128,7 @@ static func na_tela(n: Spatial) -> Transform:
 
 func construir() -> void:
 	leve = Ajustes.cenario_leve()
+	detalhes = Ajustes.detalhes()
 	for i in LADRILHO_CHAO.size():
 		_texturas_chao.append(load("res://texturas/chao_%d.png" % i))
 	_ambiente()
@@ -591,8 +594,12 @@ func _pista() -> void:
 
 	# --- para-choques (bumpers) listrados de doce: só as listras (os
 	# efeitos animados ficam POR BAIXO, na calha — canaleta.shader)
-	# cápsula simples + listras pelo shader (nítidas em 4K e levinhas)
-	var mb := _capsula_em_pe(0.07, 1.14, 10, 2)
+	# UM TUBO de cada lado, do começo ao fim, com as pontas redondas e as
+	# listras pelo shader (nítidas em 4K). Eram 10 cápsulas de 10 gomos em
+	# fila: de perto (a vista da pista) o tubo saía facetado; agora são 24
+	# gomos na volta e menos da metade dos triângulos.
+	var n_b: int = N_BUMPERS
+	var mb := _tubo_doce(0.07, -0.6 - (n_b - 1) * 0.96 - 0.57, -0.6 + 0.57, 24, 0.4, 6)
 	var mat_b := ShaderMaterial.new()
 	mat_b.shader = load("res://shaders/doce_listrado.shader")
 	# a luz do cenário por vértice, como nos toons (Materiais.definir_luz)
@@ -608,19 +615,16 @@ func _pista() -> void:
 		var grupo := Spatial.new()
 		grupo.name = "bumpers_%d" % s
 		add_child(grupo)
-		var mm := MultiMesh.new()
-		mm.transform_format = MultiMesh.TRANSFORM_3D
-		mm.mesh = mb
 		# terminam ANTES da máquina de pinos (como num boliche de verdade): a
 		# barra varredora desce e varre ali sem encostar neles
-		var n: int = N_BUMPERS
-		mm.instance_count = n
-		for i in n:
-			mm.set_instance_transform(i, Transform(Basis(Vector3.RIGHT, PI / 2), Vector3(s * 0.735, 0.1, -0.6 - i * 0.96)))
-		var mmi := MultiMeshInstance.new()
-		mmi.multimesh = mm
-		mmi.material_override = mat_b
-		grupo.add_child(mmi)
+		var n: int = n_b
+		var tubo := MeshInstance.new()
+		tubo.mesh = mb
+		# o Y do tubo vira o Z do mundo (o shader faz as listras pelo Y)
+		tubo.transform = Transform(Basis(Vector3.RIGHT, PI / 2), Vector3(s * 0.735, 0.1, 0.0))
+		tubo.material_override = mat_b
+		tubo.name = "tubo"
+		grupo.add_child(tubo)
 		var sb := StaticBody.new()
 		var cs := CollisionShape.new()
 		var cap := CylinderShape.new()
@@ -653,6 +657,73 @@ static func _capsula_em_pe(raio: float, altura: float, gomos: int, aneis: int) -
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
 	st.append_from(c, 0, Transform(Basis(Vector3.UP, PI) * Basis(Vector3.RIGHT, -PI / 2), Vector3.ZERO))
 	return st.commit()
+
+
+## TUBO DE DOCE: em pé no eixo Y, de `y0` até `y1`, com as duas pontas em
+## meia esfera (`aneis_ponta` anéis cada) e um anel a cada `passo` metros na
+## parte reta (a borda clara e o brilho, calculados por vértice, dependem de
+## onde a câmera está). O UV.x dá a volta como o da cápsula de antes
+## (_capsula_em_pe): ângulo = -90° - UV.x · 360°. O UV.y é a altura PARA AS
+## LISTRAS, contada do começo de cada trecho de até TRECHO_LISTRAS metros
+## (o começo cai num múltiplo de 0,25 m, a largura de uma listra): na
+## Mali-450 o pixel conta com pouca precisão e, com a altura inteira (até
+## 10 m), as bordas das listras do fundo saíam serrilhadas. Os anéis da
+## emenda entre dois trechos vão duas vezes, um com cada começo.
+const TRECHO_LISTRAS := 2.0
+
+
+static func _tubo_doce(raio: float, y0: float, y1: float, gomos: int, passo: float, aneis_ponta: int) -> ArrayMesh:
+	# perfil de cima para baixo: [y, raio do anel, y da normal]
+	var perfil := []
+	var yc1 := y1 - raio
+	var yc0 := y0 + raio
+	for k in aneis_ponta + 1:
+		var f := PI * 0.5 * (1.0 - float(k) / aneis_ponta)
+		perfil.append([yc1 + raio * sin(f), raio * cos(f), sin(f)])
+	var n_reta := Compat.imax(1, int(ceil((yc1 - yc0) / passo)))
+	for k in range(1, n_reta):
+		perfil.append([lerp(yc1, yc0, float(k) / n_reta), raio, 0.0])
+	for k in aneis_ponta + 1:
+		var f := -PI * 0.5 * float(k) / aneis_ponta
+		perfil.append([yc0 + raio * sin(f), raio * cos(f), sin(f)])
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var comeco := ceil(y1 * 4.0) / 4.0
+	var n_aneis := 0
+	for i in perfil.size():
+		var y: float = perfil[i][0]
+		if i > 0 and comeco - y > TRECHO_LISTRAS:
+			# emenda: o anel anterior de novo, com o começo do trecho novo
+			comeco = ceil(float(perfil[i - 1][0]) * 4.0) / 4.0
+			_anel_doce(st, perfil[i - 1], comeco, gomos)
+			n_aneis += 1
+		_anel_doce(st, perfil[i], comeco, gomos)
+		n_aneis += 1
+		if n_aneis < 2:
+			continue
+		var antes := (n_aneis - 2) * (gomos + 1)
+		var este := (n_aneis - 1) * (gomos + 1)
+		for j in gomos:
+			st.add_index(antes + j)
+			st.add_index(antes + j + 1)
+			st.add_index(este + j)
+			st.add_index(antes + j + 1)
+			st.add_index(este + j + 1)
+			st.add_index(este + j)
+	return st.commit()
+
+
+static func _anel_doce(st: SurfaceTool, anel: Array, comeco: float, gomos: int) -> void:
+	var y: float = anel[0]
+	var r: float = anel[1]
+	var ny: float = anel[2]
+	var nr := sqrt(max(1.0 - ny * ny, 0.0))
+	for j in gomos + 1:
+		var u := float(j) / gomos
+		var a := -PI * 0.5 - TAU * u
+		st.add_normal(Vector3(cos(a) * nr, ny, sin(a) * nr))
+		st.add_uv(Vector2(u, y - comeco))
+		st.add_vertex(Vector3(cos(a) * r, y, sin(a) * r))
 
 
 ## TOROIDE (o Godot 3 não tem TorusMesh): a mesma malha do Godot 4 — deitado

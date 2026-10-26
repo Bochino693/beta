@@ -79,6 +79,47 @@ O QUE MUDOU PARA RODAR NA OPENGL ES 2.0
     Godot 4 (nao substitui).
 
 
+VERSAO 6.7: MAIS VIDA E MAIS RESOLUCAO, SEM PESAR NA MALI-450
+--------------------------------------------------------------
+Na Mali-450 o limite sao os vertices (a vista da pista ja passa de 240 mil
+indices por quadro). Por isso a 6.7 nao poe mais triangulos no total: deixa
+mais nitido o que custa so memoria (textura), troca de lugar os triangulos
+(do que ninguem ve para o que aparece grande) e mexe objetos inteiros.
+  * PISO DE MADEIRA NITIDO (a parte de baixo da tela inteira na vista da
+    pista): textura nova de 2048 com veios, emendas e verniz
+    (tools/assar_madeira.py), em ETC1 (2,8 MB com os mipmaps). A antiga,
+    de 1024, aparecia esticada 2 vezes e borrada. O custo por pixel e o
+    mesmo (uma leitura de textura).
+  * PARA-CHOQUES REDONDOS: um tubo so de cada lado, com 24 gomos na volta
+    (eram 10 capsulas de 10 gomos, facetadas de perto), com os mesmos
+    triangulos de antes; luz e brilho por pixel (sem as faixas de cada
+    gomo); as listras continuas, contadas em trechos de 2 m (a Mali-450
+    conta o pixel com pouca precisao).
+  * PINOS REDONDOS DE PERTO: modelos/pino_perto.res, 1.500 triangulos
+    tirados do original de 2.400 (listras e rosto no lugar). So com a
+    camera a menos de 8 m (vista dos pinos, bola chegando, resultado, replay);
+    de longe continua o pino de 386 triangulos.
+  * VIDA NO CENARIO - menu do operador, "Detalhes extras" (ligado de
+    fabrica; desligado = cenario e pinos como na 6.6, para comparar na
+    TV Box sem reinstalar):
+      - as plantas perto da pista balancam ao vento (palmeiras, samambaias,
+        flores, arvores, algas e corais) no shader, juntas no Lote;
+      - enfeites perto da pista se mexem: ovos de dinossauro tremendo
+        (alguem quer nascer!), presente e cogumelo pulando, pirulitos
+        virando, cupcake e conchas respirando, rosquinha girando, cristais
+        flutuando no espaco, o navio balancando no fundo do mar;
+      - borboletas no parque e na selva dos dinos, voando dos lados da
+        pista e batendo as asas (28 triangulos cada).
+  * CUSTO medido (tools/testes/orcamento.gd, indices por quadro, 6.5 -> 6.7):
+      vista da pista: dinos 256.644 -> 256.660; parque 251.982 -> 249.891;
+      espaco 216.366 -> 215.298; mar 234.045 -> 234.321 (de 4 a 7 desenhos
+      a mais: borboletas e enfeites que se mexem);
+      vista dos pinos (pinos redondos): 166-193 mil -> 210-236 mil, abaixo
+      do orcamento de 240 mil (ali a pista e o cenario quase nao aparecem).
+  * Testes: roteiro de partida (ROTEIRO OK, trava da jogada OK) e
+    tools/testes/start_livre.gd (START LIVRE OK).
+
+
 VERSAO 6.6: START E FICHA VALEM A QUALQUER MOMENTO DA ESPERA
 ------------------------------------------------------------
   * START NA DEMONSTRACAO: com os bichinhos jogando sozinhos (a
