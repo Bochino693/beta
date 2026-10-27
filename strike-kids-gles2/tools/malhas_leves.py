@@ -50,7 +50,7 @@ PESO_ALFA = 3.0     # máscara do rosto e o que brilha: borda bem guardada
 PESO_UV = 1.0
 
 # peças do cenário que aparecem grandes na tela (a decoração de destaque)
-GRANDES = ("vulcao", "navio", "carrossel", "roda", "torre", "planeta_anel", "arco_iris")
+GRANDES = ("vulcao", "navio", "carrossel", "roda", "torre", "saturno", "arco_iris")
 # peças repetidas muitas vezes em cada fase: alvo próprio
 POR_PECA = {"lampada": 64, "balao": 180, "nuvem": 200, "cabine": 260, "navio": 2000,
             "estrela_3d": 220, "peixe": 300, "agua_viva": 340, "ovo_dino": 520, "pedra": 320,

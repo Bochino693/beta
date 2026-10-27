@@ -233,7 +233,7 @@ const ATLAS := "res://texturas/cenario/atlas_%s.png"
 ## (a fase de cada objeto, para quem pede o material sem dizer a fase)
 const TEMA_DO_MODELO := {"ptero": "dinos", "dino": "dinos", "vulcao": "dinos", "palmeira": "dinos",
 	"samambaia": "dinos", "flor_gigante": "dinos", "ovo_dino": "dinos", "pedra": "dinos",
-	"planeta_anel": "espaco", "foguete": "espaco", "ovni": "espaco", "planeta": "espaco",
+	"saturno": "espaco", "foguete": "espaco", "ovni": "espaco", "planeta": "espaco",
 	"estrela_3d": "espaco", "cristal": "espaco", "pedra_lua": "espaco",
 	"navio": "mar", "bau": "mar", "bau_tampa": "mar", "coral": "mar", "coral_roxo": "mar", "alga": "mar",
 	"estrela_mar": "mar", "concha": "mar", "peixe": "mar", "peixe_azul": "mar", "peixe_amarelo": "mar",
@@ -468,7 +468,10 @@ func _obj(tema: String, nome: String, pos: Vector3, rot_y := 0.0, esc := 1.0, co
 ## madeira, e a frente dele (virada para quem joga, contra o sol do mar)
 ## não fica escura demais na sombra. É só uma conta na luz do material,
 ## nada a mais por pixel. [tinta, parâmetros do material]
-const TINTA_MODELO := {"bau": [Color(1.3, 1.0, 0.82), {"luz_minima": 0.6}]}
+## (7.2: o Saturno com a sombra mais clara — de baixo, da pista, a metade
+## de baixo dele fica na sombra e escurecia as cores)
+const TINTA_MODELO := {"bau": [Color(1.3, 1.0, 0.82), {"luz_minima": 0.6}],
+	"saturno": [Color.white, {"luz_minima": 0.64}]}
 
 
 ## VENTO NAS PLANTAS (detalhes extras): [metros que o topo anda, rapidez].
@@ -883,11 +886,35 @@ func _nuvens(tema: String, qtd: int, semente: int) -> void:
 	for i in _q(qtd):
 		var lado := -1.0 if i % 2 == 0 else 1.0
 		var pos := Vector3(lado * rnd.randf_range(4.0, 22.0), rnd.randf_range(6.0, 15.0), rnd.randf_range(-60.0, -8.0))
-		var n := _obj(tema, "nuvem", pos, 0.0, rnd.randf_range(1.2, 2.6))
+		var esc := rnd.randf_range(1.2, 2.6)
+		pos.y = _altura_nuvem(tema, pos, esc)
+		var n := _obj(tema, "nuvem", pos, 0.0, esc)
 		n.material_override = mat
 		n.cast_shadow = GeometryInstance.SHADOW_CASTING_SETTING_OFF
 		n.rotation.y = rnd.randf() * TAU
 		_animar(tema, {"tipo": "nuvem", "no": n, "vel": rnd.randf_range(0.15, 0.4)})
+
+
+## A altura de uma NUVEM (7.2: elas iam de 6 a 15 m e, andando de um lado
+## ao outro, raspavam nos morros e no vulcão — de longe pareciam pousadas no
+## chão). A nuvem anda de x = -30 a 30 (_process, "nuvem"): a base dela fica
+## pelo menos 6 m acima do ponto mais alto do terreno em todo o caminho e
+## acima das peças altas (vulcão, castelo, roda-gigante) que estão na mesma
+## faixa de z. (Malha: base em y = 0,26, meia largura 2, meia fundura 0,95.)
+func _altura_nuvem(tema: String, pos: Vector3, esc: float) -> float:
+	var base := pos.y + 6.0
+	for k in 31:
+		base = max(base, _chao(-30.0 + 2.0 * k, pos.z) + 6.0)
+	var meia_z := 0.95 * esc
+	for c in (grupos[tema] as Spatial).get_children():
+		if not (c is MeshInstance) or (c as MeshInstance).mesh == null:
+			continue
+		var caixa: AABB = (c as Spatial).transform.xform((c as MeshInstance).mesh.get_aabb())
+		if caixa.size.y < 4.0:
+			continue
+		if abs(caixa.position.z + caixa.size.z * 0.5 - pos.z) < caixa.size.z * 0.5 + meia_z:
+			base = max(base, caixa.end.y + 2.0)
+	return base - 0.26 * esc
 
 
 func _baloes(tema: String) -> void:
@@ -928,37 +955,27 @@ func _espaco() -> void:
 	var T := "espaco"
 	var rnd := RandomNumberGenerator.new()
 	rnd.seed = 404
-	# O PLANETA COM ANEL lá no alto do céu, à esquerda (7.1: ficava atrás
-	# dos pinos, por cima do letreiro, e o Saturno listrado ocupava este
-	# lugar; agora é um só, grande e caprichado — a versão de perto sempre,
-	# tools/modelos_texturizados.py: ALVO). O anel fica deitado e inclinado
-	# de leve para a direita: visto de baixo, da pista, é uma elipse aberta.
-	# Gira em volta do eixo do ANEL (o da malha, tools/cenario_sdf/temas.py):
-	# o anel fica sempre igual e as faixas do planeta é que passam.
-	# PROFUNDIDADE: ele fica bem mais ao fundo que a lua (que está à direita,
-	# Mundo.ASTROS) — a neblina azul do espaço o deixa um pouco mais suave,
-	# como coisa longe — e uma borda de luz azul-clara (e a sombra menos
-	# escura) desenha o contorno dele no céu escuro: longe, mas bem visível.
-	var pos_pa := Vector3(-16.5, 31.0, -84.0)
-	var pa := _obj(T, "planeta_anel", pos_pa, 0.0, 1.0, 0.0, Color.white, null, 0.0)
-	pa.material_override = _mat_modelo("planeta_anel", 0.0, Color.white,
-		{"borda": 0.55, "cor_borda": Color(0.62, 0.86, 1.0), "luz_minima": 0.6}, false, T)
-	pa.cast_shadow = GeometryInstance.SHADOW_CASTING_SETTING_OFF
-	var eixo_anel := Vector3(-0.336, 0.894, 0.296).normalized()
-	var olhar := (pos_pa - Vector3(0.0, 1.35, 6.6)).normalized()
-	# o anel inclinado 42° para o lado da pista: de baixo aparece a face de
-	# CIMA dele (a iluminada, com as cores), numa elipse aberta, passando na
-	# frente da metade de baixo do planeta; e de leve para a direita
-	var para_pista := Vector3(-olhar.x, 0.0, -olhar.z).normalized()
-	var deitado := (Vector3.UP * cos(deg2rad(42.0)) + para_pista * sin(deg2rad(42.0))).normalized().rotated(olhar, deg2rad(-16.0))
-	pa.transform = Transform(Basis(eixo_anel.cross(deitado).normalized(), eixo_anel.angle_to(deitado)).scaled(Vector3.ONE * 5.4), pos_pa)
-	_animar(T, {"tipo": "girar_proprio", "no": pa, "vel": 0.06, "eixo": eixo_anel})
+	# SATURNO atrás dos pinos, por cima do letreiro (7.2: no lugar do planeta
+	# azul com anel de arco-íris, que parecia um adesivo e saiu; o Saturno
+	# ficava lá no fundo do céu). Caprichado: a versão de perto sempre (9.000
+	# triângulos, textura 2048 — tools/modelos_texturizados.py: ALVO). O anel
+	# vem inclinado para a frente na malha (tools/cenario_sdf/temas.py) e aqui
+	# inclina mais ~19° para a pista (que o vê de baixo): aparece a face de
+	# cima do anel, dourada, numa elipse aberta, e ele tomba de leve para a
+	# direita.
+	# Gira em volta do eixo do ANEL: o anel fica sempre igual e as faixas do
+	# planeta é que passam. A LUA fica lá no alto, à direita (Mundo.ASTROS):
+	# o Saturno perto, a lua longe — a profundidade, sem um tapar o outro.
+	var sat := _obj(T, "saturno", Vector3(0.3, 6.4, Medidas.Z_FUNDO - 3.6), 0.0, 1.75, 0.0, Color.white, null, 0.0)
+	sat.rotation = Vector3(0.33, 0.0, -0.2)
+	_animar(T, {"tipo": "girar_proprio", "no": sat, "vel": 0.1, "eixo": Vector3(-0.218, 0.891, 0.398).normalized()})
 	# dois foguetes em pé no chão, ao lado do gabinete, inteiros à vista
 	# (atrás das colunas só aparecia a pontinha das aletas)
 	for s in [-1.0, 1.0]:
 		_grande(T, "foguete", s * 3.35, -11.0, -s * deg2rad(35.0), 0.95, 0.004, 0.03, false)
-	# disco voador passeando por cima do fim da pista, acima do letreiro
-	# (nunca some atrás do arco), inclinando nas curvas como um aviãozinho
+	# disco voador passeando por cima do fim da pista: na FRENTE do Saturno
+	# e acima do letreiro (nunca atravessa o planeta nem some atrás do arco),
+	# inclinando nas curvas como um aviãozinho
 	var ovni := _obj(T, "ovni", Vector3(0, 5.0, -12.1), 0.0, 1.0, 0.004)
 	var voo_ovni := {"tipo": "passeio", "no": ovni, "centro": Vector3(0, 5.0, -12.1), "raio": Vector3(3.1, 0.25, 0.65),
 		"vel": 0.3, "girar": 1.6, "ang": 0.0}

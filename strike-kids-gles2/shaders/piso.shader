@@ -83,9 +83,14 @@ void fragment() {
 		c += vec3(1.0, 0.85, 0.2) * exp(-max(de, 0.0) * 20.0) * (0.15 + 0.15 * pulso);
 		c = adesivo(c, de, vec3(1.0, 0.82, 0.15), 0.02);
 	}
-	c *= luz_cena;
+	// (7.2) MADEIRA VIVA, como a da pista: menos luz (estourava no bege),
+	// mais cor e o reflexo do céu fraco e tingido da madeira (o céu claro
+	// misturado deixava o piso desbotado)
+	c *= luz_cena * 0.86;
+	float lum = dot(c, vec3(0.299, 0.587, 0.114));
+	c = max(mix(vec3(lum), c, 1.3), vec3(0.0));
 	vec3 v = normalize(olhar);
 	float f1 = 1.0 - clamp(v.y, 0.0, 1.0);
 	float f2 = f1 * f1;
-	ALBEDO = tela_g4(mix(c, cor_ceu.rgb, f2 * f2 * verniz));
+	ALBEDO = tela_g4(mix(c, cor_ceu.rgb * c * 2.2, f2 * f2 * verniz * 0.5));
 }

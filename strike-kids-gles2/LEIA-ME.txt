@@ -79,6 +79,37 @@ O QUE MUDOU PARA RODAR NA OPENGL ES 2.0
     Godot 4 (nao substitui).
 
 
+VERSAO 7.2: SATURNO 3D NO LUGAR CERTO, NUVENS NO CEU E PISTA COR DE MEL
+------------------------------------------------------------------------
+  * O "SATURNO SPRITE" SAIU DE VERDADE: o planeta azul com o anel de
+    arco-iris (que parecia um adesivo chapado) foi tirado do jogo. A 7.1
+    tinha feito o contrario (tirou o Saturno listrado e espalhou o azul).
+  * O SATURNO 3D (o listrado, que ficava la no fundo do ceu) veio para o
+    lugar do outro: atras dos pinos, inteiro por cima do arco do gabinete.
+    Caprichado: 9.000 triangulos e textura 2048, a borda de dentro do anel
+    arredondada e a fonte na grade fina (o anel saia serrilhado) e sem o
+    sombreado dos cantinhos (o anel solto escurecia uma faixa do planeta). CORES VIVAS: faixas laranja,
+    vermelho e amarelo e o anel dourado com uma faixa laranja (eram tons de
+    creme quase branco). O anel inclina para a pista: de baixo aparece a
+    face de cima dele, numa elipse aberta. O disco voador passeia na
+    frente dele.
+  * A LUA la no alto, a direita, maior: longe e separada do Saturno, que
+    fica perto - a profundidade, sem um tapar o outro.
+  * NUVENS NO CEU (selva e parque): elas iam de 6 a 15 m de altura e,
+    andando de um lado ao outro, raspavam nos morros e no vulcao - de longe
+    pareciam pousadas no chao. Agora a base de cada nuvem fica pelo menos
+    6 m acima do ponto mais alto do terreno em todo o caminho dela e acima
+    das pecas altas (vulcao, castelo, roda-gigante).
+  * PISTA E PISO COR DE MEL, VIVOS (shaders/pista.shader e piso.shader): a
+    madeira saia cor de creme, quase branca, e as estrelas e setas
+    desbotadas. Era o "verniz" misturando ate ~19% do ceu claro na pista,
+    mais a luz forte demais. Agora a luz e um pouco mais baixa, a madeira
+    tem mais cor (saturacao) e o reflexo do ceu e fraco e tingido da
+    propria madeira: ambar vivo, com as marcas coloridas aparecendo.
+  * Custo quase igual ao da 7.1 (vista de jogar: selva 233, parque 247,
+    espaco 201, mar 230 mil indices).
+
+
 VERSAO 7.1: UM PLANETA SO NO CEU DO ESPACO, GRANDE E CAPRICHADO
 ---------------------------------------------------------------
   * O SATURNO listrado (la no alto, a esquerda - de longe parecia um
