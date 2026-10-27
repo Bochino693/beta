@@ -29,6 +29,7 @@ var _quadros := 0
 var _t0 := 0
 var _pior := 0.0
 var _ultimo := 0
+var _cpu := [0, 0]   # marca da conta do processador (principal.cpu_marca)
 
 
 func _init(p: Node) -> void:
@@ -71,6 +72,7 @@ func mostrar(sim: bool) -> void:
 	_ultimo = _t0
 	_quadros = 0
 	_pior = 0.0
+	_cpu = principal.cpu_marca()
 
 
 func alternar() -> void:
@@ -89,10 +91,11 @@ func _process(_d: float) -> void:
 	var cor := Color("#7CFF7C") if qps >= 50.0 else (Color("#FFE14D") if qps >= 30.0 else Color("#FF6B6B"))
 	Compat.cor_rotulo(_texto, cor)
 	# Godot 3: sem a medida da placa de vídeo (RenderingServer do Godot 4);
-	# o Godot 3 conta vértices, não triângulos
-	_texto.text = "%d QPS   (%.1f ms, pior %.0f ms)\nCPU %.1f ms · %d desenhos · %d mil vértices\n%s · %s · memória %d MB · vídeo %d MB" % [
+	# o Godot 3 conta vértices, não triângulos. "Scripts" = scripts + física
+	# por quadro (o resto do quadro é o desenho e a espera da placa)
+	_texto.text = "%d QPS   (%.1f ms, pior %.0f ms)\nScripts %.1f ms · %d desenhos · %d mil vértices\n%s · %s · memória %d MB · vídeo %d MB" % [
 		int(round(qps)), ms, _pior,
-		Performance.get_monitor(Performance.TIME_PROCESS) * 1000.0,
+		principal.cpu_ms_desde(_cpu),
 		Performance.get_monitor(Performance.RENDER_DRAW_CALLS_IN_FRAME),
 		Performance.get_monitor(Performance.RENDER_VERTICES_IN_FRAME) / 1000,
 		principal.descricao_3d(),
@@ -102,6 +105,7 @@ func _process(_d: float) -> void:
 	_t0 = agora
 	_quadros = 0
 	_pior = 0.0
+	_cpu = principal.cpu_marca()
 
 
 # ================================================================ teste

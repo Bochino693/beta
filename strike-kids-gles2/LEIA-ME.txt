@@ -79,6 +79,52 @@ O QUE MUDOU PARA RODAR NA OPENGL ES 2.0
     Godot 4 (nao substitui).
 
 
+VERSAO 7.4: MAIS LEVE NA MALI-450 DE 1 GB (O QUE PESOU E O CONSERTO)
+---------------------------------------------------------------------
+O QUE PESOU (medido 6.9 x 7.3 com as mesmas vistas e o mesmo roteiro):
+  * a 7.0 trouxe ~33% mais triangulos no cenario ALTO, na vista de jogar
+    (selva 176 -> 233, parque 184 -> 247, espaco 150 -> 201, mar 175 ->
+    229 mil indices; na espera e no arremesso 231 -> 286 e 255 -> 317
+    mil) e os 4 atlas de 4096 (memoria de textura 162 -> 194 MB);
+  * scripts e fisica: praticamente iguais (+4%); desenhos: +4 a 8%.
+O DEFEITO QUE DEIXAVA TUDO PESADO NA TV:
+  * o GOVERNADOR DO QUADRO (que alivia sozinho o cenario, a qualidade e a
+    imagem quando a TV nao segura os quadros) NUNCA agia na TV: ele decidia
+    se o problema era o processador pelo TIME_PROCESS do Godot 3, que e o
+    quadro INTEIRO (com o desenho e a espera da placa de video) e o pior do
+    ultimo segundo - na TV ele sempre achava o processador no limite e nao
+    mexia em nada. Agora duas sondas medem de verdade os scripts + a fisica
+    de cada quadro (scripts/principal.gd: _SondaCpu) e ele funciona, nesta
+    ordem: cenario LEVE, qualidade MEDIA, BAIXA (sem os contornos) e, na
+    proxima abertura, a imagem 3D separada (de 720 px). Conferido no PC
+    lento: passou por todos os passos.
+  * A TV MEDE DE NOVO, UMA VEZ: o que o automatico tinha gravado (30
+    quadros travados, cenario, qualidade, imagem) e esquecido ao instalar a
+    7.4 (Ajustes.gd: MEDIDAS_VERSAO). O que o operador escolheu no menu
+    fica.
+MAIS LEVE SEM MUDAR O VISUAL:
+  * MALI-400/450 COMECA NO CENARIO 3D LEVE (no automatico): um passo mais
+    leve em cada peca do cenario, as mesmas formas lisas da 7.0 (o Saturno
+    continua liso: a versao do meio dele tem 4.048 triangulos). Quem quiser
+    o ALTO numa TV mais forte: menu do operador > "Cenario 3D" = alto.
+  * LAMPADAS do arco e do gabinete: 24 triangulos cada (eram 36; sao ~230
+    lampadas de poucos pixels na tela) - 6 mil indices a menos por quadro.
+  * O PTERODACTILO DA PLACA da selva troca de malha com o nivel do cenario
+    (no leve, a versao do meio).
+  * O LOGO do jogo em 1024 (era 2048: 8,7 -> 2,2 MB na memoria; a tela da
+    TV tem 720 linhas).
+  * PAINEL DE DESEMPENHO (F3 / menu): a linha "Scripts" mostra o tempo de
+    verdade dos scripts + fisica por quadro (o resto do quadro e o desenho
+    e a placa de video).
+  * CUSTO na vista de jogar, 7.3 (alto) -> 7.4 na Mali-450 (leve,
+    qualidade media): selva 233 -> 180, parque 247 -> 192, espaco 201 ->
+    163, mar 229 -> 186 mil indices (19 a 23% a menos; a 6.9 era 176 /
+    184 / 150 / 175). Na qualidade baixa (sem contornos), ~23 mil a menos.
+  * Testes: roteiro de 2 jogadores com desempate (ROTEIRO OK, TRAVA OK
+    nas 11 bolas), START LIVRE OK, as vistas das 4 fases no alto e no leve
+    e o governador conferido no PC lento - nenhum erro de script.
+
+
 VERSAO 7.3: O JOGO ABRE SOZINHO AO LIGAR A TV (TOMADA OU CONTROLE)
 --------------------------------------------------------------------
   * O JOGO E A TELA INICIAL DA TV: o APK traz uma tela inicial do Android

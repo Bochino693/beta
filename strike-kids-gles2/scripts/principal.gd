@@ -126,6 +126,17 @@ var _q_lentos := 0
 var _gpu_ms := 0.0
 var _gpu_n := 0
 var _mede_placa := false
+## A CONTA DO PROCESSADOR (7.4): quanto os scripts e a física (com a
+## Bullet) levam DE VERDADE em cada quadro — da sonda que roda antes de
+## todos até a que roda depois de todos (_SondaCpu); o governador usa a
+## média da janela. (O TIME_PROCESS do Godot 3 é o quadro INTEIRO, com o
+## desenho e a espera da placa de vídeo, e o pior do último segundo: com
+## ele o governador sempre achava o processador no limite e NUNCA
+## aliviava o cenário nem a imagem na TV.)
+var _cpu_ini := 0
+var _cpu_us := 0
+var _cpu_n := 0
+var _cpu_janela := [0, 0]   # a marca do começo da janela do governador
 var _alvo_qps := 60.0       # quadros por segundo da tela (lido a cada medida, não a cada quadro)
 ## QUADROS POR SEGUNDO ("Quadros por segundo" no menu): 60, ou 30 TRAVADOS
 ## na batida da TV. A TV Box que não segura 60 na hora da jogada (o
@@ -205,6 +216,13 @@ func _ready() -> void:
 	# durante a montagem; o jogo só começa a andar no fim dela.
 	set_process(false)
 	set_physics_process(false)
+	for fim in [false, true]:
+		var s := _SondaCpu.new()
+		s.dono = self
+		s.fim = fim
+		s.pause_mode = Node.PAUSE_MODE_PROCESS
+		s.process_priority = 1000000 if fim else -1000000
+		add_child(s)
 	var aq := Aquecer.new()
 	add_child(aq)
 	aq.capa()
@@ -559,11 +577,7 @@ func linhas_da_tv() -> int:
 			return 1080
 		"tela":
 			return 0
-	var placa := VisualServer.get_video_adapter_name().to_lower()
-	for utgard in ["mali-4", "mali-3", "mali-2"]:
-		if utgard in placa:
-			return 720
-	return 1080
+	return 720 if Ajustes.placa_utgard() else 1080
 
 
 ## Desenho direto ou com a imagem 3D separada: o do operador ("Desenho da
@@ -2531,6 +2545,45 @@ func _esperar(t: float, s: int, pulavel := true, acelera := true) -> bool:
 	return s == _seq
 
 
+## As duas sondas da conta do processador: a de começo roda antes de todos
+## (o 1º passo de física do quadro, ou os scripts) e a de fim depois de
+## todos os scripts do quadro.
+class _SondaCpu:
+	extends Node
+	var dono
+	var fim := false
+
+	func _process(_d):
+		dono._sonda_cpu(fim)
+
+	func _physics_process(_d):
+		if not fim:
+			dono._sonda_cpu(false)
+
+
+func _sonda_cpu(fim: bool) -> void:
+	var agora := Time.get_ticks_usec()
+	if not fim:
+		# o 1º passo de física do quadro (ou, sem física, o começo dos scripts)
+		if _cpu_ini == 0:
+			_cpu_ini = agora
+		return
+	if _cpu_ini > 0:
+		_cpu_us += agora - _cpu_ini
+		_cpu_n += 1
+	_cpu_ini = 0
+
+
+## Scripts + física por quadro, em ms: a média desde uma marca de
+## cpu_marca() (o governador e o painel de desempenho, cada um a sua).
+func cpu_marca() -> Array:
+	return [_cpu_us, _cpu_n]
+
+
+func cpu_ms_desde(marca: Array) -> float:
+	return float(_cpu_us - int(marca[0])) / 1000.0 / float(Compat.imax(_cpu_n - int(marca[1]), 1))
+
+
 ## NITIDEZ x LISURA, sozinho: a cada 2 s mede os quadros por segundo de
 ## verdade (relógio) E as travadinhas (quadros que passaram do tempo — a
 ## média pode estar boa e a tela ainda engasgar). Ruim duas vezes seguidas
@@ -2570,6 +2623,7 @@ func _medir_fps(_delta: float) -> void:
 		_q_lentos = 0
 		_gpu_ms = 0.0
 		_gpu_n = 0
+		_cpu_janela = cpu_marca()
 		var hz := OS.get_screen_refresh_rate()
 		_alvo_qps = min(clamp(hz if hz > 0.0 else 60.0, 30.0, 60.0), float(_qps))
 		return
@@ -2579,6 +2633,8 @@ func _medir_fps(_delta: float) -> void:
 	var fps := float(quadros) * 1000.0 / float(agora - _fps_t0)
 	var atrasados := float(_q_lentos) / float(quadros)
 	var placa := _gpu_ms / float(_gpu_n) if _gpu_n > 0 else -1.0
+	var cpu := cpu_ms_desde(_cpu_janela)
+	_cpu_janela = cpu_marca()
 	_fps_t0 = agora
 	_fps_q = Engine.get_idle_frames()
 	_q_lentos = 0
@@ -2596,9 +2652,8 @@ func _medir_fps(_delta: float) -> void:
 			# a placa de vídeo usou mais de 70% do tempo do quadro
 			placa_no_limite = placa > 700.0 / alvo
 		else:
-			# TV Box: processador no limite (jogo + física por quadro) = a imagem não é o problema
-			var passos := float(Engine.iterations_per_second) / max(fps, 1.0)
-			var cpu := (Performance.get_monitor(Performance.TIME_PROCESS) + Performance.get_monitor(Performance.TIME_PHYSICS_PROCESS) * passos) * 1000.0
+			# TV Box: processador no limite (scripts + física por quadro, a
+			# conta de verdade: _SondaCpu) = a imagem não é o problema
 			placa_no_limite = cpu <= 800.0 / alvo
 		if _fps_ruins < 2 or not placa_no_limite:
 			return
@@ -2609,7 +2664,7 @@ func _medir_fps(_delta: float) -> void:
 			# do cenário — trocar é só mostrar um lote e esconder outro
 			mundo.temas.nivel_cenario(true)
 			Ajustes.definir("video", "cenario3d_medido", "leve")
-			print("Cenário 3D automático: leve (%d quadros/s, %d%% atrasados)" % [int(fps), int(atrasados * 100.0)])
+			print("Cenário 3D automático: leve (%d quadros/s, %d%% atrasados, scripts+física %.1f ms)" % [int(fps), int(atrasados * 100.0), cpu])
 		elif auto and _qualidade == "alta":
 			_qualidade_pendente = "media"
 			print("Qualidade automática: média (%d quadros/s, %d%% atrasados, placa %.1f ms) no próximo clarão" % [int(fps), int(atrasados * 100.0), placa])
