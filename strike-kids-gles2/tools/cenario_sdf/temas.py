@@ -929,8 +929,10 @@ def planeta():
 
 
 def cristal():
-    pal = Paleta(ciano=hex_cor("#5CE1F0"), roxo=hex_cor("#FFC23A"), pedra=hex_cor("#8F9AB0"),
-                 ciano_claro=hex_cor("#B5F6FF"), roxo_claro=hex_cor("#FFE7A3"))
+    # (7.0) os cristais BRILHAM: a cor deles é "acesa" (alfa 0,5 — a luz
+    # própria do toon_leve_tex), a pedra da base não
+    pal = Paleta(ciano=hex_cor("#5CE1F0", 0.5), roxo=hex_cor("#FFC23A", 0.5), pedra=hex_cor("#8F9AB0"),
+                 ciano_claro=hex_cor("#B5F6FF", 0.5), roxo_claro=hex_cor("#FFE7A3", 0.5))
     lista = [  # base xz, inclinação, direção da inclinação, apótema, altura, ponta, cor
         ((0.0, 0.0), 0.0, 0.0, 0.15, 0.86, 0.27, pal.ciano),
         ((0.15, 0.05), 0.45, 0.2, 0.105, 0.42, 0.17, pal.roxo),
@@ -1171,47 +1173,74 @@ def peixe_amarelo():
 
 
 def agua_viva():
-    # TINTA: sino branco com pintinhas cinza-claro; origem no centro do sino
-    pal = Paleta(sino=hex_cor("#FFFFFF"), pinta=hex_cor("#E4E6F0"), dentro=hex_cor("#E9E9F2"), tentaculo=hex_cor("#F1F1F7"))
-    sino = Intersecao(Elipsoide((0, 0, 0), (0.3, 0.27, 0.3), pal.sino), SemiEspaco((0, -0.05, 0), (0, -1, 0)), 0.04)
-    babados = [Esfera((0.27 * math.cos(a), -0.055, 0.27 * math.sin(a)), 0.058, pal.sino)
-               for a in np.linspace(0, 2 * PI, 12, endpoint=False)]
-    corpo = sino.solda(unir(*babados), 0.04).menos(Elipsoide((0, -0.13, 0), (0.22, 0.12, 0.22), pal.dentro), k=0.03, cor_do_corte=True)
-    tent = []
-    for i in range(6):
-        a = 2 * PI * i / 6 + 0.3
-        r0 = 0.15 if i % 2 else 0.1
-        pts = []
-        for j, y in enumerate(np.linspace(-0.06, -0.5 - 0.06 * (i % 2), 9)):
-            w = 0.035 * math.sin(j * 1.3 + i)
-            pts.append(((r0 + 0.02 * j) * math.cos(a) - w * math.sin(a), y, (r0 + 0.02 * j) * math.sin(a) + w * math.cos(a)))
-        for j in range(len(pts) - 1):
-            ra = 0.032 - 0.0025 * j
-            tent.append(Capsula(pts[j], pts[j + 1], ra, pal.tentaculo, rb=ra - 0.0025))
-    # os braços do meio: fitas onduladas, mais grossas que os tentáculos
+    """ÁGUA-VIVA (7.0): sino liso de gelatina com um babado redondinho na
+    borda, por baixo o miolo mais escuro, QUATRO BRAÇOS EM FITA ondulada
+    (de babado, como os da água-viva de verdade) e OITO TENTÁCULOS finos e
+    lisos que descem ondulando e terminam num cachinho — eram "macarrões"
+    grossos e encaroçados. TINTA: quase branca (o jogo pinta cada uma).
+    Origem no centro do sino."""
+    pal = Paleta(sino=hex_cor("#FFFFFF"), pinta=hex_cor("#E7E2F4"), dentro=hex_cor("#E4DDF0"),
+                 braco=hex_cor("#F3E6F7"), tentaculo=hex_cor("#F6F2FA"))
+    sino = Intersecao(Elipsoide((0, 0.0, 0), (0.31, 0.28, 0.31), pal.sino), SemiEspaco((0, -0.045, 0), (0, -1, 0)), 0.05)
+    babados = [Elipsoide((0.285 * math.cos(a), -0.05, 0.285 * math.sin(a)), (0.062, 0.042, 0.062), pal.sino)
+               for a in np.linspace(0, 2 * PI, 14, endpoint=False)]
+    corpo = sino.solda(unir(*babados, k=0.02), 0.045)
+    corpo = corpo.menos(Elipsoide((0, -0.12, 0), (0.23, 0.12, 0.23), pal.dentro), k=0.035, cor_do_corte=True)
+    # o miolo de onde saem os braços
+    miolo = Elipsoide((0, -0.07, 0), (0.07, 0.05, 0.07), pal.braco)
+    bracos = []
     for i in range(4):
-        a = 2 * PI * i / 4 + 0.75
-        pts = [(0.05 * math.cos(a) + 0.03 * math.sin(j * 1.6 + i) * math.cos(a + 1.57), -0.08 - 0.045 * j,
-                0.05 * math.sin(a) + 0.03 * math.sin(j * 1.6 + i) * math.sin(a + 1.57)) for j in range(7)]
-        for j in range(len(pts) - 1):
-            tent.append(Capsula(pts[j], pts[j + 1], 0.045 - 0.004 * j, pal.dentro, rb=0.041 - 0.004 * j))
-    forma = corpo.solda(unir(*tent, k=0.015), 0.03)
-    dirs = [d for d in sorte(14, 3) if d[1] > 0.45]
+        a = 2 * PI * i / 4 + 0.4
+        dr = np.array([math.cos(a), 0.0, math.sin(a)])
+        lado = np.array([-math.sin(a), 0.0, math.cos(a)])
+        pts = [np.array([0.0, -0.08, 0.0]) + dr * (0.03 + 0.05 * t) + lado * 0.035 * math.sin(t * 5.0 + i)
+               + np.array([0.0, -0.46 * t - 0.03 * (i % 2) * t, 0.0]) for t in np.linspace(0, 1, 9)]
+        bracos.append(Fita(pts, lambda t: 0.012 + 0.04 * np.sin(PI * np.clip(t, 0, 1) ** 0.6) * (1 - 0.35 * np.clip(t, 0, 1)),
+                           lambda t: np.full_like(t, 0.011), lado, pal.braco,
+                           desloc=lambda t, i=i: 0.012 * np.sin(t * 18.0 + i)))
+    forma = corpo.solda(miolo, 0.03).solda(unir(*bracos, k=0.01), 0.02)
+    dirs = [d for d in sorte(16, 3) if d[1] > 0.4]
 
     def pintas(P):
-        u = P / comprimento(P)[:, None]
+        u = P / np.maximum(comprimento(P), 1e-9)[:, None]
         m = np.zeros(len(P), dtype=bool)
         for d in dirs:
-            m |= (u @ d) > 0.985
-        return m & (P[:, 1] > 0.05)
+            m |= (u @ d) > 0.986
+        return m & (P[:, 1] > 0.06)
+
+    def faixa_braco(P):
+        d, t, l, _ = param_fitas(bracos, P)
+        return (d < 0.02) & (np.abs(l) > 0.02)
     rosto = RostoPintado(forma, pal)
-    for s in (-1, 1):
-        rosto.olho((s * 0.085, 0.05, 0.0), (0, 0, 1), 0.035, afundar=0.5)
-    rosto.traco(sorriso_pontos(0.0, -0.005, 0.0, 0.03, 0.014, 5), (0, 0, 1), 0.009)
-    rosto.bochecha((0.15, 0.015, 0.0), (0.6, 0, 1), (0.03, 0.02, 0.008))
-    rosto.bochecha((-0.15, 0.015, 0.0), (-0.6, 0, 1), (0.03, 0.02, 0.008))
-    return malha("agua_viva", forma, 0.02, pal, [Pintura(pintas, pal.pinta)] + rosto.pinturas,
-                 ((-0.5, -0.8, -0.5), (0.5, 0.4, 0.5)))
+    for s_ in (-1, 1):
+        rosto.olho((s_ * 0.085, 0.05, 0.0), (0, 0, 1), 0.036, afundar=0.5)
+    rosto.traco(sorriso_pontos(0.0, -0.002, 0.15, 0.032, 0.015, 7), (0, 0, 1), 0.009)
+    rosto.bochecha((0.155, 0.012, 0.0), (0.6, 0, 1), (0.032, 0.021, 0.008))
+    rosto.bochecha((-0.155, 0.012, 0.0), (-0.6, 0, 1), (0.032, 0.021, 0.008))
+    m = malha("agua_viva", forma, 0.017, pal, [Pintura(pintas, pal.pinta), Pintura(faixa_braco, pal.dentro)] + rosto.pinturas,
+              ((-0.55, -0.75, -0.55), (0.55, 0.4, 0.55)))
+    # tentáculos: tubos lisos (malha direta), da borda de dentro do sino,
+    # ondulando para baixo e com um cachinho na ponta
+    tents = []
+    for i in range(8):
+        a = 2 * PI * (i + 0.5) / 8
+        dr = np.array([math.cos(a), 0.0, math.sin(a)])
+        lado = np.array([-math.sin(a), 0.0, math.cos(a)])
+        L = 0.62 + 0.1 * (i % 3) / 2.0
+        pts = []
+        for t in np.linspace(0, 1, 26):
+            r = 0.215 - 0.06 * t
+            y = -0.06 - L * t
+            onda = 0.04 * math.sin(t * 7.0 + i * 1.3) * t
+            p_ = dr * r + lado * onda + np.array([0.0, y, 0.0])
+            if t > 0.8:
+                # cachinho: enrola para dentro na ponta
+                u = (t - 0.8) / 0.2
+                p_ += dr * (-0.05 * math.sin(u * PI)) + np.array([0.0, 0.05 * u * u, 0.0])
+            pts.append(p_)
+        raio = np.linspace(0.013, 0.006, len(pts))
+        tents.append(tubo(pts, raio, pal, pal.tentaculo, lados=8))
+    return juntar([m] + tents)
 
 
 def bau():
@@ -1421,26 +1450,67 @@ def palmeira():
 
 
 def samambaia():
-    pal = Paleta(verde=hex_cor("#5ED16A"), claro=hex_cor("#A6E85F"), escuro=hex_cor("#2F9E5A"))
+    """SAMAMBAIA (7.0): folhas LISAS e largas que se abrem em leque e caem
+    em arco (eram bolotas enfileiradas, encaroçadas), cada uma com a
+    nervura clara no meio e os folíolos PINTADOS (listras em V, em dois
+    verdes); no meio, três brotos enrolados (o "báculo" da samambaia)."""
+    pal = Paleta(verde=hex_cor("#4FC864"), escuro=hex_cor("#2E9C55"), claro=hex_cor("#A6E85F"),
+                 broto=hex_cor("#7ED957"), miolo=hex_cor("#3C8E4A"))
     folhas = []
-    for i in range(8):
-        az = 2 * PI * i / 8 + 0.25 + 0.2 * math.sin(i * 3.1)
+    for i in range(9):
+        az = 2 * PI * i / 9 + 0.2 + 0.18 * math.sin(i * 3.1)
         externa = i % 2 == 0
-        L = 0.8 if externa else 1.0
-        sub, que = (1.25, 1.05) if externa else (1.75, 1.0)
-        folhas.append(fronde(np.array([0.0, 0.04, 0.0]), az, L, sub, que, 0.15, 0.04, 8, pal.verde, n=12, prof=0.5))
-    centro = Intersecao(Elipsoide((0, 0.0, 0), (0.16, 0.13, 0.16), pal.escuro), SemiEspaco((0, 0, 0), (0, -1, 0)), 0.02)
-    forma = unir(*folhas, k=0.02).solda(centro, 0.05)
+        L = 0.95 if externa else 1.12
+        sub, que = (1.05, 1.0) if externa else (1.3, 1.0)
+        dr = np.array([math.cos(az), 0.0, math.sin(az)])
+        s_ = np.linspace(0.0, 1.0, 16)
+        pts = np.array([0.0, 0.05, 0.0]) + np.outer(s_ * L, dr) + np.outer(L * (sub * s_ - que * s_ * s_), CIMA)
+        lado = np.array([-math.sin(az), 0.0, math.cos(az)])
+        folhas.append(Fita(pts, lambda t: 0.018 + 0.16 * np.sin(PI * np.clip(t, 0, 1) ** 0.75) ** 0.9,
+                           lambda t: np.full_like(t, 0.022), lado, pal.verde))
+    centro = Intersecao(Elipsoide((0, 0.0, 0), (0.15, 0.12, 0.15), pal.miolo), SemiEspaco((0, 0, 0), (0, -1, 0)), 0.02)
+    forma = unir(*folhas, k=0.015).solda(centro, 0.05)
+    # (as três pinturas perguntam pelos mesmos pontos: a conta das fitas,
+    # que é a cara, é feita uma vez só para cada lote de pontos)
+    memo = {}
 
-    def pontas(P):
-        d, t, l, _ = param_fitas(folhas, P)
-        return (d < 0.03) & (t > 0.72)
+    def fitas(P):
+        chave = (id(P), len(P), float(P[0, 0]), float(P[-1, 2]))
+        if memo.get("k") != chave:
+            memo["k"] = chave
+            memo["v"] = param_fitas(folhas, P)
+        return memo["v"]
+
+    def folioles(P):
+        d, t, l, _ = fitas(P)
+        return (d < 0.03) & (np.floor(t * 16.0 + np.abs(l) * 9.0) % 2 == 0) & (np.abs(l) > 0.02)
 
     def nervura(P):
-        d, t, l, _ = param_fitas(folhas, P)
-        return (d < 0.03) & (np.abs(l) < 0.018) & (t < 0.9)
-    return suavizar_normais(malha("samambaia", forma, 0.031, pal, [Pintura(pontas, pal.claro), Pintura(nervura, pal.escuro)],
-                 ((-1.3, -0.2, -1.3), (1.3, 1.4, 1.3))))
+        d, t, l, _ = fitas(P)
+        return (d < 0.03) & (np.abs(l) < 0.016) & (t < 0.92)
+
+    def pontas(P):
+        d, t, l, _ = fitas(P)
+        return (d < 0.03) & (t > 0.86)
+    m = malha("samambaia", forma, 0.026, pal, [Pintura(folioles, pal.escuro), Pintura(pontas, pal.claro),
+                                             Pintura(nervura, pal.claro)], ((-1.4, -0.2, -1.4), (1.4, 1.5, 1.4)))
+    # brotos enrolados (tubos lisos): sobem e enrolam em espiral
+    brotos = []
+    for i, az in enumerate((0.6, 2.7, 4.6)):
+        dr = np.array([math.cos(az), 0.0, math.sin(az)])
+        pts = []
+        H = 0.42 + 0.06 * i
+        for t in np.linspace(0, 1, 28):
+            if t < 0.6:
+                u = t / 0.6
+                pts.append(dr * 0.05 * u + np.array([0.0, 0.06 + H * u, 0.0]))
+            else:
+                u = (t - 0.6) / 0.4
+                ang = u * 1.6 * PI
+                r = 0.07 * (1.0 - 0.6 * u)
+                pts.append(dr * (0.05 + r * math.sin(ang)) + np.array([0.0, 0.06 + H + r * (1 - math.cos(ang)) * 0.9, 0.0]))
+        brotos.append(tubo(pts, np.linspace(0.024, 0.016, len(pts)), pal, pal.broto, lados=10))
+    return suavizar_normais(juntar([m] + brotos))
 
 
 def vulcao():
@@ -1907,6 +1977,336 @@ def carrossel():
 
 # =================================================================== lista e gravação
 
+def castelo():
+    """CASTELO DE CONTO DE FADAS (7.0, parque): era uma pintura no fundo; agora
+    é um objeto 3D como os outros. Muralha rosa com ameias, portão em arco,
+    quatro torres redondas de telhado cônico (lilás e azul) e a torre do
+    meio, mais alta; janelinhas em arco e bandeirinhas. ~7 m de largura e
+    9 m de altura; origem no meio da base, frente +Z, aberto embaixo."""
+    pal = Paleta(parede=hex_cor("#FFC2DA"), parede2=hex_cor("#F7A8C9"), ameia=hex_cor("#FFD9E8"),
+                 telhado=hex_cor("#8A63FF"), telhado2=hex_cor("#5B7CFF"), janela=hex_cor("#3A2C7A"),
+                 moldura=hex_cor("#FFD43B"), porta=hex_cor("#7A3E2A"), pedra=hex_cor("#E58FB6"))
+    W, D, H = 2.3, 1.45, 3.4
+    muralha = CaixaRedonda((0, H / 2 - 0.1, 0), (W, H / 2 + 0.1, D), 0.12, pal.parede)
+    ameias = []
+    for i in range(-5, 6):
+        x = i * W / 5.5
+        for z in (-D, D):
+            ameias.append(CaixaRedonda((x, H + 0.18, z * 0.97), (0.16, 0.2, 0.12), 0.05, pal.ameia))
+    for i in range(-3, 4):
+        z = i * D / 3.5
+        for x in (-W, W):
+            ameias.append(CaixaRedonda((x * 0.97, H + 0.18, z), (0.12, 0.2, 0.16), 0.05, pal.ameia))
+    torres, telhados = [], []
+    for sx in (-1, 1):
+        for sz in (-1, 1):
+            c = (sx * W, 0, sz * D)
+            torres.append(CilindroRedondo((c[0], 2.35, c[2]), 0.78, 2.45, 0.1, pal.parede2))
+            torres.append(Toro((c[0], 4.8, c[2]), 0.8, 0.09, pal.ameia))
+            telhados.append(ConeRedondo((c[0], 4.85, c[2]), (c[0], 7.1, c[2]), 0.98, 0.03,
+                                        pal.telhado if (sx + sz) % 4 == 0 else pal.telhado2))
+    meio = CilindroRedondo((0, 4.2, -0.25), 1.05, 1.4, 0.1, pal.parede2)
+    meio_aro = Toro((0, 5.6, -0.25), 1.07, 0.1, pal.ameia)
+    meio_tel = ConeRedondo((0, 5.65, -0.25), (0, 8.7, -0.25), 1.3, 0.03, pal.telhado)
+    # o portão: um arco fundo na frente da muralha
+    portao = unir(CaixaRedonda((0, 0.55, D), (0.62, 0.75, 0.4), 0.02, pal.porta),
+                  CilindroRedondo((0, 1.3, D), 0.62, 0.4, 0.02, pal.porta, rot=rot_x(PI / 2)))
+    corpo = unir(muralha, *ameias, k=0.03)
+    corpo = unir(corpo, *torres, meio, meio_aro, k=0.06)
+    corpo = corpo.menos(portao, k=0.03, cor_do_corte=True)
+    forma = unir(corpo, *telhados, meio_tel, k=0.04)
+    forma = Intersecao(forma, SemiEspaco((0, -0.15, 0), (0, -1, 0)))
+
+    # janelas em arco (pintadas) nas torres, na muralha e na torre do meio
+    janelas = []
+    for sx in (-1, 1):
+        for sz in (-1, 1):
+            c = np.array([sx * W, 0.0, sz * D])
+            for y in (2.2, 3.7):
+                n = norm((sx * 0.6, 0.0, 1.0)) if sz > 0 else norm((sx * 0.6, 0.0, -1.0))
+                janelas.append((c + n * 0.78 + np.array([0, y, 0]), n, 0.17, 0.32))
+    for x in (-1.15, 1.15):
+        janelas.append((np.array([x, 2.4, D]), np.array([0.0, 0.0, 1.0]), 0.2, 0.36))
+    janelas.append((np.array([0.0, 4.5, -0.25 + 1.05]), np.array([0.0, 0.0, 1.0]), 0.22, 0.4))
+
+    def em_janela(P, folga):
+        m = np.zeros(len(P), dtype=bool)
+        for c, n, lx, ly in janelas:
+            t1 = norm(np.cross(CIMA, n))
+            d = P - c
+            u, v, h = d @ t1, d[:, 1], d @ n
+            dentro_ret = (np.abs(u) < lx + folga) & (v > -ly + lx - folga) & (v < lx * 0.0 + ly - lx)
+            arco_ = (u * u + (v - (ly - lx)) ** 2 < (lx + folga) ** 2)
+            ret = (np.abs(u) < lx + folga) & (v > -ly - folga) & (v < ly - lx)
+            m |= (ret | arco_) & (np.abs(h) < 0.25)
+        return m
+
+    def janela(P):
+        return em_janela(P, 0.0)
+
+    def moldura(P):
+        return em_janela(P, 0.06) & ~em_janela(P, 0.0)
+
+    def pedras(P):
+        # tijolinhos claros na muralha (só onde é parede)
+        lin = np.floor(P[:, 1] / 0.42)
+        col = np.floor((P[:, 0] + P[:, 2] + lin * 0.35) / 0.7)
+        return (np.mod(lin + col, 5) == 0) & (P[:, 1] < H - 0.05)
+    pint = [Pintura(na_cor(forma, pal.parede, pedras), pal.pedra), Pintura(moldura, pal.moldura),
+            Pintura(janela, pal.janela)]
+    m = malha("castelo", forma, 0.1, pal, pint, ((-3.6, -0.3, -2.8), (3.6, 9.2, 2.8)))
+    bandeiras = []
+    for sx in (-1, 1):
+        for sz in (-1, 1):
+            bandeiras.append(bandeirinha("castelo", (sx * W, 7.05, sz * D), 0.55, 0.45, 0.14, fase=sx + sz))
+    bandeiras.append(bandeirinha("castelo", (0.0, 8.65, -0.25), 0.7, 0.55, 0.17))
+    return juntar([m] + bandeiras)
+
+
+def saturno():
+    """SATURNO (7.0, espaço): era pintado no fundo; agora é um planeta 3D como
+    os outros — bola cor de pêssego com faixas e o ANEL largo, inclinado, de
+    três tons de creme. Origem no centro; raio 1 (o jogo escala)."""
+    pal = Paleta(pessego=hex_cor("#FFB57E"), faixa=hex_cor("#F08A5D"), faixa2=hex_cor("#FFD9A8"),
+                 anel=hex_cor("#FFE9BE"), anel2=hex_cor("#F5C98A"), anel3=hex_cor("#FFF6DE"))
+    bola = Esfera((0, 0, 0), 1.0, pal.pessego)
+    giro = rot_x(0.42) @ rot_z(0.22)
+    anel = CilindroRedondo((0, 0, 0), 2.05, 0.07, 0.05, pal.anel, rot=giro).menos(
+        CilindroRedondo((0, 0, 0), 1.38, 0.2, 0.0, pal.anel, rot=giro))
+    forma = bola | anel
+
+    def faixas(cor):
+        def f(P):
+            perto = comprimento(P) < 1.05
+            y = P[:, 1] + 0.06 * np.sin(P[:, 0] * 4.0)
+            k = np.floor((y + 1.0) / 0.18)
+            return perto & ((k % 4 == 1) if cor == 1 else (k % 4 == 3))
+        return f
+
+    def aneis(cor):
+        def f(P):
+            r = comprimento(P)
+            fora = r > 1.2
+            return fora & (((r > 1.62) & (r < 1.78)) if cor == 2 else (r > 1.9))
+        return f
+    pint = [Pintura(faixas(1), pal.faixa), Pintura(faixas(3), pal.faixa2), Pintura(aneis(2), pal.anel2),
+            Pintura(aneis(3), pal.anel3)]
+    return malha("saturno", forma, 0.05, pal, pint, ((-2.3, -2.3, -2.3), (2.3, 2.3, 2.3)))
+
+
+# =================================================================== 7.0: MAIS DECORAÇÃO
+
+def arbusto():
+    """ARBUSTO FLORIDO (7.0, parque e selva): bolotas de folhagem soldadas,
+    com florzinhas pintadas (rosa e amarelo) e o topo mais claro. ~1,3 m."""
+    pal = Paleta(verde=hex_cor("#52C46A"), escuro=hex_cor("#33A05A"), claro=hex_cor("#8EE06A"),
+                 rosa=hex_cor("#FF7FB6"), amarelo=hex_cor("#FFE14D"), miolo=hex_cor("#FFF3DC"))
+    bolas = [Esfera((0.0, 0.42, 0.0), 0.42, pal.verde)]
+    for i, (a, r, h) in enumerate([(0.3, 0.33, 0.3), (1.5, 0.3, 0.26), (2.6, 0.34, 0.3), (3.7, 0.29, 0.24),
+                                   (4.8, 0.32, 0.28), (5.8, 0.27, 0.22)]):
+        bolas.append(Esfera((0.36 * math.cos(a), h, 0.36 * math.sin(a)), r, pal.verde))
+    bolas.append(Esfera((0.08, 0.72, -0.05), 0.27, pal.verde))
+    forma = Intersecao(unir(*bolas, k=0.12), SemiEspaco((0, 0, 0), (0, -1, 0)), 0.03)
+    flores = sorte(40, 11)
+
+    def flor(cor):
+        def f(P):
+            c = np.array([0.0, 0.35, 0.0])
+            u = (P - c) / np.maximum(comprimento(P - c), 1e-9)[:, None]
+            m = np.zeros(len(P), dtype=bool)
+            for k, d in enumerate(flores):
+                if d[1] < -0.1 or (k % 2 == 0) != (cor == 0):
+                    continue
+                m |= (u @ d) > 0.992
+            return m & (P[:, 1] > 0.12)
+        return f
+
+    def miolo(P):
+        c = np.array([0.0, 0.35, 0.0])
+        u = (P - c) / np.maximum(comprimento(P - c), 1e-9)[:, None]
+        m = np.zeros(len(P), dtype=bool)
+        for d in flores:
+            if d[1] >= -0.1:
+                m |= (u @ d) > 0.9982
+        return m & (P[:, 1] > 0.12)
+
+    def topo(P):
+        return (P[:, 1] > 0.62)
+
+    def baixo(P):
+        return (P[:, 1] < 0.12)
+    pint = [Pintura(topo, pal.claro), Pintura(baixo, pal.escuro), Pintura(flor(0), pal.rosa),
+            Pintura(flor(1), pal.amarelo), Pintura(miolo, pal.miolo)]
+    return malha("arbusto", forma, 0.024, pal, pint, ((-1.0, -0.2, -1.0), (1.0, 1.2, 1.0)))
+
+
+def flores():
+    """CANTEIRO DE FLORES (7.0, parque): um montinho de grama com cinco
+    flores de cores diferentes (pétalas redondas, miolo amarelo). ~1 m."""
+    pal = Paleta(grama=hex_cor("#5CCB5E"), grama2=hex_cor("#46B054"), caule=hex_cor("#3FA850"),
+                 vermelha=hex_cor("#FF5A6E"), roxa=hex_cor("#B37BFF"), azul=hex_cor("#4FB8FF"),
+                 laranja=hex_cor("#FF9F2E"), rosa=hex_cor("#FF8AC8"), miolo=hex_cor("#FFD43B"))
+    monte = Intersecao(Elipsoide((0, 0.0, 0), (0.55, 0.2, 0.45), pal.grama), SemiEspaco((0, 0, 0), (0, -1, 0)), 0.03)
+    cabecas, caules = [], []
+    cores = [pal.vermelha, pal.roxa, pal.azul, pal.laranja, pal.rosa]
+    lugares = [(-0.25, 0.1, 0.55), (0.18, 0.15, 0.62), (0.0, -0.18, 0.7), (0.32, -0.12, 0.5), (-0.3, -0.15, 0.48)]
+    for (x, z, h), cor in zip(lugares, cores):
+        topo = np.array([x * 1.15, h, z * 1.15])
+        caules.append(tubo([(x, 0.08, z), (x * 1.08, h * 0.55, z * 1.08), topo - (0, 0.03, 0)],
+                           0.018, pal, pal.caule, lados=8))
+        f = norm((x * 0.6, 1.0, z * 0.6 + 0.35))
+        u = norm(np.cross(CIMA, f)) if abs(f[1]) < 0.99 else np.array([1.0, 0.0, 0.0])
+        v = np.cross(f, u)
+        pet = []
+        for i in range(5):
+            ang = 2 * PI * i / 5
+            rad = u * math.cos(ang) + v * math.sin(ang)
+            tg = np.cross(f, rad)
+            pet.append(Elipsoide(topo + rad * 0.075, (0.07, 0.05, 0.022), cor, rot=np.stack([rad, tg, f], 1)))
+        miolo = Esfera(topo + f * 0.012, 0.04, pal.miolo)
+        cabecas.append(unir(*pet, k=0.015).solda(miolo, 0.012))
+    forma = unir(monte, *cabecas)
+
+    def pontinhos(P):
+        return (P[:, 1] < 0.22) & (np.sin(P[:, 0] * 41) * np.sin(P[:, 2] * 37) > 0.7)
+    m = malha("flores", forma, 0.014, pal, [Pintura(na_cor(forma, pal.grama, pontinhos), pal.grama2)],
+              ((-0.8, -0.2, -0.7), (0.8, 1.0, 0.7)))
+    return juntar([m] + caules)
+
+
+def tricera():
+    """FILHOTE DE TRICERÁTOPS (7.0, selva): corpo gordinho, cabeção com o
+    babado (a gola) cor-de-rosa de bordinha recortada, três chifrinhos
+    creme, pernas curtas com unhas e o rabinho; carinha de desenho
+    animado. Frente +Z. ~2 m de comprimento."""
+    pal = Paleta(corpo=hex_cor("#7FA8FF"), barriga=hex_cor("#DDE9FF"), gola=hex_cor("#FF8FC0"),
+                 gola2=hex_cor("#FFC2DD"), chifre=hex_cor("#FFF3DC"), unha=hex_cor("#FFF3DC"), pinta=hex_cor("#5F86E8"))
+    corpo = Elipsoide((0, 0.78, -0.2), (0.62, 0.55, 0.85), pal.corpo)
+    cabeca = Elipsoide((0, 0.98, 0.72), (0.42, 0.38, 0.42), pal.corpo).solda(
+        Elipsoide((0, 0.86, 1.02), (0.3, 0.24, 0.28), pal.corpo), 0.1)
+    bico = ConeRedondo((0, 0.8, 1.2), (0, 0.72, 1.36), 0.14, 0.05, pal.corpo)
+    gola_base = CilindroRedondo((0, 1.3, 0.45), 0.6, 0.05, 0.04, pal.gola, rot=rot_x(PI / 2 - 0.55))
+    recortes = [Esfera((0.6 * math.cos(a), 1.3 + 0.6 * math.sin(a) * math.cos(0.55), 0.45 - 0.6 * math.sin(a) * math.sin(0.55)),
+                       0.085, pal.gola) for a in np.linspace(0.15, PI - 0.15, 7)]
+    gola = unir(gola_base, *recortes, k=0.04)
+    chifres = [ConeRedondo((s * 0.17, 1.22, 0.86), (s * 0.24, 1.58, 1.12), 0.075, 0.02, pal.chifre) for s in (-1, 1)]
+    chifres.append(ConeRedondo((0, 1.0, 1.24), (0, 1.15, 1.36), 0.05, 0.015, pal.chifre))
+    pernas = []
+    for x in (-0.36, 0.36):
+        for z in (0.3, -0.6):
+            pernas.append(CilindroRedondo((x, 0.3, z), 0.2, 0.3, 0.07, pal.corpo))
+            pernas.append(Elipsoide((x, 0.07, z + 0.04), (0.23, 0.1, 0.25), pal.corpo))
+    rabo = Capsula((0, 0.72, -0.95), (0.12, 0.35, -1.45), 0.2, pal.corpo, rb=0.05)
+    forma = unir(corpo, rabo, k=0.15).solda(cabeca, 0.15).solda(unir(*pernas, k=0.08), 0.1)
+    forma = unir(forma, bico, k=0.05).solda(gola, 0.06)
+    forma = unir(forma, *chifres, k=0.04)
+    forma = Intersecao(forma, SemiEspaco((0, 0, 0), (0, -1, 0)), 0.03)
+
+    def barriga(P):
+        return (((P[:, 0] / 0.5) ** 2 + ((P[:, 1] - 0.45) / 0.35) ** 2 + ((P[:, 2] + 0.15) / 0.8) ** 2) < 1) & (P[:, 1] > 0.3)
+
+    def gola_clara(P):
+        c = np.array([0.0, 1.3, 0.45])
+        return (comprimento(P - c) < 0.42) & (P[:, 2] < 0.62)
+
+    def unhas(P):
+        m = np.zeros(len(P), dtype=bool)
+        for x in (-0.36, 0.36):
+            for z in (0.3, -0.6):
+                for o in (-0.09, 0.0, 0.09):
+                    m |= comprimento(P - np.array([x + o, 0.06, z + 0.27])) < 0.055
+        return m
+    centros = [np.array([0, 0.78, -0.2]) + d * np.array([0.62, 0.55, 0.85]) for d in
+               (norm((0.5, 0.8, 0.0)), norm((-0.5, 0.75, -0.3)), norm((0.2, 0.9, -0.6)), norm((-0.15, 0.95, 0.25)))]
+    pint = [Pintura(barriga, pal.barriga), Pintura(na_cor(forma, pal.gola, gola_clara), pal.gola2),
+            Pintura(unhas, pal.unha), Pintura(lambda P: dentro_esferas(P, centros, [0.13, 0.15, 0.12, 0.11]), pal.pinta)]
+    rosto = RostoPintado(forma, pal)
+    for s_ in (-1, 1):
+        rosto.olho((s_ * 0.16, 1.05, 0.9), (s_ * 0.45, 0.15, 1.0), 0.09, afundar=0.5)
+    rosto.traco(sorriso_pontos(0.0, 0.8, 1.05, 0.1, 0.035, 9), (0, -0.2, 1), 0.022)
+    rosto.bochecha((0.26, 0.86, 0.95), (0.7, 0.0, 1.0), (0.07, 0.048, 0.02))
+    rosto.bochecha((-0.26, 0.86, 0.95), (-0.7, 0.0, 1.0), (0.07, 0.048, 0.02))
+    return malha("tricera", forma, 0.05, pal, pint + rosto.pinturas, ((-1.2, -0.2, -1.8), (1.2, 2.0, 1.8)))
+
+
+def anemona():
+    """ANÊMONA-DO-MAR (7.0, mar): coluna rosa com a boquinha no topo e uma
+    coroa de tentáculos gordinhos que se abrem para fora, de ponta
+    amarela. ~0,7 m."""
+    pal = Paleta(coluna=hex_cor("#FF7FB0"), listra=hex_cor("#FF9EC4"), tentaculo=hex_cor("#FFB0D6"),
+                 ponta=hex_cor("#FFE16A"), boca=hex_cor("#D94C8A"), base=hex_cor("#E86AA0"))
+    coluna = Torno((0, 0, 0), [(0.0, 0.2), (0.05, 0.22), (0.2, 0.17), (0.34, 0.18), (0.42, 0.22), (0.45, 0.0)], pal.coluna)
+    base = Intersecao(Elipsoide((0, 0.0, 0), (0.26, 0.08, 0.26), pal.base), SemiEspaco((0, 0, 0), (0, -1, 0)), 0.02)
+    boca = Elipsoide((0, 0.45, 0), (0.08, 0.03, 0.08), pal.boca)
+    forma = unir(coluna, base, k=0.05).menos(boca, k=0.02, cor_do_corte=True)
+
+    def listras(P):
+        th = np.arctan2(P[:, 2], P[:, 0])
+        return (np.sin(th * 8) > 0.55) & (P[:, 1] < 0.4) & (P[:, 1] > 0.05)
+    m = malha("anemona", forma, 0.012, pal, [Pintura(listras, pal.listra)], ((-0.5, -0.2, -0.5), (0.5, 0.7, 0.5)))
+    tents = []
+    for anel, (n, r0, sobe, comp) in enumerate([(12, 0.19, 0.5, 0.3), (9, 0.11, 0.85, 0.26)]):
+        for i in range(n):
+            a = 2 * PI * (i + 0.5 * anel) / n
+            dr = np.array([math.cos(a), 0.0, math.sin(a)])
+            pts = []
+            for t in np.linspace(0, 1, 10):
+                pts.append(dr * (r0 + comp * t * (1.0 - 0.35 * sobe)) + np.array([0.0, 0.44 + comp * sobe * t + 0.06 * math.sin(t * PI), 0.0]))
+            raio = np.linspace(0.032, 0.022, len(pts))
+            tents.append(tubo(pts, raio, pal, pal.tentaculo, lados=8))
+            tents.append(bolinha(pts[-1] + (pts[-1] - pts[-2]) * 0.3, 0.034, pal, pal.ponta, lados=10))
+    return juntar([m] + tents)
+
+
+def satelite():
+    """SATÉLITE FOFINHO (7.0, espaço): corpinho dourado com carinha, duas
+    placas solares azuis (com a grade pintada), a antena de prato e a
+    anteninha de bolinha vermelha. ~2 m de ponta a ponta."""
+    pal = Paleta(ouro=hex_cor("#FFC93B"), ouro2=hex_cor("#F0A82A"), placa=hex_cor("#2E64FF"), grade=hex_cor("#9CC4FF"),
+                 haste=hex_cor("#D9DEEA"), prato=hex_cor("#F2F4FA"), bola=hex_cor("#FF4B5C"))
+    corpo = CaixaRedonda((0, 0, 0), (0.3, 0.26, 0.26), 0.09, pal.ouro)
+    hastes = [Capsula((s * 0.28, 0, 0), (s * 0.5, 0, 0), 0.035, pal.haste) for s in (-1, 1)]
+    placas = [CaixaRedonda((s * 0.98, 0, 0), (0.46, 0.025, 0.24), 0.015, pal.placa) for s in (-1, 1)]
+    prato = Intersecao(Esfera((0, 0.47, -0.05), 0.22, pal.prato), SemiEspaco((0, 0.38, -0.05), (0, -1, 0)), 0.01).menos(
+        Esfera((0, 0.53, -0.05), 0.2, pal.prato), k=0.01)
+    pe_prato = Capsula((0, 0.26, -0.05), (0, 0.4, -0.05), 0.03, pal.haste)
+    antena = Capsula((0.14, 0.26, 0.1), (0.2, 0.62, 0.14), 0.014, pal.haste)
+    bola = Esfera((0.205, 0.65, 0.143), 0.045, pal.bola)
+    forma = unir(corpo, *hastes, pe_prato, k=0.03) | unir(*placas) | prato | antena | bola
+
+    def grade(P):
+        x = np.abs(P[:, 0])
+        return (x > 0.52) & (np.abs(P[:, 1]) < 0.06) & (
+            (np.abs(np.mod(x - 0.52, 0.15) - 0.075) > 0.064) | (np.abs(np.mod(P[:, 2] + 0.24, 0.16) - 0.08) > 0.07))
+
+    def faixas(P):
+        return (np.abs(P[:, 0]) < 0.33) & (np.abs(np.mod(P[:, 1] + 0.3, 0.18) - 0.09) < 0.012)
+    rosto = RostoPintado(corpo, pal)
+    for s_ in (-1, 1):
+        rosto.olho((s_ * 0.1, 0.04, 0.0), (0, 0, 1), 0.06, afundar=0.4)
+    rosto.traco(sorriso_pontos(0.0, -0.08, 0.0, 0.07, 0.025, 7), (0, 0, 1), 0.014)
+    rosto.bochecha((0.19, -0.04, 0.0), (0.3, 0, 1), (0.04, 0.028, 0.01))
+    rosto.bochecha((-0.19, -0.04, 0.0), (-0.3, 0, 1), (0.04, 0.028, 0.01))
+    pint = [Pintura(grade, pal.grade), Pintura(na_cor(forma, pal.ouro, faixas), pal.ouro2)] + rosto.pinturas
+    return malha("satelite", forma, 0.016, pal, pint, ((-1.6, -0.5, -0.5), (1.6, 0.9, 0.5)))
+
+
+def poste():
+    """POSTE DE LUZ (7.0, parque): pé torneado, coluna azul com anéis
+    dourados, o braço curvo e a lâmpada que BRILHA (cor "acesa"). ~2,4 m."""
+    pal = Paleta(azul=hex_cor("#2E5FD0"), ouro=hex_cor("#FFC93B"), lampada=hex_cor("#FFF1A8", 0.5),
+                 vidro=hex_cor("#FFE27A", 0.5))
+    pe = Torno((0, 0, 0), [(0.0, 0.2), (0.08, 0.2), (0.14, 0.12), (0.3, 0.075), (0.36, 0.0)], pal.azul)
+    coluna = CilindroRedondo((0, 1.15, 0), 0.055, 0.85, 0.02, pal.azul)
+    aneis = [Toro((0, y, 0), 0.06, 0.025, pal.ouro) for y in (0.42, 1.2, 1.95)]
+    braco = unir(Capsula((0, 1.95, 0), (0, 2.18, 0.08), 0.045, pal.azul), Capsula((0, 2.18, 0.08), (0, 2.2, 0.32), 0.04, pal.azul), k=0.04)
+    chapeu = ConeRedondo((0, 2.14, 0.38), (0, 2.28, 0.38), 0.13, 0.03, pal.ouro)
+    globo = Esfera((0, 2.0, 0.38), 0.12, pal.lampada)
+    forma = unir(pe, coluna, braco, k=0.05) | unir(*aneis) | chapeu | globo
+    forma = Intersecao(forma, SemiEspaco((0, 0, 0), (0, -1, 0)), 0.01)
+    return malha("poste", forma, 0.016, pal, (), ((-0.5, -0.2, -0.5), (0.5, 2.6, 0.8)))
+
+
 OBJETOS = {
     # espaço
     "planeta_anel": planeta_anel, "foguete": foguete, "ovni": ovni, "planeta": planeta,
@@ -1919,6 +2319,10 @@ OBJETOS = {
     "dino": dino, "ptero": ptero, "pedra": pedra, "flor_gigante": flor_gigante,
     # parque de diversões
     "roda_base": roda_base, "roda": roda, "cabine": cabine, "tenda": tenda, "carrossel": carrossel,
+    "castelo": castelo, "saturno": saturno,
+    # 7.0: mais decoração
+    "arbusto": arbusto, "flores": flores, "tricera": tricera, "anemona": anemona, "satelite": satelite,
+    "poste": poste,
 }
 
 

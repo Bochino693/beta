@@ -24,6 +24,9 @@ const VISTAS := {
 	"alto": [Vector3(0.0, 4.5, 6.5), Vector3(0.0, 0.0, -2.0), 50, 50],
 	# o fundo do cenário (o que fica atrás do gabinete)
 	"fundo": [Vector3(0.0, 3.2, -4.0), Vector3(0.0, 4.0, -40.0), 50, 50],
+	# (7.0) de pertinho, o símbolo da Lazer & Sport da fase (na selva, o
+	# pterodáctilo com a placa pendurada pelas patas)
+	"placa": [Vector3(-0.9, 2.5, -5.4), Vector3(-1.75, 2.3, -7.5), 40, 40],
 }
 
 

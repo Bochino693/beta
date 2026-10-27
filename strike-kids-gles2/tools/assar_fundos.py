@@ -2,9 +2,11 @@
 """
 FUNDOS PINTADOS (6.9): a paisagem distante de cada fase numa FAIXA
 panorâmica que o céu desenha atrás de tudo (shaders/ceu.shader e
-ceu_leve.shader): montanhas e o vulcão grande na selva, colinas com castelo,
-circo e montanha-russa no parque, nebulosas, galáxia e planetas no espaço,
-floresta de algas, recifes e raios de luz no fundo do mar.
+ceu_leve.shader). 7.0: SÓ A PAISAGEM — montanhas, colinas, a mata lá longe,
+nebulosas e estrelas, raios de luz e o recife na névoa. Nada de objeto
+pintado (o castelo, o Saturno, o vulcão, os planetas, as tendas, os
+peixes...): os objetos do jogo são todos 3D, do mesmo jeito (o castelo e o
+Saturno viraram modelos, tools/cenario_sdf/temas.py).
 
 Na Mali-450 o que pesa são os vértices: cada objeto 3D lá longe custa
 triângulos em todo quadro e aparece minúsculo. Pintado no céu, o fundo
@@ -185,45 +187,6 @@ def dinos():
     h1 = 7.0 + 2.6 * ruido1(a, 1, [(0.07, 1.0), (0.19, 0.5), (0.5, 0.18)])
     cordilheira(img, h1, mistura(hexc("#8DA6E0"), hor, 0.35), mistura(hexc("#A8C2EC"), hor, 0.55),
                 aro=hexc("#FFFFFF"))
-    # VULCÃO lá longe, à direita (o de verdade, 3D, fica à esquerda do
-    # gabinete): cone liso, cratera, lava descendo e fumaça
-    va, vp, vb = 31.0, 12.5, 11.0            # centro, pico, meia-base
-    perfil = vp * (1.0 - (np.abs(a - va) / vb) ** 1.15)
-    perfil = np.minimum(perfil, vp - 0.9 + 0.0 * a)          # topo cortado (cratera)
-    perfil = np.where(np.abs(a - va) < vb, perfil, -10.0)
-    hv = np.maximum(perfil, -10.0)
-    corpo_t = mistura(hexc("#B6553C"), hor, 0.12)
-    corpo_b = mistura(hexc("#8A3A2A"), hor, 0.25)
-    cordilheira(img, hv, corpo_t, corpo_b, aro=hexc("#FFD0A0"), aro_larg=0.5, contorno=hexc("#5A2418"))
-    dentro = cob(EL - hv[None, :])
-    # lado da sombra (direita do vulcão) mais escuro
-    lado = smooth(va - 1.0, va + 6.0, AZ) * dentro
-    pintar(img, mistura(hexc("#6E2A20"), hor, 0.2), lado * 0.35)
-    # lava: três rios lisos que descem da boca, afinando, com brilho em volta
-    for k, (dx, comp) in enumerate([(-1.2, 7.5), (0.4, 9.5), (1.7, 6.0)]):
-        t = np.clip((vp - 0.9 - EL) / comp, 0.0, 1.0)
-        xr = va + dx * (1.0 + 1.6 * t) + 0.35 * np.sin(t * 5.0 + k)
-        larg = 0.55 * (1.0 - 0.75 * t) + 0.08
-        sd = np.abs(AZ - xr) - larg
-        sd = np.maximum(sd, EL - (vp - 0.7))
-        sd = np.maximum(sd, (vp - 0.9 - comp) - EL)
-        brilho(img, hexc("#FF7A00"), np.exp(-np.maximum(sd, 0.0) / 0.5) * dentro * 0.3)
-        pintar(img, hexc("#FF6A12"), cob(sd) * dentro)
-        pintar(img, hexc("#FFC93B"), cob(sd + larg * 0.45) * dentro)
-    # a boca acesa e o clarão em cima
-    boca = elipse_sd(va, vp - 0.9, 2.3, 0.45)
-    pintar(img, hexc("#FFB238"), cob(boca))
-    brilho(img, hexc("#FF8A2A"), np.exp(-np.maximum(elipse_sd(va, vp, 4.0, 2.2), 0) / 2.0) * 0.35)
-    # fumaça: bolotas subindo e indo para a direita
-    for k in range(9):
-        t = k / 8.0
-        x = va + 0.6 + t * 9.0 + 1.2 * math.sin(k * 1.7)
-        y = vp + 1.5 + t * 15.0
-        r = 1.6 + t * 3.0
-        sd = np.sqrt((AZ - x) ** 2 + (EL - y) ** 2) - r
-        sombra = np.clip((y - EL) / r * 0.5 + 0.5, 0.0, 1.0)[..., None]
-        cor = mistura(hexc("#FBF8FF"), hexc("#B7AECB"), sombra * (0.55 + 0.2 * t))
-        pintar_cor(img, cor, cob(sd) * (0.97 - 0.3 * t))
     # montanhas do meio (verdes, com aro de luz)
     h2 = 3.6 + 2.2 * ruido1(a, 2, [(0.11, 1.0), (0.31, 0.45), (0.9, 0.12)])
     cordilheira(img, h2, mistura(hexc("#4DB07A"), hor, 0.2), mistura(hexc("#2E8A5A"), hor, 0.3),
@@ -241,50 +204,9 @@ def dinos():
     pintar(img, hexc("#1F6B35"), cob(bolas - 0.12))
     pintar(img, hexc("#2F8F44"), cob(bolas))
     pintar(img, hexc("#58BE4F"), cob(bolas + 0.0) * np.clip((EL - 0.8) / 2.2, 0.0, 1.0) * 0.6)
-    for x in (-66, -52, -41, -33, -19, -12, 11, 17, 24, 43, 55, 69):
-        palmeira(img, x + rng.uniform(-1.5, 1.5), 1.4 + rng.uniform(0, 0.6), rng.uniform(4.0, 7.5),
-                 rng.uniform(-0.3, 0.3), rng.randint(1000))
-    # pterossauros lá longe
-    for x, y, s in [(12, 27, 1.2), (19, 30, 0.9), (-46, 24, 1.0)]:
-        passaro(img, x, y, s, hexc("#7A4A6E"))
     return img
 
 
-def palmeira(img, x0, y0, alt, incl, semente):
-    rng = np.random.RandomState(semente)
-    topo = (x0 + incl * alt, y0 + alt)
-    # tronco
-    t = np.clip((EL - y0) / alt, 0.0, 1.0)
-    xt = x0 + incl * alt * t
-    sd = np.abs(AZ - xt) - 0.28 * (1.0 - 0.35 * t)
-    sd = np.maximum(sd, np.maximum(y0 - EL, EL - topo[1]))
-    pintar(img, hexc("#7A4A2A"), cob(sd - 0.08))
-    pintar(img, hexc("#B87A46"), cob(sd))
-    # folhas: arcos caindo
-    for k in range(7):
-        ang = -2.6 + k * 0.85 + rng.uniform(-0.15, 0.15)
-        comp = rng.uniform(2.6, 3.6)
-        u = np.clip(((AZ - topo[0]) * math.cos(ang) + (EL - topo[1]) * math.sin(ang)) / comp, 0.0, 1.0)
-        px = topo[0] + math.cos(ang) * comp * u
-        py = topo[1] + math.sin(ang) * comp * u - 1.4 * u * u
-        larg = 0.42 * np.sin(np.pi * np.clip(u, 0.02, 0.98)) + 0.05
-        sd = np.sqrt((AZ - px) ** 2 + (EL - py) ** 2) - larg
-        pintar(img, hexc("#1F6B35"), cob(sd - 0.1))
-        pintar(img, hexc("#3FA34D"), cob(sd))
-        pintar(img, hexc("#7AD15A"), cob(sd + larg * 0.55))
-
-
-def passaro(img, x, y, s, cor):
-    for lado in (-1, 1):
-        u = np.clip((AZ - x) * lado / (1.1 * s), 0.0, 1.0)
-        py = y + 0.55 * s * np.sin(np.pi * u) * (1 - u) - 0.1 * s
-        sd = np.abs(EL - py) - 0.14 * s * (1 - u)
-        sd = np.maximum(sd, -(AZ - x) * lado)
-        sd = np.maximum(sd, (AZ - x) * lado - 1.1 * s)
-        pintar(img, cor, cob(sd) * 0.8)
-
-
-# ------------------------------------------------------------------ parque
 def parque():
     img = ceu("parque")
     hor = hexc("#E4F4FF")
@@ -292,146 +214,28 @@ def parque():
     for i, (x, e, l, h) in enumerate([(-64, 15, 15, 3.0), (-36, 26, 12, 2.3), (-6, 33, 13, 2.4), (30, 22, 17, 3.2),
                                       (60, 14, 14, 2.8), (48, 31, 10, 2.0)]):
         nuvem(img, x, e, l, h, hexc("#FFFFFF"), hexc("#D4E2FA"), 80 + i)
-    # balões lá no alto
-    rng = np.random.RandomState(12)
-    for k in range(9):
-        x, y = rng.uniform(-70, 70), rng.uniform(16, 36)
-        cor = hexc(["#FF4B5C", "#FFD43B", "#4FC3F7", "#5ED16A", "#B36BFF", "#FF9F2E"][k % 6])
-        r = rng.uniform(0.7, 1.1)
-        fio = np.abs(AZ - x - 0.15 * np.sin((y - EL) * 1.5)) - 0.04
-        fio = np.maximum(fio, np.maximum(EL - (y - r), (y - r - 2.4) - EL))
-        pintar(img, hexc("#FFFFFF"), cob(fio) * 0.8)
-        pintar(img, cor * 0.7, cob(elipse_sd(x, y, r, r * 1.2) - 0.1))
-        pintar(img, cor, cob(elipse_sd(x, y, r, r * 1.2)))
-        pintar(img, hexc("#FFFFFF"), cob(elipse_sd(x - r * 0.35, y + r * 0.4, r * 0.25, r * 0.35)) * 0.7)
     # colinas longe (azuladas)
     h1 = 4.2 + 1.6 * ruido1(a, 21, [(0.05, 1.0), (0.13, 0.5), (0.4, 0.15)])
     cordilheira(img, h1, mistura(hexc("#7CC4A8"), hor, 0.45), mistura(hexc("#9AD6BE"), hor, 0.55), aro=hexc("#FFFFFF"))
-    # CASTELO de conto de fadas à esquerda
-    castelo(img, 15.0, 2.5)
-    # tendas de circo
-    tenda(img, -24.0, 2.2, 3.4, 4.6, hexc("#FF3B50"), hexc("#FFFFFF"), hexc("#FFD43B"))
-    tenda(img, 33.0, 2.0, 2.8, 3.8, hexc("#3B7BFF"), hexc("#FFFFFF"), hexc("#FF9F2E"))
-    tenda(img, -66.0, 2.0, 2.6, 3.4, hexc("#9B5BFF"), hexc("#FFE873"), hexc("#FF4B5C"))
-    # MONTANHA-RUSSA à direita: trilho em ondas com loop e pilares
-    montanha_russa(img, -60.0, -32.0)
     # colinas da frente (verde vivo) com arvorezinhas redondas
     h2 = 2.0 + 1.0 * ruido1(a, 22, [(0.13, 1.0), (0.35, 0.4)])
     cordilheira(img, h2, hexc("#6BCF5C"), hexc("#4FB04A"), aro=hexc("#E9FFC0"), contorno=hexc("#2F7F3A"))
+    # a mata lá longe: copas redondas na cor das colinas, sem desenho
+    # (silhueta macia, um pouco na névoa)
     rng = np.random.RandomState(23)
-    for x in np.arange(-ARCO + 2, ARCO, 4.3):
-        x = x + rng.uniform(-1.2, 1.2)
+    bolas = np.full((H, W), 1e9, np.float32)
+    for x in np.arange(-ARCO, ARCO, 1.9):
+        x = x + rng.uniform(-0.6, 0.6)
         hb = float(np.interp(x, a, h2))
-        r = rng.uniform(0.9, 1.4)
-        cor = hexc(["#3FAE4A", "#FF9F2E", "#2E8A3E", "#FF6FAE"][rng.randint(4)])
-        tronco = np.maximum(np.abs(AZ - x) - 0.13, np.maximum(hb - 0.3 - EL, EL - (hb + 1.2)))
-        pintar(img, hexc("#8A5A34"), cob(tronco))
-        bola = np.sqrt((AZ - x) ** 2 + (EL - (hb + 1.2 + r * 0.8)) ** 2) - r
-        pintar(img, cor * 0.62, cob(bola - 0.12))
-        pintar(img, cor, cob(bola))
-        pintar(img, np.minimum(cor * 1.25 + 0.1, 1.0), cob(np.sqrt((AZ - x + r * 0.3) ** 2 + (EL - (hb + 1.2 + r * 1.1)) ** 2) - r * 0.4) * 0.8)
-    # bandeirinhas
-    for xa, xb in [(-60, -46), (30, 44)]:
-        for k in range(12):
-            t = k / 11.0
-            x = xa + (xb - xa) * t
-            y = 9.0 - 1.4 * math.sin(math.pi * t)
-            cor = hexc(["#FF4B5C", "#FFD43B", "#4FC3F7", "#5ED16A"][k % 4])
-            sd = np.maximum(np.abs(AZ - x) - 0.35 * np.clip((EL - (y - 0.8)) / 0.8, 0, 1), np.maximum(y - 0.8 - EL, EL - y))
-            pintar(img, cor, cob(sd))
+        r = rng.uniform(0.8, 1.4)
+        bolas = np.minimum(bolas, np.sqrt((AZ - x) ** 2 + (EL - (hb + r * 0.5)) ** 2) - r)
+    bolas = np.minimum(bolas, EL - h2[None, :])
+    pintar(img, mistura(hexc("#3E9C4C"), hor, 0.25), cob(bolas - 0.1))
+    pintar(img, mistura(hexc("#5CBF56"), hor, 0.2), cob(bolas))
+    cordilheira(img, h2 - 0.6, hexc("#6BCF5C"), hexc("#4FB04A"), aro=hexc("#E9FFC0"), contorno=hexc("#2F7F3A"))
     return img
 
 
-def castelo(img, x0, y0):
-    parede = hexc("#F7B3D6")
-    sombra = hexc("#E58DBE")
-    telhado = hexc("#7A4FD6")
-    telhado2 = hexc("#3F7FE8")
-    linha = hexc("#6A2E7A")
-    def torre(x, larg, alt, cor_t, ponta):
-        sd = np.maximum(np.abs(AZ - x) - larg, np.maximum(y0 - EL, EL - (y0 + alt)))
-        pintar(img, linha, cob(sd - 0.1))
-        pintar_cor(img, mistura(parede, sombra, smooth(x - larg, x + larg, AZ)[..., None] * 0.6), cob(sd))
-        # janela
-        jan = np.maximum(np.abs(AZ - x) - larg * 0.3, np.abs(EL - (y0 + alt * 0.72)) - larg * 0.45)
-        pintar(img, hexc("#3A2A6E"), cob(jan))
-        # telhado cônico
-        base = y0 + alt
-        t = np.clip((EL - base) / ponta, 0.0, 1.0)
-        sdt = np.maximum(np.abs(AZ - x) - (larg + 0.35) * (1.0 - t), np.maximum(base - EL, EL - (base + ponta)))
-        pintar(img, linha, cob(sdt - 0.1))
-        pintar_cor(img, mistura(cor_t * 1.15, cor_t * 0.8, smooth(x - larg, x + larg, AZ)[..., None]), cob(sdt))
-        # bandeira
-        mastro = np.maximum(np.abs(AZ - x) - 0.05, np.maximum(base + ponta - EL, EL - (base + ponta + 1.0)))
-        pintar(img, linha, cob(mastro))
-        band = np.maximum(np.maximum(AZ - (x + 0.9), x - AZ), np.abs(EL - (base + ponta + 0.8)) - 0.22 * (1 - (AZ - x) / 0.9))
-        pintar(img, hexc("#FFD43B"), cob(band))
-    # muralha
-    sd = np.maximum(np.abs(AZ - x0) - 5.5, np.maximum(y0 - EL, EL - (y0 + 3.2)))
-    ameias = np.maximum(sd, -(np.abs(np.mod(AZ - x0, 1.0) - 0.5) - 0.25))
-    muro = np.minimum(np.maximum(np.abs(AZ - x0) - 5.5, np.maximum(y0 - EL, EL - (y0 + 2.8))),
-                      np.maximum(np.abs(AZ - x0) - 5.5, np.maximum(ameias, EL - (y0 + 3.3))))
-    pintar(img, linha, cob(muro - 0.1))
-    pintar(img, parede, cob(muro))
-    porta = np.maximum(np.abs(AZ - x0) - 0.9, np.maximum(y0 - EL, EL - (y0 + 1.8)))
-    porta = np.minimum(porta, np.sqrt((AZ - x0) ** 2 + (EL - (y0 + 1.8)) ** 2) - 0.9)
-    pintar(img, hexc("#7A3A2A"), cob(porta))
-    torre(x0 - 5.6, 1.0, 6.0, telhado, 3.0)
-    torre(x0 + 5.6, 1.0, 6.0, telhado, 3.0)
-    torre(x0 - 2.4, 1.2, 8.5, telhado2, 3.6)
-    torre(x0 + 2.4, 1.2, 8.5, telhado2, 3.6)
-    torre(x0, 1.6, 11.0, telhado, 4.6)
-
-
-def tenda(img, x0, y0, larg, alt, cor_a, cor_b, ponta):
-    t = np.clip((EL - y0) / alt, 0.0, 1.0)
-    curva = larg * (1.0 - t) ** 1.25
-    sd = np.maximum(np.abs(AZ - x0) - curva, np.maximum(y0 - EL, EL - (y0 + alt)))
-    pintar(img, hexc("#4A1A3A"), cob(sd - 0.1))
-    listra = (np.floor((AZ - x0) / np.maximum(curva, 0.05) * 3.0 + 10) % 2)[..., None]
-    cor = mistura(cor_a, cor_b, listra)
-    cor = cor * (1.0 - 0.25 * smooth(x0 - larg, x0 + larg, AZ))[..., None]
-    pintar_cor(img, cor, cob(sd))
-    # barrado de baixo
-    bar = np.maximum(np.abs(AZ - x0) - larg * 1.02, np.abs(EL - (y0 + 0.25)) - 0.3)
-    bar = np.maximum(bar, -(np.sqrt((np.mod(AZ - x0, 0.9) - 0.45) ** 2 + (EL - y0) ** 2) - 0.45))
-    pintar(img, ponta, cob(bar))
-    mastro = np.maximum(np.abs(AZ - x0) - 0.06, np.maximum(y0 + alt - EL, EL - (y0 + alt + 0.9)))
-    pintar(img, hexc("#4A1A3A"), cob(mastro))
-    band = np.maximum(np.maximum(AZ - (x0 + 0.8), x0 - AZ), np.abs(EL - (y0 + alt + 0.7)) - 0.2 * (1 - (AZ - x0) / 0.8))
-    pintar(img, ponta, cob(band))
-
-
-def montanha_russa(img, xa, xb):
-    xs = np.linspace(xa, xb, 400)
-    t = (xs - xa) / (xb - xa)
-    ys = 3.0 + 6.0 * np.abs(np.sin(t * math.pi * 2.2)) * (1.1 - 0.5 * t) + 1.0
-    # pilares
-    for k in range(0, 400, 22):
-        sd = np.maximum(np.abs(AZ - xs[k]) - 0.07, np.maximum(1.8 - EL, EL - ys[k]))
-        pintar(img, hexc("#F2F2F7"), cob(sd))
-    # o trilho: por coluna, a altura da curva
-    hcurva = np.interp(AZ1, xs, ys, left=-50, right=-50)
-    dent = (AZ1 >= xa) & (AZ1 <= xb)
-    d = np.abs(EL - hcurva[None, :])
-    d = np.where(dent[None, :], d, 1e9)
-    pintar(img, hexc("#8A1A2A"), cob(d - 0.36))
-    pintar(img, hexc("#FF3B50"), cob(d - 0.26))
-    pintar(img, hexc("#FFFFFF"), cob(np.abs(EL - hcurva[None, :] - 0.12) - 0.05) * dent[None, :])
-    # loop
-    cx, cy, r = xa + (xb - xa) * 0.55, 6.5, 2.6
-    anel = np.abs(np.sqrt((AZ - cx) ** 2 + (EL - cy) ** 2) - r)
-    pintar(img, hexc("#8A1A2A"), cob(anel - 0.36))
-    pintar(img, hexc("#FF3B50"), cob(anel - 0.26))
-    # carrinhos
-    for tc in (0.18, 0.21, 0.24):
-        x = xa + (xb - xa) * tc
-        y = float(np.interp(x, xs, ys))
-        sd = elipse_sd(x, y + 0.45, 0.55, 0.38)
-        pintar(img, hexc("#FFD43B"), cob(sd))
-
-
-# ------------------------------------------------------------------ espaço
 def espaco():
     img = ceu("espaco")
     # nebulosas (cores somadas, nuvens macias)
@@ -470,12 +274,6 @@ def espaco():
     gal = np.exp(-r / 3.2) * (0.35 + 0.65 * smooth(0.2, 1.0, braco))
     brilho(img, hexc("#FFD6F5"), gal * 0.8)
     brilho(img, hexc("#FFFFFF"), np.exp(-r / 0.7) * 0.8)
-    # PLANETA GRANDE com anel à esquerda
-    planeta(img, -15.0, 21.0, 5.2, hexc("#FFB07A"), hexc("#E06A4A"), hexc("#FFE0B0"), anel=True)
-    # planetinhas
-    planeta(img, 25.0, 14.0, 2.2, hexc("#5FE0C8"), hexc("#2A9AAE"), hexc("#D8FFF4"))
-    planeta(img, -30.0, 33.0, 1.5, hexc("#B48CFF"), hexc("#6A4AD0"), hexc("#EDE0FF"))
-    planeta(img, 42.0, 25.0, 1.2, hexc("#FFE16A"), hexc("#E0A030"), hexc("#FFF8D0"))
     # estrela cadente
     t = np.clip((AZ + 4.0) / 10.0, 0.0, 1.0)
     linha = np.abs((EL - 33.0) - (AZ + 4.0) * -0.35)
@@ -499,33 +297,6 @@ def espaco():
     return img
 
 
-def planeta(img, x, y, r, cor, escura, clara, anel=False):
-    sd = np.sqrt((AZ - x) ** 2 + (EL - y) ** 2) - r
-    dentro = cob(sd)
-    # faixas e sombreado
-    faixa = 0.5 + 0.5 * np.sin((EL - y) / r * 7.0 + np.sin((AZ - x) / r * 3.0) * 0.6)
-    cor_p = mistura(cor, clara, (faixa * 0.35)[..., None])
-    luz = np.clip(((AZ - x) * -0.6 + (EL - y) * 0.8) / r * 0.5 + 0.5, 0, 1)
-    cor_p = mistura(escura, cor_p, (0.35 + 0.65 * luz)[..., None])
-    if anel:
-        ra, rb, inc = r * 1.9, r * 0.5, -0.3
-        u = (AZ - x) * math.cos(inc) - (EL - y) * math.sin(inc)
-        v = (AZ - x) * math.sin(inc) + (EL - y) * math.cos(inc)
-        q = np.sqrt((u / ra) ** 2 + (v / rb) ** 2)
-        anel_m = cob((np.abs(q - 1.0) - 0.16) * rb)
-        atras = (v > 0)
-        pintar(img, hexc("#FFE6B8"), anel_m * atras)
-    brilho(img, clara, np.exp(-np.maximum(sd, 0) / (r * 0.25)) * 0.25)
-    pintar(img, escura * 0.6, cob(sd - 0.12))
-    pintar_cor(img, cor_p, dentro)
-    pintar(img, hexc("#FFFFFF"), cob(np.sqrt((AZ - x + r * 0.42) ** 2 + (EL - y - r * 0.42) ** 2) - r * 0.22) * 0.5)
-    if anel:
-        frente = (v <= 0)
-        pintar(img, hexc("#C98A5A"), anel_m * frente)
-        pintar(img, hexc("#FFE6B8"), cob((np.abs(q - 1.0) - 0.08) * rb) * frente)
-
-
-# ------------------------------------------------------------------ mar
 def mar():
     img = ceu("mar")
     hor = hexc("#86E6DE")
@@ -539,15 +310,6 @@ def mar():
         d = np.abs((AZ - x0) - (EL_TOPO - EL) * inc) - larg * (0.6 + 0.4 * (EL_TOPO - EL) / 40.0)
         k_ = np.clip(-d / 1.5, 0, 1) * smooth(-2.0, 30.0, EL) * rng.uniform(0.12, 0.22)
         brilho(img, hexc("#E8FFF8"), k_)
-    # cardumes ao longe (peixinhos escuros)
-    for cx, cy, n_ in [(-30, 24, 16), (38, 18, 12), (8, 31, 9)]:
-        for j in range(n_):
-            x = cx + rng.uniform(-6, 6)
-            y = cy + rng.uniform(-2.5, 2.5)
-            s = rng.uniform(0.35, 0.55)
-            corpo = elipse_sd(x, y, s, s * 0.45)
-            rabo = np.maximum(np.abs(EL - y) - ((x - s) - AZ) * 0.8, np.maximum(AZ - (x - s), (x - s * 1.6) - AZ))
-            pintar(img, mistura(hexc("#1A6E9A"), hor, 0.35), cob(np.minimum(corpo, rabo)))
     # recife lá longe (silhueta azulada)
     h1 = 5.0 + 2.0 * ruido1(a, 42, [(0.08, 1.0), (0.23, 0.5), (0.7, 0.2)])
     cordilheira(img, h1, mistura(hexc("#3D8FB8"), hor, 0.45), mistura(hexc("#5AAFC8"), hor, 0.6))
@@ -557,7 +319,7 @@ def mar():
             x = rng.uniform(xa, xb)
             alt = rng.uniform(9, 22) * (0.6 if grupo == 2 else 1.0)
             fase = rng.uniform(0, 6.28)
-            longe = rng.uniform(0.25, 0.6)
+            longe = rng.uniform(0.5, 0.72)
             cor = mistura(hexc("#2E9A6A"), hor, longe)
             cor2 = mistura(hexc("#6BD08A"), hor, longe)
             t = np.clip((EL - 0.0) / alt, 0, 1)
@@ -582,37 +344,17 @@ def mar():
     # RECIFE DE CORAIS colorido na frente (cores vivas, um pouco na névoa)
     h2 = 1.8 + 0.8 * ruido1(a, 43, [(0.15, 1.0), (0.45, 0.4)])
     cordilheira(img, h2, mistura(hexc("#E9C98A"), hor, 0.3), mistura(hexc("#D9B070"), hor, 0.3), aro=hexc("#FFF6DA"))
+    # pedras e corais lá longe: silhuetas macias na cor da névoa
     rng = np.random.RandomState(44)
-    cores = ["#FF6FAE", "#B36BFF", "#FF9A5A", "#FFD43B", "#4FD8FF", "#FF4B6E"]
-    for x in np.arange(-ARCO, ARCO, 2.6):
-        x = x + rng.uniform(-0.9, 0.9)
+    bolas = np.full((H, W), 1e9, np.float32)
+    for x in np.arange(-ARCO, ARCO, 2.2):
+        x = x + rng.uniform(-0.8, 0.8)
         hb = float(np.interp(x, a, h2))
-        cor = mistura(hexc(cores[rng.randint(len(cores))]), hor, 0.28)
-        tipo = rng.randint(3)
-        if tipo == 0:      # coral cérebro (meia bola)
-            r = rng.uniform(0.9, 1.6)
-            sd = np.maximum(np.sqrt((AZ - x) ** 2 + (EL - hb) ** 2) - r, hb - 0.2 - EL)
-            pintar(img, cor * 0.7, cob(sd - 0.1))
-            pintar(img, cor, cob(sd))
-            pintar(img, np.minimum(cor * 1.2 + 0.08, 1), cob(np.sqrt((AZ - x + r * 0.3) ** 2 + (EL - hb - r * 0.55) ** 2) - r * 0.35) * 0.7)
-        elif tipo == 1:    # leque
-            r = rng.uniform(1.6, 2.6)
-            th = np.arctan2(AZ - x, EL - hb)
-            sd = np.maximum(np.sqrt((AZ - x) ** 2 + (EL - hb) ** 2) - r, np.abs(th) - 0.9)
-            pintar(img, cor * 0.7, cob(sd - 0.1))
-            pintar(img, cor, cob(sd))
-            raios = np.abs(np.sin(th * 7.0)) < 0.25
-            pintar(img, cor * 0.75, cob(sd) * raios * 0.6)
-        else:              # galhos
-            for g in range(4):
-                ang = -0.8 + g * 0.53 + rng.uniform(-0.15, 0.15)
-                comp = rng.uniform(1.4, 2.6)
-                u = np.clip(((AZ - x) * math.sin(ang) + (EL - hb) * math.cos(ang)) / comp, 0, 1)
-                px = x + math.sin(ang) * comp * u
-                py = hb + math.cos(ang) * comp * u
-                sd = np.sqrt((AZ - px) ** 2 + (EL - py) ** 2) - 0.28 * (1.0 - 0.4 * u)
-                pintar(img, cor * 0.7, cob(sd - 0.08))
-                pintar(img, cor, cob(sd))
+        r = rng.uniform(0.7, 1.5)
+        bolas = np.minimum(bolas, np.sqrt((AZ - x) ** 2 + ((EL - hb) * 1.3) ** 2) - r)
+    pintar(img, mistura(hexc("#5C9FB4"), hor, 0.5), cob(bolas - 0.1))
+    pintar(img, mistura(hexc("#78B9C4"), hor, 0.5), cob(bolas))
+    cordilheira(img, h2 - 0.5, mistura(hexc("#E9C98A"), hor, 0.3), mistura(hexc("#D9B070"), hor, 0.3), aro=hexc("#FFF6DA"))
     return img
 
 
