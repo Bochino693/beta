@@ -1,9 +1,9 @@
 """Faz android/modelo_android/extras.zip: o que o modelo Android oficial do
 Godot 3.6.3 (android_release.apk) precisa ganhar para virar o modelo do
 Strike Kids - os plugins da câmera (StrikeCamera) e do Arduino
-(StrikeSerial) no manifesto (meta-data dos plugins v1 e a atividade de
-encaixe do Arduino), as classes deles (classes2.dex), os filtros USB, o
-banner e o lançador da TV.
+(StrikeSerial) no manifesto (meta-data dos plugins v1, a atividade de
+encaixe do Arduino e a tela inicial que abre o jogo ao ligar a TV), as
+classes deles (classes2.dex), os filtros USB, o banner e o lançador da TV.
 
     python3 -I tools/android/modelo_android.py <android_release.apk oficial> <apktool.jar>
 
@@ -49,15 +49,30 @@ def injetar(manifesto):
     <uses-feature android:name="android.hardware.usb.host" android:required="false"/>
     <uses-feature android:name="android.hardware.touchscreen" android:required="false"/>
     <uses-feature android:name="android.software.leanback" android:required="false"/>
-    <uses-permission android:name="android.permission.CAMERA"/>''', "glEsVersion")
+    <uses-permission android:name="android.permission.CAMERA"/>
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.MAIN"/>
+            <category android:name="android.intent.category.HOME"/>
+        </intent>
+    </queries>''', "glEsVersion")
     # os plugins v1 (o Godot 3.6.3 procura "org.godotengine.plugin.v1.<Nome>"
-    # no manifesto) e a atividade de encaixe do Arduino ("Usar por padrão")
+    # no manifesto), a atividade de encaixe do Arduino ("Usar por padrão") e
+    # a tela inicial (HOME) que abre o jogo ao ligar a TV (o <queries> acima:
+    # no Android 11+ o jogo enxerga as outras telas iniciais)
     s = trocar_uma(s, "    </application>", '''        <meta-data android:name="org.godotengine.plugin.v1.StrikeCamera" android:value="com.lazersport.strikecamera.StrikeCamera"/>
         <activity android:excludeFromRecents="true" android:exported="true" android:name="com.lazersport.strikeserial.StrikeArduinoAtivo" android:noHistory="true" android:theme="@android:style/Theme.Translucent.NoTitleBar">
             <intent-filter>
                 <action android:name="android.hardware.usb.action.USB_DEVICE_ATTACHED"/>
             </intent-filter>
             <meta-data android:name="android.hardware.usb.action.USB_DEVICE_ATTACHED" android:resource="@xml/strike_usb_arduino"/>
+        </activity>
+        <activity android:excludeFromRecents="true" android:exported="true" android:name="com.lazersport.strikeserial.StrikeInicioAtivo" android:noHistory="true" android:stateNotNeeded="true" android:theme="@android:style/Theme.Translucent.NoTitleBar">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.HOME"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+            </intent-filter>
         </activity>
         <meta-data android:name="org.godotengine.plugin.v1.StrikeSerial" android:value="com.lazersport.strikeserial.StrikeSerial"/>
     </application>''', "fim do application")

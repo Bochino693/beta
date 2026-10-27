@@ -3,6 +3,9 @@
     [ValidateSet(1, -1, 0)][int]$Giro = 1,
     # Instala na TV Box pelo adb depois de gerar (TV Box ligada no adb)
     [switch]$Instalar,
+    # Instala (como o -Instalar) e faz do jogo a TELA INICIAL da TV: ela
+    # abre o jogo sozinha ao ligar (na tomada ou pelo controle remoto)
+    [switch]$TelaInicial,
     # Nome da versao (ex.: 5.7-gles2); sem ele vale o do export_presets.cfg
     [string]$Versao = "",
     # Caminho do Godot 3.6.3 (opcional: se nao achar, o script baixa)
@@ -961,6 +964,7 @@ function Principal {
         if (-not (Test-Path -LiteralPath (Join-Path $Projeto $f))) { throw "falta $f no projeto (extraia o ZIP inteiro)." }
     }
     if (-not [Environment]::Is64BitOperatingSystem) { throw "este gerador precisa do Windows 64 bits." }
+    if ($TelaInicial) { $script:Instalar = [switch]$true }
     if ($Instalar) { $script:TotalEtapas = 10 }
 
     Titulo "Pasta de trabalho"
@@ -1031,6 +1035,15 @@ function Principal {
         Titulo "Instalando na TV Box (adb)"
         $cod = Executar $script:Adb @("install", "-r", $final) -Log (Join-Path $script:Logs "adb-instalar.log") -LimiteMin 10 -Rotulo "adb"
         if ($cod -eq 0) {
+            if ($TelaInicial) {
+                # o jogo como tela inicial (tools/android/StrikeSerial: StrikeInicioAtivo)
+                $codInicio = Executar $script:Adb @("shell", "cmd", "package", "set-home-activity", "$Pacote/com.lazersport.strikeserial.StrikeInicioAtivo") -Log (Join-Path $script:Logs "adb-tela-inicial.log") -LimiteMin 2 -Rotulo "adb" -Quieto
+                if ($codInicio -eq 0 -and (Ler-Log (Join-Path $script:Logs "adb-tela-inicial.log")) -notmatch 'Error|Exception|Unknown') {
+                    Ok "o jogo agora e a TELA INICIAL da TV: abre sozinho ao ligar"
+                } else {
+                    Aviso "a TV nao aceitou o jogo como tela inicial pelo adb: no menu do operador use '> ABRIR O JOGO AO LIGAR A TV' (veja adb-tela-inicial.log)."
+                }
+            }
             [void](Executar $script:Adb @("shell", "monkey", "-p", $Pacote, "-c", "android.intent.category.LAUNCHER", "1") -Log (Join-Path $script:Logs "adb-abrir.log") -LimiteMin 2 -Rotulo "adb" -Quieto)
             Ok "instalado e aberto na TV Box"
         } else {
