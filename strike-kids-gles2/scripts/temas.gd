@@ -234,7 +234,7 @@ const ATLAS := "res://texturas/cenario/atlas_%s.png"
 const TEMA_DO_MODELO := {"ptero": "dinos", "dino": "dinos", "vulcao": "dinos", "palmeira": "dinos",
 	"samambaia": "dinos", "flor_gigante": "dinos", "ovo_dino": "dinos", "pedra": "dinos",
 	"planeta_anel": "espaco", "foguete": "espaco", "ovni": "espaco", "planeta": "espaco",
-	"estrela_3d": "espaco", "cristal": "espaco", "pedra_lua": "espaco", "saturno": "espaco",
+	"estrela_3d": "espaco", "cristal": "espaco", "pedra_lua": "espaco",
 	"navio": "mar", "bau": "mar", "bau_tampa": "mar", "coral": "mar", "coral_roxo": "mar", "alga": "mar",
 	"estrela_mar": "mar", "concha": "mar", "peixe": "mar", "peixe_azul": "mar", "peixe_amarelo": "mar",
 	"agua_viva": "mar", "tartaruga": "mar", "anemona": "mar", "tricera": "dinos", "satelite": "espaco"}
@@ -928,26 +928,27 @@ func _espaco() -> void:
 	var T := "espaco"
 	var rnd := RandomNumberGenerator.new()
 	rnd.seed = 404
-	# planeta com anel atrás dos pinos (aparece por cima do letreiro); gira
-	# em volta do eixo do ANEL (o da malha, tools/modelos/temas.py): o anel
-	# fica sempre com a mesma inclinação (girando em volta do eixo do mundo
-	# ele ficava de lado, um "palito")
-	var pa := _obj(T, "planeta_anel", Vector3(0.3, 3.7, Medidas.Z_FUNDO - 2.6), 0.0, 1.15)
-	pa.rotation = Vector3(0.18, 0.0, 0.32)
-	_animar(T, {"tipo": "girar_proprio", "no": pa, "vel": 0.12, "eixo": Vector3(-0.336, 0.894, 0.296).normalized()})
+	# O PLANETA COM ANEL lá no alto do céu, à esquerda (7.0b: ficava atrás
+	# dos pinos, por cima do letreiro, e o Saturno listrado ocupava este
+	# lugar; agora é um só, grande e caprichado — a versão de perto sempre,
+	# tools/modelos_texturizados.py: ALVO). O anel fica deitado e inclinado
+	# de leve para a direita: visto de baixo, da pista, é uma elipse aberta.
+	# Gira em volta do eixo do ANEL (o da malha, tools/cenario_sdf/temas.py):
+	# o anel fica sempre igual e as faixas do planeta é que passam.
+	var pos_pa := Vector3(-15.5, 24.0, -56.0)
+	var pa := _obj(T, "planeta_anel", pos_pa, 0.0, 1.0, 0.0, Color.white, null, 0.0)
+	pa.cast_shadow = GeometryInstance.SHADOW_CASTING_SETTING_OFF
+	var eixo_anel := Vector3(-0.336, 0.894, 0.296).normalized()
+	var olhar := (pos_pa - Vector3(0.0, 1.35, 6.6)).normalized()
+	var deitado := Vector3.UP.rotated(olhar, deg2rad(-16.0))
+	pa.transform = Transform(Basis(eixo_anel.cross(deitado).normalized(), eixo_anel.angle_to(deitado)).scaled(Vector3.ONE * 4.3), pos_pa)
+	_animar(T, {"tipo": "girar_proprio", "no": pa, "vel": 0.06, "eixo": eixo_anel})
 	# dois foguetes em pé no chão, ao lado do gabinete, inteiros à vista
 	# (atrás das colunas só aparecia a pontinha das aletas)
 	for s in [-1.0, 1.0]:
 		_grande(T, "foguete", s * 3.35, -11.0, -s * deg2rad(35.0), 0.95, 0.004, 0.03, false)
-	# SATURNO lá no alto do céu, à esquerda (7.0: era uma pintura no fundo;
-	# agora é 3D como os outros planetas), girando devagar
-	var sat := _obj(T, "saturno", Vector3(-15.5, 24.0, -56.0), 0.0, 5.6)
-	sat.cast_shadow = GeometryInstance.SHADOW_CASTING_SETTING_OFF
-	sat.rotation = Vector3(0.1, 0.0, -0.18)
-	_animar(T, {"tipo": "girar_proprio", "no": sat, "vel": 0.05, "eixo": Vector3(0.0, 1.0, 0.0)})
-	# disco voador passeando por cima do fim da pista: na FRENTE do planeta
-	# e acima do letreiro (nunca atravessa o planeta nem some atrás do arco),
-	# inclinando nas curvas como um aviãozinho
+	# disco voador passeando por cima do fim da pista, acima do letreiro
+	# (nunca some atrás do arco), inclinando nas curvas como um aviãozinho
 	var ovni := _obj(T, "ovni", Vector3(0, 5.0, -12.1), 0.0, 1.0, 0.004)
 	var voo_ovni := {"tipo": "passeio", "no": ovni, "centro": Vector3(0, 5.0, -12.1), "raio": Vector3(3.1, 0.25, 0.65),
 		"vel": 0.3, "girar": 1.6, "ang": 0.0}

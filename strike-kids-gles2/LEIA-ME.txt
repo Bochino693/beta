@@ -79,6 +79,22 @@ O QUE MUDOU PARA RODAR NA OPENGL ES 2.0
     Godot 4 (nao substitui).
 
 
+VERSAO 7.1: UM PLANETA SO NO CEU DO ESPACO, GRANDE E CAPRICHADO
+---------------------------------------------------------------
+  * O SATURNO listrado (la no alto, a esquerda - de longe parecia um
+    desenho chapado) SAIU do jogo.
+  * O PLANETA AZUL COM O ANEL DE ARCO-IRIS, que ficava atras dos pinos
+    por cima do letreiro, foi para o lugar dele, no alto do ceu, do mesmo
+    tamanho. O anel fica deitado e inclinado de leve: visto de baixo, da
+    pista, e uma elipse aberta; as faixas do planeta passam devagar.
+  * MAIS DEFINIDO, com o que sobrou do Saturno: a fonte do modelo numa
+    grade mais fina (tools/cenario_sdf/temas.py) e o dobro de triangulos
+    (6.000, eram 2.800; textura 2048), sempre na versao de perto (no
+    cenario LEVE, a do meio, 2.700). O custo fica igual ao de antes (eram
+    os dois planetas).
+  * Atras do gabinete ficou so o ceu (e o disco voador passeando).
+
+
 VERSAO 7.0: TUDO 3D, LISO E CAPRICHADO - SEM NADA SE ATRAVESSANDO
 -----------------------------------------------------------------
 O QUE ESTAVA FEIO E POR QUE: as fontes dos modelos (tools/cenario_sdf)
