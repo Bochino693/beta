@@ -80,13 +80,19 @@ void fragment() {
 	}
 
 	// luz da cena + verniz: reflete o céu quando se olha "deitado", o
-	// portal colorido lá no fundo e um brilho do sol
-	c *= luz_cena;
+	// portal colorido lá no fundo e um brilho do sol.
+	// (7.2) MADEIRA VIVA: a luz um pouco mais baixa (a madeira estourava no
+	// creme) e mais cor (saturação); o reflexo do céu bem mais fraco e
+	// tingido da própria madeira — antes ele misturava até ~19% de céu
+	// claro no fundo da pista e deixava tudo esbranquiçado e desbotado
+	c *= luz_cena * 0.84;
+	float lum = dot(c, vec3(0.299, 0.587, 0.114));
+	c = max(mix(vec3(lum), c, 1.3), vec3(0.0));
 	vec3 v = normalize(olhar);
 	float f1 = 1.0 - clamp(v.y, 0.0, 1.0);
 	float f2 = f1 * f1;
 	float fres = f2 * f2;
-	c = mix(c, cor_ceu.rgb * cor_ceu.rgb, fres * verniz * 0.8);
+	c = mix(c, cor_ceu.rgb * cor_ceu.rgb * c * 2.2, fres * verniz * 0.35);
 	if (d > dp - 6.0) {
 		float fundo = smoothstep(dp - 6.0, dp + 0.5, d);
 		vec3 portal = mix(cor_reflexo_b.rgb, cor_reflexo_a.rgb, 0.5 + 0.5 * sin(xd.x * 9.0));

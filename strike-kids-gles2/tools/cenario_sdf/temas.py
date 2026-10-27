@@ -7,7 +7,7 @@ Quatro mundos (um por rodada), no mesmo estilo "brinquedo de vinil /
 massinha" do resto do jogo: formas gordinhas, bordas redondas e cores
 alegres (turquesa, azul, amarelo, laranja, verde-limão, vermelho, coral).
 
-  * ESPAÇO ............. planeta_anel, foguete, ovni, planeta, cristal,
+  * ESPAÇO ............. saturno, foguete, ovni, planeta, cristal,
                           pedra_lua, estrela_3d
   * FUNDO DO MAR ....... coral, coral_roxo, alga, concha, estrela_mar, peixe,
                           agua_viva, bau, tartaruga, navio
@@ -27,7 +27,7 @@ O assador grava cada um em res://modelos/cenario/<nome>.res (com LODs).
 CONVENÇÕES
   * metros; frente para +Z;
   * origem no centro da BASE, no chão (y = 0) — exceto os marcados CENTRO:
-    planeta_anel, ovni, planeta, estrela_3d, peixe, agua_viva (centro do
+    saturno, ovni, planeta, estrela_3d, peixe, agua_viva (centro do
     sino), ptero e roda (eixo). A cabine tem a origem no PIVÔ (em cima) e
     fica pendurada para baixo;
   * TINTA (planeta, peixe, agua_viva, cabine): quase brancos, para o jogo
@@ -820,41 +820,41 @@ def sorriso_pontos(cx, cy, z, larg, curva, n=7):
 
 # =================================================================== ESPAÇO
 
-def planeta_anel():
-    pal = Paleta(lilas=hex_cor("#4FA8FF"), claro=hex_cor("#A8D8FF"), escuro=hex_cor("#2E7BE0"),
-                 anel=hex_cor("#FFB347"), anel_claro=hex_cor("#FFE066"), anel_escuro=hex_cor("#FF8A3D"))
-    incl = rot_z(0.36) @ rot_x(0.30)
-    planeta = Esfera((0, 0, 0), 1.6, pal.lilas)
-    anel = CilindroRedondo((0, 0, 0), 2.7, 0.14, 0.13, pal.anel, rot=incl).menos(
-        CilindroRedondo((0, 0, 0), 2.05, 0.8, 0.0, pal.anel, rot=incl), k=0.06)
+def saturno():
+    """SATURNO (espaço): bola cor de pêssego com faixas e o ANEL largo,
+    inclinado, de três tons de creme. Origem no centro; raio 1 (o jogo
+    escala). 7.2: é o planeta do espaço, atrás dos pinos, por cima do
+    letreiro (o planeta azul com anel de arco-íris, que parecia um adesivo,
+    saiu)."""
+    # (7.2: cores VIVAS — o anel era creme quase branco e as faixas pálidas;
+    # agora o anel é dourado com uma faixa laranja e a borda amarela clara)
+    pal = Paleta(pessego=hex_cor("#FFA352"), faixa=hex_cor("#E85D2E"), faixa2=hex_cor("#FFD36B"),
+                 anel=hex_cor("#FFC93B"), anel2=hex_cor("#F2832E"), anel3=hex_cor("#FFE680"))
+    bola = Esfera((0, 0, 0), 1.0, pal.pessego)
+    giro = rot_x(0.42) @ rot_z(0.22)
+    # (7.2: a borda de DENTRO do anel arredondada como a de fora — o corte
+    # seco saía serrilhado na malha leve)
+    anel = CilindroRedondo((0, 0, 0), 2.05, 0.07, 0.05, pal.anel, rot=giro).menos(
+        CilindroRedondo((0, 0, 0), 1.38, 0.2, 0.0, pal.anel, rot=giro), 0.06)
+    forma = bola | anel
 
-    def local(P):
-        return P @ incl
-
-    def faixas(P, lim):
-        q = local(P)
-        th = np.arctan2(q[:, 2], q[:, 0])
-        s = np.sin(q[:, 1] * 4.3 + 0.18 * np.sin(th * 3.0))
-        return (comprimento(P) < 1.75) & (s > lim)
-
-    def faixa_escura(P):
-        q = local(P)
-        th = np.arctan2(q[:, 2], q[:, 0])
-        s = np.sin(q[:, 1] * 4.3 + 0.18 * np.sin(th * 3.0))
-        return (comprimento(P) < 1.75) & (s < -0.72)
-
-    def anel_raio(a, b):
+    def faixas(cor):
         def f(P):
-            q = local(P)
-            rr = np.sqrt(q[:, 0] ** 2 + q[:, 2] ** 2)
-            return (comprimento(P) > 1.75) & (rr >= a) & (rr < b)
+            perto = comprimento(P) < 1.05
+            y = P[:, 1] + 0.06 * np.sin(P[:, 0] * 4.0)
+            k = np.floor((y + 1.0) / 0.18)
+            return perto & ((k % 4 == 1) if cor == 1 else (k % 4 == 3))
         return f
-    pint = [Pintura(lambda P: faixas(P, 0.6), pal.claro), Pintura(faixa_escura, pal.escuro),
-            Pintura(anel_raio(0.0, 2.24), pal.anel_claro), Pintura(anel_raio(2.24, 2.36), pal.anel_escuro),
-            Pintura(anel_raio(2.52, 2.6), pal.anel_claro), Pintura(anel_raio(2.6, 9), pal.anel_escuro)]
-    # (7.0b: é o planeta grande do céu do espaço — a grade mais fina, para o
-    # anel e as faixas saírem nítidos de perto)
-    return malha("planeta_anel", planeta | anel, 0.07, pal, pint, ((-3.2, -3.2, -3.2), (3.2, 3.2, 3.2)))
+
+    def aneis(cor):
+        def f(P):
+            r = comprimento(P)
+            fora = r > 1.2
+            return fora & (((r > 1.62) & (r < 1.78)) if cor == 2 else (r > 1.9))
+        return f
+    pint = [Pintura(faixas(1), pal.faixa), Pintura(faixas(3), pal.faixa2), Pintura(aneis(2), pal.anel2),
+            Pintura(aneis(3), pal.anel3)]
+    return malha("saturno", forma, 0.05, pal, pint, ((-2.3, -2.3, -2.3), (2.3, 2.3, 2.3)))
 
 
 def foguete():
@@ -2280,7 +2280,7 @@ def poste():
 
 OBJETOS = {
     # espaço
-    "planeta_anel": planeta_anel, "foguete": foguete, "ovni": ovni, "planeta": planeta,
+    "saturno": saturno, "foguete": foguete, "ovni": ovni, "planeta": planeta,
     "cristal": cristal, "pedra_lua": pedra_lua, "estrela_3d": estrela_3d,
     # fundo do mar
     "coral": coral, "coral_roxo": coral_roxo, "alga": alga, "concha": concha, "estrela_mar": estrela_mar,

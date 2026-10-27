@@ -68,8 +68,8 @@ ALVO = {
     "dino": 3500, "ptero": 2600, "vulcao": 3600, "flor_gigante": 1300, "palmeira": 1300,
     "samambaia": 1600, "ovo_dino": 1100, "pedra": 750, "nuvem": 950,
     # espaço
-    # (7.0b: o planeta com anel é o grande do céu, no lugar do Saturno)
-    "planeta_anel": 6000, "foguete": 1900, "ovni": 2200, "planeta": 1400, "cristal": 700,
+    # (7.2: o Saturno, atrás dos pinos, é o planeta grande do espaço)
+    "saturno": 9000, "foguete": 1900, "ovni": 2200, "planeta": 1400, "cristal": 700,
     "pedra_lua": 650, "estrela_3d": 750,
     # fundo do mar
     "navio": 5500, "tartaruga": 3200, "agua_viva": 2600, "peixe": 1300, "peixe_azul": 1300, "peixe_amarelo": 1300,
@@ -91,7 +91,7 @@ ERRO = {"roda": 0.008, "peixe": 0.008, "peixe_azul": 0.008, "peixe_amarelo": 0.0
 # FASE (ATLAS_DO_TEMA), então cada fase tem a imagem inteira para os
 # objetos dela — os principais com 2048, os outros com 1024 (eram 1024 e
 # 512 dividindo uma imagem só com as quatro fases)
-TEX_2048 = ("navio", "carrossel", "dino", "vulcao", "planeta_anel")
+TEX_2048 = ("navio", "carrossel", "dino", "vulcao", "saturno")
 TEX_1024 = ("ptero", "tenda", "foguete", "roda", "ovni", "flor_gigante", "agua_viva", "palmeira",
             "pedra", "torre", "cupcake", "donut", "presente", "cristal", "pedra_lua", "planeta", "concha",
             "estrela_mar", "bau", "arbusto", "flores", "anemona",
@@ -115,7 +115,7 @@ TEMAS_DO_OBJETO = {
     "parque": ("arco_iris", "torre", "arvore_verde", "arvore_laranja", "arvore_escura", "pirulito", "cogumelo",
                "bengala", "presente", "donut", "cupcake", "roda_base", "roda", "cabine", "carrossel", "tenda",
                "nuvem", "balao", "lampada", "castelo", "arbusto", "flores", "poste"),
-    "espaco": ("planeta_anel", "foguete", "ovni", "planeta", "estrela_3d", "cristal", "pedra_lua", "satelite"),
+    "espaco": ("saturno", "foguete", "ovni", "planeta", "estrela_3d", "cristal", "pedra_lua", "satelite"),
     "mar": ("navio", "bau", "bau_tampa", "coral", "coral_roxo", "alga", "estrela_mar", "concha", "pedra",
             "peixe", "peixe_azul", "peixe_amarelo", "agua_viva", "tartaruga", "anemona"),
     "dinos": ("vulcao", "palmeira", "dino", "ptero", "samambaia", "pedra", "flor_gigante", "ovo_dino", "nuvem",
@@ -1259,6 +1259,12 @@ def gerar_niveis(atuais):
     json.dump(indice, open(caminho, "w"), indent=1)
 
 
+## SEM O SOMBREADO DOS CANTINHOS (7.2): no Saturno o anel solto em volta
+## "tapava" o planeta para os raios e escurecia uma faixa larga dele (um
+## barro escuro embaixo do anel) — num planeta não há cantinho nenhum.
+SEM_SOMBREADO = ("saturno",)
+
+
 ## VINCOS (7.0): nas peças de caixa com as bordas arredondadas (o baú e a
 ## tampa) a luz do cenário, feita por ponto, escurecia o triângulo inteiro
 ## de uma face lisa quando um canto dele ficava na borda (a normal de lado)
@@ -1349,7 +1355,9 @@ def main():
         if arq not in ia:
             print("  sem original:", arq)
             continue
-        antigo = sombrear_cantos(ler_msh(os.path.join(antigos, ia[arq]["id"] + ".msh"))[0])
+        antigo = ler_msh(os.path.join(antigos, ia[arq]["id"] + ".msh"))[0]
+        if nome not in SEM_SOMBREADO:
+            antigo = sombrear_cantos(antigo)
         # A FORMA (6.4): as fontes finas (o desenho nítido) têm, onde
         # folhas e gravetos finos se encostam, arestas de 3 ou 4 triângulos
         # (a grade fina "costura" as duas folhas) — o simplificador não
