@@ -68,8 +68,9 @@ ALVO = {
     "dino": 3500, "ptero": 2600, "vulcao": 3600, "flor_gigante": 1300, "palmeira": 1300,
     "samambaia": 1600, "ovo_dino": 1100, "pedra": 750, "nuvem": 950,
     # espaço
-    "planeta_anel": 2800, "foguete": 1900, "ovni": 2200, "planeta": 1400, "cristal": 700,
-    "pedra_lua": 650, "estrela_3d": 750, "saturno": 3200,
+    # (7.0b: o planeta com anel é o grande do céu, no lugar do Saturno)
+    "planeta_anel": 6000, "foguete": 1900, "ovni": 2200, "planeta": 1400, "cristal": 700,
+    "pedra_lua": 650, "estrela_3d": 750,
     # fundo do mar
     "navio": 5500, "tartaruga": 3200, "agua_viva": 2600, "peixe": 1300, "peixe_azul": 1300, "peixe_amarelo": 1300,
     "concha": 900, "coral": 1500, "coral_roxo": 1900, "alga": 750, "estrela_mar": 750,
@@ -91,7 +92,7 @@ ERRO = {"roda": 0.008, "peixe": 0.008, "peixe_azul": 0.008, "peixe_amarelo": 0.0
 # objetos dela — os principais com 2048, os outros com 1024 (eram 1024 e
 # 512 dividindo uma imagem só com as quatro fases)
 TEX_2048 = ("navio", "carrossel", "dino", "vulcao", "planeta_anel")
-TEX_1024 = ("ptero", "tenda", "foguete", "roda", "saturno", "ovni", "flor_gigante", "agua_viva", "palmeira",
+TEX_1024 = ("ptero", "tenda", "foguete", "roda", "ovni", "flor_gigante", "agua_viva", "palmeira",
             "pedra", "torre", "cupcake", "donut", "presente", "cristal", "pedra_lua", "planeta", "concha",
             "estrela_mar", "bau", "arbusto", "flores", "anemona",
             "satelite", "tartaruga", "castelo", "tricera")
@@ -114,7 +115,7 @@ TEMAS_DO_OBJETO = {
     "parque": ("arco_iris", "torre", "arvore_verde", "arvore_laranja", "arvore_escura", "pirulito", "cogumelo",
                "bengala", "presente", "donut", "cupcake", "roda_base", "roda", "cabine", "carrossel", "tenda",
                "nuvem", "balao", "lampada", "castelo", "arbusto", "flores", "poste"),
-    "espaco": ("planeta_anel", "foguete", "ovni", "planeta", "estrela_3d", "cristal", "pedra_lua", "saturno", "satelite"),
+    "espaco": ("planeta_anel", "foguete", "ovni", "planeta", "estrela_3d", "cristal", "pedra_lua", "satelite"),
     "mar": ("navio", "bau", "bau_tampa", "coral", "coral_roxo", "alga", "estrela_mar", "concha", "pedra",
             "peixe", "peixe_azul", "peixe_amarelo", "agua_viva", "tartaruga", "anemona"),
     "dinos": ("vulcao", "palmeira", "dino", "ptero", "samambaia", "pedra", "flor_gigante", "ovo_dino", "nuvem",

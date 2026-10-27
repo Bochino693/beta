@@ -852,7 +852,9 @@ def planeta_anel():
     pint = [Pintura(lambda P: faixas(P, 0.6), pal.claro), Pintura(faixa_escura, pal.escuro),
             Pintura(anel_raio(0.0, 2.24), pal.anel_claro), Pintura(anel_raio(2.24, 2.36), pal.anel_escuro),
             Pintura(anel_raio(2.52, 2.6), pal.anel_claro), Pintura(anel_raio(2.6, 9), pal.anel_escuro)]
-    return malha("planeta_anel", planeta | anel, 0.112, pal, pint, ((-3.2, -3.2, -3.2), (3.2, 3.2, 3.2)))
+    # (7.0b: é o planeta grande do céu do espaço — a grade mais fina, para o
+    # anel e as faixas saírem nítidos de perto)
+    return malha("planeta_anel", planeta | anel, 0.07, pal, pint, ((-3.2, -3.2, -3.2), (3.2, 3.2, 3.2)))
 
 
 def foguete():
@@ -2063,37 +2065,6 @@ def castelo():
     return juntar([m] + bandeiras)
 
 
-def saturno():
-    """SATURNO (7.0, espaço): era pintado no fundo; agora é um planeta 3D como
-    os outros — bola cor de pêssego com faixas e o ANEL largo, inclinado, de
-    três tons de creme. Origem no centro; raio 1 (o jogo escala)."""
-    pal = Paleta(pessego=hex_cor("#FFB57E"), faixa=hex_cor("#F08A5D"), faixa2=hex_cor("#FFD9A8"),
-                 anel=hex_cor("#FFE9BE"), anel2=hex_cor("#F5C98A"), anel3=hex_cor("#FFF6DE"))
-    bola = Esfera((0, 0, 0), 1.0, pal.pessego)
-    giro = rot_x(0.42) @ rot_z(0.22)
-    anel = CilindroRedondo((0, 0, 0), 2.05, 0.07, 0.05, pal.anel, rot=giro).menos(
-        CilindroRedondo((0, 0, 0), 1.38, 0.2, 0.0, pal.anel, rot=giro))
-    forma = bola | anel
-
-    def faixas(cor):
-        def f(P):
-            perto = comprimento(P) < 1.05
-            y = P[:, 1] + 0.06 * np.sin(P[:, 0] * 4.0)
-            k = np.floor((y + 1.0) / 0.18)
-            return perto & ((k % 4 == 1) if cor == 1 else (k % 4 == 3))
-        return f
-
-    def aneis(cor):
-        def f(P):
-            r = comprimento(P)
-            fora = r > 1.2
-            return fora & (((r > 1.62) & (r < 1.78)) if cor == 2 else (r > 1.9))
-        return f
-    pint = [Pintura(faixas(1), pal.faixa), Pintura(faixas(3), pal.faixa2), Pintura(aneis(2), pal.anel2),
-            Pintura(aneis(3), pal.anel3)]
-    return malha("saturno", forma, 0.05, pal, pint, ((-2.3, -2.3, -2.3), (2.3, 2.3, 2.3)))
-
-
 # =================================================================== 7.0: MAIS DECORAÇÃO
 
 def arbusto():
@@ -2319,7 +2290,7 @@ OBJETOS = {
     "dino": dino, "ptero": ptero, "pedra": pedra, "flor_gigante": flor_gigante,
     # parque de diversões
     "roda_base": roda_base, "roda": roda, "cabine": cabine, "tenda": tenda, "carrossel": carrossel,
-    "castelo": castelo, "saturno": saturno,
+    "castelo": castelo,
     # 7.0: mais decoração
     "arbusto": arbusto, "flores": flores, "tricera": tricera, "anemona": anemona, "satelite": satelite,
     "poste": poste,
