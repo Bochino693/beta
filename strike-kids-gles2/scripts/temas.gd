@@ -928,20 +928,30 @@ func _espaco() -> void:
 	var T := "espaco"
 	var rnd := RandomNumberGenerator.new()
 	rnd.seed = 404
-	# O PLANETA COM ANEL lá no alto do céu, à esquerda (7.0b: ficava atrás
+	# O PLANETA COM ANEL lá no alto do céu, à esquerda (7.1: ficava atrás
 	# dos pinos, por cima do letreiro, e o Saturno listrado ocupava este
 	# lugar; agora é um só, grande e caprichado — a versão de perto sempre,
 	# tools/modelos_texturizados.py: ALVO). O anel fica deitado e inclinado
 	# de leve para a direita: visto de baixo, da pista, é uma elipse aberta.
 	# Gira em volta do eixo do ANEL (o da malha, tools/cenario_sdf/temas.py):
 	# o anel fica sempre igual e as faixas do planeta é que passam.
-	var pos_pa := Vector3(-15.5, 24.0, -56.0)
+	# PROFUNDIDADE: ele fica bem mais ao fundo que a lua (que está à direita,
+	# Mundo.ASTROS) — a neblina azul do espaço o deixa um pouco mais suave,
+	# como coisa longe — e uma borda de luz azul-clara (e a sombra menos
+	# escura) desenha o contorno dele no céu escuro: longe, mas bem visível.
+	var pos_pa := Vector3(-16.5, 31.0, -84.0)
 	var pa := _obj(T, "planeta_anel", pos_pa, 0.0, 1.0, 0.0, Color.white, null, 0.0)
+	pa.material_override = _mat_modelo("planeta_anel", 0.0, Color.white,
+		{"borda": 0.55, "cor_borda": Color(0.62, 0.86, 1.0), "luz_minima": 0.6}, false, T)
 	pa.cast_shadow = GeometryInstance.SHADOW_CASTING_SETTING_OFF
 	var eixo_anel := Vector3(-0.336, 0.894, 0.296).normalized()
 	var olhar := (pos_pa - Vector3(0.0, 1.35, 6.6)).normalized()
-	var deitado := Vector3.UP.rotated(olhar, deg2rad(-16.0))
-	pa.transform = Transform(Basis(eixo_anel.cross(deitado).normalized(), eixo_anel.angle_to(deitado)).scaled(Vector3.ONE * 4.3), pos_pa)
+	# o anel inclinado 42° para o lado da pista: de baixo aparece a face de
+	# CIMA dele (a iluminada, com as cores), numa elipse aberta, passando na
+	# frente da metade de baixo do planeta; e de leve para a direita
+	var para_pista := Vector3(-olhar.x, 0.0, -olhar.z).normalized()
+	var deitado := (Vector3.UP * cos(deg2rad(42.0)) + para_pista * sin(deg2rad(42.0))).normalized().rotated(olhar, deg2rad(-16.0))
+	pa.transform = Transform(Basis(eixo_anel.cross(deitado).normalized(), eixo_anel.angle_to(deitado)).scaled(Vector3.ONE * 5.4), pos_pa)
 	_animar(T, {"tipo": "girar_proprio", "no": pa, "vel": 0.06, "eixo": eixo_anel})
 	# dois foguetes em pé no chão, ao lado do gabinete, inteiros à vista
 	# (atrás das colunas só aparecia a pontinha das aletas)

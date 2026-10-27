@@ -340,7 +340,9 @@ const ASTROS := {
 	"parque": ["sol", Vector3(9.8, 25.2, -59.4), 8.5],
 	"dinos": ["sol", Vector3(9.8, 25.2, -59.4), 8.5],
 	"mar": ["baleia", Vector3(5.0, 24.0, -60.0), 13.0],
-	"espaco": ["lua", Vector3(-1.1, 26.3, -59.7), 7.2],
+	# (7.1: a lua à direita, separada do planeta com anel, que fica à
+	# esquerda e mais ao fundo; um pouco maior, em destaque)
+	"espaco": ["lua", Vector3(7.8, 27.4, -59.7), 8.4],
 }
 ## de onde as posições acima foram escolhidas (a área de jogo)
 const ASTRO_REFERENCIA := Vector3(0.0, 1.2, 2.4)

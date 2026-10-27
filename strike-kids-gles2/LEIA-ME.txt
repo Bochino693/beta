@@ -84,9 +84,17 @@ VERSAO 7.1: UM PLANETA SO NO CEU DO ESPACO, GRANDE E CAPRICHADO
   * O SATURNO listrado (la no alto, a esquerda - de longe parecia um
     desenho chapado) SAIU do jogo.
   * O PLANETA AZUL COM O ANEL DE ARCO-IRIS, que ficava atras dos pinos
-    por cima do letreiro, foi para o lugar dele, no alto do ceu, do mesmo
-    tamanho. O anel fica deitado e inclinado de leve: visto de baixo, da
-    pista, e uma elipse aberta; as faixas do planeta passam devagar.
+    por cima do letreiro, foi para o lugar dele, no alto do ceu a
+    esquerda. O anel fica inclinado para o lado da pista: de baixo aparece
+    a face de cima dele (a iluminada, com as cores), numa elipse aberta
+    que passa na frente da metade de baixo do planeta, como nos desenhos
+    de Saturno; as faixas do planeta passam devagar.
+  * A LUA EM DESTAQUE E COM PROFUNDIDADE: a lua (com carinha) foi para a
+    direita do ceu, um pouco maior, com o brilho do ceu atras dela; o
+    planeta fica bem mais ao fundo (a neblina azul do espaco o deixa um
+    pouco mais suave, como coisa longe) mas com uma borda de luz
+    azul-clara que desenha o contorno dele no ceu escuro - longe, mas bem
+    visivel. Os dois nunca se encostam em nenhuma vista.
   * MAIS DEFINIDO, com o que sobrou do Saturno: a fonte do modelo numa
     grade mais fina (tools/cenario_sdf/temas.py) e o dobro de triangulos
     (6.000, eram 2.800; textura 2048), sempre na versao de perto (no
