@@ -195,6 +195,13 @@ func nivel_cenario(leve_: bool) -> void:
 			(d[0] as MeshInstance).mesh = d[2] if leve_ else d[1]
 
 
+## Uma peça de fora do cenário que também troca de malha com o nível (7.4:
+## o pterodáctilo da placa da selva, mundo.gd — no leve, o do meio).
+func trocavel(tema: String, mi: MeshInstance, alto: Mesh, leve_: Mesh) -> void:
+	_trocaveis[tema].append([mi, alto, leve_])
+	mi.mesh = leve_ if cenario_leve else alto
+
+
 func mostrar(nome: String) -> void:
 	atual = nome
 	for k in grupos:

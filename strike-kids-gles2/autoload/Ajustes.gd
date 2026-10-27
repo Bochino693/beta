@@ -83,6 +83,25 @@ var creditos := 0
 func _ready() -> void:
 	pause_mode = Node.PAUSE_MODE_PROCESS
 	_cfg.load(ARQUIVO)
+	_medir_de_novo()
+
+
+## O que o automático MEDIU nesta máquina (30 quadros travados, cenário
+## leve, imagem separada, qualidade, nitidez) vale para a versão em que foi
+## medido. Numa versão com outro peso (7.4: mais leve, e o governador que
+## na TV nunca aliviava nada consertado) a TV mede de novo, uma vez — sem
+## isso ela continuava, por exemplo, travada em 30 do que viu antes.
+## (O que o OPERADOR escolheu no menu fica.)
+const MEDIDAS_VERSAO := "7.4"
+
+
+func _medir_de_novo() -> void:
+	if str(_cfg.get_value("video", "medidas_versao", "")) == MEDIDAS_VERSAO:
+		return
+	for chave in ["qps_medido", "cenario3d_medido", "desenho_medido", "qualidade_auto", "fator_1080"]:
+		_cfg.set_value("video", chave, PADRAO["video"][chave])
+	_cfg.set_value("video", "medidas_versao", MEDIDAS_VERSAO)
+	_salvar()
 
 
 func valor(secao: String, chave: String):
@@ -208,7 +227,9 @@ func detalhes() -> bool:
 
 ## O cenário 3D no nível LEVE (7.0: um passo mais leve em cada peça)?
 ## Detalhes extras desligados também (para comparar na TV Box);
-## STRIKE_CENARIO3D=alto|leve vale nos testes.
+## STRIKE_CENARIO3D=alto|leve vale nos testes. No automático, antes de o
+## jogo medir a máquina (7.4): a Mali-400/450 já começa no leve (o alto
+## passa do que ela desenha liso); as outras, no alto.
 func cenario3d_leve() -> bool:
 	if OS.has_environment("STRIKE_CENARIO3D"):
 		return OS.get_environment("STRIKE_CENARIO3D") == "leve"
@@ -216,8 +237,19 @@ func cenario3d_leve() -> bool:
 		return true
 	var c := str(valor("video", "cenario3d"))
 	if c == "auto":
-		return str(valor("video", "cenario3d_medido")) == "leve"
+		var medido := str(valor("video", "cenario3d_medido"))
+		return medido == "leve" or (medido == "" and placa_utgard())
 	return c == "leve"
+
+
+## A placa de vídeo é uma Mali-400/450 (ou mais antiga): a "Utgard", só
+## OpenGL ES 2.0 — a da TX9 e das TVs com Android de 1 GB.
+func placa_utgard() -> bool:
+	var placa := VisualServer.get_video_adapter_name().to_lower()
+	for utgard in ["mali-4", "mali-3", "mali-2"]:
+		if utgard in placa:
+			return true
+	return false
 
 
 func cenario_leve() -> bool:

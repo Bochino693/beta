@@ -149,6 +149,8 @@ func construir() -> void:
 	# o pterossauro do símbolo da selva: o mesmo material dos do cenário
 	# (com a textura deles; o símbolo é montado antes do cenário)
 	_ptero_simbolo.material_override = temas.mat_asas("dinos")
+	# (7.4) e troca de malha com o nível do cenário, como os do cenário
+	temas.trocavel("dinos", _ptero_simbolo, _ptero_simbolo.mesh, load("res://modelos/cenario/ptero_meio.res"))
 	# peças paradas com o mesmo material viram uma malha só (menos desenhos)
 	# (o céu e o astro ficam de fora: são desenhados no infinito)
 	var fora: Array = [temas, ceu, _astro]
@@ -1712,9 +1714,11 @@ static func _malha_lampada() -> SphereMesh:
 		var l := SphereMesh.new()
 		l.radius = 0.07
 		l.height = 0.14
-		# (227 lâmpadas: 36 triângulos cada — de longe ninguém vê a diferença)
+		# (~230 lâmpadas: 24 triângulos cada — uma joia de 6 lados; na tela
+		# elas têm poucos pixels e ninguém vê a diferença. 7.4: eram 36, ~18
+		# mil índices por quadro só de lâmpadas)
 		l.radial_segments = 6
-		l.rings = 2
+		l.rings = 1
 		e["lampada"] = l
 	return e["lampada"]
 
