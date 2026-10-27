@@ -1,6 +1,7 @@
 # Confere o APK pronto da TV Box (edição GLES2, Godot 3.6.3) feito pelo
 # montar_apk.sh: assinatura (e se é a chave do projeto), manifesto (pacote,
-# permissões, recursos opcionais, plugins v1, atividades USB, TV), as duas
+# permissões, recursos opcionais, plugins v1, atividades USB, TV, a tela
+# inicial que abre o jogo ao ligar a TV), as duas
 # ABIs do Godot, o projeto em assets/ e o classes2.dex com os dois plugins e
 # os métodos que o GDScript chama (com @UsedByGodot e tipos que o JNI do Godot
 # 3.6.3 converte). Precisa do androguard (python do venv):
@@ -32,7 +33,7 @@ PLUGINS = {
 }
 S = 'Ljava/lang/String;'
 DIC = 'Lorg/godotengine/godot/Dictionary;'
-# o que o GDScript chama (Fotos.gd / ArduinoBridge.gd): nome -> (argumentos, retorno)
+# o que o GDScript chama (Fotos.gd / ArduinoBridge.gd / operador.gd): nome -> (argumentos, retorno)
 API = {
     'Lcom/lazersport/strikecamera/StrikeCamera;': {
         'estado': ('', S), 'fonte': ('', S), 'tem_permissao': ('', 'Z'), 'listar': ('', S),
@@ -44,6 +45,7 @@ API = {
         'listar': ('', S), 'permissao_pendente': ('', 'Z'), 'pedir_permissao': (S, S),
         'estado': ('', S), 'erro': ('', S), 'abrir': (S + 'I', 'V'), 'ler': ('', S),
         'escrever': (S, 'Z'), 'fechar': ('', 'V'), 'relatorio': ('', S),
+        'tela_inicial': ('', S), 'escolher_tela_inicial': ('', S), 'sair_para_tv': ('', S),
     },
 }
 # tipos que o JNISingleton do Godot 3.6.3 sabe chamar (get_jni_type) e devolver
@@ -145,6 +147,19 @@ for nome, xml in usb:
            '   USB_DEVICE_ATTACHED com res/xml/%s.xml' % xml)
     checar('res/xml/%s.xml' % xml in arquivos, '   res/xml/%s.xml no APK' % xml)
 
+# a tela inicial (HOME): o Android abre o jogo ao ligar a TV
+inicio = atividades.get('com.lazersport.strikeserial.StrikeInicioAtivo')
+checar(inicio is not None, 'atividade da tela inicial com.lazersport.strikeserial.StrikeInicioAtivo')
+if inicio is not None:
+    filtros = [([a_.get(NS + 'name') for a_ in f.findall('action')], [c.get(NS + 'name') for c in f.findall('category')])
+               for f in inicio.findall('intent-filter')]
+    print('   exported=%s noHistory=%s filtros=%s' % (inicio.get(NS + 'exported'), inicio.get(NS + 'noHistory'), filtros))
+    checar(any('android.intent.action.MAIN' in acs and 'android.intent.category.HOME' in cs
+               and 'android.intent.category.DEFAULT' in cs for acs, cs in filtros), '   MAIN + HOME + DEFAULT')
+    checar(inicio.get(NS + 'exported') == 'true', '   exported')
+casas = [c.get(NS + 'name') for q in m.findall('queries') for i in q.findall('intent') for c in i.findall('category')]
+checar('android.intent.category.HOME' in casas, '<queries> das telas iniciais (Android 11+)')
+
 # dex: o Godot no classes.dex, os plugins no classes2.dex
 print('dex:', sorted(n for n in arquivos if n.endswith('.dex')))
 d1 = DEX(a.get_file('classes.dex'))
@@ -161,7 +176,8 @@ classes2 = {c.get_name(): c for c in d2.get_classes()}
 print('classes2:', len(classes2), 'classes')
 for k in ['Lcom/lazersport/strikecamera/StrikeCamera;', 'Lcom/lazersport/strikecamera/StrikeUsbAtivo;',
           'Lcom/lazersport/strikeserial/StrikeSerial;', 'Lcom/lazersport/strikeserial/StrikeArduinoAtivo;',
-          'Lcom/lazersport/strikeserial/SerialUtil;']:
+          'Lcom/lazersport/strikeserial/SerialUtil;', 'Lcom/lazersport/strikeserial/StrikeInicioAtivo;',
+          'Lcom/lazersport/strikeserial/InicioDaTv;']:
     checar(k in classes2, 'classes2.dex tem ' + k)
 checar(not any(k.startswith('Landroidx/') for k in classes2), 'classes2.dex sem androidx (o esqueleto do Fragment não vazou)')
 

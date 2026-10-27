@@ -6,6 +6,14 @@
 
     <uses-feature android:name="android.hardware.usb.host" android:required="false" />
 
+    <!-- Android 11+: enxergar as telas iniciais da TV (InicioDaTv) -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.HOME" />
+        </intent>
+    </queries>
+
     <application>
         <!-- encaixe do Arduino: "Usar por padrão" guarda a permissão USB -->
         <activity
@@ -20,6 +28,20 @@
             <meta-data
                 android:name="android.hardware.usb.action.USB_DEVICE_ATTACHED"
                 android:resource="@xml/strike_usb_arduino" />
+        </activity>
+        <!-- o jogo como TELA INICIAL da TV: abre sozinho ao ligar (InicioDaTv) -->
+        <activity
+            android:name="com.lazersport.strikeserial.StrikeInicioAtivo"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:stateNotNeeded="true"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.HOME" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
         </activity>
         <!-- Godot 3.6.3: plugin v1 (no Godot 4 era "org.godotengine.plugin.v2.");
              sem build Gradle, o montar_apk.sh põe isto no APK (manifesto.py) -->

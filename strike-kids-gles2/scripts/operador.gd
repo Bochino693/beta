@@ -13,6 +13,11 @@ extends Control
 ##
 ## O menu abre POR CIMA do jogo pausado (Principal.abrir_menu): nada do
 ## jogo é desmontado, e sair dele é na hora.
+##
+## ABRIR O JOGO AO LIGAR A TV: o jogo vira a TELA INICIAL do Android (o
+## plugin StrikeSerial, InicioDaTv): a TV abre o jogo ao ligar na tomada,
+## pelo controle e a cada HOME. SAIR PARA A TELA DA TV abre o início da
+## própria TV (ajustes, outros apps); um HOME volta ao jogo.
 
 const JOGO := "res://cenas/principal.tscn"
 const BOTOES := "res://cenas/configuracao_botoes.tscn"
@@ -56,6 +61,8 @@ const ITENS := [
 	["Porta invertida", "arduino", "porta_invertida", "bool", []],
 	["> TESTE DA CÂMERA", "", "camera", "acao", []],
 	["> CONFIGURAR BOTÕES DA PLACA", "", "botoes", "acao", []],
+	["> ABRIR O JOGO AO LIGAR A TV", "", "inicio", "acao", []],
+	["> SAIR PARA A TELA DA TV (ajustes, outros apps)", "", "sair_tv", "acao", []],
 	["> ZERAR RECORDES", "", "recordes", "acao", []],
 	["> RESTAURAR PADRÃO DE FÁBRICA", "", "padrao", "acao", []],
 	["> VOLTAR AO JOGO", "", "voltar", "acao", []],
@@ -79,6 +86,9 @@ var _camera_ms := 0
 var _camera_t := 0.0
 var _porta := false            # teste da porta
 var _calibrando := false       # calibração dos sensores
+var _inicio := false           # abrir o jogo ao ligar a TV
+var _inicio_estado := ""       # "jogo", "escolher", "outra|Nome" ("" = fora da TV Box)
+var _inicio_passo := "-"       # o que a última escolha abriu ("-" = nenhuma ainda)
 var _topo := 0                 # rolagem da lista (tela deitada)
 var _visiveis := 0
 var _esp := 0.0
@@ -94,7 +104,28 @@ func _ready() -> void:
 	# de permissão USB do Arduino
 	ArduinoBridge.porta(false)
 	ArduinoBridge.na_espera(true)
+	_inicio_estado = tela_inicial()
 	_atualizar()
+
+
+## De volta ao jogo (depois da escolha da tela inicial ou da tela da TV):
+## confere de novo se a TV já abre o jogo sozinha.
+func _notification(what: int) -> void:
+	if what != MainLoop.NOTIFICATION_WM_FOCUS_IN or _linhas.empty():
+		return
+	_inicio_estado = tela_inicial()
+	if _inicio:
+		_mostrar_inicio()
+	else:
+		_atualizar()
+
+
+## A TV abre o jogo sozinha ao ligar? "jogo" (o jogo é a tela inicial),
+## "escolher" (o Android ainda pergunta), "outra|Nome" ou "" (fora da TV Box).
+static func tela_inicial() -> String:
+	if not Engine.has_singleton("StrikeSerial"):
+		return ""
+	return str(Engine.get_singleton("StrikeSerial").tela_inicial())
 
 
 func _montar() -> void:
@@ -168,6 +199,8 @@ func _rotulo(texto: String, pos: Vector2, tam: float, cor: Color) -> Label:
 
 func _valor_texto(item: Array) -> String:
 	if item[3] == "acao":
+		if item[2] == "inicio" and _inicio_estado != "":
+			return "SIM" if _inicio_estado == "jogo" else "NÃO"
 		return ""
 	var v = Ajustes.valor(item[1], item[2]) if item[1] != "tela" else Tela.giro
 	if item[2] == "cenario":
@@ -187,7 +220,7 @@ func _atualizar() -> void:
 		_topo = _sel
 	elif _sel >= _topo + _visiveis:
 		_topo = _sel - _visiveis + 1
-	var em_teste := _teste or _camera or _porta or _calibrando
+	var em_teste := _teste or _camera or _porta or _calibrando or _inicio
 	for i in ITENS.size():
 		var item: Array = ITENS[i]
 		var l: Label = _linhas[i]
@@ -304,7 +337,13 @@ func comando(cmd: String) -> void:
 		Sons.tocar("selecao")
 		_mostrar_porta()
 		return
-	if _teste or _camera or _porta or _calibrando:
+	if _inicio and cmd == "ok" and _inicio_estado != "" and _inicio_estado != "jogo":
+		# OK: abre a escolha da tela inicial do Android
+		_inicio_passo = str(Engine.get_singleton("StrikeSerial").escolher_tela_inicial())
+		Sons.tocar("selecao")
+		_mostrar_inicio()
+		return
+	if _teste or _camera or _porta or _calibrando or _inicio:
 		if cmd == "sair" or cmd == "ok":
 			_sair_do_teste()
 		return
@@ -402,6 +441,19 @@ func _acao() -> void:
 				jogo.abrir_menu(load(BOTOES))
 			else:
 				get_tree().call_deferred("change_scene", BOTOES)
+		"inicio":
+			_inicio = true
+			_inicio_passo = "-"
+			_inicio_estado = tela_inicial()
+			_entrar_no_teste()
+			_mostrar_inicio()
+		"sair_tv":
+			if Engine.has_singleton("StrikeSerial"):
+				Engine.get_singleton("StrikeSerial").sair_para_tv()
+			else:
+				_inicio = true
+				_entrar_no_teste()
+				_mostrar_inicio()
 		"desempenho":
 			# volta ao jogo e roda o teste
 			Ajustes.definir("video", "testar", true)
@@ -435,6 +487,7 @@ func _sair_do_teste() -> void:
 	_camera = false
 	_porta = false
 	_calibrando = false
+	_inicio = false
 	_teste_rotulo.visible = false
 	_teste_rotulo.text = ""
 	_teste_rotulo.rect_position = Vector2(0, Tela.tamanho().y * 0.35)
@@ -466,6 +519,36 @@ func _mostrar_porta() -> void:
 	else:
 		Compat.tamanho_rotulo(_teste_rotulo, int(30 * u))
 		t += "SEM O ARDUINO\n%s\n\n%s\n\nCONFIGURAÇÃO ou START sai" % [ArduinoBridge.status, _relatorio_arduino()]
+	_teste_rotulo.text = t
+
+
+## Abrir o jogo ao ligar a TV: se o jogo já é a tela inicial do Android e,
+## se não, como escolher (OK abre a escolha do Android).
+func _mostrar_inicio() -> void:
+	Compat.tamanho_rotulo(_teste_rotulo, int(30 * u))
+	var t := "ABRIR O JOGO AO LIGAR A TV\n\n"
+	if _inicio_estado == "":
+		t += "Só na TV Box (Android).\n\nCONFIGURAÇÃO ou START sai"
+	elif _inicio_estado == "jogo":
+		t += "PRONTO! A TV abre o STRIKE KIDS sozinha: ligando na tomada,\n" + \
+			"pelo controle remoto (volta da espera) e a cada HOME.\n\n" + \
+			"Para usar a TV (ajustes, outros apps): > SAIR PARA A TELA DA TV,\n" + \
+			"ou HOME 5 vezes seguidas no controle remoto. Um HOME volta ao jogo.\n\n" + \
+			"CONFIGURAÇÃO ou START sai"
+	else:
+		var nome := _inicio_estado.substr(6) if _inicio_estado.begins_with("outra|") else ""
+		if nome != "":
+			t += "AINDA NÃO: hoje a TV abre \"%s\".\n\n" % nome
+		else:
+			t += "AINDA NÃO: o Android ainda pergunta qual é a tela inicial.\n\n"
+		t += "Aperte OK: na janela do Android escolha STRIKE KIDS e marque SEMPRE\n" + \
+			"(ou: HOME no controle remoto > STRIKE KIDS > SEMPRE).\n"
+		if nome != "":
+			t += "Abriu a página do \"%s\"? Aperte LIMPAR PADRÕES (Abrir por padrão),\n" % nome + \
+				"volte e aperte HOME > STRIKE KIDS > SEMPRE.\n"
+		if _inicio_passo == "":
+			t += "\nEsta TV não abriu nenhuma escolha: faça pelo PC, com o adb (veja o LEIA-ME).\n"
+		t += "\nCONFIGURAÇÃO sai"
 	_teste_rotulo.text = t
 
 

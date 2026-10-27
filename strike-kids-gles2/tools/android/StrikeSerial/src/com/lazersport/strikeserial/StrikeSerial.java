@@ -69,6 +69,10 @@ import javax.microedition.khronos.opengles.GL10;
  *                          (TelaDaTv: o Android já abre o jogo assim)
  *   s.definir_quadros(2)   cada quadro por 2 batidas da TV: 30 travados
  *                          (1 = 60; QuadrosDaTv)
+ *   s.tela_inicial()       "jogo" (a TV abre o jogo sozinha ao ligar),
+ *                          "escolher" ou "outra|Nome" (InicioDaTv)
+ *   s.escolher_tela_inicial()  abre a escolha da tela inicial do Android
+ *   s.sair_para_tv()       abre a tela inicial da própria TV (o nome dela)
  * Tudo também vai para o logcat com a etiqueta "StrikeSerial".
  */
 public class StrikeSerial extends GodotPlugin {
@@ -445,6 +449,10 @@ public class StrikeSerial extends GodotPlugin {
 	@Override
 	public void onMainDestroy() {
 		fechar();
+		Activity a = getActivity();
+		if (a != null) {
+			InicioDaTv.pararDeOuvir(a);
+		}
 	}
 
 	// ------------------------------------------------------------ tela
@@ -459,6 +467,8 @@ public class StrikeSerial extends GodotPlugin {
 		} catch (Throwable t) {
 			anotar("tela: " + t);
 		}
+		// a TV voltando da espera (ligada pelo controle) reinicia o jogo
+		InicioDaTv.ouvirTela(activity);
 		return null;
 	}
 
@@ -506,6 +516,64 @@ public class StrikeSerial extends GodotPlugin {
 				}
 			}
 		});
+	}
+
+	// ------------------------------------------------------------ tela inicial
+	/** A TV abre o jogo sozinha ao ligar? "jogo", "escolher" ou "outra|Nome" ("" = sem resposta). */
+	@UsedByGodot
+	public String tela_inicial() {
+		Activity a = getActivity();
+		if (a == null) {
+			return "";
+		}
+		try {
+			return InicioDaTv.estado(a);
+		} catch (Throwable t) {
+			anotar("tela inicial: " + t);
+			return "";
+		}
+	}
+
+	/** Abre a escolha da tela inicial do Android (o que abriu: InicioDaTv.escolher). */
+	@UsedByGodot
+	public String escolher_tela_inicial() {
+		Activity a = getActivity();
+		if (a == null) {
+			return "";
+		}
+		try {
+			return InicioDaTv.escolher(a);
+		} catch (Throwable t) {
+			anotar("tela inicial: " + t);
+			return "";
+		}
+	}
+
+	/** Abre a tela inicial da própria TV: o nome dela, "config" (os ajustes) ou "". */
+	@UsedByGodot
+	public String sair_para_tv() {
+		Activity a = getActivity();
+		if (a == null) {
+			return "";
+		}
+		try {
+			return InicioDaTv.sairParaTv(a);
+		} catch (Throwable t) {
+			anotar("sair para a TV: " + t);
+			return "";
+		}
+	}
+
+	@Override
+	public void onMainActivityResult(int pedido, int resultado, Intent dados) {
+		Activity a = getActivity();
+		if (pedido == InicioDaTv.PEDIDO_PAPEL && a != null) {
+			try {
+				InicioDaTv.depoisDoPapel(a, resultado);
+			} catch (Throwable t) {
+				anotar("tela inicial: " + t);
+			}
+		}
 	}
 
 	// ------------------------------------------------------------ relatório
