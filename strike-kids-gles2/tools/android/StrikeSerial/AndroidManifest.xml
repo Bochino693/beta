@@ -6,6 +6,9 @@
 
     <uses-feature android:name="android.hardware.usb.host" android:required="false" />
 
+    <!-- a TV ligou na tomada: abre o jogo (StrikeLigou) -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+
     <!-- Android 11+: enxergar as telas iniciais da TV (InicioDaTv) -->
     <queries>
         <intent>
@@ -43,6 +46,14 @@
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
+        <receiver
+            android:name="com.lazersport.strikeserial.StrikeLigou"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.QUICKBOOT_POWERON" />
+            </intent-filter>
+        </receiver>
         <!-- Godot 3.6.3: plugin v1 (no Godot 4 era "org.godotengine.plugin.v2.");
              sem build Gradle, o montar_apk.sh põe isto no APK (manifesto.py) -->
         <meta-data

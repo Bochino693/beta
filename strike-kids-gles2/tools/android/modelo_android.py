@@ -50,6 +50,7 @@ def injetar(manifesto):
     <uses-feature android:name="android.hardware.touchscreen" android:required="false"/>
     <uses-feature android:name="android.software.leanback" android:required="false"/>
     <uses-permission android:name="android.permission.CAMERA"/>
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
     <queries>
         <intent>
             <action android:name="android.intent.action.MAIN"/>
@@ -59,7 +60,8 @@ def injetar(manifesto):
     # os plugins v1 (o Godot 3.6.3 procura "org.godotengine.plugin.v1.<Nome>"
     # no manifesto), a atividade de encaixe do Arduino ("Usar por padrão") e
     # a tela inicial (HOME) que abre o jogo ao ligar a TV (o <queries> acima:
-    # no Android 11+ o jogo enxerga as outras telas iniciais)
+    # no Android 11+ o jogo enxerga as outras telas iniciais) e o aviso de
+    # "ligou" (BOOT_COMPLETED) que também abre o jogo
     s = trocar_uma(s, "    </application>", '''        <meta-data android:name="org.godotengine.plugin.v1.StrikeCamera" android:value="com.lazersport.strikecamera.StrikeCamera"/>
         <activity android:excludeFromRecents="true" android:exported="true" android:name="com.lazersport.strikeserial.StrikeArduinoAtivo" android:noHistory="true" android:theme="@android:style/Theme.Translucent.NoTitleBar">
             <intent-filter>
@@ -74,6 +76,12 @@ def injetar(manifesto):
                 <category android:name="android.intent.category.DEFAULT"/>
             </intent-filter>
         </activity>
+        <receiver android:exported="true" android:name="com.lazersport.strikeserial.StrikeLigou">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED"/>
+                <action android:name="android.intent.action.QUICKBOOT_POWERON"/>
+            </intent-filter>
+        </receiver>
         <meta-data android:name="org.godotengine.plugin.v1.StrikeSerial" android:value="com.lazersport.strikeserial.StrikeSerial"/>
     </application>''', "fim do application")
     # lançador da TV (Android TV / Google TV), com o banner
