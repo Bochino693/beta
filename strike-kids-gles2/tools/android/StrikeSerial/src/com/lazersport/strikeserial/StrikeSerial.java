@@ -72,6 +72,8 @@ import javax.microedition.khronos.opengles.GL10;
  *   s.tela_inicial()       "jogo" (a TV abre o jogo sozinha ao ligar),
  *                          "escolher" ou "outra|Nome" (InicioDaTv)
  *   s.escolher_tela_inicial()  abre a escolha da tela inicial do Android
+ *   s.pedir_tela_inicial() o mesmo, pedido pelo jogo na tela de espera
+ *                          (só as janelas de escolha do Android)
  *   s.sair_para_tv()       abre a tela inicial da própria TV (o nome dela)
  * Tudo também vai para o logcat com a etiqueta "StrikeSerial".
  */
@@ -449,10 +451,6 @@ public class StrikeSerial extends GodotPlugin {
 	@Override
 	public void onMainDestroy() {
 		fechar();
-		Activity a = getActivity();
-		if (a != null) {
-			InicioDaTv.pararDeOuvir(a);
-		}
 	}
 
 	// ------------------------------------------------------------ tela
@@ -542,7 +540,22 @@ public class StrikeSerial extends GodotPlugin {
 			return "";
 		}
 		try {
-			return InicioDaTv.escolher(a);
+			return InicioDaTv.escolher(a, false);
+		} catch (Throwable t) {
+			anotar("tela inicial: " + t);
+			return "";
+		}
+	}
+
+	/** O jogo pedindo sozinho (tela de espera): só as janelas de escolha do Android. */
+	@UsedByGodot
+	public String pedir_tela_inicial() {
+		Activity a = getActivity();
+		if (a == null) {
+			return "";
+		}
+		try {
+			return InicioDaTv.escolher(a, true);
 		} catch (Throwable t) {
 			anotar("tela inicial: " + t);
 			return "";

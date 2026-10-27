@@ -86,14 +86,19 @@ VERSAO 7.3: O JOGO ABRE SOZINHO AO LIGAR A TV (TOMADA OU CONTROLE)
     ("Sempre"), o Android abre o jogo ao ligar na tomada, ao voltar para
     o inicio e a cada HOME; se o jogo fechar ou cair, o Android volta para
     a tela inicial - e o jogo abre de novo. Nao precisa mais do "Launch on
-    Boot" (desligue ou desinstale ele). Passo a passo: "ABRIR O JOGO
-    SOZINHO AO LIGAR A TV", mais abaixo.
+    Boot" (desligue ou desinstale ele). Enquanto a TV nao abre o jogo
+    sozinha, o PROPRIO JOGO PEDE, na tela de espera, a escolha ao Android
+    (uma vez a cada vez que abre): escolha STRIKE KIDS e SEMPRE. Passo a
+    passo: "ABRIR O JOGO SOZINHO AO LIGAR A TV", mais abaixo.
+  * LIGADA NA TOMADA: alem da tela inicial, o aviso de "ligou" do Android
+    (BOOT_COMPLETED, StrikeLigou) tambem abre o jogo.
   * LIGADA PELO CONTROLE REMOTO: o controle nao desliga a TV de verdade
     (ela fica em espera) e, ao ligar de novo, nada "liga" - por isso o
     Launch on Boot nao fazia nada. Agora o jogo percebe a tela apagar e
-    acender: depois de 10 s ou mais apagada, ele reinicia do zero (como
-    ao ligar na tomada) e vem para a frente, sem a imagem travada da placa
-    de video depois da espera.
+    acender (mesmo fechado ou atras de outro app, enquanto o Android nao
+    o tirar da memoria): depois de 10 s ou mais apagada, ele reinicia do
+    zero (como ao ligar na tomada) e vem para a frente, sem a imagem
+    travada da placa de video depois da espera.
   * MENU DO OPERADOR: "> ABRIR O JOGO AO LIGAR A TV" (mostra SIM/NAO e
     abre a escolha do Android) e "> SAIR PARA A TELA DA TV" (abre o
     inicio da propria TV: ajustes, outros apps; um HOME volta ao jogo).
@@ -944,9 +949,13 @@ abre o Strike Kids sozinha - ligando na tomada, pelo controle remoto
 (volta da espera) e a cada HOME. Nao precisa de outro app (o "Launch on
 Boot" pode ser DESLIGADO ou desinstalado: dois apps abrindo o jogo ao
 mesmo tempo so atrapalham).
-  1. Instale o APK (por cima do antigo: as configuracoes ficam).
-  2. Aperte HOME no controle remoto. O Android pergunta qual e a tela
-     inicial: escolha STRIKE KIDS e aperte SEMPRE.
+  1. Instale o APK (por cima do antigo: as configuracoes ficam) e abra o
+     jogo uma vez.
+  2. Na tela de espera o jogo pede sozinho: o Android pergunta qual e a
+     tela inicial (ou "Definir Strike Kids como app de tela inicial?").
+     Escolha STRIKE KIDS e aperte SEMPRE (ou "Definir como padrao").
+     Nao apareceu nada? Aperte HOME no controle remoto: escolha STRIKE
+     KIDS e SEMPRE.
      Nao perguntou (abriu o inicio da TV de novo)? Abra o jogo, entre no
      menu do operador e escolha "> ABRIR O JOGO AO LIGAR A TV": ele diz
      SIM ou NAO e, com OK, abre a escolha do Android (a janela "Definir

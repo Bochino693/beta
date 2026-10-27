@@ -97,6 +97,7 @@ var _destaque := 0
 var _fim_t := 0.0
 var _demo_t := 0.0
 var _camera_t := 0.0
+var _tela_inicial_pedida := false   # pediu (uma vez por abertura) para ser a tela inicial
 var _demo_vez := 0
 var _ultimo_som_pino := 0
 ## as fases (cenários) de cada rodada desta partida, sorteadas no START
@@ -978,6 +979,22 @@ func _atracao() -> void:
 	Fotos.na_espera()
 
 
+## O jogo como TELA INICIAL da TV (abre sozinho ao ligar - StrikeSerial,
+## InicioDaTv): enquanto a TV não abre o jogo sozinha, uma vez a cada vez
+## que o jogo abre, na tela de espera, pede a escolha ao Android ("Strike
+## Kids" + SEMPRE). Uma janela do Android por vez: depois da câmera e do
+## Arduino.
+func _pedir_tela_inicial() -> void:
+	if _tela_inicial_pedida or not Engine.has_singleton("StrikeSerial"):
+		return
+	if Fotos.janela_aberta() or ArduinoBridge.janela_aberta():
+		return
+	_tela_inicial_pedida = true
+	var s = Engine.get_singleton("StrikeSerial")
+	if str(s.tela_inicial()) != "jogo":
+		s.pedir_tela_inicial()
+
+
 func _posicionar_atracao() -> void:
 	var t: Personagem = personagens["bob"]
 	var r: Personagem = personagens["mia"]
@@ -1523,6 +1540,7 @@ func _process(delta: float) -> void:
 			if _camera_t > 6.0:
 				_camera_t = 0.0
 				Fotos.na_espera()
+				_pedir_tela_inicial()
 			if bool(Ajustes.valor("jogo", "demo")) and _demo_t > 9.0:
 				_demo_t = 0.0
 				_jogada_demo()

@@ -45,7 +45,8 @@ API = {
         'listar': ('', S), 'permissao_pendente': ('', 'Z'), 'pedir_permissao': (S, S),
         'estado': ('', S), 'erro': ('', S), 'abrir': (S + 'I', 'V'), 'ler': ('', S),
         'escrever': (S, 'Z'), 'fechar': ('', 'V'), 'relatorio': ('', S),
-        'tela_inicial': ('', S), 'escolher_tela_inicial': ('', S), 'sair_para_tv': ('', S),
+        'tela_inicial': ('', S), 'escolher_tela_inicial': ('', S), 'pedir_tela_inicial': ('', S),
+        'sair_para_tv': ('', S),
     },
 }
 # tipos que o JNISingleton do Godot 3.6.3 sabe chamar (get_jni_type) e devolver
@@ -159,6 +160,11 @@ if inicio is not None:
     checar(inicio.get(NS + 'exported') == 'true', '   exported')
 casas = [c.get(NS + 'name') for q in m.findall('queries') for i in q.findall('intent') for c in i.findall('category')]
 checar('android.intent.category.HOME' in casas, '<queries> das telas iniciais (Android 11+)')
+# a TV ligou na tomada: o aviso BOOT_COMPLETED também abre o jogo
+ligou = [r for r in app.findall('receiver') if r.get(NS + 'name') == 'com.lazersport.strikeserial.StrikeLigou']
+acoes_ligou = [a_.get(NS + 'name') for r in ligou for f in r.findall('intent-filter') for a_ in f.findall('action')]
+checar('android.intent.action.BOOT_COMPLETED' in acoes_ligou, 'StrikeLigou com BOOT_COMPLETED (%s)' % acoes_ligou)
+checar('android.permission.RECEIVE_BOOT_COMPLETED' in perms, 'permissão RECEIVE_BOOT_COMPLETED')
 
 # dex: o Godot no classes.dex, os plugins no classes2.dex
 print('dex:', sorted(n for n in arquivos if n.endswith('.dex')))
@@ -177,7 +183,7 @@ print('classes2:', len(classes2), 'classes')
 for k in ['Lcom/lazersport/strikecamera/StrikeCamera;', 'Lcom/lazersport/strikecamera/StrikeUsbAtivo;',
           'Lcom/lazersport/strikeserial/StrikeSerial;', 'Lcom/lazersport/strikeserial/StrikeArduinoAtivo;',
           'Lcom/lazersport/strikeserial/SerialUtil;', 'Lcom/lazersport/strikeserial/StrikeInicioAtivo;',
-          'Lcom/lazersport/strikeserial/InicioDaTv;']:
+          'Lcom/lazersport/strikeserial/InicioDaTv;', 'Lcom/lazersport/strikeserial/StrikeLigou;']:
     checar(k in classes2, 'classes2.dex tem ' + k)
 checar(not any(k.startswith('Landroidx/') for k in classes2), 'classes2.dex sem androidx (o esqueleto do Fragment não vazou)')
 

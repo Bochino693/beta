@@ -30,13 +30,15 @@ import java.util.List;
  *    Escolhido como a tela inicial da TV, é ele que o Android abre ao ligar
  *    na tomada, ao voltar para o início e a cada HOME. estado() diz se já é;
  *    escolher() abre a escolha do Android (o papel HOME do Android 10+, os
- *    ajustes da tela inicial ou a janela "Sempre / Só uma vez").
+ *    ajustes da tela inicial ou a janela "Sempre / Só uma vez") - o jogo
+ *    pede sozinho na tela de espera enquanto não for (sozinho = true).
  * 2. VOLTA DA ESPERA: desligada pelo CONTROLE, a TV não desliga de verdade
  *    (fica em espera) e nada "liga" de novo - um app de "abrir ao ligar" não
- *    percebe nada. Com o jogo aberto, ouvirTela() percebe a tela apagar e
- *    acender: depois de 10 s ou mais apagada, o jogo reinicia do zero (como
- *    ao ligar na tomada) e vem para a frente, sem a imagem travada da placa
- *    de vídeo depois da espera.
+ *    percebe nada. Com o processo do jogo vivo (mesmo fechado ou atrás de
+ *    outro app), ouvirTela() percebe a tela apagar e acender: depois de 10 s
+ *    ou mais apagada, o jogo reinicia do zero (como ao ligar na tomada) e
+ *    vem para a frente, sem a imagem travada da placa de vídeo depois da
+ *    espera. Ligada na tomada, StrikeLigou também abre o jogo.
  * 3. SAÍDA DO OPERADOR: sairParaTv() abre a tela inicial da própria TV (o
  *    menu do operador, ou HOME 5 vezes seguidas - pediuParaSair()).
  */
@@ -51,6 +53,7 @@ final class InicioDaTv {
 	private static final long ESPERA_AO_ACENDER_MS = 1500;
 
 	private static long pedidoEm = 0;
+	private static boolean pedidoSozinho = false;
 	private static long apagouEm = 0;
 	private static BroadcastReceiver tela;
 
@@ -120,17 +123,19 @@ final class InicioDaTv {
 	 * Abre a escolha da tela inicial: "ja" (já é o jogo), "papel" (a janela do
 	 * Android 10+), "ajustes", "escolha" (a janela "Sempre / Só uma vez"),
 	 * "app" (a página da tela inicial da TV: "Limpar padrões"), "config" ou ""
-	 * (nada abriu).
+	 * (nada abriu). sozinho (o jogo pedindo na tela de espera): só as janelas
+	 * de escolha, nunca a página do app nem os ajustes gerais.
 	 */
-	static String escolher(Activity a) {
+	static String escolher(Activity a, boolean sozinho) {
 		String agora = estado(a);
 		if (agora.equals("jogo")) {
 			return "ja";
 		}
+		pedidoSozinho = sozinho;
 		if (Build.VERSION.SDK_INT >= 29 && pedirPapel(a)) {
 			return "papel";
 		}
-		return semPapel(a, agora);
+		return semPapel(a, agora, sozinho);
 	}
 
 	private static boolean pedirPapel(Activity a) {
@@ -155,16 +160,19 @@ final class InicioDaTv {
 		}
 		String agora = estado(a);
 		if (!agora.equals("jogo")) {
-			semPapel(a, agora);
+			semPapel(a, agora, pedidoSozinho);
 		}
 	}
 
-	private static String semPapel(Activity a, String agora) {
+	private static String semPapel(Activity a, String agora, boolean sozinho) {
 		if (abrir(a, new Intent(Settings.ACTION_HOME_SETTINGS))) {
 			return "ajustes";
 		}
 		if (agora.equals("escolher") && abrir(a, home())) {
 			return "escolha";
+		}
+		if (sozinho) {
+			return "";
 		}
 		ResolveInfo ri = padrao(a);
 		if (ri != null && ri.activityInfo != null && !ri.activityInfo.packageName.equals(a.getPackageName())
@@ -229,11 +237,16 @@ final class InicioDaTv {
 	}
 
 	// ------------------------------------------------------------ volta da espera
-	/** Com o jogo aberto: tela apagada 10 s ou mais e acesa de novo = o jogo reinicia do zero. */
-	static void ouvirTela(final Activity a) {
+	/**
+	 * Tela apagada 10 s ou mais e acesa de novo = o jogo reinicia do zero.
+	 * Fica ouvindo enquanto o processo do jogo viver (mesmo com o jogo
+	 * fechado ou atrás de outro app).
+	 */
+	static void ouvirTela(Activity atividade) {
 		if (tela != null) {
 			return;
 		}
+		final Context app = atividade.getApplicationContext();
 		tela = new BroadcastReceiver() {
 			@Override
 			public void onReceive(Context c, Intent i) {
@@ -251,7 +264,7 @@ final class InicioDaTv {
 					@Override
 					public void run() {
 						try {
-							ProcessPhoenix.triggerRebirth(a);
+							ProcessPhoenix.triggerRebirth(app);
 						} catch (Throwable t) {
 							Log.i(TAG, "inicio: reiniciar: " + t);
 						}
@@ -262,21 +275,10 @@ final class InicioDaTv {
 		IntentFilter f = new IntentFilter(Intent.ACTION_SCREEN_OFF);
 		f.addAction(Intent.ACTION_SCREEN_ON);
 		try {
-			a.getApplicationContext().registerReceiver(tela, f);
+			app.registerReceiver(tela, f);
 		} catch (Throwable t) {
 			tela = null;
 			Log.i(TAG, "inicio: tela: " + t);
 		}
-	}
-
-	static void pararDeOuvir(Activity a) {
-		if (tela == null) {
-			return;
-		}
-		try {
-			a.getApplicationContext().unregisterReceiver(tela);
-		} catch (Throwable ignored) {
-		}
-		tela = null;
 	}
 }
