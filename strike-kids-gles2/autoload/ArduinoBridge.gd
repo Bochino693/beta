@@ -7,14 +7,16 @@ extends Node
 ##   * o botão de CONFIGURAÇÃO entra e sai do menu do operador;
 ##   * START e FICHA, se estiverem ligados no Arduino (a Zero Delay também
 ##     continua valendo, com o teclado);
-##   * a TRAVA da porta das bolas: fechada na espera, ABRE depois do START,
-##     FECHA no fim da partida (e sozinha, no Arduino, se o jogo sumir);
+##   * a PORTA das bolas (ponte H, servo ou relé): fechada na espera, ABRE
+##     depois do START, FECHA no fim da partida (e sozinha, no Arduino, se o
+##     jogo sumir);
 ##   * a fita de LED (mesmos comandos de antes: MENU, STRIKE, SPARE...).
 ##
 ## Protocolo (linhas de texto, 9600):
-##   Arduino -> jogo: OLA:STRIKE_KIDS:1, PONG:STRIKE_KIDS:1, S:1..S:5, CFG,
-##     START, FICHA, SENS:00100 (ao vivo, no teste), PORTA:ABERTA/FECHADA,
-##     CAL:OK:HHHHH, INFO:..., AVISO:SEM_JOGO
+##   Arduino -> jogo: OLA:STRIKE_KIDS:2, PONG:STRIKE_KIDS:2, S:1..S:5, CFG,
+##     START, FICHA, SENS:00100 (ao vivo, no teste), PORTA:ABERTA/FECHADA
+##     (com a ponte H, quando a porta chega), CAL:OK:HHHHH, INFO:...,
+##     AVISO:SEM_JOGO, AVISO:PORTA_TRAVOU (o fim de curso não chegou)
 ##   jogo -> Arduino: PING, PORTA:ABRE, PORTA:FECHA, PORTA?, SENS?, TESTE:1,
 ##     TESTE:0, CALIBRA, INFO?, MENU, IDLE, STRIKE...
 ## O firmware antigo só de LEDs (DRAGON_BOWLING) também conecta (só LEDs).
@@ -57,6 +59,7 @@ var sensores := ""             # estado ao vivo (só no teste): "00100", 1 = bol
 var contagem := [0, 0, 0, 0, 0]
 var porta_aberta := false      # o que o Arduino confirmou (no jeito do jogo)
 var porta_quer := false        # o que o jogo pediu
+var aviso := ""                # último AVISO: do Arduino (PORTA_TRAVOU...); a porta chegou = ""
 var _plugin: Object
 var _fase := "procurando"      # procurando | abrindo | apresentando | conectado
 var _candidatos: Array = []
@@ -349,6 +352,7 @@ func _receber(linha: String, agora: int) -> void:
 		"PORTA:ABERTA", "PORTA:FECHADA":
 			var aberta := linha == "PORTA:ABERTA"
 			porta_aberta = aberta != bool(Ajustes.valor("arduino", "porta_invertida"))
+			aviso = ""
 			emit_signal("mudou")
 		_:
 			if linha.begins_with("SENS:"):
@@ -361,6 +365,9 @@ func _receber(linha: String, agora: int) -> void:
 				emit_signal("mudou")
 			elif linha.begins_with("INFO:"):
 				info = linha.substr(5)
+				emit_signal("mudou")
+			elif linha.begins_with("AVISO:"):
+				aviso = linha.substr(6)
 				emit_signal("mudou")
 
 
