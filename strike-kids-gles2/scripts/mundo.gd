@@ -1714,11 +1714,11 @@ static func _malha_lampada() -> SphereMesh:
 		var l := SphereMesh.new()
 		l.radius = 0.07
 		l.height = 0.14
-		# (~230 lâmpadas: 24 triângulos cada — uma joia de 6 lados; na tela
-		# elas têm poucos pixels e ninguém vê a diferença. 7.4: eram 36, ~18
-		# mil índices por quadro só de lâmpadas)
+		# (227 lâmpadas: 36 triângulos cada — de longe ninguém vê a diferença.
+		# 7.5: de volta aos 36 — com 24 (7.4) viravam losangos e o brilho da
+		# moldura da boca dos pinos ficava mais escuro)
 		l.radial_segments = 6
-		l.rings = 1
+		l.rings = 2
 		e["lampada"] = l
 	return e["lampada"]
 
@@ -1763,13 +1763,47 @@ func _objeto(nome: String, pos: Vector3, rot_y := 0.0, escala := 1.0, contorno :
 	return mi
 
 
+## Os morros do terreno: x, z, raio, altura (7.5: uma constante — o cenário
+## pergunta a altura do chão milhares de vezes ao conferir as peças).
+const MORROS := [[-9, -20, 6, 2.2], [10, -26, 7, 2.6], [-14, -42, 9, 3.4], [15, -48, 10, 3.8], [0, -64, 16, 5.0],
+	[-20, -10, 6, 1.8], [21, -8, 7, 2.2], [-26, -30, 9, 4.0], [27, -34, 10, 4.5], [-6, -52, 6, 2.0], [6, -58, 7, 2.4]]
+
+
+## PATAMARES (7.5): x, z, raio plano, raio até onde ele se mistura com o
+## morro. Entre a pista e os morros o chão é uma RAMPA (sobe 2 a 4 m em 4
+## m): a peça grande posta ali (os dinos, o carrossel, a roda-gigante)
+## ficava com metade dentro dela. Cada patamar é um degrau plano na altura
+## do chão no meio dele (corta o lado de cima, aterra o de baixo), com a
+## beira suave. Valem para as quatro fases (o relevo é um só): as peças das
+## outras fases que caem ali se assentam no patamar. Dois só, cada um
+## dividido por duas fases: à direita o dino pescoçudo (selva) e o
+## carrossel (parque); à esquerda o dino grande e a roda-gigante — um
+## patamar não pode cair debaixo de outra peça grande (o navio do mar, no
+## alto do morro da esquerda) nem encostar em outro (um degrau no outro).
+const PATAMARES := [[5.4, -17.8, 2.5, 4.3], [-7.0, -27.6, 3.4, 5.0]]
+var _altura_patamar := []
+
+
 ## Mesma fórmula do tools/modelos/modelos.py (gerar_terreno), para apoiar
-## os objetos no chão.
+## os objetos no chão (modelos/terreno.res é feita com ela, com os
+## patamares).
 func _altura_terreno(x: float, z: float) -> float:
-	var morros := [[-9, -20, 6, 2.2], [10, -26, 7, 2.6], [-14, -42, 9, 3.4], [15, -48, 10, 3.8], [0, -64, 16, 5.0],
-		[-20, -10, 6, 1.8], [21, -8, 7, 2.2], [-26, -30, 9, 4.0], [27, -34, 10, 4.5], [-6, -52, 6, 2.0], [6, -58, 7, 2.4]]
+	var h := _altura_morros(x, z)
+	if _altura_patamar.empty():
+		for pt in PATAMARES:
+			_altura_patamar.append(_altura_morros(pt[0], pt[1]))
+	for i in PATAMARES.size():
+		var pt: Array = PATAMARES[i]
+		var d := Vector2(x - pt[0], z - pt[1]).length()
+		if d < pt[3]:
+			var u: float = clamp((d - pt[2]) / (pt[3] - pt[2]), 0.0, 1.0)
+			h = lerp(_altura_patamar[i], h, u * u * (3.0 - 2.0 * u))
+	return h
+
+
+func _altura_morros(x: float, z: float) -> float:
 	var h := 0.0
-	for m in morros:
+	for m in MORROS:
 		h += m[3] * exp(-((x - m[0]) * (x - m[0]) + (z - m[1]) * (z - m[1])) / (2.0 * m[2] * m[2]))
 	var p: float = clamp((abs(x) - 3.2) / 4.0, 0.0, 1.0)
 	p = p * p * (3.0 - 2.0 * p)

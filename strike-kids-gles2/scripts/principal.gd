@@ -23,6 +23,17 @@ const CENA_OPERADOR := preload("res://cenas/operador.tscn")
 const CENA_BOTOES := preload("res://cenas/configuracao_botoes.tscn")
 ## tempo da tela "QUANTOS VÃO JOGAR?" (START de novo dentro dele = 2 jogadores)
 const TEMPO_JOGADORES := 4.0
+## MODO LIVRE PELA BOLA (7.5, máquina sem botões): a bola rolada na espera
+## começa a partida e já escolhe o amigo pelo lado (esquerda = Bob,
+## direita = Mia, meio = Bob); outra bola na tela "QUANTOS VÃO JOGAR?" = 2
+## jogadores. A 2ª criança precisa pegar outra bola: o tempo é maior.
+const TEMPO_JOGADORES_BOLA := 7.0
+## a mesma bola pode passar por 2 sensores (ou o sensor piscar): a 2ª bola
+## só vale depois disto
+const OUTRA_BOLA_MS := 1500
+## 1 jogador pela bola: o amigo já vem escolhido e confirma sozinho neste
+## tempo (rolar de novo troca: esquerda = Bob, direita = Mia, meio = já)
+const TEMPO_AMIGO_BOLA := 6.0
 ## pódios da escolha do personagem e da foto (Bob à esquerda, Mia à direita)
 const PODIOS := [Vector3(-0.62, 0, 2.5), Vector3(0.62, 0, 2.5)]
 ## a vista da espera: a pista de frente, como a criança vê da máquina
@@ -93,6 +104,9 @@ var _passos_fisica := 60
 var _velocidade := 1.0
 var _escolha_n := 1
 var _escolha_t := 0.0
+## modo livre pela bola: o amigo do lado da 1ª bola e quando ela passou
+var _quem_bola := ""
+var _bola_ms := -100000
 var _destaque := 0
 var _fim_t := 0.0
 var _demo_t := 0.0
@@ -411,6 +425,9 @@ func _ligar_roteiro_de_teste() -> void:
 	for a in OS.get_cmdline_args():
 		if a.begins_with("--start-livre") and ResourceLoader.exists("res://tools/testes/start_livre.gd"):
 			add_child(load("res://tools/testes/start_livre.gd").new())
+			return
+		if a.begins_with("--inicio-bola") and ResourceLoader.exists("res://tools/testes/inicio_bola.gd"):
+			add_child(load("res://tools/testes/inicio_bola.gd").new())
 			return
 		if a.begins_with("--roteiro") and ResourceLoader.exists("res://tools/testes/roteiro.gd"):
 			add_child(load("res://tools/testes/roteiro.gd").new())
@@ -789,16 +806,36 @@ func _start() -> void:
 			_start_na_espera()
 		E.JOGADORES:
 			# como no Dragon Bowling: o 2º START = 2 jogadores (mostra e já começa)
-			if _escolha_n == 1:
-				_escolha_n = 2
-				_escolha_t = min(_escolha_t, 1.1)
-				Sons.tocar("selecao")
-				ArduinoBridge.send_led("RED")
+			_dois_jogadores()
 		E.PERSONAGEM:
 			_confirmar_personagem()
 		E.FIM:
 			if _fim_t > 2.5 and Ajustes.pode_comecar():
+				_quem_bola = ""
 				_escolher_jogadores()
+
+
+func _dois_jogadores() -> void:
+	if _escolha_n == 1:
+		_escolha_n = 2
+		_escolha_t = min(_escolha_t, 1.1)
+		Sons.tocar("selecao")
+		ArduinoBridge.send_led("RED")
+
+
+## Modo livre começando pela bola (menu do operador: "Começar rolando a
+## bola"): a porta das bolas fica aberta também na espera.
+func _inicio_pela_bola() -> bool:
+	return Ajustes.modo_livre() and bool(Ajustes.valor("jogo", "inicio_bola"))
+
+
+## Bola rolada na espera (abertura, atração, demonstração, fim): começa a
+## partida, como o START, e o lado dela já escolhe o amigo.
+func _comecar_pela_bola(zona: String) -> void:
+	hud.sensor_acendeu(zona)
+	_quem_bola = "mia" if zona in ["V", "B"] else "bob"
+	_bola_ms = Time.get_ticks_msec()
+	_escolher_jogadores()
 
 
 ## START na espera (abertura, atração ou demonstração, a qualquer momento):
@@ -806,6 +843,7 @@ func _start() -> void:
 ## que estava acontecendo para na hora.
 func _start_na_espera() -> void:
 	if Ajustes.pode_comecar():
+		_quem_bola = ""
 		_escolher_jogadores()
 	else:
 		hud.texto_grande("INSIRA FICHA", Color("#FFF6A8"), 1.0, 0.55)
@@ -826,11 +864,23 @@ func _jogada_recebida(zona: String) -> void:
 	_inativo = 0.0
 	if _modal_inativo > 0.0:
 		_fechar_inatividade()
+	# modo livre pela bola: na demonstração inteira (arremesso, bola
+	# rolando, resultado, replay) a bola de verdade começa, como o START
+	if demo and estado in [E.DEMO, E.ARREMESSO, E.ROLANDO, E.RESULTADO, E.REPLAY] and _inicio_pela_bola():
+		_comecar_pela_bola(zona)
+		return
 	match estado:
 		E.PRONTO:
 			if _liberada:
 				_arremessar(zona)
+		E.JOGADORES:
+			# outra bola (não a mesma passando por 2 sensores) = 2 jogadores
+			if _inicio_pela_bola() and Time.get_ticks_msec() - _bola_ms > OUTRA_BOLA_MS:
+				_bola_ms = Time.get_ticks_msec()
+				_dois_jogadores()
 		E.PERSONAGEM:
+			if Time.get_ticks_msec() - _bola_ms < OUTRA_BOLA_MS:
+				return
 			if zona in ["Z", "X"]:
 				_marcar_destaque(0)
 			elif zona in ["V", "B"]:
@@ -838,9 +888,15 @@ func _jogada_recebida(zona: String) -> void:
 			else:
 				_confirmar_personagem()
 		E.ATRACAO, E.DEMO, E.ABERTURA:
-			# rolar a bola no menu também convida a jogar
-			hud.sensor_acendeu(zona)
-			Sons.tocar("selecao")
+			if _inicio_pela_bola():
+				_comecar_pela_bola(zona)
+			else:
+				# rolar a bola no menu também convida a jogar
+				hud.sensor_acendeu(zona)
+				Sons.tocar("selecao")
+		E.FIM:
+			if _inicio_pela_bola() and _fim_t > 2.5:
+				_comecar_pela_bola(zona)
 		# (arremesso, bola rolando, resultado, replay, começo da vez: a
 		# jogada não vale — nem fica guardada para quando a pista abrir)
 
@@ -848,7 +904,9 @@ func _jogada_recebida(zona: String) -> void:
 # ================================================================ abertura e atração
 func _abertura() -> void:
 	estado = E.ABERTURA
-	ArduinoBridge.porta(false)
+	# (no modo livre pela bola a porta fica aberta: a bola é o START)
+	ArduinoBridge.porta(_inicio_pela_bola())
+	hud.modo_bola(_inicio_pela_bola())
 	var s := _novo_seq()
 	hud.atracao(false)
 	hud.mostrar_sensores(false)
@@ -962,9 +1020,11 @@ func _atracao() -> void:
 	if _fator_salvar:
 		_fator_salvar = false
 		Ajustes.definir("video", "fator_1080", stepify(_fator, 0.01))
-	# a porta das bolas fica FECHADA na espera; o Arduino pode pedir a
-	# permissão USB aqui (janela do Android só na espera)
-	ArduinoBridge.porta(false)
+	# a porta das bolas fica FECHADA na espera (aberta no modo livre pela
+	# bola: rolar a bola é o START); o Arduino pode pedir a permissão USB
+	# aqui (janela do Android só na espera)
+	ArduinoBridge.porta(_inicio_pela_bola())
+	hud.modo_bola(_inicio_pela_bola())
 	ArduinoBridge.na_espera(true)
 	demo = false
 	Sons.mudo_demo = false
@@ -1062,7 +1122,7 @@ func _escolher_jogadores() -> void:
 	# a imagem estar pronta quando chegar o "SORRIA!"
 	Fotos.preparar()
 	_escolha_n = 1
-	_escolha_t = TEMPO_JOGADORES
+	_escolha_t = _tempo_jogadores()
 	ArduinoBridge.send_led("MENU")
 	bola.guardar()
 	_parar_lenta()
@@ -1072,6 +1132,10 @@ func _escolher_jogadores() -> void:
 	_sortear_temas(Ajustes.rodadas() + 1)
 	_temas_prontos = true
 	_pedir_roupas(_temas_partida[0])
+
+
+func _tempo_jogadores() -> float:
+	return TEMPO_JOGADORES_BOLA if _inicio_pela_bola() else TEMPO_JOGADORES
 
 
 func _confirmar_jogadores() -> void:
@@ -1087,14 +1151,17 @@ func _escolher_personagem() -> void:
 	estado = E.PERSONAGEM
 	_novo_seq()
 	hud.etapa(2)
-	_escolha_t = 8.0
+	# pela bola: o amigo do lado da bola já vem escolhido e confirma sozinho
+	# (quem não liga fica com o Bob; rolar de novo troca)
+	_escolha_t = TEMPO_AMIGO_BOLA if _quem_bola != "" else 8.0
 	var t: Personagem = personagens["bob"]
 	var r: Personagem = personagens["mia"]
 	_subir_nos_podios()
 	t.tocar("acenar", 0.3, true)
 	r.tocar("parado", 0.3, true)
 	cam.ir(Vector3(0, 1.05, 6.1), Vector3(0, 0.78, 2.5), 32, 52, 3.0)
-	_marcar_destaque(0)
+	_destaque = 1 if _quem_bola == "mia" else 0
+	_marcar_destaque(_destaque)
 
 
 func _marcar_destaque(i: int) -> void:
@@ -1539,12 +1606,15 @@ func _process(delta: float) -> void:
 			_contar_inatividade(real)
 		E.JOGADORES:
 			_escolha_t -= real
-			hud.jogadores(true, _escolha_n, _escolha_t / TEMPO_JOGADORES, int(ceil(_escolha_t)))
+			hud.jogadores(true, _escolha_n, _escolha_t / _tempo_jogadores(), int(ceil(_escolha_t)))
 			if _escolha_t <= 0.0:
 				_confirmar_jogadores()
 		E.PERSONAGEM:
 			_escolha_t -= real
-			hud.selecao(true, _destaque, "ROLE A BOLA PARA ESCOLHER SEU AMIGO\nbola no MEIO ou START confirma   (%d)" % int(ceil(_escolha_t)), _pes_na_tela())
+			var dica := "ROLE A BOLA PARA ESCOLHER SEU AMIGO\nbola no MEIO ou START confirma   (%d)"
+			if _inicio_pela_bola():
+				dica = "QUER O OUTRO AMIGO? ROLE A BOLA DO LADO DELE\nbola no MEIO = JOGAR JÁ · sem bola, começa em %d"
+			hud.selecao(true, _destaque, dica % int(ceil(_escolha_t)), _pes_na_tela())
 			if _escolha_t <= 0.0:
 				_confirmar_personagem()
 		E.ATRACAO:
@@ -2083,8 +2153,9 @@ func _desempate() -> void:
 # ================================================================ fim de jogo
 func _fim_de_jogo() -> void:
 	estado = E.FIM
-	# fim da partida: a porta FECHA (as bolas da última jogada voltam e ficam)
-	ArduinoBridge.porta(false)
+	# fim da partida: a porta FECHA (as bolas da última jogada voltam e
+	# ficam); no modo livre pela bola fica aberta (a bola começa outra)
+	ArduinoBridge.porta(_inicio_pela_bola())
 	_novo_seq()
 	_fim_t = 0.0
 	hud.mostrar_placar(false)

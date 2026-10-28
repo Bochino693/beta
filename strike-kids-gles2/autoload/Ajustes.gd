@@ -21,6 +21,7 @@ const PADRAO := {
 		"protecao_canaleta": true,  # para-choques nas canaletas (bumpers)
 		"replay_strike": true,
 		"modo_livre": true,      # sem crédito: START sempre começa
+		"inicio_bola": true,     # modo livre: rolar a bola começa (máquina sem botões)
 		"creditos_por_partida": 1,
 		"tempo_inatividade": 45, # segundos sem jogar até o aviso
 		"demo": true,

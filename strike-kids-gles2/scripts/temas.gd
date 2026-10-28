@@ -315,6 +315,9 @@ func _q(n: int) -> int:
 func luz(sol_dir: Vector3, sol_cor: Vector3, ambiente: Vector3, neblina_cor: Vector3, neblina_densidade: float) -> void:
 	_luz_atual = [sol_dir, sol_cor, ambiente, neblina_cor, neblina_densidade]
 	_aplicar_luz(_mats_leve)
+	# as nuvens só seguem para onde está o sol (a cor da luz é a delas)
+	if _mat_nuvem != null:
+		_mat_nuvem.set_shader_param("sol_dir", sol_dir)
 
 
 ## (a luz do cenário de agora: um material criado depois já sai com ela)
@@ -609,6 +612,20 @@ func _livre(tema: String, centro: Vector2, raio: float) -> bool:
 ## o morro e encosta a parte mais baixa debaixo dela no terreno; `enterrar`:
 ## quanto ela afunda além disso (as bases largas, um pouquinho).
 func _assentar(mi: Spatial, x: float, z: float, raio: float, enterrar := 0.04) -> void:
+	var caixa := AABB()
+	if mi is MeshInstance and (mi as MeshInstance).mesh != null:
+		caixa = (mi as MeshInstance).mesh.get_aabb()
+	mi.transform = _pose(mi.transform.basis, caixa, x, z, raio, enterrar, true)
+
+
+## A pose de uma peça (giro e escala em `base`, `caixa` = a do modelo) posta
+## em (x, z). inclinar: inclina com o morro e encosta a parte mais baixa
+## debaixo dela no terreno (_assentar); senão fica de pé, com a altura do
+## ponto mais baixo do chão num círculo (raio x 0,7, ou `raio_base`).
+func _pose(base: Basis, caixa: AABB, x: float, z: float, raio: float, enterrar: float, inclinar: bool,
+		raio_base := -1.0) -> Transform:
+	if not inclinar:
+		return Transform(base, Vector3(x, _mais_baixo(x, z, raio * 0.7 if raio_base < 0.0 else raio_base) - enterrar, z))
 	var r: float = max(raio * 0.7, 0.15)
 	# a subida do terreno debaixo da peça (tangente) e para onde ela sobe
 	var g := Vector2(_chao(x + r, z) - _chao(x - r, z), _chao(x, z + r) - _chao(x, z - r)) / (2.0 * r)
@@ -617,11 +634,9 @@ func _assentar(mi: Spatial, x: float, z: float, raio: float, enterrar := 0.04) -
 	var ang: float = min(atan(subida), INCLINA_MAX)
 	# o que é alto e fino (árvore, palmeira, pirulito) cresce de pé: quase
 	# não inclina (o pé desce um pouco mais no morro, nenhum fica no ar)
-	if mi is MeshInstance and (mi as MeshInstance).mesh != null:
-		var caixa := (mi as MeshInstance).mesh.get_aabb()
-		if caixa.size.y > 1.6 * max(caixa.size.x, caixa.size.z):
-			ang *= 0.3
-	var giro := mi.transform.basis
+	if caixa.size.y > 1.6 * max(caixa.size.x, caixa.size.z):
+		ang *= 0.3
+	var giro := base
 	if ang > 0.001:
 		var normal := Vector3(-dir.x * sin(ang), cos(ang), -dir.y * sin(ang))
 		giro = Basis(Vector3.UP.cross(normal).normalized(), ang) * giro
@@ -633,7 +648,127 @@ func _assentar(mi: Spatial, x: float, z: float, raio: float, enterrar := 0.04) -
 		var a: float = TAU * k / 12.0
 		var q := Vector2(cos(a), sin(a)) * r
 		y = min(y, _chao(x + q.x, z + q.y) - t * q.dot(dir))
-	mi.transform = Transform(giro, Vector3(x, y - enterrar, z))
+	return Transform(giro, Vector3(x, y - enterrar, z))
+
+
+## NADA DENTRO DO MORRO (7.5): encostar a parte mais baixa debaixo da peça
+## no chão deixava o lado de cima das peças postas no flanco de um morro
+## DENTRO dele — os dinos com metade do corpo enterrado, a roda-gigante com
+## as cabines de baixo passando pelo morro, o carrossel afundado. Agora a
+## peça é conferida pelos PONTOS DO MODELO (uma amostra da malha): quanto
+## ela entra no chão além do `enterrar` dela. As grandes procuram em volta
+## (até PROCURA_MAX, a mais perto primeiro) o lugar onde ficam inteiras em
+## cima do chão; as espalhadas e os enfeites só nascem onde isso vale.
+const ENTRA_MAX := 0.12
+const PROCURA_MAX := 3.5
+## a pista, as canaletas e o gabinete: nenhuma peça movida entra aqui
+const CORREDOR := 2.3
+var _amostras := {}       # modelo -> uns 80 pontos da malha (escala 1)
+var _caixas := {}         # modelo -> a caixa da malha
+
+
+func _caixa(nome: String) -> AABB:
+	if not _caixas.has(nome):
+		var c := "res://modelos/cenario/%s.res" % nome
+		_caixas[nome] = (load(c) as Mesh).get_aabb() if ResourceLoader.exists(c) else AABB()
+	return _caixas[nome]
+
+
+## Uns 150 pontos da malha do modelo (da versão do meio: a mesma forma, mais
+## rápida de ler), quase todos do terço de BAIXO (o que encosta no morro)
+## e alguns do resto. Sem malha legível: nenhum (a peça não é conferida).
+func _amostra(nome: String) -> PoolVector3Array:
+	if _amostras.has(nome):
+		return _amostras[nome]
+	var pts := PoolVector3Array()
+	for suf in ["_meio", "", "_longe"]:
+		var c := "res://modelos/cenario/%s%s.res" % [nome, suf]
+		if not ResourceLoader.exists(c):
+			continue
+		var m := load(c) as Mesh
+		if m == null or m.get_surface_count() == 0:
+			continue
+		var arr: Array = m.surface_get_arrays(0)
+		if arr.empty():
+			continue
+		var vs: PoolVector3Array = arr[Mesh.ARRAY_VERTEX]
+		var caixa := m.get_aabb()
+		var baixo := caixa.position.y + caixa.size.y / 3.0
+		var de_baixo := 0
+		for v in vs:
+			if v.y < baixo:
+				de_baixo += 1
+		var passo_baixo := Compat.imax(1, de_baixo / 120)
+		var passo_resto := Compat.imax(1, (vs.size() - de_baixo) / 30)
+		var nb := 0
+		var nr := 0
+		for v in vs:
+			if v.y < baixo:
+				if nb % passo_baixo == 0:
+					pts.append(v)
+				nb += 1
+			else:
+				if nr % passo_resto == 0:
+					pts.append(v)
+				nr += 1
+		break
+	_amostras[nome] = pts
+	return pts
+
+
+## Quanto os pontos `pts` da peça, na pose `xf`, entram no chão: a maior
+## profundidade (0 = nada abaixo do chão).
+func _fundura(pts: PoolVector3Array, xf: Transform) -> float:
+	var fundo := 0.0
+	for v in pts:
+		var w: Vector3 = xf.xform(v)
+		fundo = max(fundo, _chao(w.x, w.z) - w.y)
+	return fundo
+
+
+## Algum ponto da peça, na pose `xf`, entra no corredor da pista?
+func _no_corredor(pts: PoolVector3Array, xf: Transform) -> bool:
+	for v in pts:
+		var w: Vector3 = xf.xform(v)
+		if abs(w.x) < CORREDOR and w.z > Medidas.Z_FUNDO - 3.0 and w.z < 4.0:
+			return true
+	return false
+
+
+## O LUGAR FIRME de uma peça grande (a pose): em (x, z), se ali ela fica
+## inteira em cima do chão; senão o lugar mais perto (anéis de 0,5 m até
+## PROCURA_MAX) onde fica — sem atravessar outra peça, sem entrar no
+## corredor da pista e sem chegar mais de 1 m mais perto dela (a composição
+## da fase continua a mesma). Nenhum lugar bom: o que entra menos.
+func _lugar_firme(tema: String, pts: PoolVector3Array, base: Basis, caixa: AABB, x: float, z: float, raio: float,
+		enterrar: float, inclinar: bool, raio_base := -1.0) -> Transform:
+	var melhor := _pose(base, caixa, x, z, raio, enterrar, inclinar, raio_base)
+	if pts.empty():
+		return melhor
+	var menor := _fundura(pts, melhor) - enterrar
+	if menor <= ENTRA_MAX:
+		return melhor
+	var anel := 1
+	while anel * 0.5 <= PROCURA_MAX + 0.01:
+		var voltas := 8 + anel * 2
+		for k in voltas:
+			var a: float = TAU * k / voltas
+			var c := Vector2(x, z) + Vector2(cos(a), sin(a)) * anel * 0.5
+			if sign(c.x) != sign(x) or abs(c.x) < abs(x) - 1.0:
+				continue
+			if not _livre(tema, c, raio - FOLGA_PEGADA):
+				continue
+			var xf := _pose(base, caixa, c.x, c.y, raio, enterrar, inclinar, raio_base)
+			if _no_corredor(pts, xf):
+				continue
+			var f := _fundura(pts, xf) - enterrar
+			if f <= ENTRA_MAX:
+				return xf
+			if f < menor:
+				menor = f
+				melhor = xf
+		anel += 1
+	return melhor
 
 
 ## Espalha objetos pelo terreno, longe da pista (mesma regra do parque),
@@ -662,9 +797,13 @@ func _espalhar(tema: String, tipos: Array, qtd: int, semente: int, escala := {},
 		var p := Vector2(x, z)
 		if not _livre(tema, p, r):
 			continue
+		var giro := rnd.randf() * TAU
+		var xf := _pose(Basis(Vector3.UP, giro).scaled(Vector3.ONE * esc), _caixa(tipo), x, z, r, 0.04, true)
+		if _fundura(_amostra(tipo), xf) - 0.04 > ENTRA_MAX:
+			continue   # (7.5) ali ela entraria no morro
 		_ocupar(tema, p, r)
-		var mi := _obj(tema, tipo, Vector3(x, 0, z), rnd.randf() * TAU, esc)
-		_assentar(mi, x, z, r)
+		var mi := _obj(tema, tipo, Vector3(x, 0, z), giro, esc)
+		mi.transform = xf
 		colocados += 1
 
 
@@ -672,16 +811,20 @@ func _espalhar(tema: String, tipos: Array, qtd: int, semente: int, escala := {},
 ## navio, dinos, carrossel, castelo...): assentada no chão e marcando o
 ## lugar dela. Avisa (no console) se ela atravessa outra já posta.
 func _grande(tema: String, nome: String, x: float, z: float, giro := 0.0, esc := 1.0, contorno := 0.0,
-		enterrar := 0.06, inclinar := true) -> MeshInstance:
+		enterrar := 0.06, inclinar := true, procurar := true) -> MeshInstance:
 	var r := _pegada(nome, esc)
+	# (7.5) inteira em cima do chão: ali, ou no lugar firme mais perto
+	var base := Basis(Vector3.UP, giro).scaled(Vector3.ONE * esc)
+	var xf := _pose(base, _caixa(nome), x, z, r, enterrar, inclinar)
+	if procurar:
+		xf = _lugar_firme(tema, _amostra(nome), base, _caixa(nome), x, z, r, enterrar, inclinar)
+	x = xf.origin.x
+	z = xf.origin.z
 	if not _livre(tema, Vector2(x, z), r - FOLGA_PEGADA):
 		push_warning("cenário %s: %s em (%.1f, %.1f) encosta em outra peça" % [tema, nome, x, z])
 	_ocupar(tema, Vector2(x, z), r)
 	var mi := _obj(tema, nome, Vector3(x, 0, z), giro, esc, contorno)
-	if inclinar:
-		_assentar(mi, x, z, r, enterrar)
-	else:
-		mi.translation = Vector3(x, _mais_baixo(x, z, r * 0.7) - enterrar, z)
+	mi.transform = xf
 	return mi
 
 
@@ -691,9 +834,12 @@ func _talvez(tema: String, nome: String, x: float, z: float, giro := 0.0, esc :=
 	var r := _pegada(nome, esc)
 	if not _livre(tema, Vector2(x, z), r):
 		return null
+	var xf := _pose(Basis(Vector3.UP, giro).scaled(Vector3.ONE * esc), _caixa(nome), x, z, r, 0.02, true)
+	if _fundura(_amostra(nome), xf) - 0.02 > ENTRA_MAX:
+		return null   # (7.5) ali ele entraria no morro
 	_ocupar(tema, Vector2(x, z), r)
 	var mi := _obj(tema, nome, Vector3(x, 0, z), giro, esc, contorno)
-	_assentar(mi, x, z, r, 0.02)
+	mi.transform = xf
 	return mi
 
 
@@ -783,7 +929,10 @@ func _atras(tema: String, itens: Array) -> void:
 		var a: Array = ATRAS[i]
 		var x: float = a[0]
 		var z: float = a[1]
-		_obj(tema, itens[i][0], Vector3(x, _chao(x, z) - 0.05, z), PI + float(a[2]), float(itens[i][1]))
+		var mi := _obj(tema, itens[i][0], Vector3(x, 0, z), PI + float(a[2]), float(itens[i][1]))
+		# (7.5) assentados como os outros (no morro atrás da mureta o lado de
+		# cima deles entrava no chão)
+		_assentar(mi, x, z, _pegada(itens[i][0], float(itens[i][1])), 0.05)
 
 
 func _torres(tema: String, nome: String, esc := 1.0, contorno := 0.004) -> void:
@@ -837,11 +986,20 @@ func _parque() -> void:
 	# era uma pintura no fundo; agora é 3D como o resto)
 	_grande(T, "castelo", 14.5, -49.0, -0.35, 1.15, 0.0, 0.3)
 	# roda-gigante (gira) com as cabines sempre de pé
-	var rx := -6.8
-	var rz := -27.0
+	# (7.5) no lugar firme: a base e as cabines na metade de baixo da volta
+	# inteiras em cima do chão (o morro atravessava as cabines que passavam
+	# por baixo)
+	var pts := PoolVector3Array(_amostra("roda_base"))
+	var cab := _caixa("cabine")
+	for k in 11:
+		var a: float = PI + PI * (k + 0.5) / 11.0
+		for lado in [cab.position.x, cab.end.x]:
+			pts.append(Vector3(cos(a) * 3.8 + lado, 4.6 + sin(a) * 3.8 + cab.position.y, 0.0))
+	var lugar := _lugar_firme(T, pts, Basis(Vector3.UP, 0.35), AABB(), -7.0, -27.6, 2.0, 0.05, false, 2.0)
+	var rx := lugar.origin.x
+	var rz := lugar.origin.z
 	var rg := Spatial.new()
-	rg.translation = Vector3(rx, _mais_baixo(rx, rz, 2.0) - 0.05, rz)
-	rg.rotation.y = 0.35
+	rg.transform = lugar
 	grupos[T].add_child(rg)
 	var ao_lado := Vector2(cos(0.35), -sin(0.35)) * 3.4
 	_ocupar_linha(T, Vector2(rx, rz) - ao_lado, Vector2(rx, rz) + ao_lado, 1.3)
@@ -857,7 +1015,8 @@ func _parque() -> void:
 		cabines.append(c)
 	_animar(T, {"tipo": "roda", "roda": roda, "cabines": cabines, "raio": 3.8, "vel": 0.16})
 	# carrossel (gira devagar, sem inclinar) e tendas
-	var car := _grande(T, "carrossel", 6.4, -21.0, 0.0, 1.2, 0.0, 0.05, false)
+	# (7.5: no patamar da direita, o mesmo do dino da selva)
+	var car := _grande(T, "carrossel", 5.4, -17.8, 0.0, 1.2, 0.0, 0.05, false)
 	var gira_car := {"tipo": "girar", "no": car, "vel": 0.5}
 	_animar(T, gira_car)
 	_voz(T, car, "amb_carrossel", 16.0, 26.0, 0.7, "musica", gira_car)
@@ -886,10 +1045,37 @@ func _parque() -> void:
 	_borboletas(T, 3 if leve else 5, 31)
 
 
+## NUVENS BRANCAS (7.5): luz própria de céu — sol branco e a sombra
+## azul-clara — igual em todas as fases. Com a luz da fase (a da selva é
+## creme: sol, ambiente e neblina quentes) elas saíam amareladas, e o realce
+## de cor ainda puxava o creme para o amarelo. Sem neblina: estão no céu.
+## O mesmo material leve (luz por vértice, divisa por pixel) no cenário
+## alto e no leve.
+const NUVEM_SOL := Vector3(0.66, 0.66, 0.66)
+const NUVEM_AMBIENTE := Vector3(0.44, 0.47, 0.55)
+var _mat_nuvem: ShaderMaterial
+
+
+func _material_nuvem() -> ShaderMaterial:
+	if _mat_nuvem == null:
+		var m := ShaderMaterial.new()
+		m.shader = Materiais.shader("res://shaders/toon_leve.shader")
+		m.set_shader_param("borda", 0.6)
+		m.set_shader_param("luz_minima", 0.5)
+		m.set_shader_param("cor_borda", Color(0.9, 0.96, 1))
+		m.set_shader_param("sol_cor", NUVEM_SOL)
+		m.set_shader_param("ambiente", NUVEM_AMBIENTE)
+		m.set_shader_param("neblina_densidade", 0.0)
+		if not _luz_atual.empty():
+			m.set_shader_param("sol_dir", _luz_atual[0])
+		_mat_nuvem = m
+	return _mat_nuvem
+
+
 func _nuvens(tema: String, qtd: int, semente: int) -> void:
 	var rnd := RandomNumberGenerator.new()
 	rnd.seed = semente
-	var mat := _toon(0.0, {"borda": 0.6, "luz_minima": 0.5, "cor_borda": Color(0.9, 0.96, 1)})
+	var mat := _material_nuvem()
 	for i in _q(qtd):
 		var lado := -1.0 if i % 2 == 0 else 1.0
 		var pos := Vector3(lado * rnd.randf_range(4.0, 22.0), rnd.randf_range(6.0, 15.0), rnd.randf_range(-60.0, -8.0))
@@ -1137,8 +1323,9 @@ func _dinos() -> void:
 	# a fumaça aparecia); o menor, do outro lado
 	var vx := -11.0
 	var vz := -36.0
-	var vulcao := _grande(T, "vulcao", vx, vz, 0.3, 2.1, 0.0, 0.4, false)
-	_grande(T, "vulcao", 17.0, -46.0, -0.5, 1.1, 0.0, 0.3, false)
+	# (os vulcões ficam onde estão: são montanhas, o pé deles entra no morro)
+	var vulcao := _grande(T, "vulcao", vx, vz, 0.3, 2.1, 0.0, 0.4, false, false)
+	_grande(T, "vulcao", 17.0, -46.0, -0.5, 1.1, 0.0, 0.3, false, false)
 	var fum := _particulas(T, vulcao.translation + Vector3(0.0, 10.6, 0.0), "fumaca", 8 if leve else 14, 5.0, 2.4)
 	# de vez em quando ele ronca, treme e solta fumaça mais depressa
 	var ronco := {"tipo": "vulcao", "no": vulcao, "base": vulcao.translation, "fumaca": fum, "tremer": 0.0}
@@ -1161,11 +1348,14 @@ func _dinos() -> void:
 	_torres(T, "palmeira", 0.85, 0.0)
 	# dino pescoçudo à direita do gabinete, olhando a pista (7.0: longe da
 	# palmeira, que atravessava a cabeça dele) + outro, maior, à esquerda,
-	# na frente do vulcão (antes ele ficava DENTRO do vulcão)
+	# na frente do vulcão (antes ele ficava DENTRO do vulcão). 7.5: cada um
+	# num PATAMAR plano do terreno (Mundo.PATAMARES) — na rampa entre a
+	# pista e os morros metade do corpo deles ficava dentro do morro; o
+	# grande foi um pouco para trás, para o patamar da roda-gigante
 	var dino := _grande(T, "dino", 5.4, -17.8, -0.85, 1.0, 0.004, 0.03, false)
 	var resp1 := {"tipo": "respirar", "no": dino, "fase": 0.0, "giro": dino.rotation.y}
 	_animar(T, resp1)
-	var dino2 := _grande(T, "dino", -5.6, -21.5, 0.75, 1.45, 0.0, 0.04, false)
+	var dino2 := _grande(T, "dino", -7.0, -27.6, 0.75, 1.45, 0.0, 0.04, false)
 	var resp2 := {"tipo": "respirar", "no": dino2, "fase": 1.7, "giro": dino2.rotation.y}
 	_animar(T, resp2)
 	# o dino levanta a cabeça e ruge (o de perto mais vezes)
@@ -1497,16 +1687,24 @@ func _process(delta: float) -> void:
 				var f: float = item["fase"]
 				no.rotation.y = float(item["giro"]) + sin(_t * 0.35 + f) * 0.12
 				no.rotation.z = sin(_t * 0.9 + f) * 0.025
+				if not item.has("base_y"):
+					item["base_y"] = no.translation.y
+					var mi_ := no as MeshInstance
+					item["cauda"] = -mi_.mesh.get_aabb().position.z if mi_ != null and mi_.mesh != null else 0.0
 				if float(item.get("rugir", 0.0)) > 0.0:
-					# RAWR: empina, estica o pescoço e volta
+					# RAWR: empina, estica o pescoço e volta — apoiado no RABO
+					# (7.5: girando nos pés, a ponta do rabo descia uns 25 cm e
+					# entrava no chão; agora o corpo sobe o que o rabo desceria)
 					item["rugir"] = float(item["rugir"]) - delta
 					var u := 1.0 - clamp(float(item["rugir"]) / 1.5, 0.0, 1.0)
 					var k := sin(PI * u)
 					no.rotation.x = -0.12 * k
 					no.scale = Vector3(1.0, 1.0 + 0.05 * k, 1.0) * _escala_base(item)
+					no.translation.y = float(item["base_y"]) + float(item["cauda"]) * sin(0.12 * k) * _escala_base(item)
 				elif no.rotation.x != 0.0:
 					no.rotation.x = 0.0
 					no.scale = Vector3.ONE * _escala_base(item)
+					no.translation.y = float(item["base_y"])
 			"vulcao":
 				# o ronco: treme um pouquinho e a fumaça sai mais depressa
 				var no: Spatial = item["no"]
