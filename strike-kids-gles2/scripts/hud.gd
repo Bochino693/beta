@@ -57,6 +57,10 @@ var _atracao: Control
 var _logo: TextureRect
 var _aperte: Label
 var _aperte_botao: Painel3D
+var _aperte_sub: Label
+## modo livre pela bola (7.5, máquina sem botões): os textos dizem "ROLE A
+## BOLA" no lugar de "APERTE START"
+var _modo_bola := false
 var _recorde: Label
 var _recorde_placa: Painel3D
 var _creditos: Label
@@ -867,6 +871,10 @@ func _montar_atracao() -> void:
 	_aperte = rotulo("APERTE START", 88, MARINHO, 0, MARINHO, fonte_titulo)
 	_sombra(_aperte, Color(1, 1, 1, 0.55))
 	_aperte_botao.add_child(_aperte)
+	# pela bola: o lado da bola já escolhe o amigo
+	_aperte_sub = rotulo("ESQUERDA = BOB  ·  DIREITA = MIA", 36, MARINHO, 0, MARINHO, fonte_titulo)
+	_aperte_sub.visible = false
+	_aperte_botao.add_child(_aperte_sub)
 	# placa do recorde
 	_recorde_placa = Painel3D.new(AZUL, 40, 10, 5)
 	_atracao.add_child(_recorde_placa)
@@ -883,6 +891,25 @@ func _montar_atracao() -> void:
 	_creditos = rotulo("", 30, Color.white, 8)
 	_atracao.add_child(_creditos)
 	_atracao.visible = false
+
+
+## Modo livre pela bola: "ROLE A BOLA!" (e o lado escolhe o amigo) no lugar
+## do START, na espera, no "QUANTOS VÃO JOGAR?" e no fim de jogo.
+func modo_bola(sim: bool) -> void:
+	if sim == _modo_bola:
+		return
+	_modo_bola = sim
+	_aperte.text = "ROLE A BOLA!" if sim else "APERTE START"
+	_aperte_sub.visible = sim
+	for i in _jog_cartoes.size():
+		var c: Painel3D = _jog_cartoes[i]
+		(c.get_node("botao/texto") as Label).text = "ROLE" if sim else "START"
+		if sim:
+			(c.get_node("vezes") as Label).text = "1 BOLA" if i == 0 else "2 BOLAS"
+		else:
+			(c.get_node("vezes") as Label).text = "1 VEZ" if i == 0 else "2 VEZES"
+	_chave_melhores = ""
+	layout()
 
 
 func atracao(ligado: bool, recorde := "", creditos := "", foto_recorde: Texture = null, melhores := []) -> void:
@@ -1153,7 +1180,10 @@ func jogadores(ligado: bool, n := 1, fracao := 0.0, segundos := 0) -> void:
 		_pular(_jog_cartoes[n - 1])
 	_jog_n = n
 	if n == 1:
-		_jog_dica.text = "Vão jogar em 2? Aperte START de novo agora!\nSe não, começa com 1 jogador em %d..." % Compat.imax(segundos, 1)
+		if _modo_bola:
+			_jog_dica.text = "Vão jogar em 2? A outra criança rola uma bola agora!\nSe não, começa com 1 jogador em %d..." % Compat.imax(segundos, 1)
+		else:
+			_jog_dica.text = "Vão jogar em 2? Aperte START de novo agora!\nSe não, começa com 1 jogador em %d..." % Compat.imax(segundos, 1)
 	else:
 		_jog_dica.text = "2 JOGADORES: BOB x MIA!\nPreparem-se..."
 	_jog_barra.rect_size.x = max(_jog_trilho.rect_size.x * clamp(fracao, 0.0, 1.0), _jog_trilho.rect_size.y)
@@ -1346,7 +1376,7 @@ func tela_fim(ligado: bool, dados := {}) -> void:
 	botao.rect_position = Vector2((T.x - bw) / 2, y_botao)
 	botao.name = "botao"
 	_fim.add_child(botao)
-	var ap := rotulo("APERTE START PARA JOGAR DE NOVO", 44 * u, MARINHO, 0, MARINHO, fonte_titulo)
+	var ap := rotulo(_jogar_de_novo(), 44 * u, MARINHO, 0, MARINHO, fonte_titulo)
 	_sombra(ap, Color(1, 1, 1, 0.55))
 	ap.rect_size = Vector2(bw, bh - 14 * u)
 	ap.name = "aperte"
@@ -1566,10 +1596,14 @@ func _quadro_classificacao(lista: Array, js: Array, area: Rect2) -> void:
 		lin.add_child(lp)
 
 
+func _jogar_de_novo() -> String:
+	return "ROLE A BOLA PARA JOGAR DE NOVO" if _modo_bola else "APERTE START PARA JOGAR DE NOVO"
+
+
 func fim_contagem(segundos: int) -> void:
 	var ap := _fim.find_node("aperte", true, false) as Label
 	if ap:
-		ap.text = "APERTE START PARA JOGAR DE NOVO  (%d)" % segundos
+		ap.text = "%s  (%d)" % [_jogar_de_novo(), segundos]
 		_caber(ap, 44 * u, ap.rect_size.x - 70 * u)
 	var b := _fim.get_node_or_null("botao") as Control
 	if b:
@@ -2079,7 +2113,7 @@ func layout() -> void:
 		_logo.rect_position = Vector2(T.x * 0.03, T.y * 0.05)
 	_logo.rect_pivot_offset = _logo.rect_size / 2
 	var bw: float = min(T.x * 0.78, 780 * u) if retrato else T.x * 0.34
-	var bh := 150 * u
+	var bh := (196 if _modo_bola else 150) * u
 	_aperte_botao.rect_size = Vector2(bw, bh)
 	if retrato:
 		_aperte_botao.rect_position = Vector2((T.x - bw) / 2, T.y * 0.69)
@@ -2088,9 +2122,13 @@ func layout() -> void:
 	_aperte_botao.rect_pivot_offset = _aperte_botao.rect_size / 2
 	_tamanho_rotulo(_aperte, 84 * u)
 	_sombra(_aperte, null, 3 * u)
-	_aperte.rect_size = Vector2(bw, bh - 18 * u)
+	_aperte.rect_size = Vector2(bw, (128 if _modo_bola else 132) * u)
 	_aperte.rect_position = Vector2.ZERO
 	_caber(_aperte, 84 * u, bw - 90 * u)
+	_tamanho_rotulo(_aperte_sub, 34 * u)
+	_aperte_sub.rect_size = Vector2(bw, 50 * u)
+	_aperte_sub.rect_position = Vector2(0, 118 * u)
+	_caber(_aperte_sub, 34 * u, bw - 70 * u)
 	_tamanho_rotulo(_recorde, 40 * u, 8 * u)
 	_tamanho_rotulo(_creditos, 30 * u, 8 * u)
 	_creditos.rect_size = Vector2(T.x, 46 * u)

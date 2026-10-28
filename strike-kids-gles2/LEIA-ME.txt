@@ -79,6 +79,66 @@ O QUE MUDOU PARA RODAR NA OPENGL ES 2.0
     Godot 4 (nao substitui).
 
 
+VERSAO 7.5: PORTINHA, NUVENS BRANCAS, DINOS FORA DOS MORROS E COMECAR PELA BOLA
+-------------------------------------------------------------------------------
+  * PORTINHA DA BOLA (moldura de lampadas da boca dos pinos): as lampadas
+    voltaram as 36 faces da 7.3. Com as 24 da 7.4 elas viravam losangos e
+    o brilho da moldura ficava mais escuro (scripts/mundo.gd: lampadas).
+  * NUVENS BRANCAS DE NOVO: na selva elas saiam creme-amareladas (a luz
+    da fase e quente - sol, ambiente e neblina creme - e o realce de cor
+    puxava o creme para o amarelo; na Mali-450, que usa o cenario leve
+    desde a 7.4, ficou mais visivel). Agora as nuvens tem luz propria de
+    ceu, igual em todas as fases: branca no sol e azul-clara na sombra,
+    sem neblina (scripts/temas.gd: _material_nuvem). Mesmo custo.
+  * DINOSSAUROS FORA DOS MORROS: os dinos ficavam na rampa entre a pista e
+    os morros e metade do corpo entrava no chao. Agora:
+      - PATAMARES no terreno (Mundo.PATAMARES): dois pedacos planos, com a
+        beira suave, onde ficam as pecas grandes - a direita o dino
+        pescocudo (selva) e o carrossel (parque), a esquerda o dino grande
+        (selva) e a roda-gigante (parque). Nao caem debaixo do navio do mar
+        nem um em cima do outro;
+      - modelos/terreno.res refeito com os patamares
+        (tools/refazer_terreno.gd): os triangulos perto dos patamares sao
+        divididos ate a malha seguir o chao (+1.562 triangulos, so ali);
+      - LUGAR FIRME (scripts/temas.gd: _lugar_firme): cada peca grande,
+        cada planta e cada enfeite e conferido com ~150 pontos do proprio
+        modelo (mais na parte de baixo); se entraria no morro mais de 12
+        cm, procura o lugar firme mais perto (ate 3,5 m, do mesmo lado da
+        pista e fora do corredor dela) ou nao e posto ali;
+      - o rugido do dino gira pela base do corpo (antes a cauda afundava
+        no chao quando ele levantava a cabeca); as pecas atras do gabinete
+        tambem assentam no chao; os vulcoes ficam onde estao (sao
+        montanhas: o pe deles entra no morro de proposito).
+    Revisadas as 4 fases: nenhum dino, carrossel, roda-gigante (com as
+    cabines), castelo, navio ou tenda atravessa outra peca; nenhum ponto
+    dos dinos entra no vulcao.
+  * MODO LIVRE COMECANDO PELA BOLA (maquina sem botoes; menu do operador:
+    "Modo livre: comecar rolando a bola", ligado de fabrica):
+      - na espera a porta das bolas fica ABERTA e a tela diz "ROLE A
+        BOLA!  ESQUERDA = BOB - DIREITA = MIA";
+      - 1 BOLA = 1 JOGADOR: a bola rolada na espera (abertura, atracao,
+        demonstracao ou fim de jogo) comeca e o LADO dela ja escolhe o
+        amigo (esquerda = Bob, direita = Mia, meio = Bob);
+      - 2 BOLAS = 2 JOGADORES: na tela "QUANTOS VAO JOGAR?" (7 s, a outra
+        crianca precisa pegar outra bola) a 2a bola faz Bob x Mia. A mesma
+        bola passando em 2 sensores (menos de 1,5 s) nao conta;
+      - 1 jogador: na escolha do amigo ele ja vem escolhido e comeca
+        sozinho em 6 s - quem nao liga nao faz nada; rolar na esquerda ou
+        na direita troca, no meio confirma na hora;
+      - o START continua valendo. Desligado o ajuste (ou com ficha), fica
+        como antes: porta fechada na espera e o START comeca.
+      - teste: godot3 --path . -- --inicio-bola=<pasta> (INICIO BOLA OK).
+  * CUSTO na vista de jogar (Mali-450: cenario leve, qualidade media),
+    7.4 -> 7.5: selva 180 -> 180, parque 192 -> 202, espaco 163 -> 167,
+    mar 186 -> 185 mil indices (as lampadas de volta somam ~6 mil; o
+    terreno com os patamares, ~1 a 2 mil na vista).
+  * Testes: roteiro de 2 jogadores com desempate (ROTEIRO OK, TRAVA OK
+    nas 12 bolas), START LIVRE OK, INICIO BOLA OK (1 bola, 2 bolas, a
+    mesma bola em 2 sensores, demonstracao, fim de jogo e o ajuste
+    desligado), as vistas das 4 fases no alto e no leve - nenhum erro de
+    script.
+
+
 VERSAO 7.4: MAIS LEVE NA MALI-450 DE 1 GB (O QUE PESOU E O CONSERTO)
 ---------------------------------------------------------------------
 O QUE PESOU (medido 6.9 x 7.3 com as mesmas vistas e o mesmo roteiro):
