@@ -515,8 +515,10 @@ func _mostrar_porta() -> void:
 		var confirmada: String = "ABERTA" if ArduinoBridge.porta_aberta else "FECHADA"
 		t += "Porta: %s\n" % pedida
 		t += ("(o Arduino confirmou)" if confirmada == pedida else "(esperando o Arduino...)") + "\n\n"
+		if ArduinoBridge.aviso == "PORTA_TRAVOU":
+			t += "A PORTA NÃO CHEGOU: confira o motor, a ponte H e o fim de curso\n\n"
 		t += "C ou START: abre / fecha\nCONFIGURAÇÃO: sai (a porta fecha)\n\n"
-		t += "Abriu quando devia fechar? Ligue \"Porta invertida\" no menu."
+		t += "Abriu quando devia fechar? Ligue \"Porta invertida\" no menu\n(ponte H com fim de curso: inverta os fios do motor)."
 	else:
 		Compat.tamanho_rotulo(_teste_rotulo, int(30 * u))
 		t += "SEM O ARDUINO\n%s\n\n%s\n\nCONFIGURAÇÃO ou START sai" % [ArduinoBridge.status, _relatorio_arduino()]
