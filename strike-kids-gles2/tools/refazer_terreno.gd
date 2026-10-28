@@ -1,8 +1,9 @@
 extends SceneTree
 
 ## REFAZ modelos/terreno.res com a fórmula de agora (Mundo._altura_terreno:
-## os morros e os PATAMARES da 7.5). Parte da malha que está no git (feita
-## com a fórmula dos morros: os pontos e os triângulos de lá) e:
+## os morros e os PATAMARES da 7.5/7.6). Parte da malha só dos morros
+## (tools/terreno_morros.res, a de antes da 7.5: os pontos e os triângulos
+## de lá) e:
 ##   * perto de cada patamar, divide em 4 os triângulos que não seguem a
 ##     fórmula (mais de TOLERANCIA de diferença dentro deles), até 4 vezes
 ##     — a malha é mais rala onde o morro é liso e não desenharia o degrau;
@@ -11,8 +12,8 @@ extends SceneTree
 ##   * cada ponto ganha a altura da fórmula e, onde ela mudou, a normal pela
 ##     inclinação da própria fórmula; a cor do ponto novo é a média.
 ##   godot3 --no-window --path . -s res://tools/refazer_terreno.gd
-## (rodar sobre a malha original: git checkout -- modelos/terreno.res)
 
+const ORIGEM := "res://tools/terreno_morros.res"
 const CAMINHO := "res://modelos/terreno.res"
 const TOLERANCIA := 0.1
 const VEZES := 4
@@ -26,7 +27,7 @@ var tris := []        # [a, b, c]
 
 func _init() -> void:
 	mundo = load("res://scripts/mundo.gd").new()
-	var malha: ArrayMesh = load(CAMINHO)
+	var malha: ArrayMesh = load(ORIGEM)
 	var arr: Array = malha.surface_get_arrays(0)
 	vs = Array(arr[Mesh.ARRAY_VERTEX])
 	ns = Array(arr[Mesh.ARRAY_NORMAL])
