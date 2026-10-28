@@ -60,6 +60,9 @@ const ITENS := [
 	["Sensores invertidos (direita/esquerda)", "arduino", "sensores_invertidos", "bool", []],
 	["> TESTE DA PORTA (trava das bolas)", "", "porta", "acao", []],
 	["Porta invertida", "arduino", "porta_invertida", "bool", []],
+	["Porta: tempo do motor (ponte H sem fim de curso)", "arduino", "porta_tempo", "lista",
+		[500, 800, 1000, 1200, 1500, 2000, 2500, 3000, 4000, 5000, 6000, 8000, 10000]],
+	["Porta: fim de curso (micro-switch A3/A4)", "arduino", "porta_fim_de_curso", "bool", []],
 	["> TESTE DA CÂMERA", "", "camera", "acao", []],
 	["> CONFIGURAR BOTÕES DA PLACA", "", "botoes", "acao", []],
 	["> ABRIR O JOGO AO LIGAR A TV", "", "inicio", "acao", []],
@@ -206,6 +209,8 @@ func _valor_texto(item: Array) -> String:
 	var v = Ajustes.valor(item[1], item[2]) if item[1] != "tela" else Tela.giro
 	if item[2] == "cenario":
 		v = Ajustes.cenario()
+	if item[2] == "porta_tempo":
+		return _segundos(int(v))
 	match item[3]:
 		"bool":
 			return "SIM" if bool(v) else "NÃO"
@@ -214,6 +219,14 @@ func _valor_texto(item: Array) -> String:
 		"lista":
 			return str(NOMES.get(v, str(v)))
 	return str(v)
+
+
+## 1500 -> "1,5 s"
+static func _segundos(ms: int) -> String:
+	var t := "%d" % (ms / 1000)
+	if ms % 1000 != 0:
+		t += ",%d" % ((ms % 1000) / 100)
+	return t + " s"
 
 
 func _atualizar() -> void:
@@ -395,6 +408,8 @@ func _mudar(d: int) -> void:
 			Fotos.pedir_permissao_agora()
 	if item[2] == "porta_invertida":
 		ArduinoBridge.reenviar_porta()
+	if item[2] == "porta_tempo" or item[2] == "porta_fim_de_curso":
+		ArduinoBridge.enviar_ponte()
 	Sons.atualizar_volume()
 	Sons.tocar("selecao")
 
@@ -464,6 +479,8 @@ func _acao() -> void:
 			Sons.tocar("pop")
 		"padrao":
 			Ajustes.restaurar_padrao()
+			ArduinoBridge.enviar_ponte()   # a ponte H volta ao de fábrica também
+			ArduinoBridge.reenviar_porta()
 			Sons.tocar("pop")
 		"voltar":
 			_sair()
@@ -517,12 +534,27 @@ func _mostrar_porta() -> void:
 		t += ("(o Arduino confirmou)" if confirmada == pedida else "(esperando o Arduino...)") + "\n\n"
 		if ArduinoBridge.aviso == "PORTA_TRAVOU":
 			t += "A PORTA NÃO CHEGOU: confira o motor, a ponte H e o fim de curso\n\n"
+		t += _texto_ponte() + "\n\n"
 		t += "C ou START: abre / fecha\nCONFIGURAÇÃO: sai (a porta fecha)\n\n"
 		t += "Abriu quando devia fechar? Ligue \"Porta invertida\" no menu\n(ponte H com fim de curso: inverta os fios do motor)."
 	else:
 		Compat.tamanho_rotulo(_teste_rotulo, int(30 * u))
 		t += "SEM O ARDUINO\n%s\n\n%s\n\nCONFIGURAÇÃO ou START sai" % [ArduinoBridge.status, _relatorio_arduino()]
 	_teste_rotulo.text = t
+
+
+## A ponte H como o Arduino está usando (o tempo e o fim de curso do menu).
+func _texto_ponte() -> String:
+	if ArduinoBridge.versao() < 3:
+		return "Firmware antigo (versão %d): grave o arduino/strike_kids novo\npara o tempo e o fim de curso do menu valerem" % ArduinoBridge.versao()
+	if ArduinoBridge.info.find("PONTE_H=0") >= 0:
+		return "Ponte H desligada no Arduino (USAR_PONTE_H 0): só servo/relé"
+	var fc := bool(Ajustes.valor("arduino", "porta_fim_de_curso"))
+	var t := "Ponte H: anda até o FIM DE CURSO (A3 aberta, A4 fechada)" if fc else \
+		"Ponte H: anda %s (\"Porta: tempo do motor\")" % _segundos(int(Ajustes.valor("arduino", "porta_tempo")))
+	if ArduinoBridge.ponte != "" and ArduinoBridge.ponte != ArduinoBridge.ponte_pedida():
+		t += "\n(mandando ao Arduino...)"
+	return t
 
 
 ## Abrir o jogo ao ligar a TV: se o jogo já é a tela inicial do Android e,

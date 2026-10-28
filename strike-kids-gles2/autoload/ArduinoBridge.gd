@@ -13,12 +13,19 @@ extends Node
 ##   * a fita de LED (mesmos comandos de antes: MENU, STRIKE, SPARE...).
 ##
 ## Protocolo (linhas de texto, 9600):
-##   Arduino -> jogo: OLA:STRIKE_KIDS:2, PONG:STRIKE_KIDS:2, S:1..S:5, CFG,
+##   Arduino -> jogo: OLA:STRIKE_KIDS:3, PONG:STRIKE_KIDS:3, S:1..S:5, CFG,
 ##     START, FICHA, SENS:00100 (ao vivo, no teste), PORTA:ABERTA/FECHADA
 ##     (com a ponte H, quando a porta chega), CAL:OK:HHHHH, INFO:...,
-##     AVISO:SEM_JOGO, AVISO:PORTA_TRAVOU (o fim de curso não chegou)
+##     PONTE:TEMPO:1500:FC:0, AVISO:SEM_JOGO, AVISO:PORTA_TRAVOU (o fim de
+##     curso não chegou)
 ##   jogo -> Arduino: PING, PORTA:ABRE, PORTA:FECHA, PORTA?, SENS?, TESTE:1,
-##     TESTE:0, CALIBRA, INFO?, MENU, IDLE, STRIKE...
+##     TESTE:0, CALIBRA, INFO?, PONTE:TEMPO:<ms>, PONTE:FC:<0|1>, PONTE?,
+##     MENU, IDLE, STRIKE...
+## PONTE H da porta (firmware 3): o tempo do motor e o fim de curso vêm do
+## menu do operador ("Porta: tempo do motor", "Porta: fim de curso"); o jogo
+## manda ao conectar (antes da porta) e a cada mudança, e o Arduino guarda
+## na EEPROM (vale já ao ligar, antes de o jogo abrir). O firmware 2 ignora
+## (usa os PONTE_* do .ino).
 ## O firmware antigo só de LEDs (DRAGON_BOWLING) também conecta (só LEDs).
 ##
 ## No PC não tem Arduino: o teclado faz tudo (A S D F G = sensores, 1 =
@@ -60,6 +67,7 @@ var contagem := [0, 0, 0, 0, 0]
 var porta_aberta := false      # o que o Arduino confirmou (no jeito do jogo)
 var porta_quer := false        # o que o jogo pediu
 var aviso := ""                # último AVISO: do Arduino (PORTA_TRAVOU...); a porta chegou = ""
+var ponte := ""                # o que o Arduino usa na ponte H: "TEMPO:1500:FC:0" ("" = não disse)
 var _plugin: Object
 var _fase := "procurando"      # procurando | abrindo | apresentando | conectado
 var _candidatos: Array = []
@@ -315,6 +323,7 @@ func _desconectar() -> void:
 	connected = false
 	firmware = ""
 	sensores = ""
+	ponte = ""
 	_last_led_sent = ""
 	_fase = "procurando"
 	_ultima_procura = Time.get_ticks_msec()
@@ -366,6 +375,9 @@ func _receber(linha: String, agora: int) -> void:
 			elif linha.begins_with("INFO:"):
 				info = linha.substr(5)
 				emit_signal("mudou")
+			elif linha.begins_with("PONTE:"):
+				ponte = linha.substr(6)
+				emit_signal("mudou")
 			elif linha.begins_with("AVISO:"):
 				aviso = linha.substr(6)
 				emit_signal("mudou")
@@ -387,6 +399,8 @@ func _conectou(fw: String) -> void:
 	_falhou.clear()
 	if fw.begins_with("STRIKE_KIDS"):
 		_set_status("Arduino conectado (%s): sensores, botão e porta OK" % tipo)
+		ponte = ""
+		enviar_ponte()   # antes da porta: ela já anda no tempo/fim de curso do menu
 		_enviar_porta()
 		_send("TESTE:1" if _teste else "TESTE:0")
 		_send("INFO?")
@@ -436,6 +450,29 @@ func _enviar_porta() -> void:
 		return
 	var abre := porta_quer != bool(Ajustes.valor("arduino", "porta_invertida"))
 	_send("PORTA:ABRE" if abre else "PORTA:FECHA")
+
+
+## A versão do firmware (STRIKE_KIDS:3 -> 3; 0 = sem Arduino ou o antigo).
+func versao() -> int:
+	if not completo():
+		return 0
+	return int(firmware.substr(firmware.find(":") + 1))
+
+
+## A ponte H como o menu do operador escolheu, no jeito da resposta do
+## Arduino ("TEMPO:1500:FC:0").
+func ponte_pedida() -> String:
+	return "TEMPO:%d:FC:%d" % [int(Ajustes.valor("arduino", "porta_tempo")),
+		1 if bool(Ajustes.valor("arduino", "porta_fim_de_curso")) else 0]
+
+
+## O tempo do motor e o fim de curso (menu do operador) para o Arduino, que
+## guarda na EEPROM e responde PONTE:TEMPO:...:FC:... (o firmware 2 ignora).
+func enviar_ponte() -> void:
+	if not completo():
+		return
+	_send("PONTE:TEMPO:%d" % int(Ajustes.valor("arduino", "porta_tempo")))
+	_send("PONTE:FC:%d" % (1 if bool(Ajustes.valor("arduino", "porta_fim_de_curso")) else 0))
 
 
 ## Teste dos sensores (menu): o Arduino manda o estado ao vivo.
