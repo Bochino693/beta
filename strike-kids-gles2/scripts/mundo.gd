@@ -145,7 +145,10 @@ func construir() -> void:
 	temas = Temas.new()
 	add_child(temas)
 	temas.cenario_leve = Ajustes.cenario3d_leve()
+	var t0 := OS.get_ticks_msec()
 	temas.construir(self)
+	# (o tempo de montar as 4 fases: as peças são conferidas contra o morro)
+	print("Cenário: 4 fases montadas em %d ms" % (OS.get_ticks_msec() - t0))
 	# o pterossauro do símbolo da selva: o mesmo material dos do cenário
 	# (com a textura deles; o símbolo é montado antes do cenário)
 	_ptero_simbolo.material_override = temas.mat_asas("dinos")
@@ -1775,12 +1778,17 @@ const MORROS := [[-9, -20, 6, 2.2], [10, -26, 7, 2.6], [-14, -42, 9, 3.4], [15, 
 ## ficava com metade dentro dela. Cada patamar é um degrau plano na altura
 ## do chão no meio dele (corta o lado de cima, aterra o de baixo), com a
 ## beira suave. Valem para as quatro fases (o relevo é um só): as peças das
-## outras fases que caem ali se assentam no patamar. Dois só, cada um
-## dividido por duas fases: à direita o dino pescoçudo (selva) e o
-## carrossel (parque); à esquerda o dino grande e a roda-gigante — um
-## patamar não pode cair debaixo de outra peça grande (o navio do mar, no
-## alto do morro da esquerda) nem encostar em outro (um degrau no outro).
-const PATAMARES := [[5.4, -17.8, 2.5, 4.3], [-7.0, -27.6, 3.4, 5.0]]
+## outras fases que caem ali se assentam no patamar. Os dois primeiros são
+## divididos por duas fases: à direita o dino pescoçudo (selva) e o
+## carrossel (parque); à esquerda o dino grande e a roda-gigante. 7.6: mais
+## quatro, das peças de pé do parque (com a base larga, numa encosta não
+## há lugar plano: a tenda ficava com a porta dentro do morro) — as duas
+## tendas, o 2º carrossel e o filhote de tricerátops da selva (na rampa ao
+## lado da pista). Um patamar não pode cair debaixo de outra peça grande (o
+## navio do mar, os vulcões da selva), nem encostar em outro (um degrau no
+## outro), nem chegar no chão plano da beira da pista (|x| < 3,2).
+const PATAMARES := [[5.4, -17.8, 2.5, 4.3], [-7.0, -27.6, 3.4, 5.0],
+	[-9.5, -13.0, 2.1, 3.6], [10.5, -33.0, 2.4, 4.0], [-17.0, -42.0, 1.8, 3.2], [-6.6, -6.8, 1.7, 2.9]]
 var _altura_patamar := []
 
 

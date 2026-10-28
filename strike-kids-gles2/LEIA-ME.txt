@@ -79,6 +79,43 @@ O QUE MUDOU PARA RODAR NA OPENGL ES 2.0
     Godot 4 (nao substitui).
 
 
+VERSAO 7.6: PILARES ENFEITADOS E NADA DENTRO DO MORRO
+-----------------------------------------------------
+  * OS DOIS PILARES do gabinete (em volta dos pinos) ganharam um enfeite
+    da fase em cima, como as "torres" das primeiras versoes (que depois
+    ficaram escondidas atras do gabinete e sairam): no parque, torres
+    listradas com telhado de cone e bandeirinha, como a entrada de um
+    castelo; na selva, ovos de dinossauro no ninho; no espaco, estrelas; no
+    mar, estrelas-do-mar de pe (scripts/temas.gd: _nos_pilares).
+  * O CASTELO do fundo do parque saiu (o castelo agora e a entrada; os
+    modelos dele foram apagados: ~170 KB a menos no APK).
+  * NADA DENTRO DO MORRO, em todas as fases:
+      - a conferencia das pecas nao conta mais a "saia" do modelo (a parte
+        feita para ficar abaixo do chao: a barra da tenda, a base do
+        carrossel) - contada, a peca "fugia" do lugar bom para a encosta;
+        a tolerancia caiu de 12 para 6 cm e a amostra do modelo passou a
+        ser o ponto mais baixo de cada quadradinho da planta (a borda de
+        baixo inteira);
+      - os destaques ao lado da pista e as pecas atras de quem joga tambem
+        sao conferidos;
+      - as tendas ficam de pe (inclinadas com o morro ficavam tortas) e,
+        com o 2o carrossel e o filhote de triceratops, ganharam um
+        PATAMAR plano (Mundo.PATAMARES: agora sao 7; o terreno e refeito
+        com tools/refazer_terreno.gd a partir de tools/terreno_morros.res);
+      - medido peca por peca (alto e leve): nenhuma entra mais de 11 cm no
+        morro alem da propria base (antes: castelo 46 cm, carrossel 23,
+        triceratops 18, tendas 11 a 15).
+  * Montar as 4 fases ficou mais rapido (a conta para assim que a peca
+    passa da tolerancia): 1,4 -> 0,8 s no PC. O tempo aparece no registro
+    ("Cenario: 4 fases montadas em ... ms").
+  * CUSTO na vista de jogar (Mali-450: cenario leve, qualidade media),
+    7.5 -> 7.6: selva 180 -> 179, parque 202 -> 198, espaco 167 -> 173,
+    mar 185 -> 180 mil indices (o terreno: 7.562 -> 7.966 triangulos).
+  * Testes: roteiro de 2 jogadores com desempate (ROTEIRO OK, TRAVA OK
+    nas 10 bolas), START LIVRE OK, INICIO BOLA OK, a medida peca por peca
+    das 4 fases (alto e leve) e as vistas - nenhum erro de script.
+
+
 VERSAO 7.5: PORTINHA, NUVENS BRANCAS, DINOS FORA DOS MORROS E COMECAR PELA BOLA
 -------------------------------------------------------------------------------
   * PORTINHA DA BOLA (moldura de lampadas da boca dos pinos): as lampadas

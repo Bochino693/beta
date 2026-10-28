@@ -174,6 +174,9 @@ func construir(m) -> void:
 			lev.add_child(gemea)
 			g.remove_child(mi)
 			alto.add_child(mi)
+		# (STRIKE_SEM_LOTE nos testes: as peças ficam soltas, para medir uma a uma)
+		if OS.has_environment("STRIKE_SEM_LOTE"):
+			continue
 		lev.visible = true
 		Lote.juntar(alto, fora)
 		Lote.juntar(lev, fora)
@@ -659,7 +662,13 @@ func _pose(base: Basis, caixa: AABB, x: float, z: float, raio: float, enterrar: 
 ## ela entra no chão além do `enterrar` dela. As grandes procuram em volta
 ## (até PROCURA_MAX, a mais perto primeiro) o lugar onde ficam inteiras em
 ## cima do chão; as espalhadas e os enfeites só nascem onde isso vale.
-const ENTRA_MAX := 0.12
+## 7.6: a SAIA do modelo (a parte dele feita para ficar abaixo do chão: a
+## barra da tenda, a base do castelo da 7.5) não conta — contada, a peça
+## "fugia" do lugar bom para a encosta (o castelo ficava com a porta dentro
+## do morro); a
+## tolerância caiu de 12 para 6 cm e os destaques perto da pista e as peças
+## atrás de quem joga também são conferidos.
+const ENTRA_MAX := 0.06
 const PROCURA_MAX := 3.5
 ## a pista, as canaletas e o gabinete: nenhuma peça movida entra aqui
 const CORREDOR := 2.3
@@ -674,9 +683,16 @@ func _caixa(nome: String) -> AABB:
 	return _caixas[nome]
 
 
-## Uns 150 pontos da malha do modelo (da versão do meio: a mesma forma, mais
-## rápida de ler), quase todos do terço de BAIXO (o que encosta no morro)
-## e alguns do resto. Sem malha legível: nenhum (a peça não é conferida).
+## Os pontos da malha do modelo que são conferidos (da versão do meio: a
+## mesma forma, mais rápida de ler): o FUNDO dele — o ponto mais baixo de
+## cada quadradinho de uma grade 12 x 12 sobre a planta (7.6: a borda de
+## baixo inteira, sem buraco entre os pontos; a amostra de antes pulava o
+## ponto mais fundo da borda do carrossel) — e uns 30 do resto (o alto
+## também pode encostar num morro do lado). Sem malha legível: nenhum (a
+## peça não é conferida).
+const GRADE := 12
+
+
 func _amostra(nome: String) -> PoolVector3Array:
 	if _amostras.has(nome):
 		return _amostras[nome]
@@ -693,37 +709,44 @@ func _amostra(nome: String) -> PoolVector3Array:
 			continue
 		var vs: PoolVector3Array = arr[Mesh.ARRAY_VERTEX]
 		var caixa := m.get_aabb()
-		var baixo := caixa.position.y + caixa.size.y / 3.0
-		var de_baixo := 0
+		var cx: float = max(caixa.size.x, 0.001) / GRADE
+		var cz: float = max(caixa.size.z, 0.001) / GRADE
+		var baixos := {}
 		for v in vs:
-			if v.y < baixo:
-				de_baixo += 1
-		var passo_baixo := Compat.imax(1, de_baixo / 120)
-		var passo_resto := Compat.imax(1, (vs.size() - de_baixo) / 30)
-		var nb := 0
-		var nr := 0
-		for v in vs:
-			if v.y < baixo:
-				if nb % passo_baixo == 0:
-					pts.append(v)
-				nb += 1
-			else:
-				if nr % passo_resto == 0:
-					pts.append(v)
-				nr += 1
+			var k := Compat.imin(int((v.x - caixa.position.x) / cx), GRADE - 1) * GRADE + Compat.imin(int((v.z - caixa.position.z) / cz), GRADE - 1)
+			if not baixos.has(k) or v.y < (baixos[k] as Vector3).y:
+				baixos[k] = v
+		for k in baixos:
+			pts.append(baixos[k])
+		var passo := Compat.imax(1, vs.size() / 30)
+		var i := 0
+		while i < vs.size():
+			pts.append(vs[i])
+			i += passo
 		break
 	_amostras[nome] = pts
 	return pts
 
 
 ## Quanto os pontos `pts` da peça, na pose `xf`, entram no chão: a maior
-## profundidade (0 = nada abaixo do chão).
-func _fundura(pts: PoolVector3Array, xf: Transform) -> float:
+## profundidade (0 = nada abaixo do chão). Para assim que passa de `basta`
+## (a conta só precisa saber se passou).
+func _fundura(pts: PoolVector3Array, xf: Transform, basta := INF) -> float:
 	var fundo := 0.0
 	for v in pts:
 		var w: Vector3 = xf.xform(v)
 		fundo = max(fundo, _chao(w.x, w.z) - w.y)
+		if fundo > basta:
+			return fundo
 	return fundo
+
+
+## Quanto a peça entra no chão ALÉM do que entraria num chão plano (7.6): a
+## saia do modelo (o que fica abaixo da origem dele, feito para ficar
+## enterrado) e o `enterrar` da peça não contam.
+func _entra(pts: PoolVector3Array, xf: Transform, caixa: AABB, enterrar: float, basta := INF) -> float:
+	var saia: float = max(-caixa.position.y, 0.0) * xf.basis.get_scale().y
+	return _fundura(pts, xf, basta + saia + enterrar) - saia - enterrar
 
 
 ## Algum ponto da peça, na pose `xf`, entra no corredor da pista?
@@ -745,7 +768,7 @@ func _lugar_firme(tema: String, pts: PoolVector3Array, base: Basis, caixa: AABB,
 	var melhor := _pose(base, caixa, x, z, raio, enterrar, inclinar, raio_base)
 	if pts.empty():
 		return melhor
-	var menor := _fundura(pts, melhor) - enterrar
+	var menor := _entra(pts, melhor, caixa, enterrar)
 	if menor <= ENTRA_MAX:
 		return melhor
 	var anel := 1
@@ -761,7 +784,7 @@ func _lugar_firme(tema: String, pts: PoolVector3Array, base: Basis, caixa: AABB,
 			var xf := _pose(base, caixa, c.x, c.y, raio, enterrar, inclinar, raio_base)
 			if _no_corredor(pts, xf):
 				continue
-			var f := _fundura(pts, xf) - enterrar
+			var f := _entra(pts, xf, caixa, enterrar, menor)
 			if f <= ENTRA_MAX:
 				return xf
 			if f < menor:
@@ -799,7 +822,7 @@ func _espalhar(tema: String, tipos: Array, qtd: int, semente: int, escala := {},
 			continue
 		var giro := rnd.randf() * TAU
 		var xf := _pose(Basis(Vector3.UP, giro).scaled(Vector3.ONE * esc), _caixa(tipo), x, z, r, 0.04, true)
-		if _fundura(_amostra(tipo), xf) - 0.04 > ENTRA_MAX:
+		if _entra(_amostra(tipo), xf, _caixa(tipo), 0.04, ENTRA_MAX) > ENTRA_MAX:
 			continue   # (7.5) ali ela entraria no morro
 		_ocupar(tema, p, r)
 		var mi := _obj(tema, tipo, Vector3(x, 0, z), giro, esc)
@@ -835,7 +858,7 @@ func _talvez(tema: String, nome: String, x: float, z: float, giro := 0.0, esc :=
 	if not _livre(tema, Vector2(x, z), r):
 		return null
 	var xf := _pose(Basis(Vector3.UP, giro).scaled(Vector3.ONE * esc), _caixa(nome), x, z, r, 0.02, true)
-	if _fundura(_amostra(nome), xf) - 0.02 > ENTRA_MAX:
+	if _entra(_amostra(nome), xf, _caixa(nome), 0.02, ENTRA_MAX) > ENTRA_MAX:
 		return null   # (7.5) ali ele entraria no morro
 	_ocupar(tema, Vector2(x, z), r)
 	var mi := _obj(tema, nome, Vector3(x, 0, z), giro, esc, contorno)
@@ -877,10 +900,20 @@ func _destaques(tema: String, itens: Array) -> Array:
 		var x: float = d[0]
 		var z: float = d[1]
 		var r := _pegada(it[0], float(it[1]))
+		# (os que ficam no piso de quem joga não são assentados no morro)
+		var no_piso := z > 0.0 and abs(x) < 3.3
+		var xf := Transform()
+		if not no_piso:
+			# (7.6) conferido como as peças grandes: ali ou no lugar firme
+			# mais perto (na beira da rampa o lado de fora entrava no chão)
+			var base := Basis(Vector3.UP, d[2]).scaled(Vector3.ONE * float(it[1]))
+			xf = _lugar_firme(tema, _amostra(it[0]), base, _caixa(it[0]), x, z, r, 0.02, true)
+			x = xf.origin.x
+			z = xf.origin.z
 		_ocupar(tema, Vector2(x, z), r)
 		var mi := _obj(tema, it[0], Vector3(x, -0.02, z), d[2], it[1], it[2] if it.size() > 2 else 0.0)
-		if not (z > 0.0 and abs(x) < 3.3):
-			_assentar(mi, x, z, r, 0.02)
+		if not no_piso:
+			mi.transform = xf
 		feitos.append(mi)
 	return feitos
 
@@ -929,17 +962,46 @@ func _atras(tema: String, itens: Array) -> void:
 		var a: Array = ATRAS[i]
 		var x: float = a[0]
 		var z: float = a[1]
-		var mi := _obj(tema, itens[i][0], Vector3(x, 0, z), PI + float(a[2]), float(itens[i][1]))
+		var nome: String = itens[i][0]
+		var esc := float(itens[i][1])
+		var giro := PI + float(a[2])
 		# (7.5) assentados como os outros (no morro atrás da mureta o lado de
-		# cima deles entrava no chão)
-		_assentar(mi, x, z, _pegada(itens[i][0], float(itens[i][1])), 0.05)
+		# cima deles entrava no chão); 7.6: e conferidos, no lugar firme
+		var base := Basis(Vector3.UP, giro).scaled(Vector3.ONE * esc)
+		var xf := _lugar_firme(tema, _amostra(nome), base, _caixa(nome), x, z, _pegada(nome, esc), 0.05, true)
+		var mi := _obj(tema, nome, xf.origin, giro, esc)
+		mi.transform = xf
 
 
-func _torres(tema: String, nome: String, esc := 1.0, contorno := 0.004) -> void:
+## OS DOIS PILARES do gabinete (Mundo._colunas: x = ±1,93, em pé na frente
+## dos pinos, 2,76 m com o friso) ganham um ENFEITE DA FASE em cima (7.6).
+## Nas primeiras versões as "torres" de cada fase ficavam ao lado deles;
+## depois o gabinete cresceu e elas ficaram escondidas atrás dele (só
+## gastavam triângulos). `giro`: em volta do próprio eixo, espelhado no
+## pilar da direita; `de_pe`: a peça deitada (estrela-do-mar) fica de pé,
+## virada para quem joga; `largura`: mais gorda que alta (a torre de
+## circo, fina, vira torre de castelo). O detalhe é o de quem olha da
+## pista (~12 m).
+const PILAR_X := 1.93
+const PILAR_TOPO := 2.76
+const OLHO_DA_PISTA := Vector3(0.0, 1.05, 2.2)
+
+
+func _nos_pilares(tema: String, nome: String, esc: float, giro := 0.0, de_pe := false, largura := 1.0, contorno := 0.004) -> void:
+	var caixa := _caixa(nome)
 	for s in [-1.0, 1.0]:
-		var x: float = s * 2.75
-		_ocupar(tema, Vector2(x, Medidas.Z_FUNDO + 0.4), _pegada(nome, esc))
-		_obj(tema, nome, Vector3(x, -0.02, Medidas.Z_FUNDO + 0.4), -s * deg2rad(25.0), esc, contorno)
+		var b := Basis(Vector3.UP, giro * s)
+		if de_pe:
+			b = b * Basis(Vector3.RIGHT, PI / 2.0)
+		b = b.scaled(Vector3(esc * largura, esc, esc * largura))
+		# o ponto mais baixo da peça já girada encosta no alto do pilar
+		var baixo := INF
+		for k in 8:
+			var c := caixa.position + Vector3(caixa.size.x * (k & 1), caixa.size.y * ((k >> 1) & 1), caixa.size.z * ((k >> 2) & 1))
+			baixo = min(baixo, b.xform(c).y)
+		var pos := Vector3(s * PILAR_X, PILAR_TOPO - baixo, Medidas.Z_PINO1 + 0.75)
+		var mi := _obj(tema, nome, pos, 0.0, esc, contorno, Color.white, null, pos.distance_to(OLHO_DA_PISTA))
+		mi.transform = Transform(b, pos)
 
 
 ## Uma peça comprida (o navio, o arco-íris, a roda-gigante): círculos de
@@ -981,10 +1043,10 @@ func _parque() -> void:
 		var a: float = PI * (i + 0.5) / 40.0
 		pontos.append(Vector3(cos(a) * R, sin(a) * R - 0.05, Medidas.Z_FUNDO - 0.5 + 0.38))
 	grupos[T].add_child(mundo.lampadas_em(pontos, 100))
-	_torres(T, "torre")
-	# CASTELO de conto de fadas no alto do morro, lá no fundo à direita (7.0:
-	# era uma pintura no fundo; agora é 3D como o resto)
-	_grande(T, "castelo", 14.5, -49.0, -0.35, 1.15, 0.0, 0.3)
+	# as TORRES de circo (listradas, telhado de cone e bandeirinha) em cima
+	# dos pilares, como torres de castelo na entrada (7.6: no lugar do
+	# castelo que ficava lá no fundo, no alto do morro)
+	_nos_pilares(T, "torre", 0.5, 0.0, false, 1.25)
 	# roda-gigante (gira) com as cabines sempre de pé
 	# (7.5) no lugar firme: a base e as cabines na metade de baixo da volta
 	# inteiras em cima do chão (o morro atravessava as cabines que passavam
@@ -1020,9 +1082,13 @@ func _parque() -> void:
 	var gira_car := {"tipo": "girar", "no": car, "vel": 0.5}
 	_animar(T, gira_car)
 	_voz(T, car, "amb_carrossel", 16.0, 26.0, 0.7, "musica", gira_car)
-	_grande(T, "tenda", -9.5, -13.0, 0.6, 1.1, 0.0, 0.08)
-	_grande(T, "tenda", 10.5, -33.0, -0.4, 1.3, 0.0, 0.08)
-	var car2 := _grande(T, "carrossel", -12.5, -39.0, 0.0, 1.0, 0.0, 0.05, false)
+	# (7.6: as tendas de pé — inclinadas com o morro ficavam tortas —, cada
+	# uma no patamar dela: Mundo.PATAMARES)
+	_grande(T, "tenda", -9.5, -13.0, 0.6, 1.1, 0.0, 0.04, false)
+	_grande(T, "tenda", 10.5, -33.0, -0.4, 1.3, 0.0, 0.04, false)
+	# (7.6: no patamar dele, mais para fora: o vulcão da selva fica perto do
+	# lugar de antes)
+	var car2 := _grande(T, "carrossel", -17.0, -42.0, 0.0, 1.0, 0.0, 0.05, false)
 	_animar(T, {"tipo": "girar", "no": car2, "vel": -0.35})
 	var d := _destaques(T, [["pirulito", 0.75, 0.004], ["pirulito", 0.85, 0.004], ["presente", 0.8, 0.004], ["cupcake", 0.75, 0.004],
 		["bengala", 0.9], ["bengala", 0.9], ["cogumelo", 0.9], ["donut", 0.85]])
@@ -1092,7 +1158,7 @@ func _nuvens(tema: String, qtd: int, semente: int) -> void:
 ## ao outro, raspavam nos morros e no vulcão — de longe pareciam pousadas no
 ## chão). A nuvem anda de x = -30 a 30 (_process, "nuvem"): a base dela fica
 ## pelo menos 6 m acima do ponto mais alto do terreno em todo o caminho e
-## acima das peças altas (vulcão, castelo, roda-gigante) que estão na mesma
+## acima das peças altas (vulcão, roda-gigante) que estão na mesma
 ## faixa de z. (Malha: base em y = 0,26, meia largura 2, meia fundura 0,95.)
 func _altura_nuvem(tema: String, pos: Vector3, esc: float) -> float:
 	var base := pos.y + 6.0
@@ -1166,6 +1232,8 @@ func _espaco() -> void:
 	# (atrás das colunas só aparecia a pontinha das aletas)
 	for s in [-1.0, 1.0]:
 		_grande(T, "foguete", s * 3.35, -11.0, -s * deg2rad(35.0), 0.95, 0.004, 0.03, false)
+	# uma ESTRELA fofa em cima de cada pilar (7.6)
+	_nos_pilares(T, "estrela_3d", 1.25, -0.25)
 	# disco voador passeando por cima do fim da pista: na FRENTE do Saturno
 	# e acima do letreiro (nunca atravessa o planeta nem some atrás do arco),
 	# inclinando nas curvas como um aviãozinho
@@ -1245,11 +1313,9 @@ func _mar() -> void:
 	# joga (lá atrás dos jogadores e no canto ninguém via): começa FECHADO,
 	# abre a tampa e mostra as moedas e as joias, fecha e abre de novo
 	_grande(T, "bau", BAU_PERTO.x, BAU_PERTO.z, -0.5, 0.75, 0.004, 0.02, false)
-	# corais no lugar das torres
-	for s_ in [-1.0, 1.0]:
-		_ocupar(T, Vector2(s_ * 2.75, Medidas.Z_FUNDO + 0.4), 1.1)
-	_obj(T, "coral", Vector3(-2.75, -0.02, Medidas.Z_FUNDO + 0.4), deg2rad(25.0), 2.1, 0.004)
-	_obj(T, "coral_roxo", Vector3(2.75, -0.02, Medidas.Z_FUNDO + 0.4), deg2rad(-25.0), 2.3, 0.004)
+	# uma ESTRELA-DO-MAR de pé em cima de cada pilar, virada para quem joga
+	# (7.6: os corais do lado deles ficavam escondidos atrás do gabinete)
+	_nos_pilares(T, "estrela_mar", 2.0, 0.0, true)
 	var d := _destaques(T, [["coral", 0.8, 0.004], ["alga", 0.8, 0.0], ["estrela_mar", 1.0, 0.004], ["concha", 0.8, 0.004],
 		["coral_roxo", 0.9], ["alga", 0.9], ["concha", 0.5], ["estrela_mar", 1.0]])
 	# (7.0) ANÊMONAS cor-de-rosa perto da pista
@@ -1344,8 +1410,9 @@ func _dinos() -> void:
 	gf.set_color(0, Color(0.95, 0.9, 0.95, 0.85))
 	gf.set_color(1, Color(0.85, 0.85, 0.95, 0.0))
 	fum.color_ramp = gf
-	# palmeiras no lugar das torres
-	_torres(T, "palmeira", 0.85, 0.0)
+	# um OVO de dinossauro em cima de cada pilar (7.6: as palmeiras do
+	# lado deles ficavam escondidas atrás do gabinete)
+	_nos_pilares(T, "ovo_dino", 1.7, 0.5)
 	# dino pescoçudo à direita do gabinete, olhando a pista (7.0: longe da
 	# palmeira, que atravessava a cabeça dele) + outro, maior, à esquerda,
 	# na frente do vulcão (antes ele ficava DENTRO do vulcão). 7.5: cada um
@@ -1379,10 +1446,11 @@ func _dinos() -> void:
 			"mat": ma, "asas": rnd.randf_range(5.5, 7.0)})
 	var d := _destaques(T, [["samambaia", 1.0, 0.004], ["flor_gigante", 1.0, 0.004], ["ovo_dino", 1.0, 0.004], ["flor_gigante", 0.9, 0.004],
 		["samambaia", 1.2], ["pedra", 1.0], ["ovo_dino", 1.0], ["samambaia", 1.1]])
-	# (o vulcão, os dinos e as palmeiras do gabinete já marcaram o lugar
-	# deles: nada nasce dentro)
+	# (o vulcão e os dinos já marcaram o lugar deles: nada nasce dentro)
 	# (7.0) um FILHOTE DE TRICERÁTOPS à esquerda da pista, olhando quem joga
-	var tri := _grande(T, "tricera", -5.0, -8.5, 0.95, 1.0, 0.004, 0.03, false)
+	# (7.6: no patamar dele, Mundo.PATAMARES — na rampa ao lado da pista o
+	# lado de fora do corpo entrava no chão)
+	var tri := _grande(T, "tricera", -6.6, -6.8, 0.95, 1.0, 0.004, 0.03, false)
 	var resp3 := {"tipo": "respirar", "no": tri, "fase": 0.9, "giro": tri.rotation.y}
 	_animar(T, resp3)
 	_voz(T, tri, "amb_dino", 15.0, 24.0, 0.7, "rugir", resp3, 1.35)
