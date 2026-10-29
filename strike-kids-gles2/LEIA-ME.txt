@@ -113,8 +113,10 @@ com outra ficha + START).
     e um START preso, um START. Agora o que ja esta acionado ao ligar so
     conta quando soltar e acionar de novo (moedeiro NA ou NF: 1 pulso = 1
     ficha).
-  * DESENHO DA MONTAGEM NOVO, em fundo branco: docs/ligacao_arduino.pdf
-    (A3), .png e .svg, feitos por tools/desenhar_ligacao.py - sensores,
+  * DESENHO DA MONTAGEM NOVO, em fundo branco e com textura (placas com
+    trilhas, pinos dourados, fios com brilho, motor, fonte de metal
+    perfurado): docs/ligacao_arduino.pdf (A3), .png e .svg, feitos por
+    tools/desenhar_ligacao.py - sensores,
     fita de LED, ponte H com o motor e a fonte de 12 V, fins de curso,
     moedeiro, START, CONFIGURACAO, TV Box, servo e rele (opcionais), as
     outras pontes H, tabela de pinos e o passo a passo.
