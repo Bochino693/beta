@@ -58,9 +58,10 @@ var _logo: TextureRect
 var _aperte: Label
 var _aperte_botao: Painel3D
 var _aperte_sub: Label
-## modo livre pela bola (7.5, máquina sem botões): os textos dizem "ROLE A
-## BOLA" no lugar de "APERTE START"
+## a máquina sem botões: a espera diz "ROLE A BOLA!" (modo livre, ou com
+## ficha) ou "INSIRA FICHA" (modo fichas sem ficha) - modo_espera()
 var _modo_bola := false
+var _modo_espera := ""
 var _recorde: Label
 var _recorde_placa: Painel3D
 var _creditos: Label
@@ -868,12 +869,11 @@ func _montar_atracao() -> void:
 	# botão amarelo com volume
 	_aperte_botao = Painel3D.new(DESTAQUE, 70, 18, 8)
 	_atracao.add_child(_aperte_botao)
-	_aperte = rotulo("APERTE START", 88, MARINHO, 0, MARINHO, fonte_titulo)
+	_aperte = rotulo("ROLE A BOLA!", 88, MARINHO, 0, MARINHO, fonte_titulo)
 	_sombra(_aperte, Color(1, 1, 1, 0.55))
 	_aperte_botao.add_child(_aperte)
-	# pela bola: o lado da bola já escolhe o amigo
+	# embaixo: o lado da bola já escolhe o amigo (ou: depois da ficha, a bola)
 	_aperte_sub = rotulo("ESQUERDA = BOB  ·  DIREITA = MIA", 36, MARINHO, 0, MARINHO, fonte_titulo)
-	_aperte_sub.visible = false
 	_aperte_botao.add_child(_aperte_sub)
 	# placa do recorde
 	_recorde_placa = Painel3D.new(AZUL, 40, 10, 5)
@@ -893,21 +893,32 @@ func _montar_atracao() -> void:
 	_atracao.visible = false
 
 
-## Modo livre pela bola: "ROLE A BOLA!" (e o lado escolhe o amigo) no lugar
-## do START, na espera, no "QUANTOS VÃO JOGAR?" e no fim de jogo.
-func modo_bola(sim: bool) -> void:
-	if sim == _modo_bola:
+## O que a espera pede (a bola é o START), na espera, no "QUANTOS VÃO
+## JOGAR?" e no fim de jogo:
+##   "livre": modo livre (sem trava) - "ROLE A BOLA!", o lado escolhe o amigo
+##   "ficha": modo fichas sem ficha (trava fechada) - "INSIRA FICHA"
+##   "pago1" / "pago2": com 1 ou 2 fichas (trava aberta) - "ROLE A BOLA!"
+func modo_espera(modo: String) -> void:
+	if modo == _modo_espera:
 		return
-	_modo_bola = sim
-	_aperte.text = "ROLE A BOLA!" if sim else "APERTE START"
-	_aperte_sub.visible = sim
+	_modo_espera = modo
+	_modo_bola = modo != "ficha"
+	_aperte.text = "ROLE A BOLA!" if _modo_bola else "INSIRA FICHA"
+	match modo:
+		"ficha":
+			_aperte_sub.text = "DEPOIS É SÓ ROLAR A BOLA!"
+		"pago2":
+			_aperte_sub.text = "2 FICHAS: BOB x MIA!"
+		_:
+			_aperte_sub.text = "ESQUERDA = BOB  ·  DIREITA = MIA"
+	var fichas := modo != "livre"
 	for i in _jog_cartoes.size():
 		var c: Painel3D = _jog_cartoes[i]
-		(c.get_node("botao/texto") as Label).text = "ROLE" if sim else "START"
-		if sim:
-			(c.get_node("vezes") as Label).text = "1 BOLA" if i == 0 else "2 BOLAS"
+		(c.get_node("botao/texto") as Label).text = "ROLE"
+		if fichas:
+			(c.get_node("vezes") as Label).text = "1 FICHA" if i == 0 else "2 FICHAS"
 		else:
-			(c.get_node("vezes") as Label).text = "1 VEZ" if i == 0 else "2 VEZES"
+			(c.get_node("vezes") as Label).text = "1 BOLA" if i == 0 else "2 BOLAS"
 	_chave_melhores = ""
 	layout()
 
@@ -1180,10 +1191,7 @@ func jogadores(ligado: bool, n := 1, fracao := 0.0, segundos := 0) -> void:
 		_pular(_jog_cartoes[n - 1])
 	_jog_n = n
 	if n == 1:
-		if _modo_bola:
-			_jog_dica.text = "Vão jogar em 2? A outra criança rola uma bola agora!\nSe não, começa com 1 jogador em %d..." % Compat.imax(segundos, 1)
-		else:
-			_jog_dica.text = "Vão jogar em 2? Aperte START de novo agora!\nSe não, começa com 1 jogador em %d..." % Compat.imax(segundos, 1)
+		_jog_dica.text = "Vão jogar em 2? A outra criança rola uma bola agora!\nSe não, começa com 1 jogador em %d..." % Compat.imax(segundos, 1)
 	else:
 		_jog_dica.text = "2 JOGADORES: BOB x MIA!\nPreparem-se..."
 	_jog_barra.rect_size.x = max(_jog_trilho.rect_size.x * clamp(fracao, 0.0, 1.0), _jog_trilho.rect_size.y)
@@ -1296,7 +1304,8 @@ func selecao(ligado: bool, destaque := 0, texto := "", pes: Array = []) -> void:
 		return
 	if entrou:
 		_pular(_sel_titulo)
-	if destaque != _sel_destaque:
+	# destaque -1: ninguém escolhido ainda (as duas placas iguais)
+	if destaque != _sel_destaque and destaque >= 0:
 		_pular(_sel_placas[destaque])
 	_sel_destaque = destaque
 	for i in 2:
@@ -1305,9 +1314,9 @@ func selecao(ligado: bool, destaque := 0, texto := "", pes: Array = []) -> void:
 			var pe: Vector2 = pes[i]
 			p.rect_position = Vector2(clamp(pe.x - p.rect_size.x / 2, 12 * u, rect_size.x - p.rect_size.x - 12 * u), pe.y + 30 * u)
 		p.rect_pivot_offset = p.rect_size / 2
-		var alvo := 1.12 if i == destaque else 0.9
+		var alvo := 1.12 if i == destaque else (1.0 if destaque < 0 else 0.9)
 		p.rect_scale = p.rect_scale.linear_interpolate(Vector2.ONE * alvo, 0.25)
-		p.modulate = Color.white if i == destaque else Color(0.8, 0.84, 0.92, 0.85)
+		p.modulate = Color.white if i == destaque or destaque < 0 else Color(0.8, 0.84, 0.92, 0.85)
 		if i != destaque:
 			p.realcar(0.0)
 
@@ -1597,7 +1606,7 @@ func _quadro_classificacao(lista: Array, js: Array, area: Rect2) -> void:
 
 
 func _jogar_de_novo() -> String:
-	return "ROLE A BOLA PARA JOGAR DE NOVO" if _modo_bola else "APERTE START PARA JOGAR DE NOVO"
+	return "ROLE A BOLA PARA JOGAR DE NOVO" if _modo_bola else "INSIRA FICHA PARA JOGAR DE NOVO"
 
 
 func fim_contagem(segundos: int) -> void:
@@ -2113,7 +2122,7 @@ func layout() -> void:
 		_logo.rect_position = Vector2(T.x * 0.03, T.y * 0.05)
 	_logo.rect_pivot_offset = _logo.rect_size / 2
 	var bw: float = min(T.x * 0.78, 780 * u) if retrato else T.x * 0.34
-	var bh := (196 if _modo_bola else 150) * u
+	var bh := 196 * u
 	_aperte_botao.rect_size = Vector2(bw, bh)
 	if retrato:
 		_aperte_botao.rect_position = Vector2((T.x - bw) / 2, T.y * 0.69)
@@ -2122,7 +2131,7 @@ func layout() -> void:
 	_aperte_botao.rect_pivot_offset = _aperte_botao.rect_size / 2
 	_tamanho_rotulo(_aperte, 84 * u)
 	_sombra(_aperte, null, 3 * u)
-	_aperte.rect_size = Vector2(bw, (128 if _modo_bola else 132) * u)
+	_aperte.rect_size = Vector2(bw, 128 * u)
 	_aperte.rect_position = Vector2.ZERO
 	_caber(_aperte, 84 * u, bw - 90 * u)
 	_tamanho_rotulo(_aperte_sub, 34 * u)
@@ -2202,7 +2211,7 @@ func _process(delta: float) -> void:
 		_jog_cartoes[_jog_n - 1].realcar(0.7 + 0.3 * sin(_tempo * 6.0))
 		_jog_cartoes[_jog_n - 1].rect_scale = Vector2.ONE * (1.05 + sin(_tempo * 6.0) * 0.015)
 		_jog_cartoes[2 - _jog_n].rect_scale = Vector2.ONE * 0.94
-	if _selecao.visible:
+	if _selecao.visible and _sel_destaque >= 0:
 		_sel_placas[_sel_destaque].realcar(0.7 + 0.3 * sin(_tempo * 6.0))
 	if _replay_ponto.visible:
 		_replay_ponto.modulate.a = 1.0 if fposmod(_tempo, 1.0) < 0.6 else 0.15

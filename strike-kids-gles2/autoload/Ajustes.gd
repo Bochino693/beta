@@ -20,9 +20,8 @@ const PADRAO := {
 		"velocidade": 130,       # ritmo do jogo (%): 130 = tudo 30% mais rápido (a física das jogadas não muda)
 		"protecao_canaleta": true,  # para-choques nas canaletas (bumpers)
 		"replay_strike": true,
-		"modo_livre": true,      # sem crédito: START sempre começa
-		"inicio_bola": true,     # modo livre: rolar a bola começa (máquina sem botões)
-		"creditos_por_partida": 1,
+		"modo_livre": true,      # sem ficha e sem trava: a bola sempre começa
+		"creditos_por_partida": 1,  # fichas por JOGADOR (1 ficha = 1 jogador, 2 = Bob x Mia)
 		"tempo_inatividade": 45, # segundos sem jogar até o aviso
 		"demo": true,
 		"foto": true,            # foto das crianças com a câmera da máquina
@@ -297,12 +296,24 @@ func adicionar_credito() -> void:
 
 
 func pode_comecar() -> bool:
-	return modo_livre() or creditos >= int(valor("jogo", "creditos_por_partida"))
+	return modo_livre() or creditos >= _fichas_por_jogador()
 
 
-func gastar_creditos() -> void:
+func _fichas_por_jogador() -> int:
+	return Compat.imax(1, int(valor("jogo", "creditos_por_partida")))
+
+
+## Modo fichas: quantos jogadores as fichas pagam (0, 1 ou 2 - com 2 já é
+## BOB x MIA). Modo livre: 0 (quem diz é a bola).
+func jogadores_pagos() -> int:
+	if modo_livre():
+		return 0
+	return Compat.imin(2, creditos / _fichas_por_jogador())
+
+
+func gastar_creditos(jogadores: int) -> void:
 	if not modo_livre():
-		creditos = Compat.imax(0, creditos - int(valor("jogo", "creditos_por_partida")))
+		creditos = Compat.imax(0, creditos - _fichas_por_jogador() * jogadores)
 
 
 # ---------------------------------------------------------------- recorde

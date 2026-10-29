@@ -79,9 +79,68 @@ O QUE MUDOU PARA RODAR NA OPENGL ES 2.0
     Godot 4 (nao substitui).
 
 
+A MAQUINA SEM BOTOES: A FICHA ABRE A TRAVA E A BOLA E O START
+-------------------------------------------------------------
+  * MODO LIVRE (menu: "Modo livre (sem ficha e sem trava)" = SIM): SEM
+    TRAVA - a porta das bolas fica SEMPRE aberta e a bola rolada na espera
+    e o START. Outra bola logo depois (na tela "QUANTOS VAO JOGAR?", 7 s)
+    = 2 jogadores. O ajuste "Modo livre: comecar rolando a bola" saiu: no
+    modo livre a bola sempre comeca.
+  * MODO FICHAS (Modo livre = NAO): sem ficha a trava fica FECHADA e a
+    tela pede INSIRA FICHA (uma bola no sensor so lembra da ficha). A
+    FICHA ABRE A TRAVA na hora e a tela pede ROLE A BOLA!; a 1a bola e o
+    START:
+      - 1 FICHA = 1 JOGADOR: direto para a escolha do amigo (sem a tela
+        "QUANTOS VAO JOGAR?");
+      - 2 FICHAS = 2 JOGADORES, BOB x MIA: a espera mostra "2 FICHAS: BOB
+        x MIA!" e a partida comeca com os dois.
+    "Fichas por jogador" (antes "Fichas por partida") no menu: com 2, cada
+    jogador paga 2 fichas. Ficha que sobra fica para a proxima: no fim de
+    jogo a trava continua aberta e a bola comeca outra; sem ficha, a trava
+    FECHA e o fim de jogo pede INSIRA FICHA (uma ficha ali abre de novo).
+  * O AMIGO PELO LADO DA BOLA (1 jogador): bola na DIREITA (onde a MIA fica
+    na tela) = MIA; na ESQUERDA = BOB - uma menina escolhe a Mia so rolando
+    a bola do lado dela. Bola no MEIO: os dois acenam e a tela pede "ROLE A
+    BOLA DO LADO DO SEU AMIGO"; a proxima bola de um lado escolhe, outra no
+    meio sorteia e, sem bola por 10 s, o jogo SORTEIA ("SORTEIO: MIA!").
+  * O START (botao ou Zero Delay) continua valendo, mas nenhuma tela pede
+    mais o botao. Segurar um botao 10 s para configurar a placa agora vale
+    tambem durante a demonstracao (ela comecava aos 9 s e zerava o aperto).
+  * Teste sem tela: godot3 --path . -- --inicio-bola=<pasta> (modo livre
+    com 1 e 2 bolas, bola no meio, sorteio, demonstracao; modo fichas sem
+    ficha, com 1, 2 e 3 fichas, ficha no fim de jogo) - INICIO BOLA OK.
+
+
+ARDUINO EM 2 VERSOES: RELE (COMO A PRIMEIRA) OU PONTE H
+-------------------------------------------------------
+O JOGO E O MESMO (o mesmo APK) para as duas; so o Arduino muda:
+  * arduino/strike_kids/strike_kids.ino - VERSAO DO RELE, sem ponte H,
+    como a primeira: a trava pelo RELE no D8 (trava solenoide 12 V ou
+    eletroima) e/ou SERVO no D9. Desenho: docs/ligacao_arduino.pdf.
+  * arduino/strike_kids_ponte_h/strike_kids_ponte_h.ino - VERSAO COM PONTE
+    H: motor DC ou atuador linear (IN1 = D10, IN2 = D12, ENA = D11, fins
+    de curso A3/A4; veja "ARDUINO 3"); servo e rele tambem recebem o
+    comando. Desenho: docs/ligacao_arduino_ponte_h.pdf.
+  * O codigo e o mesmo nos dois (firmware 3); so o comentario do comeco e
+    o USAR_PONTE_H mudam (0 no do rele, 1 no da ponte H). O teste do PC
+    (bash tools/testes/arduino/testar_firmware.sh) confere que eles nao
+    divergem e testa os dois: rele no D8 e servo no D9 confirmando na
+    hora, pinos da ponte H livres, os comandos PONTE: do menu ignorados,
+    trava solenoide com RELE_TEMPO_MAX_S 5 e o jogo sumido (fecha em 15 s).
+  * Com o Arduino do rele, o TESTE DA PORTA mostra "Arduino do RELE/SERVO
+    (sem ponte H): confirma a porta na hora" e "Porta: tempo do motor" e
+    "Porta: fim de curso" mostram "rele: nao usa".
+  * Rele: liga com a porta ABERTA (RELE_LIGADO_ABERTA 1); trava solenoide
+    comum esquenta - RELE_TEMPO_MAX_S 5 (liga 5 s e solta); eletroima que
+    segura a porta fechada vai no NC do rele. Diodo 1N4007 nos fios da
+    trava. Os dois desenhos (gerados por tools/desenhar_ligacao.py) trazem
+    o quadro "A TRAVA E A BOLA (sem botoes)" com o fluxo acima.
+
+
 ARDUINO 3: A PONTE H DA PORTA PELO MENU DO OPERADOR
 ---------------------------------------------------
-Firmware arduino/strike_kids/strike_kids.ino, versao 3. A ponte H (motor
+Firmware arduino/strike_kids_ponte_h/strike_kids_ponte_h.ino (a versao com
+ponte H; veja "ARDUINO EM 2 VERSOES"), versao 3. A ponte H (motor
 DC ou atuador linear na porta das bolas: IN1 = D10, IN2 = D12, ENA = D11;
 no Mega ENA = D9; fins de curso A3 = aberta e A4 = fechada) agora e
 ajustada no MENU DO OPERADOR, sem regravar o Arduino:
@@ -102,7 +161,7 @@ ajustada no MENU DO OPERADOR, sem regravar o Arduino:
   * O TESTE DA PORTA mostra como a ponte H esta andando ("Ponte H: anda
     1,5 s" ou "anda ate o FIM DE CURSO") e avisa se o Arduino ainda esta
     com o firmware 2 (que ignora esses comandos e usa os PONTE_* do .ino:
-    regrave o arduino/strike_kids).
+    regrave o arduino/strike_kids_ponte_h).
   * O que esta ligado fica bem definido no comeco do .ino: USAR_PONTE_H,
     USAR_SERVO e USAR_RELE (1 = ligado; os que estao ligados recebem o
     mesmo comando). Sem servo, o Timer1 e o D9 ficam livres; sem rele, o
@@ -113,7 +172,7 @@ ajustada no MENU DO OPERADOR, sem regravar o Arduino:
     PONTE_VELOCIDADE_ABRE/_FECHA (com o ENA no D11, sem o jumper). Os
     PONTE_TEMPO_*_MS e PONTE_FIM_DE_CURSO do .ino viraram so o valor de
     fabrica (antes de o menu escolher).
-  * Desenho da montagem atualizado (docs/ligacao_arduino.pdf/.png/.svg):
+  * Desenho da montagem atualizado (hoje docs/ligacao_arduino_ponte_h.pdf):
     quadro "PONTE H NO MENU DO OPERADOR" e o passo a passo.
   * Teste sem placa: bash tools/testes/arduino/testar_firmware.sh - agora
     tambem o tempo e o fim de curso trocados pelo menu (com o motor parado
@@ -1279,10 +1338,10 @@ CAMERA, ARDUINO, ZERO DELAY E MENU DO OPERADOR
 ----------------------------------------------
 Funcionam como na versao principal - veja o LEIA-ME.txt dela (secoes
 "FOTO DAS CRIANCAS NA TV BOX", "ARDUINO DA MAQUINA", "BOTOES DA ZERO
-DELAY" e "MENU DO OPERADOR"). O firmware do Arduino esta em
-arduino/strike_kids/strike_kids.ino e o desenho da montagem em
-docs/ligacao_arduino.pdf (com a ponte H da porta: veja "ARDUINO 3" e
-"ARDUINO 2").
+DELAY" e "MENU DO OPERADOR"). O firmware do Arduino tem 2 versoes (veja
+"ARDUINO EM 2 VERSOES"): arduino/strike_kids (rele/servo, desenho
+docs/ligacao_arduino.pdf) e arduino/strike_kids_ponte_h (ponte H, desenho
+docs/ligacao_arduino_ponte_h.pdf).
 Diferencas desta edicao:
   - O mapa dos botoes da Zero Delay no modo joystick usa a numeracao do
     Godot 3 (R2 = 7, START = 11, SELECT = 10); um mapa gravado pela
@@ -1317,7 +1376,7 @@ PASTAS
   tools/      ferramentas (NAO vao no APK):
               assar_pista.py, assar_estrelas.py, assar_chao.py,
               ajustar_importacao.py,
-              desenhar_ligacao.py (docs/ligacao_arduino.svg),
+              desenhar_ligacao.py (docs/ligacao_arduino*.svg: as 2 versoes),
               exportar_godot4.gd / montar_modelos.gd (modelos do Godot 4),
               carregar_scripts.gd (confere se os scripts compilam),
               testar_shaders.gd, android/ (plugins, TelaNitida - a tela

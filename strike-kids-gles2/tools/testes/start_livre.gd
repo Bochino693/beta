@@ -78,10 +78,16 @@ func apertar(acao: String) -> void:
 	Input.parse_input_event(k2)
 
 
-## Saiu da espera direitinho: na escolha dos jogadores, sem nada da
+## Saiu da espera direitinho: na escolha dos jogadores (modo livre) ou do
+## amigo (modo fichas, 1 ficha = 1 jogador), sem nada da
 ## abertura/demonstração sobrando.
 func conferir_escolha(onde: String) -> void:
-	if not yield(esperar_estado("JOGADORES", 0.6), "completed"):
+	var t := 0.0
+	yield(get_tree(), "idle_frame")
+	while not _estado() in ["JOGADORES", "PERSONAGEM"] and t < 0.6:
+		yield(get_tree(), "idle_frame")
+		t += get_process_delta_time() / max(Engine.time_scale, 0.01)
+	if not _estado() in ["JOGADORES", "PERSONAGEM"]:
 		erro("%s: o START não valeu" % onde)
 		return
 	yield(esperar(0.6), "completed")
@@ -202,8 +208,9 @@ func _rodar() -> void:
 			yield(voltar_atracao(), "completed")
 
 	# ---------------------------------------------------------------- partida
-	# (veio da demonstração interrompida com a bola rolando) 2 jogadores
-	if _estado() == "JOGADORES":
+	# (veio da demonstração interrompida com a bola rolando, 1 ficha = 1
+	# jogador: na escolha do amigo; o START sem lado escolhido sorteia)
+	if _estado() == "PERSONAGEM":
 		yield(apertar("input_start"), "completed")
 		if not yield(esperar_estado("PRONTO", 40.0), "completed"):
 			erro("a partida não chegou na primeira jogada")

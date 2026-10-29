@@ -1,7 +1,8 @@
 extends Node
 
-## O ARDUINO DA MÁQUINA (firmware em arduino/strike_kids), pelo cabo USB da
-## TV Box (plugin StrikeSerial, addons/StrikeSerial):
+## O ARDUINO DA MÁQUINA (firmware em arduino/strike_kids - relé/servo - ou
+## arduino/strike_kids_ponte_h - ponte H; o jogo é o mesmo para os dois),
+## pelo cabo USB da TV Box (plugin StrikeSerial, addons/StrikeSerial):
 ##   * os 5 SENSORES da pista (S1 = esquerda ... S5 = direita) viram as
 ##     mesmas jogadas Z X C V B da placa Zero Delay;
 ##   * o botão de CONFIGURAÇÃO entra e sai do menu do operador;
@@ -457,6 +458,12 @@ func versao() -> int:
 	if not completo():
 		return 0
 	return int(firmware.substr(firmware.find(":") + 1))
+
+
+## O Arduino é o da versão do RELÉ/SERVO (arduino/strike_kids, sem ponte H):
+## confirma a porta na hora e ignora o tempo do motor e o fim de curso.
+func sem_ponte() -> bool:
+	return completo() and info.find(":PONTE_H=0:") >= 0
 
 
 ## A ponte H como o menu do operador escolheu, no jeito da resposta do
