@@ -133,8 +133,10 @@ O JOGO E O MESMO (o mesmo APK) para as duas; so o Arduino muda:
   * Rele: liga com a porta ABERTA (RELE_LIGADO_ABERTA 1); trava solenoide
     comum esquenta - RELE_TEMPO_MAX_S 5 (liga 5 s e solta); eletroima que
     segura a porta fechada vai no NC do rele. Diodo 1N4007 nos fios da
-    trava. Os dois desenhos (gerados por tools/desenhar_ligacao.py) trazem
-    o quadro "A TRAVA E A BOLA (sem botoes)" com o fluxo acima.
+    trava. Os dois desenhos (gerados por tools/desenhar_ligacao.py, com
+    textura: placas com trilhas, pinos dourados, fios com brilho, trava e
+    fonte de metal) trazem o quadro "A TRAVA E A BOLA (sem botoes)" com o
+    fluxo acima. Como gravar cada versao: arduino/LEIA-ME.txt.
 
 
 ARDUINO 3: A PONTE H DA PORTA PELO MENU DO OPERADOR
@@ -214,8 +216,10 @@ com outra ficha + START).
     e um START preso, um START. Agora o que ja esta acionado ao ligar so
     conta quando soltar e acionar de novo (moedeiro NA ou NF: 1 pulso = 1
     ficha).
-  * DESENHO DA MONTAGEM NOVO, em fundo branco: docs/ligacao_arduino.pdf
-    (A3), .png e .svg, feitos por tools/desenhar_ligacao.py - sensores,
+  * DESENHO DA MONTAGEM NOVO, em fundo branco e com textura (placas com
+    trilhas, pinos dourados, fios com brilho, motor, fonte de metal
+    perfurado): docs/ligacao_arduino.pdf (A3), .png e .svg, feitos por
+    tools/desenhar_ligacao.py - sensores,
     fita de LED, ponte H com o motor e a fonte de 12 V, fins de curso,
     moedeiro, START, CONFIGURACAO, TV Box, servo e rele (opcionais), as
     outras pontes H, tabela de pinos e o passo a passo.

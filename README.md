@@ -11,6 +11,14 @@ com placa de vídeo **Mali-400/450** (como a TX9 "comum"):
 - **No Linux:** `bash strike-kids-gles2/tools/android/montar_apk.sh`.
 - Como testar, gerar o APK e operar a máquina:
   [`strike-kids-gles2/LEIA-ME.txt`](strike-kids-gles2/LEIA-ME.txt).
+- **Arduino da máquina — 2 versões, o mesmo jogo:**
+  [`strike-kids-gles2/arduino/`](strike-kids-gles2/arduino/) —
+  `strike_kids` (porta pelo **relé**/servo, sem ponte H, como a primeira) e
+  `strike_kids_ponte_h` (porta com **motor pela ponte H**). Grave só a da sua
+  montagem; como gravar em
+  [`arduino/LEIA-ME.txt`](strike-kids-gles2/arduino/LEIA-ME.txt) e os desenhos
+  da ligação em [`strike-kids-gles2/docs/`](strike-kids-gles2/docs/)
+  (`ligacao_arduino.pdf` = relé, `ligacao_arduino_ponte_h.pdf` = ponte H).
 
 - **Divulgação:** o gabinete da máquina em **7 temas de adesivagem** (Branco,
   Vermelho, Azul, Espaço, Fundo do Mar, Selva dos Dinos e Parque de Diversões:
