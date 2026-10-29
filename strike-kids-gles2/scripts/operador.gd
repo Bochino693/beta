@@ -209,7 +209,7 @@ func _valor_texto(item: Array) -> String:
 	if item[2] == "cenario":
 		v = Ajustes.cenario()
 	if item[2] == "porta_tempo" or item[2] == "porta_fim_de_curso":
-		# só a ponte H usa; o Arduino do relé (arduino/strike_kids) ignora
+		# só a ponte H usa; o Arduino do relé (arduino/1_RELE_principal) ignora
 		var t := _segundos(int(v)) if item[2] == "porta_tempo" else ("SIM" if bool(v) else "NÃO")
 		return t + (" · relé: não usa" if ArduinoBridge.sem_ponte() else "")
 	match item[3]:
@@ -544,11 +544,11 @@ func _mostrar_porta() -> void:
 	_teste_rotulo.text = t
 
 
-## A porta como o Arduino está usando: a versão do RELÉ (arduino/strike_kids,
+## A porta como o Arduino está usando: a versão do RELÉ (arduino/1_RELE_principal,
 ## confirma na hora) ou a da PONTE H (o tempo e o fim de curso do menu).
 func _texto_ponte() -> String:
 	if ArduinoBridge.versao() < 3:
-		return "Firmware antigo (versão %d): grave o arduino/strike_kids (relé/servo)\nou o arduino/strike_kids_ponte_h (ponte H)" % ArduinoBridge.versao()
+		return "Firmware antigo (versão %d): grave o Arduino da pasta arduino/1_RELE_principal (relé)\nou da arduino/2_PONTE_H (ponte H)" % ArduinoBridge.versao()
 	if ArduinoBridge.sem_ponte():
 		return "Arduino do RELÉ/SERVO (sem ponte H): confirma a porta na hora\n(\"tempo do motor\" e \"fim de curso\" são só da ponte H)"
 	var fc := bool(Ajustes.valor("arduino", "porta_fim_de_curso"))

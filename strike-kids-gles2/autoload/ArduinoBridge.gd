@@ -1,7 +1,7 @@
 extends Node
 
-## O ARDUINO DA MÁQUINA (firmware em arduino/strike_kids - relé/servo - ou
-## arduino/strike_kids_ponte_h - ponte H; o jogo é o mesmo para os dois),
+## O ARDUINO DA MÁQUINA (firmware em arduino/1_RELE_principal - relé/servo,
+## a principal - ou arduino/2_PONTE_H - ponte H; o jogo é o mesmo para os dois),
 ## pelo cabo USB da TV Box (plugin StrikeSerial, addons/StrikeSerial):
 ##   * os 5 SENSORES da pista (S1 = esquerda ... S5 = direita) viram as
 ##     mesmas jogadas Z X C V B da placa Zero Delay;
@@ -406,7 +406,7 @@ func _conectou(fw: String) -> void:
 		_send("TESTE:1" if _teste else "TESTE:0")
 		_send("INFO?")
 	else:
-		_set_status("Arduino com o firmware ANTIGO (só LEDs): grave o arduino/strike_kids")
+		_set_status("Arduino com o firmware ANTIGO (só LEDs): grave o arduino 1_RELE_principal (ou 2_PONTE_H)")
 	_send(_led_state)
 	_last_led_sent = _led_state
 	emit_signal("mudou")
@@ -460,7 +460,7 @@ func versao() -> int:
 	return int(firmware.substr(firmware.find(":") + 1))
 
 
-## O Arduino é o da versão do RELÉ/SERVO (arduino/strike_kids, sem ponte H):
+## O Arduino é o da versão do RELÉ/SERVO (arduino/1_RELE_principal, sem ponte H):
 ## confirma a porta na hora e ignora o tempo do motor e o fim de curso.
 func sem_ponte() -> bool:
 	return completo() and info.find(":PONTE_H=0:") >= 0

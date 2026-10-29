@@ -127,7 +127,7 @@
 <rect x="1790" y="40" width="870" height="92" rx="22" fill="url(#g1)" stroke="#11354d" stroke-width="2" filter="url(#f_sombra_leve)"/>
 <rect x="1796" y="46" width="858" height="30" rx="16" fill="white" stroke="none" stroke-width="0" opacity="0.14"/>
 <text x="2225" y="102" font-family="Fredoka, DejaVu Sans, Arial, sans-serif" font-size="42" font-weight="bold" fill="white" text-anchor="middle">VERSÃO DO RELÉ (sem ponte H)</text>
-<text x="60" y="162" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="28" font-weight="normal" fill="#33415c" text-anchor="start">Arduino <tspan font-weight="bold">Nano</tspan> visto de cima · no <tspan font-weight="bold">Uno</tspan> e no <tspan font-weight="bold">Pro Mini</tspan>: mesmos nomes de pinos · no <tspan font-weight="bold">Mega</tspan>: servo no D11 · firmware <tspan font-weight="bold">arduino/strike_kids</tspan> (versão 3)</text>
+<text x="60" y="162" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="28" font-weight="normal" fill="#33415c" text-anchor="start">Arduino <tspan font-weight="bold">Nano</tspan> visto de cima · no <tspan font-weight="bold">Uno</tspan> e no <tspan font-weight="bold">Pro Mini</tspan>: mesmos nomes de pinos · no <tspan font-weight="bold">Mega</tspan>: servo no D11 · firmware <tspan font-weight="bold">arduino/1_RELE_principal</tspan> (versão 3)</text>
 <rect x="0" y="190" width="761" height="12" rx="0" fill="url(#g2)" stroke="none" stroke-width="0"/>
 <rect x="760" y="190" width="761" height="12" rx="0" fill="url(#g3)" stroke="none" stroke-width="0"/>
 <rect x="1520" y="190" width="761" height="12" rx="0" fill="url(#g4)" stroke="none" stroke-width="0"/>
@@ -867,12 +867,12 @@
 <path d="M 40 1580 Q 40 1560 60 1560 H 880 Q 900 1560 900 1580 V 1616 H 40 Z" fill="url(#g69)" stroke="none" stroke-width="0" stroke-linejoin="round"/>
 <rect x="43" y="1563" width="854" height="22" rx="16" fill="white" stroke="none" stroke-width="0" opacity="0.12"/>
 <text x="64" y="1599" font-family="Fredoka, DejaVu Sans, Arial, sans-serif" font-size="26" font-weight="bold" fill="white" text-anchor="start">QUAL ARDUINO GRAVAR?</text>
-<text x="64" y="1660" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="22" font-weight="normal" fill="#1b2a41" text-anchor="start"><tspan font-weight="bold">ESTE DESENHO: RELÉ / SERVO</tspan> (sem ponte H)</text>
-<text x="64" y="1691.9" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="22" font-weight="normal" fill="#1b2a41" text-anchor="start">grave <tspan font-weight="bold">arduino/strike_kids/strike_kids.ino</tspan></text>
-<text x="64" y="1723.8" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="22" font-weight="normal" fill="#1b2a41" text-anchor="start">(como a primeira versão).</text>
+<text x="64" y="1660" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="22" font-weight="normal" fill="#1b2a41" text-anchor="start"><tspan font-weight="bold">ESTE DESENHO: RELÉ / SERVO — A PRINCIPAL</tspan></text>
+<text x="64" y="1691.9" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="22" font-weight="normal" fill="#1b2a41" text-anchor="start">pasta <tspan font-weight="bold">arduino/1_RELE_principal</tspan>: grave o</text>
+<text x="64" y="1723.8" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="22" font-weight="normal" fill="#1b2a41" text-anchor="start"><tspan font-weight="bold">strike_kids_rele.ino</tspan> (como a primeira versão).</text>
 <text x="64" y="1771.65" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="22" font-weight="normal" fill="#1b2a41" text-anchor="start"><tspan font-weight="bold">Porta com MOTOR ou ATUADOR (ponte H)?</tspan></text>
-<text x="64" y="1803.55" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="22" font-weight="normal" fill="#1b2a41" text-anchor="start">grave <tspan font-weight="bold">arduino/strike_kids_ponte_h</tspan> e siga</text>
-<text x="64" y="1835.45" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="22" font-weight="normal" fill="#1b2a41" text-anchor="start">o desenho <tspan font-weight="bold">docs/ligacao_arduino_ponte_h.pdf</tspan>.</text>
+<text x="64" y="1803.55" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="22" font-weight="normal" fill="#1b2a41" text-anchor="start">pasta <tspan font-weight="bold">arduino/2_PONTE_H</tspan>: grave o</text>
+<text x="64" y="1835.45" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="22" font-weight="normal" fill="#1b2a41" text-anchor="start"><tspan font-weight="bold">strike_kids_ponte_h.ino</tspan> e siga o desenho de lá.</text>
 <text x="64" y="1883.3" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="22" font-weight="normal" fill="#1b2a41" text-anchor="start"><tspan font-weight="bold">O JOGO É O MESMO</tspan> (o mesmo APK) para os dois:</text>
 <text x="64" y="1915.2" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="22" font-weight="normal" fill="#1b2a41" text-anchor="start">o TESTE DA PORTA mostra qual está gravado.</text>
 <rect x="920" y="1580" width="500" height="390" rx="20" fill="white" stroke="#546e7a" stroke-width="5" filter="url(#f_sombra)"/>
@@ -1000,7 +1000,7 @@
 <text x="2386" y="1783.5" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="23" font-weight="normal" fill="#1b2a41" text-anchor="start"><tspan font-weight="bold">Módulo relé 5 V</tspan> (1 canal): IN = D8 · VCC = 5V · GND = GND</text>
 <text x="2386" y="1818" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="23" font-weight="normal" fill="#1b2a41" text-anchor="start">Módulo que liga com HIGH (jumper H/L no H): <tspan font-weight="bold">RELE_LIGA_EM_LOW 0</tspan></text>
 <text x="2386" y="1852.5" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="23" font-weight="normal" fill="#1b2a41" text-anchor="start"><tspan font-weight="bold">Motor DC ou atuador linear</tspan> (abre E fecha pelo motor): só com a <tspan font-weight="bold">PONTE H</tspan></text>
-<text x="2386" y="1887" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="23" font-weight="normal" fill="#1b2a41" text-anchor="start">→ arduino/strike_kids_ponte_h e o desenho ligacao_arduino_ponte_h.pdf</text>
+<text x="2386" y="1887" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="23" font-weight="normal" fill="#1b2a41" text-anchor="start">→ a pasta arduino/2_PONTE_H (o firmware e o desenho da ponte H)</text>
 <path d="M 700 1282 L 700 1378" fill="none" stroke="white" stroke-width="16" stroke-linejoin="round" stroke-linecap="round"/>
 <path d="M 700 1282 L 700 1378" fill="none" stroke="#141414" stroke-width="9" stroke-linejoin="round" stroke-linecap="round"/>
 <path d="M 700 1282 L 700 1378" fill="none" stroke="#212121" stroke-width="6" stroke-linejoin="round" stroke-linecap="round"/>
@@ -1285,8 +1285,8 @@
 <path d="M 1920 2040 Q 1920 2020 1940 2020 H 2840 Q 2860 2020 2860 2040 V 2076 H 1920 Z" fill="url(#g19)" stroke="none" stroke-width="0" stroke-linejoin="round"/>
 <rect x="1923" y="2023" width="934" height="22" rx="16" fill="white" stroke="none" stroke-width="0" opacity="0.12"/>
 <text x="1944" y="2059" font-family="Fredoka, DejaVu Sans, Arial, sans-serif" font-size="28" font-weight="bold" fill="white" text-anchor="start">PRIMEIRA VEZ (passo a passo)</text>
-<text x="1948" y="2128" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="26" font-weight="normal" fill="#1b2a41" text-anchor="start"><tspan font-weight="bold">1. Grave o strike_kids.ino</tspan> (pasta</text>
-<text x="1948" y="2166.48" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="26" font-weight="normal" fill="#1b2a41" text-anchor="start">arduino/strike_kids) pela IDE do Arduino</text>
+<text x="1948" y="2128" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="26" font-weight="normal" fill="#1b2a41" text-anchor="start"><tspan font-weight="bold">1. Grave o strike_kids_rele.ino</tspan> (pasta</text>
+<text x="1948" y="2166.48" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="26" font-weight="normal" fill="#1b2a41" text-anchor="start">1_RELE_principal) pela IDE do Arduino</text>
 <text x="1948" y="2204.96" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="26" font-weight="normal" fill="#1b2a41" text-anchor="start">(Nano clone: Processador “ATmega328P (Old</text>
 <text x="1948" y="2243.44" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="26" font-weight="normal" fill="#1b2a41" text-anchor="start">Bootloader)”; biblioteca Adafruit NeoPixel,</text>
 <text x="1948" y="2281.92" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="26" font-weight="normal" fill="#1b2a41" text-anchor="start">ou USAR_LEDS 0 sem a fita).</text>

@@ -142,7 +142,7 @@
 <rect x="1790" y="40" width="870" height="92" rx="22" fill="url(#g1)" stroke="#7d251c" stroke-width="2" filter="url(#f_sombra_leve)"/>
 <rect x="1796" y="46" width="858" height="30" rx="16" fill="white" stroke="none" stroke-width="0" opacity="0.14"/>
 <text x="2225" y="102" font-family="Fredoka, DejaVu Sans, Arial, sans-serif" font-size="42" font-weight="bold" fill="white" text-anchor="middle">VERSÃO COM PONTE H</text>
-<text x="60" y="162" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="28" font-weight="normal" fill="#33415c" text-anchor="start">Arduino <tspan font-weight="bold">Nano</tspan> visto de cima · no <tspan font-weight="bold">Uno</tspan> e no <tspan font-weight="bold">Pro Mini</tspan>: mesmos nomes de pinos · no <tspan font-weight="bold">Mega</tspan>: servo no D11 e ENA no D9 · firmware <tspan font-weight="bold">arduino/strike_kids_ponte_h</tspan> (versão 3)</text>
+<text x="60" y="162" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="28" font-weight="normal" fill="#33415c" text-anchor="start">Arduino <tspan font-weight="bold">Nano</tspan> visto de cima · no <tspan font-weight="bold">Uno</tspan> e no <tspan font-weight="bold">Pro Mini</tspan>: mesmos nomes de pinos · no <tspan font-weight="bold">Mega</tspan>: servo no D11 e ENA no D9 · firmware <tspan font-weight="bold">arduino/2_PONTE_H</tspan> (versão 3)</text>
 <rect x="0" y="190" width="761" height="12" rx="0" fill="url(#g2)" stroke="none" stroke-width="0"/>
 <rect x="760" y="190" width="761" height="12" rx="0" fill="url(#g3)" stroke="none" stroke-width="0"/>
 <rect x="1520" y="190" width="761" height="12" rx="0" fill="url(#g4)" stroke="none" stroke-width="0"/>
@@ -919,7 +919,7 @@
 <text x="2824" y="990" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="21" font-weight="normal" fill="#1b2a41" text-anchor="start">fim do curso (sem micro-switch; menu: <tspan font-weight="bold">Porta: tempo do motor</tspan>).</text>
 <rect x="2800" y="1080" width="960" height="420" rx="18" fill="white" stroke="#9e9e9e" stroke-width="4" filter="url(#f_sombra)" stroke-dasharray="18 10"/>
 <text x="2824" y="1124" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="25" font-weight="bold" fill="#616161" text-anchor="start">OPCIONAL — TRAVA POR SERVO (D9) OU RELÉ (D8)</text>
-<text x="2824" y="1156" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="20" font-weight="normal" fill="#5d6d7e" text-anchor="start">junto com a ponte H (o mesmo comando) · sem ponte H: arduino/strike_kids</text>
+<text x="2824" y="1156" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="20" font-weight="normal" fill="#5d6d7e" text-anchor="start">junto com a ponte H (o mesmo comando) · sem ponte H: arduino/1_RELE_principal</text>
 <rect x="2830" y="1190" width="410" height="280" rx="12" fill="#f7f9fa" stroke="#cfd6db" stroke-width="2"/>
 <rect x="2844" y="1260" width="202" height="30" rx="6" fill="url(#g68)" stroke="#0f2a4d" stroke-width="2"/>
 <rect x="2860" y="1230" width="170" height="110" rx="10" fill="url(#g69)" stroke="#0b1f3a" stroke-width="2" filter="url(#f_sombra_leve)"/>
@@ -1523,7 +1523,7 @@
 <text x="988" y="2416.6" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="26" font-weight="normal" fill="#1b2a41" text-anchor="start">O jogo manda ao Arduino, que guarda na EEPROM.</text>
 <text x="988" y="2474.32" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="26" font-weight="normal" fill="#1b2a41" text-anchor="start"><tspan font-weight="bold">No começo do .ino:</tspan> USAR_SERVO / USAR_RELE 0</text>
 <text x="988" y="2512.8" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="26" font-weight="normal" fill="#1b2a41" text-anchor="start">= sem servo / relé · FC_NF 1 = micro-switch no NF.</text>
-<text x="988" y="2551.28" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="26" font-weight="normal" fill="#1b2a41" text-anchor="start"><tspan font-weight="bold">Só relé/servo, sem motor?</tspan> arduino/strike_kids.</text>
+<text x="988" y="2551.28" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="26" font-weight="normal" fill="#1b2a41" text-anchor="start"><tspan font-weight="bold">Só relé/servo?</tspan> arduino/1_RELE_principal.</text>
 <text x="988" y="2589.76" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="26" font-weight="normal" fill="#1b2a41" text-anchor="start"><tspan font-weight="bold">Abriu ao contrário?</tspan> Inverta os fios OUT1/OUT2</text>
 <text x="988" y="2628.24" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="26" font-weight="normal" fill="#1b2a41" text-anchor="start">ou PONTE_INVERTIDA 1.</text>
 <text x="988" y="2666.72" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="26" font-weight="normal" fill="#1b2a41" text-anchor="start"><tspan font-weight="bold">PONTE_VELOCIDADE_ABRE / _FECHA</tspan> (0 a 255): só</text>
@@ -1533,10 +1533,10 @@
 <path d="M 1920 2040 Q 1920 2020 1940 2020 H 2840 Q 2860 2020 2860 2040 V 2076 H 1920 Z" fill="url(#g19)" stroke="none" stroke-width="0" stroke-linejoin="round"/>
 <rect x="1923" y="2023" width="934" height="22" rx="16" fill="white" stroke="none" stroke-width="0" opacity="0.12"/>
 <text x="1944" y="2059" font-family="Fredoka, DejaVu Sans, Arial, sans-serif" font-size="28" font-weight="bold" fill="white" text-anchor="start">PRIMEIRA VEZ (passo a passo)</text>
-<text x="1948" y="2128" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="26" font-weight="normal" fill="#1b2a41" text-anchor="start"><tspan font-weight="bold">1. Grave o strike_kids_ponte_h.ino</tspan> pela IDE</text>
-<text x="1948" y="2166.48" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="26" font-weight="normal" fill="#1b2a41" text-anchor="start">do Arduino (Nano clone: Processador “ATmega328P</text>
-<text x="1948" y="2204.96" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="26" font-weight="normal" fill="#1b2a41" text-anchor="start">(Old Bootloader)”; biblioteca Adafruit NeoPixel,</text>
-<text x="1948" y="2243.44" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="26" font-weight="normal" fill="#1b2a41" text-anchor="start">ou USAR_LEDS 0 sem a fita).</text>
+<text x="1948" y="2128" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="26" font-weight="normal" fill="#1b2a41" text-anchor="start"><tspan font-weight="bold">1. Grave o strike_kids_ponte_h.ino</tspan> (pasta</text>
+<text x="1948" y="2166.48" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="26" font-weight="normal" fill="#1b2a41" text-anchor="start">2_PONTE_H) pela IDE do Arduino (Nano clone:</text>
+<text x="1948" y="2204.96" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="26" font-weight="normal" fill="#1b2a41" text-anchor="start">Processador “ATmega328P (Old Bootloader)”;</text>
+<text x="1948" y="2243.44" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="26" font-weight="normal" fill="#1b2a41" text-anchor="start">biblioteca Adafruit NeoPixel, ou USAR_LEDS 0).</text>
 <text x="1948" y="2281.92" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="26" font-weight="normal" fill="#1b2a41" text-anchor="start"><tspan font-weight="bold">2. Monitor Serial a 9600:</tspan> OLA:STRIKE_KIDS:3</text>
 <text x="1948" y="2320.4" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="26" font-weight="normal" fill="#1b2a41" text-anchor="start">e a porta FECHA (PORTA:FECHADA quando chega).</text>
 <text x="1948" y="2358.88" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="26" font-weight="normal" fill="#1b2a41" text-anchor="start">Mande PORTA:ABRE e PORTA:FECHA para testar.</text>

@@ -113,14 +113,21 @@ A MAQUINA SEM BOTOES: A FICHA ABRE A TRAVA E A BOLA E O START
 
 ARDUINO EM 2 VERSOES: RELE (COMO A PRIMEIRA) OU PONTE H
 -------------------------------------------------------
-O JOGO E O MESMO (o mesmo APK) para as duas; so o Arduino muda:
-  * arduino/strike_kids/strike_kids.ino - VERSAO DO RELE, sem ponte H,
+O JOGO E O MESMO (o mesmo APK) para as duas; so o Arduino muda. Cada
+versao fica numa pasta com o codigo, o desenho da montagem (PDF A3, PNG e
+SVG) e um passo a passo completo (pecas, ligacao pino a pino, ajustes do
+.ino, como gravar, testar e resolver problemas); o arduino/LEIA-ME.txt diz
+qual escolher:
+  * arduino/1_RELE_principal/ - VERSAO 1, A PRINCIPAL: RELE, sem ponte H,
     como a primeira: a trava pelo RELE no D8 (trava solenoide 12 V ou
-    eletroima) e/ou SERVO no D9. Desenho: docs/ligacao_arduino.pdf.
-  * arduino/strike_kids_ponte_h/strike_kids_ponte_h.ino - VERSAO COM PONTE
-    H: motor DC ou atuador linear (IN1 = D10, IN2 = D12, ENA = D11, fins
-    de curso A3/A4; veja "ARDUINO 3"); servo e rele tambem recebem o
-    comando. Desenho: docs/ligacao_arduino_ponte_h.pdf.
+    eletroima) e/ou SERVO no D9. Codigo:
+    strike_kids_rele/strike_kids_rele.ino; desenho:
+    ligacao_arduino_rele.pdf; passo a passo: LEIA-ME_RELE.txt.
+  * arduino/2_PONTE_H/ - VERSAO 2: PONTE H - motor DC ou atuador linear
+    (IN1 = D10, IN2 = D12, ENA = D11, fins de curso A3/A4; veja "ARDUINO
+    3"); servo e rele tambem recebem o comando. Codigo:
+    strike_kids_ponte_h/strike_kids_ponte_h.ino; desenho:
+    ligacao_arduino_ponte_h.pdf; passo a passo: LEIA-ME_PONTE_H.txt.
   * O codigo e o mesmo nos dois (firmware 3); so o comentario do comeco e
     o USAR_PONTE_H mudam (0 no do rele, 1 no da ponte H). O teste do PC
     (bash tools/testes/arduino/testar_firmware.sh) confere que eles nao
@@ -141,7 +148,7 @@ O JOGO E O MESMO (o mesmo APK) para as duas; so o Arduino muda:
 
 ARDUINO 3: A PONTE H DA PORTA PELO MENU DO OPERADOR
 ---------------------------------------------------
-Firmware arduino/strike_kids_ponte_h/strike_kids_ponte_h.ino (a versao com
+Firmware arduino/2_PONTE_H/strike_kids_ponte_h/strike_kids_ponte_h.ino (a versao com
 ponte H; veja "ARDUINO EM 2 VERSOES"), versao 3. A ponte H (motor
 DC ou atuador linear na porta das bolas: IN1 = D10, IN2 = D12, ENA = D11;
 no Mega ENA = D9; fins de curso A3 = aberta e A4 = fechada) agora e
@@ -163,7 +170,7 @@ ajustada no MENU DO OPERADOR, sem regravar o Arduino:
   * O TESTE DA PORTA mostra como a ponte H esta andando ("Ponte H: anda
     1,5 s" ou "anda ate o FIM DE CURSO") e avisa se o Arduino ainda esta
     com o firmware 2 (que ignora esses comandos e usa os PONTE_* do .ino:
-    regrave o arduino/strike_kids_ponte_h).
+    regrave o arduino/2_PONTE_H).
   * O que esta ligado fica bem definido no comeco do .ino: USAR_PONTE_H,
     USAR_SERVO e USAR_RELE (1 = ligado; os que estao ligados recebem o
     mesmo comando). Sem servo, o Timer1 e o D9 ficam livres; sem rele, o
@@ -174,7 +181,8 @@ ajustada no MENU DO OPERADOR, sem regravar o Arduino:
     PONTE_VELOCIDADE_ABRE/_FECHA (com o ENA no D11, sem o jumper). Os
     PONTE_TEMPO_*_MS e PONTE_FIM_DE_CURSO do .ino viraram so o valor de
     fabrica (antes de o menu escolher).
-  * Desenho da montagem atualizado (hoje docs/ligacao_arduino_ponte_h.pdf):
+  * Desenho da montagem atualizado (hoje arduino/2_PONTE_H/
+    ligacao_arduino_ponte_h.pdf):
     quadro "PONTE H NO MENU DO OPERADOR" e o passo a passo.
   * Teste sem placa: bash tools/testes/arduino/testar_firmware.sh - agora
     tambem o tempo e o fim de curso trocados pelo menu (com o motor parado
@@ -184,7 +192,7 @@ ajustada no MENU DO OPERADOR, sem regravar o Arduino:
 
 ARDUINO 2: PONTE H NA PORTA DAS BOLAS (E SEM FICHA DE GRACA)
 ------------------------------------------------------------
-Firmware arduino/strike_kids/strike_kids.ino, versao 2 (o jogo nao mudou:
+Firmware arduino/strike_kids/strike_kids.ino (hoje arduino/2_PONTE_H), versao 2 (o jogo nao mudou:
 a porta continua FECHADA ao ligar e na espera, ABRE com o START - com
 ficha; no modo livre, so o START -, FECHA no fim da partida e abre de novo
 com outra ficha + START).
@@ -218,7 +226,8 @@ com outra ficha + START).
     ficha).
   * DESENHO DA MONTAGEM NOVO, em fundo branco e com textura (placas com
     trilhas, pinos dourados, fios com brilho, motor, fonte de metal
-    perfurado): docs/ligacao_arduino.pdf (A3), .png e .svg, feitos por
+    perfurado): hoje arduino/2_PONTE_H/ligacao_arduino_ponte_h.pdf (A3),
+    .png e .svg, feitos por
     tools/desenhar_ligacao.py - sensores,
     fita de LED, ponte H com o motor e a fonte de 12 V, fins de curso,
     moedeiro, START, CONFIGURACAO, TV Box, servo e rele (opcionais), as
@@ -1343,9 +1352,9 @@ CAMERA, ARDUINO, ZERO DELAY E MENU DO OPERADOR
 Funcionam como na versao principal - veja o LEIA-ME.txt dela (secoes
 "FOTO DAS CRIANCAS NA TV BOX", "ARDUINO DA MAQUINA", "BOTOES DA ZERO
 DELAY" e "MENU DO OPERADOR"). O firmware do Arduino tem 2 versoes (veja
-"ARDUINO EM 2 VERSOES"): arduino/strike_kids (rele/servo, desenho
-docs/ligacao_arduino.pdf) e arduino/strike_kids_ponte_h (ponte H, desenho
-docs/ligacao_arduino_ponte_h.pdf).
+"ARDUINO EM 2 VERSOES"): arduino/1_RELE_principal (rele/servo, a
+principal) e arduino/2_PONTE_H (ponte H), cada uma com o codigo, o desenho
+da montagem e o passo a passo; qual escolher: arduino/LEIA-ME.txt.
 Diferencas desta edicao:
   - O mapa dos botoes da Zero Delay no modo joystick usa a numeracao do
     Godot 3 (R2 = 7, START = 11, SELECT = 10); um mapa gravado pela
@@ -1380,7 +1389,7 @@ PASTAS
   tools/      ferramentas (NAO vao no APK):
               assar_pista.py, assar_estrelas.py, assar_chao.py,
               ajustar_importacao.py,
-              desenhar_ligacao.py (docs/ligacao_arduino*.svg: as 2 versoes),
+              desenhar_ligacao.py (os desenhos das 2 versoes do Arduino),
               exportar_godot4.gd / montar_modelos.gd (modelos do Godot 4),
               carregar_scripts.gd (confere se os scripts compilam),
               testar_shaders.gd, android/ (plugins, TelaNitida - a tela
@@ -1412,4 +1421,5 @@ PASTAS
               visual; listar_mundo: as pecas do mundo e o peso de cada
               uma; perfil_remoto.py: tempo de cada funcao de script em
               cada quadro, pelo "remote debug" do Godot...)
-  docs/       montagem do Arduino (PDF A3, PNG e SVG)
+  arduino/    o Arduino da maquina: 1_RELE_principal (a principal) e
+              2_PONTE_H - codigo, desenho da montagem e passo a passo

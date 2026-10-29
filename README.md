@@ -11,14 +11,16 @@ com placa de vídeo **Mali-400/450** (como a TX9 "comum"):
 - **No Linux:** `bash strike-kids-gles2/tools/android/montar_apk.sh`.
 - Como testar, gerar o APK e operar a máquina:
   [`strike-kids-gles2/LEIA-ME.txt`](strike-kids-gles2/LEIA-ME.txt).
-- **Arduino da máquina — 2 versões, o mesmo jogo:**
-  [`strike-kids-gles2/arduino/`](strike-kids-gles2/arduino/) —
-  `strike_kids` (porta pelo **relé**/servo, sem ponte H, como a primeira) e
-  `strike_kids_ponte_h` (porta com **motor pela ponte H**). Grave só a da sua
-  montagem; como gravar em
-  [`arduino/LEIA-ME.txt`](strike-kids-gles2/arduino/LEIA-ME.txt) e os desenhos
-  da ligação em [`strike-kids-gles2/docs/`](strike-kids-gles2/docs/)
-  (`ligacao_arduino.pdf` = relé, `ligacao_arduino_ponte_h.pdf` = ponte H).
+- **Arduino da máquina — 2 versões, o mesmo jogo** (grave só a da sua montagem):
+  [`strike-kids-gles2/arduino/`](strike-kids-gles2/arduino/)
+  ([qual escolher](strike-kids-gles2/arduino/LEIA-ME.txt))
+  - [`1_RELE_principal/`](strike-kids-gles2/arduino/1_RELE_principal/) — **a principal**: porta
+    pela trava com **relé** (D8) e/ou servo, sem ponte H, como a primeira versão.
+    Código `strike_kids_rele/strike_kids_rele.ino`, desenho `ligacao_arduino_rele.pdf`
+    e o passo a passo [`LEIA-ME_RELE.txt`](strike-kids-gles2/arduino/1_RELE_principal/LEIA-ME_RELE.txt).
+  - [`2_PONTE_H/`](strike-kids-gles2/arduino/2_PONTE_H/) — porta com **motor pela ponte H**.
+    Código `strike_kids_ponte_h/strike_kids_ponte_h.ino`, desenho `ligacao_arduino_ponte_h.pdf`
+    e o passo a passo [`LEIA-ME_PONTE_H.txt`](strike-kids-gles2/arduino/2_PONTE_H/LEIA-ME_PONTE_H.txt).
 
 - **Divulgação:** o gabinete da máquina em **7 temas de adesivagem** (Branco,
   Vermelho, Azul, Espaço, Fundo do Mar, Selva dos Dinos e Parque de Diversões:
