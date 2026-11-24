@@ -66,6 +66,9 @@ var info := ""                 # resposta do INFO?
 var calibracao := ""           # resposta do CALIBRA (CAL:OK:HHHHH)
 var sensores := ""             # estado ao vivo (só no teste): "00100", 1 = bola no sensor
 var contagem := [0, 0, 0, 0, 0]
+## quantas vezes o Arduino mandou cada um (a tela de teste do menu mostra:
+## serve para conferir a ligação do moedeiro no A2 e do START no A1)
+var botoes := {"FICHA": 0, "START": 0, "CFG": 0}
 var porta_aberta := false      # o que o Arduino confirmou (no jeito do jogo)
 var porta_quer := false        # o que o jogo pediu
 var aviso := ""                # último AVISO: do Arduino (PORTA_TRAVOU...); a porta chegou = ""
@@ -368,11 +371,15 @@ func _receber(linha: String, agora: int) -> void:
 		return
 	match linha:
 		"CFG":
+			botoes["CFG"] += 1
 			_pulsar("input_teste")
 		"START":
+			botoes["START"] += 1
 			_pulsar("input_start")
 		"FICHA":
+			botoes["FICHA"] += 1
 			_pulsar("input_credit")
+			emit_signal("mudou")
 		"PORTA:ABERTA", "PORTA:FECHADA":
 			var aberta := linha == "PORTA:ABERTA"
 			porta_aberta = aberta != bool(Ajustes.valor("arduino", "porta_invertida"))
@@ -501,6 +508,7 @@ func modo_teste(sim: bool) -> void:
 	_teste = sim
 	if sim:
 		contagem = [0, 0, 0, 0, 0]
+		botoes = {"FICHA": 0, "START": 0, "CFG": 0}
 	if completo():
 		_send("TESTE:1" if sim else "TESTE:0")
 
