@@ -61,7 +61,6 @@ var _aperte_sub: Label
 ## a máquina sem botões: a espera diz "ROLE A BOLA!" (modo livre, ou com
 ## ficha) ou "INSIRA FICHA" (modo fichas sem ficha) - modo_espera()
 var _modo_bola := false
-var _modo_botao := false          # modo livre com botão: "APERTE START" (o START abre a trava)
 var _modo_espera := ""
 var _recorde: Label
 var _recorde_placa: Painel3D
@@ -900,29 +899,28 @@ func _montar_atracao() -> void:
 ##   "ficha": modo fichas sem ficha (trava fechada) - "INSIRA FICHA"
 ##   "pago1" / "pago2": com 1 ou 2 fichas (trava aberta) - "ROLE A BOLA!"
 func modo_espera(modo: String) -> void:
-	if modo == _modo_espera:
+	# (as fichas por jogador entram na conta: o operador pode ter trocado)
+	var n := Ajustes.fichas_por_jogador()
+	var chave := "%s/%d" % [modo, n]
+	if chave == _modo_espera:
 		return
-	_modo_espera = modo
-	_modo_bola = modo != "ficha" and modo != "botao"
-	_modo_botao = modo == "botao"
-	_aperte.text = "ROLE A BOLA!" if _modo_bola else ("APERTE START!" if _modo_botao else "INSIRA FICHA")
+	_modo_espera = chave
+	_modo_bola = modo != "ficha"
+	_aperte.text = "ROLE A BOLA!" if _modo_bola else "INSIRA FICHA"
 	match modo:
 		"ficha":
-			_aperte_sub.text = "1 FICHA: BOB OU MIA  ·  2 FICHAS: BOB x MIA"
-		"botao":
-			_aperte_sub.text = "A PORTA ABRE E A BOLA SAI!"
+			# quantas fichas para 1 e para 2 jogadores
+			_aperte_sub.text = "%d %s: 1 JOGADOR  ·  %d FICHAS: 2 JOGADORES" % [n, "FICHA" if n == 1 else "FICHAS", n * 2]
 		"pago2":
-			_aperte_sub.text = "2 FICHAS: BOB x MIA!"
+			_aperte_sub.text = "%d FICHAS: BOB x MIA!" % (n * 2)
 		_:
 			_aperte_sub.text = "ESQUERDA = BOB  ·  DIREITA = MIA"
 	var fichas := modo != "livre"
 	for i in _jog_cartoes.size():
 		var c: Painel3D = _jog_cartoes[i]
-		(c.get_node("botao/texto") as Label).text = "START" if _modo_botao else "ROLE"
-		if _modo_botao:
-			(c.get_node("vezes") as Label).text = "1 VEZ" if i == 0 else "2 VEZES"
-		elif fichas:
-			(c.get_node("vezes") as Label).text = "1 FICHA" if i == 0 else "2 FICHAS"
+		(c.get_node("botao/texto") as Label).text = "ROLE"
+		if fichas:
+			(c.get_node("vezes") as Label).text = ("1 FICHA" if n == 1 else "%d FICHAS" % n) if i == 0 else "%d FICHAS" % (n * 2)
 		else:
 			(c.get_node("vezes") as Label).text = "1 BOLA" if i == 0 else "2 BOLAS"
 	_chave_melhores = ""
@@ -1196,9 +1194,7 @@ func jogadores(ligado: bool, n := 1, fracao := 0.0, segundos := 0) -> void:
 	if n != _jog_n:
 		_pular(_jog_cartoes[n - 1])
 	_jog_n = n
-	if n == 1 and _modo_botao:
-		_jog_dica.text = "Vão jogar em 2? Aperte START de novo!\nSe não, começa com 1 jogador em %d..." % Compat.imax(segundos, 1)
-	elif n == 1:
+	if n == 1:
 		_jog_dica.text = "Vão jogar em 2? A outra criança rola uma bola agora!\nSe não, começa com 1 jogador em %d..." % Compat.imax(segundos, 1)
 	else:
 		_jog_dica.text = "2 JOGADORES: BOB x MIA!\nPreparem-se..."
@@ -1399,9 +1395,17 @@ func tela_fim(ligado: bool, dados := {}) -> void:
 	_fim.add_child(botao)
 	var ap := rotulo(_jogar_de_novo(), 44 * u, MARINHO, 0, MARINHO, fonte_titulo)
 	_sombra(ap, Color(1, 1, 1, 0.55))
-	ap.rect_size = Vector2(bw, bh - 14 * u)
+	ap.rect_size = Vector2(bw, 70 * u)
 	ap.name = "aperte"
 	botao.add_child(ap)
+	# embaixo, o MESMO aviso da tela de espera (quantas fichas para 1 e 2
+	# jogadores, ou o lado da bola): o fim repete o começo
+	var sub := rotulo(_aperte_sub.text, 28 * u, MARINHO, 0, MARINHO, fonte_titulo)
+	sub.rect_size = Vector2(bw, 36 * u)
+	sub.rect_position = Vector2(0, 62 * u)
+	sub.name = "sub"
+	botao.add_child(sub)
+	_caber(sub, 28 * u, bw - 70 * u)
 	_caber(ap, 44 * u, bw - 70 * u)
 
 
@@ -1618,8 +1622,6 @@ func _quadro_classificacao(lista: Array, js: Array, area: Rect2) -> void:
 
 
 func _jogar_de_novo() -> String:
-	if _modo_botao:
-		return "APERTE START PARA JOGAR DE NOVO"
 	return "ROLE A BOLA PARA JOGAR DE NOVO" if _modo_bola else "INSIRA FICHA PARA JOGAR DE NOVO"
 
 
@@ -1628,6 +1630,11 @@ func fim_contagem(segundos: int) -> void:
 	if ap:
 		ap.text = "%s  (%d)" % [_jogar_de_novo(), segundos]
 		_caber(ap, 44 * u, ap.rect_size.x - 70 * u)
+	var sub := _fim.find_node("sub", true, false) as Label
+	if sub and sub.text != _aperte_sub.text:
+		# a ficha entrou (ou outra): o aviso acompanha o da espera
+		sub.text = _aperte_sub.text
+		_caber(sub, 28 * u, sub.rect_size.x - 70 * u)
 	var b := _fim.get_node_or_null("botao") as Control
 	if b:
 		b.rect_pivot_offset = b.rect_size / 2
