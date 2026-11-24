@@ -61,6 +61,7 @@ var _aperte_sub: Label
 ## a máquina sem botões: a espera diz "ROLE A BOLA!" (modo livre, ou com
 ## ficha) ou "INSIRA FICHA" (modo fichas sem ficha) - modo_espera()
 var _modo_bola := false
+var _modo_botao := false          # modo livre com botão: "APERTE START" (o START abre a trava)
 var _modo_espera := ""
 var _recorde: Label
 var _recorde_placa: Painel3D
@@ -902,11 +903,14 @@ func modo_espera(modo: String) -> void:
 	if modo == _modo_espera:
 		return
 	_modo_espera = modo
-	_modo_bola = modo != "ficha"
-	_aperte.text = "ROLE A BOLA!" if _modo_bola else "INSIRA FICHA"
+	_modo_bola = modo != "ficha" and modo != "botao"
+	_modo_botao = modo == "botao"
+	_aperte.text = "ROLE A BOLA!" if _modo_bola else ("APERTE START!" if _modo_botao else "INSIRA FICHA")
 	match modo:
 		"ficha":
-			_aperte_sub.text = "DEPOIS É SÓ ROLAR A BOLA!"
+			_aperte_sub.text = "1 FICHA: BOB OU MIA  ·  2 FICHAS: BOB x MIA"
+		"botao":
+			_aperte_sub.text = "A PORTA ABRE E A BOLA SAI!"
 		"pago2":
 			_aperte_sub.text = "2 FICHAS: BOB x MIA!"
 		_:
@@ -914,8 +918,10 @@ func modo_espera(modo: String) -> void:
 	var fichas := modo != "livre"
 	for i in _jog_cartoes.size():
 		var c: Painel3D = _jog_cartoes[i]
-		(c.get_node("botao/texto") as Label).text = "ROLE"
-		if fichas:
+		(c.get_node("botao/texto") as Label).text = "START" if _modo_botao else "ROLE"
+		if _modo_botao:
+			(c.get_node("vezes") as Label).text = "1 VEZ" if i == 0 else "2 VEZES"
+		elif fichas:
 			(c.get_node("vezes") as Label).text = "1 FICHA" if i == 0 else "2 FICHAS"
 		else:
 			(c.get_node("vezes") as Label).text = "1 BOLA" if i == 0 else "2 BOLAS"
@@ -1190,7 +1196,9 @@ func jogadores(ligado: bool, n := 1, fracao := 0.0, segundos := 0) -> void:
 	if n != _jog_n:
 		_pular(_jog_cartoes[n - 1])
 	_jog_n = n
-	if n == 1:
+	if n == 1 and _modo_botao:
+		_jog_dica.text = "Vão jogar em 2? Aperte START de novo!\nSe não, começa com 1 jogador em %d..." % Compat.imax(segundos, 1)
+	elif n == 1:
 		_jog_dica.text = "Vão jogar em 2? A outra criança rola uma bola agora!\nSe não, começa com 1 jogador em %d..." % Compat.imax(segundos, 1)
 	else:
 		_jog_dica.text = "2 JOGADORES: BOB x MIA!\nPreparem-se..."
@@ -1282,6 +1290,10 @@ func _montar_selecao() -> void:
 		_selecao.add_child(placa)
 		var l := rotulo("BOB" if i == 0 else "MIA", 70, Color.white, 16, MARINHO, fonte_titulo)
 		placa.add_child(l)
+		# o lado da bola, escrito embaixo do nome de cada um
+		var lado := rotulo("BOLA NA ESQUERDA" if i == 0 else "BOLA NA DIREITA", 30, Color.white, 8, MARINHO, fonte_titulo)
+		lado.name = "lado"
+		placa.add_child(lado)
 		_sel_placas.append(placa)
 		_sel_nomes.append(l)
 	_sel_dica = Painel3D.new(MARINHO.lightened(0.12), 30, 8, 5)
@@ -1291,7 +1303,7 @@ func _montar_selecao() -> void:
 	_sel_dica.add_child(_sel_texto)
 	# os 5 sensores: esquerda = Bob, meio = confirma, direita = Mia
 	_sel_sensores = _sensores([COR_BOB, COR_BOB, DESTAQUE, COR_MIA, COR_MIA],
-		[["BOB", 0, 1], ["OK", 2, 2], ["MIA", 3, 4]])
+		[["BOB", 0, 1], ["SORTEIO", 2, 2], ["MIA", 3, 4]])
 	_sel_dica.add_child(_sel_sensores)
 
 
@@ -1606,6 +1618,8 @@ func _quadro_classificacao(lista: Array, js: Array, area: Rect2) -> void:
 
 
 func _jogar_de_novo() -> String:
+	if _modo_botao:
+		return "APERTE START PARA JOGAR DE NOVO"
 	return "ROLE A BOLA PARA JOGAR DE NOVO" if _modo_bola else "INSIRA FICHA PARA JOGAR DE NOVO"
 
 
@@ -2156,13 +2170,18 @@ func layout() -> void:
 	t.rect_position = Vector2.ZERO
 	for i in 2:
 		var p: Painel3D = _sel_placas[i]
-		p.rect_size = Vector2(330, 116) * u
+		p.rect_size = Vector2(380, 160) * u
 		if p.rect_position == Vector2.ZERO:
 			p.rect_position = Vector2(T.x * (0.27 if i == 0 else 0.73) - p.rect_size.x / 2, T.y * 0.64)
 		var l: Label = _sel_nomes[i]
 		_tamanho_rotulo(l, 70 * u, 16 * u)
-		l.rect_size = Vector2(p.rect_size.x, p.rect_size.y - 14 * u)
+		l.rect_size = Vector2(p.rect_size.x, 100 * u)
 		l.rect_position = Vector2.ZERO
+		var lado := p.get_node("lado") as Label
+		_tamanho_rotulo(lado, 30 * u, 8 * u)
+		lado.rect_size = Vector2(p.rect_size.x, 44 * u)
+		lado.rect_position = Vector2(0, 94 * u)
+		_caber(lado, 30 * u, p.rect_size.x - 30 * u)
 	var dw: float = min(T.x * 0.9, 860 * u)
 	var dh := 230 * u
 	_sel_dica.rect_size = Vector2(dw, dh)

@@ -34,6 +34,7 @@ const ITENS := [
 	["Replay do strike", "jogo", "replay_strike", "bool", []],
 	["Demonstração na tela inicial", "jogo", "demo", "bool", []],
 	["Modo livre (sem ficha e sem trava)", "jogo", "modo_livre", "bool", []],
+	["Modo livre: botão START abre a trava", "jogo", "livre_botao", "bool", []],
 	["Foto das crianças (câmera)", "jogo", "foto", "bool", []],
 	["Giro da câmera", "jogo", "camera_giro", "lista", [0, 90, 180, 270]],
 	["Espelhar a câmera", "jogo", "camera_espelho", "bool", []],
