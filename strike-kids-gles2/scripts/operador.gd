@@ -315,6 +315,11 @@ func _input(event: InputEvent) -> void:
 		return
 	get_tree().set_input_as_handled()
 	var cmd := ""
+	if ArcadeControls.eh_credito(event):
+		# ficha com o menu aberto: o crédito conta (antes se perdia)
+		Ajustes.adicionar_credito()
+		Sons.tocar("moeda", 0.65)
+		return
 	if ArcadeControls.eh_config(event):
 		cmd = "sair"
 	elif ArcadeControls.eh_start(event):
@@ -657,7 +662,9 @@ func _mostrar_teste(ultimo: String) -> void:
 			agora = "   • BOLA" if ao_vivo[i] == "1" else "   – livre"
 		txt += "%s%s:  %d%s\n" % ["» " if ["Z", "X", "C", "V", "B"][i] == ultimo else "", nomes[i], _teste_contagem[i], agora]
 	if ArduinoBridge.completo():
-		txt += "\nArduino conectado: • aparece enquanto a bola tapa o sensor."
+		txt += "\nMOEDEIRO (A2): %d ficha(s) recebida(s) neste teste" % int(ArduinoBridge.botoes["FICHA"])
+		txt += "\nponha uma ficha: o número tem que subir 1 por ficha"
+		txt += "\n\nArduino conectado: • aparece enquanto a bola tapa o sensor."
 	else:
 		txt += "\nSem o Arduino (contando os botões da placa).\n%s" % ArduinoBridge.status
 	txt += "\nSTART ou CONFIGURAÇÃO para sair"

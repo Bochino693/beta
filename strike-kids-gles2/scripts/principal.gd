@@ -766,6 +766,10 @@ func _input(event: InputEvent) -> void:
 		Ajustes.adicionar_credito()
 		Sons.tocar("moeda", 0.65)
 		_atualizar_atracao()
+		# modo livre: a ficha não aparece em lugar nenhum - o aviso mostra
+		# que ela chegou (e que o modo fichas está desligado no menu)
+		if Ajustes.modo_livre() and (demo or estado in [E.ABERTURA, E.ATRACAO, E.DEMO, E.FIM]):
+			hud.texto_grande("FICHA RECEBIDA · MODO LIVRE", Color("#FFF6A8"), 1.6, 0.55)
 		# na espera e no fim a ficha já ABRE a trava: a bola começa
 		if demo or estado in [E.ABERTURA, E.ATRACAO, E.DEMO, E.FIM]:
 			_porta_da_espera()

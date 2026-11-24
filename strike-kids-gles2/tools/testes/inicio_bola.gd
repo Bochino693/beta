@@ -355,6 +355,31 @@ func _rodar() -> void:
 			print("BOLA OK ficha no fim de jogo")
 	yield(voltar_atracao(), "completed")
 
+	# ------------------------------------------------ a FICHA do ARDUINO (moedeiro no A2)
+	# o Arduino manda "FICHA": 1 crédito por linha, a trava abre
+	Ajustes.creditos = 0
+	yield(voltar_atracao(), "completed")
+	ArduinoBridge.connected = true
+	ArduinoBridge.firmware = "STRIKE_KIDS:3"
+	ArduinoBridge._receber("FICHA", Time.get_ticks_msec())
+	yield(esperar(0.3), "completed")
+	if Ajustes.creditos != 1:
+		erro("ficha do Arduino: créditos %d (esperava 1)" % Ajustes.creditos)
+	conferir_espera("ficha do Arduino", true, "ROLE A BOLA!")
+	# duas fichas seguidas (moedeiro rápido: 80 ms entre os pulsos)
+	ArduinoBridge._receber("FICHA", Time.get_ticks_msec())
+	yield(esperar(0.08), "completed")
+	ArduinoBridge._receber("FICHA", Time.get_ticks_msec())
+	yield(esperar(0.3), "completed")
+	if Ajustes.creditos != 3:
+		erro("fichas seguidas do Arduino: créditos %d (esperava 3)" % Ajustes.creditos)
+	else:
+		print("BOLA OK ficha do Arduino")
+	ArduinoBridge.connected = false
+	ArduinoBridge.firmware = ""
+	Ajustes.creditos = 0
+	yield(voltar_atracao(), "completed")
+
 	for c in _antes:
 		Ajustes.definir("jogo", c, _antes[c])
 	Ajustes.creditos = 0
