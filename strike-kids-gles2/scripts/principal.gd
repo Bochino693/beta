@@ -836,7 +836,8 @@ func _dois_jogadores() -> void:
 ## A bola começa a partida: no modo livre sempre; no modo fichas depois da
 ## ficha (a trava já abriu).
 func _bola_comeca() -> bool:
-	return Ajustes.pode_comecar()
+	# modo livre com botão: a trava está fechada, só o START começa
+	return Ajustes.pode_comecar() and not Ajustes.livre_com_botao()
 
 
 ## A TRAVA das bolas e o convite da espera (abertura, atração, demonstração,
@@ -844,6 +845,11 @@ func _bola_comeca() -> bool:
 ## BOLA!"; modo fichas = fechada e "INSIRA FICHA" até a ficha entrar, aí
 ## ABRE e pede a bola.
 func _porta_da_espera() -> void:
+	# modo livre COM BOTÃO: fechada e "APERTE START" (o START abre a trava)
+	if Ajustes.livre_com_botao():
+		ArduinoBridge.porta(false)
+		hud.modo_espera("botao")
+		return
 	var pode := Ajustes.pode_comecar()
 	ArduinoBridge.porta(pode)
 	if Ajustes.modo_livre():
@@ -911,7 +917,15 @@ func _jogada_recebida(zona: String) -> void:
 		E.JOGADORES:
 			# modo livre: outra bola (não a mesma passando por 2 sensores) =
 			# 2 jogadores (no modo fichas, as fichas já disseram quantos)
-			if Ajustes.modo_livre() and Time.get_ticks_msec() - _bola_ms > OUTRA_BOLA_MS:
+			if Ajustes.livre_com_botao():
+				# com botão quem diz "2 jogadores" é o 2º START; a bola aqui já
+				# é a criança escolhendo o amigo: 1 jogador, pelo lado dela
+				if _escolha_n == 1:
+					hud.sensor_acendeu(zona)
+					_quem_bola = _amigo_da_zona(zona)
+					_bola_ms = Time.get_ticks_msec()
+					_confirmar_jogadores()
+			elif Ajustes.modo_livre() and Time.get_ticks_msec() - _bola_ms > OUTRA_BOLA_MS:
 				_bola_ms = Time.get_ticks_msec()
 				_dois_jogadores()
 		E.PERSONAGEM:
@@ -929,9 +943,10 @@ func _jogada_recebida(zona: String) -> void:
 			if _bola_comeca():
 				_comecar_pela_bola(zona)
 			else:
-				# modo fichas sem ficha: a bola no sensor lembra da ficha
+				# modo fichas sem ficha: a bola no sensor lembra da ficha (com
+				# botão: do START)
 				hud.sensor_acendeu(zona)
-				hud.texto_grande("INSIRA FICHA", Color("#FFF6A8"), 1.0, 0.55)
+				hud.texto_grande("APERTE START" if Ajustes.livre_com_botao() else "INSIRA FICHA", Color("#FFF6A8"), 1.0, 0.55)
 				Sons.tocar("selecao")
 		E.FIM:
 			if _bola_comeca() and _fim_t > 2.5:
@@ -1675,7 +1690,7 @@ func _process(delta: float) -> void:
 				_confirmar_jogadores()
 		E.PERSONAGEM:
 			_escolha_t -= real
-			var dica := "ROLE A BOLA DO LADO DO SEU AMIGO\nESQUERDA = BOB · DIREITA = MIA · sem bola, sorteio em %d" \
+			var dica := "ROLE A BOLA PARA O LADO DO SEU AMIGO!\nNão escolheu? O jogo sorteia em %d..." \
 				% int(ceil(_escolha_t))
 			if _escolheu_amigo():
 				dica = "VOCÊ JOGA COM O BOB!" if _destaque == 0 else "VOCÊ JOGA COM A MIA!"
