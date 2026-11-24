@@ -49,6 +49,7 @@ final class InicioDaTv {
 	private static final String PREFS = "strike_inicio";
 	private static final int VEZES_PARA_SAIR = 5;
 	private static final long JANELA_SAIR_MS = 10000;
+	private static final long SEM_CONTAR_AO_LIGAR_MS = 90000;
 	private static final long APAGADA_PARA_REINICIAR_MS = 10000;
 	private static final long ESPERA_AO_ACENDER_MS = 1500;
 
@@ -220,20 +221,53 @@ final class InicioDaTv {
 		return abrir(c, new Intent(Settings.ACTION_SETTINGS)) ? "config" : "";
 	}
 
-	/** HOME 5 vezes em 10 s (ou o jogo caindo sem parar): true = sair para a tela da TV. */
+	/**
+	 * HOME 5 vezes em 10 s (ou o jogo caindo sem parar): true = sair para a tela da TV.
+	 *
+	 * A conta é só DESTA vez que a TV ligou. O relógio usado (elapsedRealtime)
+	 * recomeça do zero a cada vez que a TV liga, e a TV abre a tela inicial
+	 * sempre mais ou menos no mesmo segundo: sem separar por ligada, a
+	 * abertura de cada dia somava com a do dia anterior e, na 5ª vez que a TV
+	 * ligava, o jogo "saía para a tela da TV" sozinho em vez de abrir.
+	 */
 	static boolean pediuParaSair(Context c) {
 		SharedPreferences p = c.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
 		long agora = SystemClock.elapsedRealtime();
+		long ligada = ligada(c);
 		long desde = p.getLong("desde", 0);
 		int vezes = p.getInt("vezes", 0);
-		if (agora < desde || agora - desde > JANELA_SAIR_MS) {
+		if (ligada != p.getLong("ligada", Long.MIN_VALUE) || agora < desde || agora - desde > JANELA_SAIR_MS) {
 			desde = agora;
 			vezes = 0;
 		}
-		vezes++;
+		// TV sem contador de ligadas e sem relógio (não dá para saber se é a
+		// mesma ligada): no começo, quando o próprio Android abre a tela
+		// inicial, não conta
+		if (ligada < 0 && agora < SEM_CONTAR_AO_LIGAR_MS) {
+			vezes = 0;
+		} else {
+			vezes++;
+		}
 		boolean sair = vezes >= VEZES_PARA_SAIR;
-		p.edit().putLong("desde", sair ? 0 : desde).putInt("vezes", sair ? 0 : vezes).commit();
+		p.edit().putLong("ligada", ligada).putLong("desde", sair ? 0 : desde).putInt("vezes", sair ? 0 : vezes).commit();
 		return sair;
+	}
+
+	/**
+	 * Um número que muda a cada vez que a TV liga: o contador de ligadas do
+	 * Android (7+, boot_count) ou, sem ele, o minuto em que ela ligou
+	 * (negativo, para não se confundir com o contador).
+	 */
+	private static long ligada(Context c) {
+		try {
+			int n = Settings.Global.getInt(c.getContentResolver(), "boot_count", -1);
+			if (n >= 0) {
+				return n;
+			}
+		} catch (Throwable ignored) {
+		}
+		long minuto = (System.currentTimeMillis() - SystemClock.elapsedRealtime()) / 60000L;
+		return -1 - Math.abs(minuto);
 	}
 
 	// ------------------------------------------------------------ volta da espera
