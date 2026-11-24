@@ -51,6 +51,7 @@ const APRESENTAR_MS := 6000      # abriu: espera o OLA/PONG (o Uno reinicia ~2 s
 const PROCURAR_MS := 1500
 const PERMISSOES := "user://permissoes.cfg"
 const JANELA_MAX_MS := 25000
+const ESPERA_JANELA_ANDROID_MS := 6000   # a janela do próprio Android (encaixe) vem antes
 const DICA_USB := "NA JANELA DO ANDROID: MARQUE \"SEMPRE ABRIR\" (USAR POR PADRÃO) E TOQUE EM OK\nassim ela nunca mais aparece"
 const LED_COMMANDS := ["MENU", "BLUE", "RED", "IDLE", "NORMAL", "STRIKE", "SPARE", "MISS", "OFF"]
 ## S1..S5, da esquerda para a direita (as mesmas ações da Zero Delay)
@@ -80,6 +81,7 @@ var _ultima_procura := 0
 var _janelas_ok := false       # na espera ou no menu: pode abrir janela do Android
 var _pedir_agora := false      # o operador pediu a janela (testes do Arduino no menu)
 var _janela_ate := 0           # a janela do Android está aberta (até este ms)
+var _visto_sem_permissao := {} # nome do aparelho -> ms em que apareceu no USB sem permissão
 var _teste := false
 var _led_state := "MENU"
 var _last_led_sent := ""
@@ -235,6 +237,15 @@ func _tipo_de(lista: String, nome: String) -> String:
 ## A janela de permissão USB do Android: UMA vez por Arduino, sozinha, na
 ## tela de espera; depois, só quando o operador pede (menu).
 func _pedir_permissao(nome: String, chave: String, agora: int) -> void:
+	# UMA JANELA SÓ: ao encaixar o Arduino o próprio Android já pergunta
+	# ("Abrir o Strike Kids com este aparelho USB?" - com "Usar por padrão",
+	# que guarda a permissão para sempre). Se o jogo pedisse na mesma hora,
+	# apareciam DUAS janelas, uma atrás da outra. O jogo espera a do Android;
+	# só pede a dele se, passado um tempo, o Arduino continua sem permissão.
+	if not _visto_sem_permissao.has(nome):
+		_visto_sem_permissao = {nome: agora}
+	if not _pedir_agora and agora - int(_visto_sem_permissao[nome]) < ESPERA_JANELA_ANDROID_MS:
+		return
 	if bool(_plugin.call("permissao_pendente")) or janela_aberta() or Fotos.janela_aberta():
 		return   # uma janela do Android por vez
 	if _pedir_agora:
