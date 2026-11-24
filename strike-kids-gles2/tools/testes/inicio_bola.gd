@@ -137,10 +137,9 @@ func conferir_espera(onde: String, aberta: bool, texto: String, sub := "") -> vo
 
 
 func _rodar() -> void:
-	for c in ["modo_livre", "livre_botao", "creditos_por_partida"]:
+	for c in ["modo_livre", "creditos_por_partida"]:
 		_antes[c] = Ajustes.valor("jogo", c)
 	Ajustes.definir("jogo", "modo_livre", true)
-	Ajustes.definir("jogo", "livre_botao", false)
 	Ajustes.definir("jogo", "creditos_por_partida", 1)
 	Ajustes.creditos = 0
 	var t := 0.0
@@ -267,7 +266,7 @@ func _rodar() -> void:
 	Ajustes.creditos = 0
 	yield(voltar_atracao(), "completed")
 	# ------------------------------------------------ sem ficha: trava fechada
-	conferir_espera("sem ficha", false, "INSIRA FICHA")
+	conferir_espera("sem ficha", false, "INSIRA FICHA", "1 FICHA: 1 JOGADOR  ·  2 FICHAS: 2 JOGADORES")
 	yield(foto("fichas_sem_ficha"), "completed")
 	yield(bola("C"), "completed")
 	yield(esperar(0.5), "completed")
@@ -335,6 +334,9 @@ func _rodar() -> void:
 		var ap2 = hud._fim.find_node("aperte", true, false)
 		if ap2 == null or not str(ap2.text).begins_with("INSIRA FICHA"):
 			erro("fim sem ficha: '%s'" % ("" if ap2 == null else ap2.text))
+		var sub2 = hud._fim.find_node("sub", true, false)
+		if sub2 == null or sub2.text != "1 FICHA: 1 JOGADOR  ·  2 FICHAS: 2 JOGADORES":
+			erro("fim sem ficha, embaixo: '%s'" % ("" if sub2 == null else sub2.text))
 		yield(foto("fichas_fim_sem_ficha"), "completed")
 		yield(bola("C"), "completed")
 		yield(esperar(0.3), "completed")
@@ -351,74 +353,6 @@ func _rodar() -> void:
 			erro("ficha no fim de jogo: bola na esquerda não escolheu o Bob")
 		else:
 			print("BOLA OK ficha no fim de jogo")
-	yield(voltar_atracao(), "completed")
-
-	# ================================================ MODO LIVRE COM BOTÃO START
-	# a trava fica fechada; o START abre; a bola na espera não começa
-	Ajustes.definir("jogo", "modo_livre", true)
-	Ajustes.definir("jogo", "livre_botao", true)
-	Ajustes.creditos = 0
-	yield(voltar_atracao(), "completed")
-	conferir_espera("botão", false, "APERTE START!", "A PORTA ABRE E A BOLA SAI!")
-	yield(foto("botao_espera"), "completed")
-	yield(bola("C"), "completed")
-	yield(esperar(0.4), "completed")
-	if _estado() == "JOGADORES" or ArduinoBridge.porta_quer:
-		erro("botão: a bola na espera começou (ou abriu a trava)")
-	yield(_tecla(KEY_1), "completed")
-	if not yield(esperar_estado("JOGADORES", 1.0), "completed"):
-		erro("botão: o START não começou")
-	if not ArduinoBridge.porta_quer:
-		erro("botão: o START não abriu a trava")
-	yield(esperar(0.4), "completed")
-	var vezes: Label = hud._jog_cartoes[1].get_node("vezes")
-	if vezes.text != "2 VEZES":
-		erro("botão: cartão dos 2 jogadores: '%s'" % vezes.text)
-	yield(foto("botao_jogadores"), "completed")
-	# a bola já é a escolha do amigo (não "2 jogadores")
-	yield(bola("B"), "completed")
-	if not yield(esperar_estado("PERSONAGEM", 1.0), "completed"):
-		erro("botão: a bola não foi para a escolha do amigo")
-	elif principal._destaque != 1:
-		erro("botão: bola na direita não escolheu a Mia")
-	else:
-		yield(conferir_partida("botão: START e bola na direita", ["mia"]), "completed")
-	if _estado() == "PRONTO":
-		principal._fim_de_jogo()
-		yield(esperar(2.8), "completed")
-		if ArduinoBridge.porta_quer:
-			erro("botão: trava aberta no fim de jogo")
-		var ap3 = hud._fim.find_node("aperte", true, false)
-		if ap3 == null or not str(ap3.text).begins_with("APERTE START"):
-			erro("botão: fim '%s'" % ("" if ap3 == null else ap3.text))
-		yield(bola("C"), "completed")
-		yield(esperar(0.3), "completed")
-		if _estado() != "FIM":
-			erro("botão: a bola começou no fim de jogo")
-		# START e START de novo: BOB x MIA
-		yield(_tecla(KEY_1), "completed")
-		if not yield(esperar_estado("JOGADORES", 1.0), "completed"):
-			erro("botão: o START no fim de jogo não começou")
-		yield(esperar(1.0), "completed")
-		yield(_tecla(KEY_1), "completed")
-		yield(esperar(0.3), "completed")
-		if principal._escolha_n != 2:
-			erro("botão: o 2º START não fez 2 jogadores")
-		yield(conferir_partida("botão: 2 STARTs", ["bob", "mia"]), "completed")
-	# START sem bola: a escolha do amigo espera a bola
-	yield(voltar_atracao(), "completed")
-	yield(_tecla(KEY_1), "completed")
-	if not yield(esperar_estado("PERSONAGEM", 9.0), "completed"):
-		erro("botão: START sozinho não foi para a escolha do amigo")
-	else:
-		yield(esperar(0.5), "completed")
-		yield(foto("botao_escolha"), "completed")
-		yield(bola("Z"), "completed")
-		yield(esperar(0.2), "completed")
-		if principal._destaque != 0:
-			erro("botão: bola na esquerda não escolheu o Bob")
-		yield(foto("botao_bob"), "completed")
-		yield(conferir_partida("botão: escolha pela esquerda", ["bob"]), "completed")
 	yield(voltar_atracao(), "completed")
 
 	for c in _antes:

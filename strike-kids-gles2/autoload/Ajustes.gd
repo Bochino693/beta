@@ -21,7 +21,6 @@ const PADRAO := {
 		"protecao_canaleta": true,  # para-choques nas canaletas (bumpers)
 		"replay_strike": true,
 		"modo_livre": true,      # sem ficha e sem trava: a bola sempre começa
-		"livre_botao": false,    # modo livre COM botão START: a trava fica fechada e o START abre
 		"creditos_por_partida": 1,  # fichas por JOGADOR (1 ficha = 1 jogador, 2 = Bob x Mia)
 		"tempo_inatividade": 45, # segundos sem jogar até o aviso
 		"demo": true,
@@ -290,11 +289,9 @@ func modo_livre() -> bool:
 	return bool(valor("jogo", "modo_livre"))
 
 
-## Modo livre COM BOTÃO START na máquina: a trava das bolas fica fechada na
-## espera e é o START que abre (o START faz o papel da ficha). Sem o botão
-## (opção desligada) o modo livre não tem trava e a bola é o START.
-func livre_com_botao() -> bool:
-	return modo_livre() and bool(valor("jogo", "livre_botao"))
+## Fichas por jogador (menu do operador): 1 jogador paga isto, 2 pagam o dobro.
+func fichas_por_jogador() -> int:
+	return _fichas_por_jogador()
 
 
 # ---------------------------------------------------------------- créditos
