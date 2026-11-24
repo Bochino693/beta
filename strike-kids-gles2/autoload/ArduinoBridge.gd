@@ -338,7 +338,10 @@ func _receber(linha: String, agora: int) -> void:
 	_ultimo_rx = agora
 	if linha.begins_with("OLA:") or linha.begins_with("PONG:") or linha.begins_with("READY:"):
 		var fw := linha.substr(linha.find(":") + 1)
-		if not connected or fw != firmware:
+		# OLA = o Arduino acabou de LIGAR. Se ele reiniciou sozinho com o USB
+		# aberto (ruído do motor, queda de tensão), voltou com a porta
+		# fechada e sem o teste/LEDs: manda tudo de novo, como numa conexão.
+		if not connected or fw != firmware or linha.begins_with("OLA:"):
 			_conectou(fw)
 		return
 	if not connected:
