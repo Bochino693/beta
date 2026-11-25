@@ -5,7 +5,7 @@ extends SceneTree
 ## o filhote sobe e olha, volta. Só no PC, não vai no APK.
 ##   godot3 --video-driver GLES2 --path . --resolution 1080x1920 -s res://tools/testes/ovo_choca.gd -- --pasta=<fotos>
 
-const MOMENTOS := [0.5, 1.1, 1.45, 2.2, 3.0, 4.1, 4.7]
+const MOMENTOS := [0.5, 1.15, 1.45, 1.7, 2.4, 3.2, 4.1, 4.7]
 var p: Node
 var n := 0
 var pasta := "user://ovo_choca"
@@ -77,6 +77,7 @@ func _idle(_d: float) -> bool:
 			str((_item["no"] as MeshInstance).material_override == _item["mat_ovo"])])
 		return true
 	_h = _fila.pop_front()
+	# (6 quadros de verdade até a foto: as lascas e os ciscos andam neles)
 	_espera = 6
 	return false
 
@@ -86,6 +87,4 @@ func _posicionar() -> void:
 	var cada: float = _item["cada"]
 	# o choco é o segundo ciclo: _t + fase = cada + h
 	t._t = fposmod(cada + _h - float(_item["fase"]), cada * 2.0)
-	if _h < 0.5 and not _fila.empty():
-		pass
 	t._process(0.0)

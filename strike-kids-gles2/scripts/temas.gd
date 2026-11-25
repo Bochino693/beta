@@ -1950,6 +1950,13 @@ func _montar_choco(tema: String, item: Dictionary) -> void:
 	filhote.visible = false
 	filhote.name = "filhote"
 	ovo.add_child(filhote)
+	# CISCOS DA CASCA: uns farelinhos escorrem quando racha e as lascas
+	# pulam quando a casca abre (partículas de CPU, um desenho cada,
+	# só enquanto voam)
+	var esc: float = ovo.global_transform.basis.get_scale().y
+	var tam := caixa.size.y * esc
+	item["cisco"] = _lascas(ovo, Vector3(centro.x, corte, centro.z), raio, 7, tam * 0.035, 0.25 * tam, 1.0, 40.0)
+	item["lascas"] = _lascas(ovo, Vector3(centro.x, corte, centro.z), raio, 10, tam * 0.06, 1.6 * tam, 1.2, 55.0)
 	item["cima"] = cima
 	item["mats"] = mats
 	item["filhote"] = filhote
@@ -1960,25 +1967,60 @@ func _montar_choco(tema: String, item: Dictionary) -> void:
 	item["mat_ovo"] = ovo.material_override
 
 
-## O FILHOTE: cabeça verde, focinho, bochechas, olhos com brilho e três
-## plaquinhas nas costas - esferas baixas numa malha só (cor nos vértices,
-## com a sombra já pintada: o material nem acende luz).
+## O FILHOTE (7.7): cabeça redondinha, focinho com narinas e dois dentinhos,
+## olhos grandes com brilho, bochechas, barriguinha clara, espinhos laranja
+## da testa até a nuca e as mãozinhas com garrinhas apoiadas na borda da
+## casca - esferas e cones numa malha só (cor nos vértices, a sombra já
+## pintada: o material nem acende luz). Uns 3 mil triângulos.
 func _malha_filhote(r: float) -> ArrayMesh:
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
 	var verde := Color("#56C93A")
-	var escuro := Color("#2F9A2A")
-	_bola_cor(st, Vector3(0, -r * 0.9, 0), Vector3(r * 0.8, r * 1.1, r * 0.8), verde, 10, 6)       # pescoço
-	_bola_cor(st, Vector3(0, 0, 0), Vector3(r, r * 0.92, r), verde, 14, 8)                          # cabeça
-	_bola_cor(st, Vector3(0, -r * 0.22, r * 0.72), Vector3(r * 0.62, r * 0.48, r * 0.5), Color("#86DD5E"), 12, 6)  # focinho
+	var claro := Color("#86DD5E")
+	var creme := Color("#FFF1B8")
+	var escuro := Color("#1B1B2F")
+	var laranja := Color("#FF9F1C")
+	_bola_cor(st, Vector3(0, -r * 0.85, -r * 0.05), Vector3(r * 0.78, r * 0.85, r * 0.78), verde, 14, 8)     # pescoço
+	_bola_cor(st, Vector3(0, -r * 0.85, r * 0.42), Vector3(r * 0.48, r * 0.72, r * 0.34), creme, 12, 7)     # barriguinha
+	_bola_cor(st, Vector3.ZERO, Vector3(r, r * 0.92, r), verde, 22, 12)                                     # cabeça
+	_bola_cor(st, Vector3(0, -r * 0.2, r * 0.72), Vector3(r * 0.64, r * 0.5, r * 0.55), claro, 18, 9)       # focinho
 	for s in [-1.0, 1.0]:
-		_bola_cor(st, Vector3(s * r * 0.42, r * 0.28, r * 0.72), Vector3.ONE * r * 0.3, Color.white, 10, 6)
-		_bola_cor(st, Vector3(s * r * 0.4, r * 0.27, r * 0.95), Vector3.ONE * r * 0.16, Color("#1B1B2F"), 8, 5)
-		_bola_cor(st, Vector3(s * r * 0.35, r * 0.36, r * 1.08), Vector3.ONE * r * 0.06, Color.white, 6, 4)
-		_bola_cor(st, Vector3(s * r * 0.66, -r * 0.12, r * 0.6), Vector3(r * 0.2, r * 0.12, r * 0.08), Color("#FF9AB0"), 8, 4)
-	for k in 3:
-		_bola_cor(st, Vector3(0, r * (0.95 - k * 0.42), -r * (0.25 + k * 0.33)), Vector3(r * 0.09, r * 0.2, r * 0.16), escuro, 6, 4)
+		_bola_cor(st, Vector3(s * r * 0.18, -r * 0.04, r * 1.24), Vector3(r * 0.06, r * 0.045, r * 0.04), escuro, 8, 4)   # narina
+		_bola_cor(st, Vector3(s * r * 0.13, -r * 0.47, r * 1.1), Vector3(r * 0.07, r * 0.09, r * 0.05), Color.white, 8, 4)  # dentinho
+		_bola_cor(st, Vector3(s * r * 0.42, r * 0.3, r * 0.7), Vector3.ONE * r * 0.31, Color.white, 14, 8)       # olho
+		_bola_cor(st, Vector3(s * r * 0.4, r * 0.28, r * 0.95), Vector3(r * 0.17, r * 0.19, r * 0.12), escuro, 12, 6)  # pupila
+		_bola_cor(st, Vector3(s * r * 0.34, r * 0.38, r * 1.06), Vector3.ONE * r * 0.06, Color.white, 6, 4)      # brilho
+		_bola_cor(st, Vector3(s * r * 0.47, r * 0.17, r * 1.03), Vector3.ONE * r * 0.03, Color.white, 6, 3)      # brilhinho
+		_bola_cor(st, Vector3(s * r * 0.66, -r * 0.13, r * 0.6), Vector3(r * 0.2, r * 0.12, r * 0.08), Color("#FF9AB0"), 10, 5)  # bochecha
+		# mãozinha na borda da casca, com 3 garrinhas
+		var mao := Vector3(s * r * 0.8, -r * 0.62, r * 0.42)
+		_bola_cor(st, mao, Vector3(r * 0.22, r * 0.28, r * 0.24), verde, 10, 6)
+		for g in 3:
+			_bola_cor(st, mao + Vector3(s * r * (0.02 * g) + (g - 1) * r * 0.09, r * 0.2, r * 0.16), Vector3.ONE * r * 0.055, creme, 6, 4)
+	# espinhos laranja da testa à nuca
+	for k in 4:
+		var a := deg2rad(-12.0 + k * 30.0)
+		var n := Vector3(0, cos(a), -sin(a))
+		var pe := Vector3(0, n.y * r * 0.9, n.z * r * 0.92)
+		_cone_cor(st, pe, n, r * (0.34 - k * 0.05), r * (0.15 - k * 0.015), laranja, 10)
 	return st.commit()
+
+
+## Um cone (espinho) com a ponta para `dir`, cor nos vértices.
+func _cone_cor(st: SurfaceTool, pe: Vector3, dir: Vector3, alt: float, raio: float, cor: Color, seg: int) -> void:
+	var a := dir.cross(Vector3.RIGHT if abs(dir.x) < 0.9 else Vector3.UP).normalized()
+	var b := dir.cross(a).normalized()
+	var ponta := pe + dir * alt
+	for j in seg:
+		var t0 := TAU * float(j) / seg
+		var t1 := TAU * float(j + 1) / seg
+		var p0 := pe + (a * cos(t0) + b * sin(t0)) * raio
+		var p1 := pe + (a * cos(t1) + b * sin(t1)) * raio
+		var luz: float = clamp(0.8 + 0.25 * (a * cos(t0) + b * sin(t0)).y, 0.6, 1.08)
+		var c := Color(cor.r * luz, cor.g * luz, cor.b * luz)
+		for v in [ponta, p1, p0]:
+			st.add_color(c if v != ponta else cor.lightened(0.15))
+			st.add_vertex(v)
 
 
 func _bola_cor(st: SurfaceTool, c: Vector3, raio: Vector3, cor: Color, seg: int, aneis: int) -> void:
@@ -2002,6 +2044,50 @@ func _bola_cor(st: SurfaceTool, c: Vector3, raio: Vector3, cor: Color, seg: int,
 				st.add_vertex(q[k][0])
 
 
+var _mat_lasca: SpatialMaterial
+
+
+func _lascas(ovo: Spatial, onde: Vector3, raio: float, qtd: int, tam: float, vel: float, vida: float, abre: float) -> CPUParticles:
+	if _mat_lasca == null:
+		_mat_lasca = SpatialMaterial.new()
+		_mat_lasca.flags_unshaded = true
+		_mat_lasca.vertex_color_use_as_albedo = true
+		_mat_lasca.params_cull_mode = SpatialMaterial.CULL_DISABLED
+	var p := CPUParticles.new()
+	p.emitting = false
+	p.one_shot = true
+	p.amount = qtd
+	p.lifetime = vida
+	p.explosiveness = 0.85
+	p.local_coords = false
+	var m := PrismMesh.new()
+	m.size = Vector3(tam, tam * 0.8, tam * 0.25)
+	p.mesh = m
+	p.material_override = _mat_lasca
+	p.emission_shape = CPUParticles.EMISSION_SHAPE_SPHERE
+	p.emission_sphere_radius = raio * 0.8
+	p.direction = Vector3.UP
+	p.spread = abre
+	p.initial_velocity = vel
+	p.initial_velocity_random = 0.5
+	p.gravity = Vector3(0, -6.5, 0)
+	p.angular_velocity = 420.0
+	p.angular_velocity_random = 0.8
+	p.angle_random = 1.0
+	p.scale_amount_random = 0.6
+	p.damping = 0.4
+	var g := Gradient.new()
+	g.set_color(0, Color("#FFF3A6"))
+	g.set_color(1, Color("#FFF8D2"))
+	g.add_point(0.72, Color("#2FB36B"))
+	p.color_initial_ramp = g
+	p.cast_shadow = GeometryInstance.SHADOW_CASTING_SETTING_OFF
+	p.translation = onde
+	p.name = "lascas"
+	ovo.add_child(p)
+	return p
+
+
 ## (a cada quadro, no ciclo de chocar) h = segundos desde o começo.
 func _choco_passo(item: Dictionary, h: float) -> void:
 	var ovo: MeshInstance = item["no"]
@@ -2021,6 +2107,10 @@ func _choco_passo(item: Dictionary, h: float) -> void:
 		return
 	if not bool(item.get("chocando", false)):
 		_choco_comeco(item)
+		(item["cisco"] as CPUParticles).restart()
+	if h >= 1.25 and not bool(item.get("estourou", false)):
+		item["estourou"] = true
+		(item["lascas"] as CPUParticles).restart()
 	ovo.rotation = Vector3(0, giro, 0)
 	# a casca: racha (1 cm), pula e gira presa num ponto da borda, volta
 	var sobe := 0.0
@@ -2057,16 +2147,27 @@ func _choco_passo(item: Dictionary, h: float) -> void:
 	else:
 		aparece = clamp(1.0 - (h - 3.8) / 0.45, 0.0, 1.0)
 	var r: float = item["raio"] * 0.82
-	var y0: float = float(item["corte"]) - r * 1.6
+	var y0: float = float(item["corte"]) - r * 0.95
 	var y1: float = float(item["corte"]) + r * 0.55
 	var c: Vector3 = item["centro"]
 	filhote.translation = Vector3(c.x, lerp(y0, y1, aparece) + (sin(h * 9.0) * 0.012 * alt if aparece >= 1.0 else 0.0), c.z)
+	# olha para um lado, para o outro e para quem joga (com calma: devagar
+	# no começo e no fim de cada virada), inclinando a cabeça curioso
 	var olha := 0.0
-	if h > 1.9 and h < 3.7:
-		olha = sin((h - 1.9) * 3.4) * 0.6
-	filhote.rotation = Vector3(0, float(item.get("frente", 0.0)) + olha, sin(h * 5.0) * 0.08 * aparece)
-	var e := 1.0 + 0.06 * sin(h * 11.0) * aparece
-	filhote.scale = Vector3(1.0 / e, e, 1.0 / e)
+	var inclina := 0.0
+	if h > 1.85 and h < 3.75:
+		var u := (h - 1.85) / 1.9
+		olha = sin(u * TAU) * 0.55 * smoothstep(0.0, 0.15, u) * (1.0 - smoothstep(0.85, 1.0, u))
+		inclina = sin(u * TAU * 1.5 + 0.6) * 0.16 * aparece
+	filhote.rotation = Vector3(-0.12 * aparece, float(item.get("frente", 0.0)) + olha, inclina)
+	# estica ao sair (espreguiçou) e respira; amassa um pouco ao parar
+	var e := 1.0 + 0.04 * sin(h * 7.0) * aparece
+	if h > 1.3 and h < 1.85:
+		e += 0.1 * sin((h - 1.3) / 0.55 * PI)
+	# (descendo ele se encolhe dentro do ovo: o pescoço nunca passa do ninho)
+	var k: float = lerp(0.5, 1.0, aparece)
+	filhote.scale = Vector3(1.0 / sqrt(e), e, 1.0 / sqrt(e)) * k
+	filhote.visible = aparece > 0.04
 
 
 func _choco_comeco(item: Dictionary) -> void:
@@ -2101,6 +2202,7 @@ func _choco_comeco(item: Dictionary) -> void:
 func _choco_fim(item: Dictionary) -> void:
 	var ovo: MeshInstance = item["no"]
 	item["chocando"] = false
+	item["estourou"] = false
 	ovo.material_override = item["mat_ovo"]
 	ovo.rotation = Vector3(0, float(item["giro"]), 0)
 	(item["cima"] as MeshInstance).visible = false
