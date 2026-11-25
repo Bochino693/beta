@@ -79,6 +79,19 @@ O QUE MUDOU PARA RODAR NA OPENGL ES 2.0
     Godot 4 (nao substitui).
 
 
+VERSAO 8.7: TV BOX - O JOGO E A TELA INICIAL E O ARDUINO PERGUNTA UMA VEZ
+-------------------------------------------------------------------------
+  * QUEM ABRE O JOGO E A TELA INICIAL: na instalacao (ou na 1a vez que a
+    TV Box liga) escolha STRIKE KIDS e toque em SEMPRE. Pronto: liga
+    direto no jogo, sem o sistema.
+  * ARDUINO, UMA PERMISSAO SO: na janela do Arduino marque "USAR POR
+    PADRAO" e OK - o Android guarda e nunca mais pergunta (nem depois de
+    desligar). A janela do encaixe NAO abre mais o jogo (so da a
+    permissao); e o jogo nunca poe uma janela por cima da outra.
+  * A instalacao nao pede mais a acessibilidade (5 passos, nao 6) - na TV
+    Box ela nao e preciso.
+
+
 VERSAO 8.6: JOGO LISO DE NOVO E O ARDUINO PEDIDO LOGO AO ABRIR
 --------------------------------------------------------------
   * LISO: com o jogo na frente o servico "Strike Kids: abrir ao ligar e

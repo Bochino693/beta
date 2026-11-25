@@ -1,7 +1,6 @@
 package com.lazersport.strikeserial;
 
 import android.app.Activity;
-import android.content.Intent;
 import android.os.Bundle;
 
 /**
@@ -25,21 +24,15 @@ import android.os.Bundle;
  * pausava o jogo por um instante: "travadinha"); fechado, ele abre.
  */
 public class StrikeArduinoAtivo extends Activity {
+	/**
+	 * (8.7) SÓ A PERMISSÃO: esta tela existe para o Android dar a permissão
+	 * do Arduino (com "Usar por padrão" marcado uma vez, ele dá sozinho a
+	 * cada vez que liga). Ela NÃO abre o jogo - quem abre o jogo é a TELA
+	 * INICIAL (o jogo é o "iniciar" da TV Box). Só fecha.
+	 */
 	@Override
 	protected void onCreate(Bundle estado) {
 		super.onCreate(estado);
-		try {
-			if (!InicioDaTv.naFrente) {
-				Intent jogo = getPackageManager().getLaunchIntentForPackage(getPackageName());
-				if (jogo != null) {
-					jogo.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_REORDER_TO_FRONT);
-					startActivity(jogo);
-				}
-			}
-		} catch (Throwable ignored) {
-			// (no começo do boot o jogo ainda não pode abrir: tudo bem, a
-			// permissão já foi dada e a tela inicial abre o jogo depois)
-		}
 		finish();
 	}
 }

@@ -71,11 +71,12 @@ const APRESENTAR_MS := 6000      # abriu: espera o OLA/PONG (o Uno reinicia ~2 s
 const PROCURAR_MS := 1500
 const PERMISSOES := "user://permissoes.cfg"
 const JANELA_MAX_MS := 25000
-const ESPERA_JANELA_ANDROID_MS := 800    # (8.6) o jogo pede NA HORA: a janela dele é a que tem o "SEMPRE"
+const ESPERA_JANELA_ANDROID_MS := 2000   # o Arduino apareceu sem permissão: o jogo pede depois disto
+const FOCO_MS := 1500                    # ...e só com o jogo na frente há este tempo (nenhuma janela por cima)
 const PEDIDO_AUTO_MS := 15000            # com o serviço ligado: pede de novo a cada 15 s até ter
 const PORTA_FIRME_MS := 250              # o pedido da porta fica firme isto antes de sair
 const PORTA_REENVIO_MS := 2500           # sem confirmação: repete (não dá pulso a mais)
-const DICA_USB := "MARQUE \"SEMPRE\" (USAR POR PADRÃO) E TOQUE EM OK\nfica salvo para sempre: o Arduino nunca mais pergunta"
+const DICA_USB := "MARQUE \"USAR POR PADRÃO\" (SEMPRE) E TOQUE EM OK\nfica salvo: o Arduino nunca mais pergunta"
 const LED_COMMANDS := ["MENU", "BLUE", "RED", "IDLE", "NORMAL", "STRIKE", "SPARE", "MISS", "OFF"]
 ## S1..S5, da esquerda para a direita (as mesmas ações da Zero Delay)
 const ACOES_SENSOR := ["input_z", "input_x", "input_c", "input_v", "input_b"]
@@ -112,6 +113,7 @@ var _visto_sem_permissao := {} # nome do aparelho -> ms em que apareceu no USB s
 var _auto_ok_cache := false    # o serviço "Strike Kids: abrir ao ligar e Arduino" está ligado?
 var _auto_ok_visto := -100000  # (ms da última consulta)
 var _pedido_auto := -100000    # ms do último pedido feito com o serviço ligado
+var _foco_desde := 0           # ms desde quando o jogo está na frente (-1 = uma janela por cima)
 var _pedidos_auto := 0         # quantos pedidos com o serviço ligado desde que o jogo abriu
 var _pedido_sessao := {}       # Arduinos já pedidos desde que o jogo abriu (um pedido por vez que abre)
 var _teste := false
@@ -295,6 +297,12 @@ func _pedir_permissao(nome: String, chave: String, agora: int) -> void:
 		return
 	if bool(_plugin.call("permissao_pendente")) or janela_aberta() or Fotos.janela_aberta():
 		return   # uma janela do Android por vez
+	# UMA JANELA SÓ: se a do próprio Android (a do encaixe, com "Usar por
+	# padrão") está na frente, o jogo não põe outra por cima - espera ela
+	# ser respondida. OK = permissão (e com "Usar por padrão" fica salva);
+	# CANCELAR = o jogo pede a dele logo depois.
+	if not _pedir_agora and (_foco_desde < 0 or agora - _foco_desde < FOCO_MS):
+		return
 	if _pedir_agora:
 		_pedir_agora = false
 	elif _auto_ok_ligado() and Ajustes.instalacao_feita():
@@ -376,8 +384,13 @@ func _fechou_janela() -> void:
 
 
 func _notification(what: int) -> void:
+	# uma janela do Android por cima do jogo (o jogo não pede outra)
+	if what == NOTIFICATION_WM_FOCUS_OUT or what == NOTIFICATION_APP_PAUSED:
+		_foco_desde = -1
 	# o jogo voltou para a frente: a janela do Android fechou
 	if what == NOTIFICATION_WM_FOCUS_IN or what == NOTIFICATION_APP_RESUMED:
+		if _foco_desde < 0:
+			_foco_desde = Time.get_ticks_msec()
 		_fechou_janela()
 
 
