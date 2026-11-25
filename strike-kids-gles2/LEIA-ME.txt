@@ -99,6 +99,11 @@ VERSAO 8.9: A TV BOX SO DO JOGO, SEM PC (O METODO DO DRAGON BOWLING)
   Desligue o Launch on Boot (nao precisa mais). Para atualizar o jogo,
   instale POR CIMA - nao desinstale (a TV Box ficaria sem tela inicial).
   Sem a Depuracao USB ligada nada aparece: o jogo segue como a 8.8.
+  A BOLA COMECA A PARTIDA DE NOVO (como ate a 8.0): MODO LIVRE: role a
+  bola e a partida comeca (o lado dela escolhe o amigo). MODO FICHAS: ponha
+  a ficha -> a trava abre e a bola desce -> role a bola e comeca. Sem
+  ficha a trava fica fechada e a tela pede INSIRA FICHA. O START tambem
+  comeca, como antes.
 
 
 VERSAO 8.8: A TV BOX NUNCA MAIS PERGUNTA "APP PADRAO"

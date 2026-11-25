@@ -991,10 +991,14 @@ func _jogada_recebida(zona: String) -> void:
 	_espera_paga_t = 0.0
 	if _modal_inativo > 0.0:
 		_fechar_inatividade()
-	# (8.1) A BOLA NÃO COMEÇA A PARTIDA: quem começa é o START (modo livre,
-	# ou com ficha). Na espera a bola só lembra o que fazer.
+	# (8.9) A BOLA COMEÇA A PARTIDA DE NOVO, como até a 8.0: no modo livre
+	# sempre; no modo fichas depois da ficha (a trava abriu e a bola desceu).
+	# O START também começa. Sem ficha, a bola lembra "INSIRA FICHA".
 	if demo and estado in [E.DEMO, E.ARREMESSO, E.ROLANDO, E.RESULTADO, E.REPLAY]:
-		_bola_na_espera(zona)
+		if _bola_comeca():
+			_comecar_pela_bola(zona)
+		else:
+			_bola_na_espera(zona)
 		return
 	match estado:
 		E.PRONTO:
@@ -1017,8 +1021,17 @@ func _jogada_recebida(zona: String) -> void:
 				_sortear_amigo()
 			else:
 				_amigo_escolhido(0 if amigo == "bob" else 1)
-		E.ATRACAO, E.DEMO, E.ABERTURA, E.FIM:
-			_bola_na_espera(zona)
+		E.ATRACAO, E.DEMO, E.ABERTURA:
+			if _bola_comeca():
+				_comecar_pela_bola(zona)
+			else:
+				_bola_na_espera(zona)
+		E.FIM:
+			if _bola_comeca():
+				if _fim_t > 2.5:
+					_comecar_pela_bola(zona)
+			else:
+				_bola_na_espera(zona)
 		# (arremesso, bola rolando, resultado, replay, começo da vez: a
 		# jogada não vale — nem fica guardada para quando a pista abrir)
 

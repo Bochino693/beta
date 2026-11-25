@@ -909,7 +909,8 @@ func modo_espera(modo: String) -> void:
 	# ficha (ou o START) abre de novo
 	_modo_bola = modo != "ficha" and modo != "dormiu"
 	# (8.1) quem começa é o START; a bola escolhe o amigo depois
-	_aperte.text = "APERTE START!" if _modo_bola else "INSIRA FICHA"
+	# (8.9) a bola começa de novo (o START também)
+	_aperte.text = "ROLE A BOLA!" if _modo_bola else "INSIRA FICHA"
 	match modo:
 		"dormiu":
 			_aperte_sub.text = "FICHA OU START ABRE A TRAVA"
@@ -923,11 +924,11 @@ func modo_espera(modo: String) -> void:
 	var fichas := modo != "livre"
 	for i in _jog_cartoes.size():
 		var c: Painel3D = _jog_cartoes[i]
-		(c.get_node("botao/texto") as Label).text = "START"
+		(c.get_node("botao/texto") as Label).text = "ROLE"
 		if fichas:
 			(c.get_node("vezes") as Label).text = ("1 FICHA" if n == 1 else "%d FICHAS" % n) if i == 0 else "%d FICHAS" % (n * 2)
 		else:
-			(c.get_node("vezes") as Label).text = "1 VEZ" if i == 0 else "2 VEZES"
+			(c.get_node("vezes") as Label).text = "1 BOLA" if i == 0 else "2 BOLAS"
 	_chave_melhores = ""
 	layout()
 
@@ -1168,10 +1169,10 @@ func _montar_jogadores() -> void:
 		var bt := Painel3D.new(Color("#E8384F"), 26, 7, 4)
 		bt.name = "botao"
 		c.add_child(bt)
-		var bl := rotulo("START", 34, Color.white, 8, MARINHO, fonte_titulo)
+		var bl := rotulo("ROLE", 34, Color.white, 8, MARINHO, fonte_titulo)
 		bl.name = "texto"
 		bt.add_child(bl)
-		var vezes := rotulo("1 VEZ" if i == 0 else "2 VEZES", 40, MARINHO, 0, MARINHO, fonte_titulo)
+		var vezes := rotulo("1 BOLA" if i == 0 else "2 BOLAS", 40, MARINHO, 0, MARINHO, fonte_titulo)
 		vezes.align = Label.ALIGN_LEFT
 		vezes.name = "vezes"
 		c.add_child(vezes)
@@ -1627,7 +1628,7 @@ func _quadro_classificacao(lista: Array, js: Array, area: Rect2) -> void:
 
 
 func _jogar_de_novo() -> String:
-	return "APERTE START PARA JOGAR DE NOVO" if _modo_bola else "INSIRA FICHA PARA JOGAR DE NOVO"
+	return "ROLE A BOLA PARA JOGAR DE NOVO" if _modo_bola else "INSIRA FICHA PARA JOGAR DE NOVO"
 
 
 ## (a cada quadro, no fim) O botão "jogar de novo" com a contagem. O texto
