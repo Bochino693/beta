@@ -1213,10 +1213,13 @@ const Y_CHAO_FOSSO = Medidas.Y_CHAO_FOSSO
 
 
 func _cacapa_das_bolas() -> void:
+	# o túnel (atrás das tiras): escuro, para a bola "sumir" - mas azul
+	# noite, não preto (a boca era um buraco preto no fundo do fosso)
 	var escuro := SpatialMaterial.new()
 	escuro.flags_unshaded = true
-	escuro.albedo_color = Color("#05070D")
-	var borracha := Materiais.cor_toon(Color("#20263A"), 0.0, {"borda": 0.3, "luz_minima": 0.35})
+	escuro.albedo_color = Color("#141C38")
+	# dos lados da boca: na cor das paredes do cenário (tingidas no tema)
+	var borracha: Material = mat_parede
 	var meia := LARGURA_BOCA / 2.0
 	var alto := Y_BOCA - Y_CHAO_FOSSO
 	var fundo := 0.55

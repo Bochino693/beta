@@ -20,6 +20,7 @@ uniform float a6 = 0.0;
 
 varying vec2 uv_d;
 varying float u_tira;
+varying float uv_y;
 
 void vertex() {
 	float i = UV2.x;
@@ -41,16 +42,20 @@ void vertex() {
 	VERTEX = vec3(VERTEX.x, VERTEX.y * cos(a), VERTEX.y * sin(a));
 	uv_d = vec2((i + UV.x) / 7.0, (linha + UV.y) / 4.0);
 	u_tira = UV.x;
+	uv_y = UV.y;
 }
 
 void fragment() {
 	vec3 c = texture(desenho, uv_d).rgb;
-	// a borda de cada tira um pouco mais escura (lê-se a borracha) e o
-	// verso escuro
+	// a borda de cada tira só um pouco mais escura (lê-se a borracha).
+	// (Antes o "verso" ficava a 30%: na TV Box e na imagem do jogo a GPU
+	// via a FRENTE das tiras como verso e o desenho do cenário saía quase
+	// preto - a caçapa escura. Da vista do jogo só a frente aparece: as
+	// tiras abrem para DENTRO do túnel.)
 	float borda = smoothstep(0.0, 0.05, min(u_tira, 1.0 - u_tira));
-	c *= (0.6 + 0.4 * borda) * brilho;
-	if (!FRONT_FACING) {
-		c *= 0.3;
-	}
+	c *= (0.8 + 0.2 * borda) * brilho;
+	// um brilho que desce da luz em cima da boca (a tira acesa, como na
+	// abertura) e some até a ponta de baixo
+	c += c * 0.18 * (1.0 - uv_y);
 	ALBEDO = c;
 }

@@ -113,6 +113,8 @@ var _porta_decidida := false
 var _porta_mudou_ms := 0
 var _porta_enviada := -1
 var _porta_envio_ms := 0
+var _porta_reenvios := 0
+const PORTA_REENVIOS_MAX := 3   # (a ponte H travada não fica tentando para sempre)
 # fichas do firmware 5: o número da última contada (-1 = nenhuma ainda)
 var _ultima_ficha := -1
 
@@ -554,8 +556,11 @@ func _andar_porta(agora: int) -> void:
 		if agora - _porta_mudou_ms >= PORTA_FIRME_MS:
 			if _porta_enviada >= 0:
 				porta_pulsos += 1
+			_porta_reenvios = 0
 			_enviar_porta(agora)
-	elif porta_aberta != porta_quer and agora - _porta_envio_ms >= PORTA_REENVIO_MS:
+	elif porta_aberta != porta_quer and agora - _porta_envio_ms >= PORTA_REENVIO_MS \
+			and _porta_reenvios < PORTA_REENVIOS_MAX and aviso != "PORTA_TRAVOU":
+		_porta_reenvios += 1
 		_enviar_porta(agora)
 
 
