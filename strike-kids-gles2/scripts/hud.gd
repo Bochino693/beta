@@ -1629,17 +1629,26 @@ func _jogar_de_novo() -> String:
 	return "ROLE A BOLA PARA JOGAR DE NOVO" if _modo_bola else "INSIRA FICHA PARA JOGAR DE NOVO"
 
 
+## (a cada quadro, no fim) O botão "jogar de novo" com a contagem. O texto
+## só é trocado - e a letra só é ajustada - quando o NÚMERO muda, e sempre
+## pela largura do BOTÃO: antes era ajustado a cada quadro pela largura do
+## próprio rótulo, que mudava com o ajuste - a letra pulava entre dois
+## tamanhos, quadro sim, quadro não (o botão "piscando frenético"). O
+## pulsar é só a escala do botão inteiro, com o texto junto.
 func fim_contagem(segundos: int) -> void:
+	var b := _fim.get_node_or_null("botao") as Control
+	var largura: float = (b.rect_size.x if b else Tela.tamanho().x * 0.9) - 70 * u
 	var ap := _fim.find_node("aperte", true, false) as Label
 	if ap:
-		ap.text = "%s  (%d)" % [_jogar_de_novo(), segundos]
-		_caber(ap, 44 * u, ap.rect_size.x - 70 * u)
+		var novo := "%s  (%d)" % [_jogar_de_novo(), segundos]
+		if ap.text != novo:
+			ap.text = novo
+			_caber(ap, 44 * u, largura)
 	var sub := _fim.find_node("sub", true, false) as Label
 	if sub and sub.text != _aperte_sub.text:
 		# a ficha entrou (ou outra): o aviso acompanha o da espera
 		sub.text = _aperte_sub.text
-		_caber(sub, 28 * u, sub.rect_size.x - 70 * u)
-	var b := _fim.get_node_or_null("botao") as Control
+		_caber(sub, 28 * u, largura)
 	if b:
 		b.rect_pivot_offset = b.rect_size / 2
 		b.rect_scale = Vector2.ONE * (1.0 + sin(_tempo * 4.0) * 0.025)

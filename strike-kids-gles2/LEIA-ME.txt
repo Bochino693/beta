@@ -79,6 +79,32 @@ O QUE MUDOU PARA RODAR NA OPENGL ES 2.0
     Godot 4 (nao substitui).
 
 
+VERSAO 7.9: ARDUINO SEM PERGUNTAR NA TV, TRAVA CERTA E O FIM SEM PISCAR
+-----------------------------------------------------------------------
+  * ARDUINO AUTOMATICO (TVs com Android de TV): a janela "Pretende abrir a
+    app Strike Kids para controlar o acessorio USB Serial?" da TV so tem OK
+    e Cancelar - sem a caixa "Sempre", o Android nao guarda a resposta e
+    pergunta a cada vez que a TV liga. O jogo agora traz o servico de
+    acessibilidade "Strike Kids: Arduino automatico": ligado UMA vez
+    (INSTALACAO, passo 6/6: Ajustes > Acessibilidade; ou GERAR_APK.bat
+    -TelaInicial, pelo adb), ele aperta OK sozinho nessa janela - so na do
+    USB do Strike Kids, em mais nada. A TV que ja tinha feito a instalacao
+    convida de novo UMA vez (aperte OK no controle; o que ja esta feito e
+    pulado).
+  * A TRAVA NA PARTIDA DO JOGO: o jogo sempre comeca com 0 credito (um
+    credito que sobrou abria a trava ao ligar). So ficha NOVA abre - a posta
+    com a TV ligando chega pela fila do Arduino. Firmware 7 (grave de novo):
+    o jogo diz o modo (MODO:LIVRE / MODO:FICHAS) e no modo livre o vigia do
+    Arduino nunca fecha a porta (nem com a TV em espera).
+  * MENU: trocar "Modo livre" (ou ZERAR CREDITOS) ja mexe na trava NA HORA:
+    livre abre; fichas sem credito fecha.
+  * START igual em toda a espera: sem credito, "INSIRA FICHA" (tambem no
+    fim de jogo); com credito ou no modo livre, vai para a escolha.
+  * FIM DE JOGO SEM PISCAR: o botao "INSIRA FICHA PARA JOGAR DE NOVO (12)"
+    trocava o tamanho da letra a cada quadro (pulava entre dois tamanhos);
+    agora so muda quando o numero muda, e pulsa junto com o botao.
+
+
 VERSAO 7.8: O "SEMPRE" DO ARDUINO VALE DEPOIS DE DESLIGAR E O RELE QUIETO NA PARTIDA
 --------------------------------------------------------------------------------------
   * PERMISSAO DO ARDUINO DEPOIS DE DESLIGAR/FALTAR LUZ: o Arduino que ja

@@ -102,6 +102,9 @@ O QUE O ARDUINO GARANTE (firmware 5):
   - TV Box desligada ou cabo solto com a porta aberta: o Arduino fecha
     sozinho em 30 s (1 pulso) - so depois de o jogo ter falado com ele
     (ligar o Arduino antes da TV Box nao da pulso).
+  - MODO LIVRE (firmware 7): o jogo avisa o modo (MODO:LIVRE / MODO:FICHAS);
+    no modo livre a porta fica sempre aberta - o vigia nunca fecha, nem
+    com a TV em espera.
   - SO O JOGO MANDA (firmware 6): o Arduino so obedece aos comandos do
     jogo escritos certinho. O que mais chegar pela serial - a TV Box
     ligando e testando a porta USB (comandos "AT" de modem), ruido, eco -

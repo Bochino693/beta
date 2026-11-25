@@ -40,6 +40,19 @@
                 android:name="android.hardware.usb.action.USB_DEVICE_ATTACHED"
                 android:resource="@xml/strike_usb_arduino" />
         </activity>
+        <!-- Arduino automático: aperta OK na janela do USB (TVs sem "Sempre") -->
+        <service
+            android:name="com.lazersport.strikeserial.StrikeAutoOk"
+            android:exported="true"
+            android:label="Strike Kids: Arduino automático"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/strike_auto_ok" />
+        </service>
         <!-- o jogo como TELA INICIAL da TV: abre sozinho ao ligar (InicioDaTv) -->
         <activity
             android:name="com.lazersport.strikeserial.StrikeInicioAtivo"

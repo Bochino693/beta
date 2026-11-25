@@ -72,6 +72,12 @@ def injetar(manifesto):
             </intent-filter>
             <meta-data android:name="android.hardware.usb.action.USB_DEVICE_ATTACHED" android:resource="@xml/strike_usb_arduino"/>
         </activity>
+        <service android:exported="true" android:label="Strike Kids: Arduino automático" android:name="com.lazersport.strikeserial.StrikeAutoOk" android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService"/>
+            </intent-filter>
+            <meta-data android:name="android.accessibilityservice" android:resource="@xml/strike_auto_ok"/>
+        </service>
         <activity android:clearTaskOnLaunch="true" android:excludeFromRecents="true" android:exported="true" android:launchMode="singleTask" android:name="com.lazersport.strikeserial.StrikeInicioAtivo" android:taskAffinity="com.lazersport.strikeserial.inicio" android:stateNotNeeded="true" android:theme="@android:style/Theme.Black.NoTitleBar.Fullscreen">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
@@ -128,7 +134,8 @@ def main():
                 os.rmdir(os.path.join(dec, "res", d))
         injetar(os.path.join(dec, "AndroidManifest.xml"))
         os.makedirs(os.path.join(dec, "res", "xml"), exist_ok=True)
-        for f in ("StrikeSerial/res/xml/strike_usb_arduino.xml", "StrikeCamera/res/xml/strike_usb_webcam.xml"):
+        for f in ("StrikeSerial/res/xml/strike_usb_arduino.xml", "StrikeSerial/res/xml/strike_auto_ok.xml",
+                  "StrikeCamera/res/xml/strike_usb_webcam.xml"):
             shutil.copy(os.path.join(AQUI, f), os.path.join(dec, "res", "xml"))
         os.makedirs(os.path.join(dec, "res", "drawable-xhdpi"), exist_ok=True)
         shutil.copy(os.path.join(AQUI, "tv", "strike_banner.png"), os.path.join(dec, "res", "drawable-xhdpi"))

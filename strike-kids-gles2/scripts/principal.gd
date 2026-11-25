@@ -835,7 +835,11 @@ func _start() -> void:
 		E.PERSONAGEM:
 			_confirmar_personagem()
 		E.FIM:
-			if _fim_t > 2.5 and Ajustes.pode_comecar():
+			# o mesmo da espera: com crédito (ou no modo livre) vai para a
+			# escolha; sem crédito, o "INSIRA FICHA" de sempre
+			if not Ajustes.pode_comecar():
+				_start_na_espera()
+			elif _fim_t > 2.5:
 				_quem_bola = ""
 				_escolher_jogadores()
 
@@ -932,6 +936,7 @@ func _start_na_espera() -> void:
 		_escolher_jogadores()
 	else:
 		hud.texto_grande("INSIRA FICHA", Color("#FFF6A8"), 1.0, 0.55)
+		Sons.tocar("selecao")
 
 
 ## O START apertado na capa vale assim que a abertura aparece na tela (a
@@ -1149,7 +1154,7 @@ func _atracao() -> void:
 ## escolha da tela inicial / os ajustes do Android a cada vez que abria: sem
 ## controle remoto a TV Box ficava parada nos ajustes ou no lançador dela.
 func _conferir_instalacao() -> void:
-	if _instalacao_vista or _instalacao != null or Ajustes.instalacao_feita():
+	if _instalacao_vista or _instalacao != null or Ajustes.instalacao_atual():
 		return
 	if Fotos.janela_aberta() or ArduinoBridge.janela_aberta():
 		return
@@ -1158,6 +1163,7 @@ func _conferir_instalacao() -> void:
 	if script_instalacao.nada_falta():
 		# tudo já permitido (instalado pelo PC, com o adb): nem convida
 		Ajustes.definir("android", "instalacao_feita", true)
+		Ajustes.definir("android", "instalacao_versao", 2)
 		return
 	instalar(false)
 

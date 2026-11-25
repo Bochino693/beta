@@ -425,6 +425,8 @@ func _mudar(d: int) -> void:
 		Fotos.iniciar()
 		if bool(v):
 			Fotos.pedir_permissao_agora()
+	if item[2] == "modo_livre" or item[2] == "creditos_por_partida":
+		_porta_do_modo()
 	if item[2] == "porta_invertida":
 		ArduinoBridge.reenviar_porta()
 	if item[2] == "porta_tempo" or item[2] == "porta_fim_de_curso":
@@ -507,6 +509,7 @@ func _acao() -> void:
 			# as fichas de teste, ou o crédito que ficou esquecido: zera (na
 			# saída do menu a trava fecha, se o modo é o de fichas)
 			Ajustes.zerar_creditos()
+			_porta_do_modo()
 			Sons.tocar("pop")
 		"padrao":
 			Ajustes.restaurar_padrao()
@@ -515,6 +518,13 @@ func _acao() -> void:
 			Sons.tocar("pop")
 		"voltar":
 			_sair()
+
+
+## Trocou o MODO (ou zerou os créditos) no menu: a trava já fica como o modo
+## manda, na hora - modo livre ABERTA; modo fichas fechada sem crédito
+## (aberta se as fichas já pagam uma partida). (Antes só mudava na saída.)
+func _porta_do_modo() -> void:
+	ArduinoBridge.porta(Ajustes.pode_comecar())
 
 
 func _entrar_no_teste() -> void:

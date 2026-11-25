@@ -12,6 +12,7 @@ import android.hardware.usb.UsbInterface;
 import android.hardware.usb.UsbManager;
 import android.os.Build;
 import android.os.SystemClock;
+import android.provider.Settings;
 import android.util.Log;
 import android.view.View;
 
@@ -572,6 +573,31 @@ public class StrikeSerial extends GodotPlugin {
 			return InicioDaTv.escolher(a, true);
 		} catch (Throwable t) {
 			anotar("tela inicial: " + t);
+			return "";
+		}
+	}
+
+	/** O "Arduino automático" (StrikeAutoOk) está ligado na acessibilidade? */
+	@UsedByGodot
+	public boolean auto_ok_ligado() {
+		Activity a = getActivity();
+		return a != null && StrikeAutoOk.ligado(a);
+	}
+
+	/** INSTALAÇÃO (alguém apertou OK): os ajustes de acessibilidade ("ajustes" ou ""). */
+	@UsedByGodot
+	public String pedir_auto_ok() {
+		Activity a = getActivity();
+		if (a == null) {
+			return "";
+		}
+		try {
+			android.content.Intent i = new android.content.Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS);
+			i.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK);
+			a.startActivity(i);
+			return "ajustes";
+		} catch (Throwable t) {
+			anotar("acessibilidade: " + t);
 			return "";
 		}
 	}

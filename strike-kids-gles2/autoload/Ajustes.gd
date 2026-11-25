@@ -41,6 +41,7 @@ const PADRAO := {
 		# a INSTALAÇÃO da TV Box (scripts/instalacao.gd) já foi feita: as
 		# janelas do Android não aparecem mais sozinhas
 		"instalacao_feita": false,
+		"instalacao_versao": 0,   # scripts/instalacao.gd VERSAO: subiu = convida de novo uma vez
 	},
 	"arduino": {
 		"porta_invertida": false,     # a trava abre quando devia fechar? troca aqui
@@ -321,6 +322,11 @@ func adicionar_credito() -> void:
 ## A INSTALAÇÃO da TV Box já foi feita (no PC: sempre).
 func instalacao_feita() -> bool:
 	return OS.get_name() != "Android" or bool(valor("android", "instalacao_feita"))
+
+
+## A instalação desta versão (com o passo do Arduino automático) já foi feita?
+func instalacao_atual() -> bool:
+	return OS.get_name() != "Android" or int(valor("android", "instalacao_versao")) >= 2
 
 
 ## Menu do operador: ZERAR CRÉDITOS (fichas de teste, crédito esquecido).

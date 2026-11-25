@@ -13,7 +13,10 @@ extends Node
 ##   4. SOBREPOR A OUTROS APPS (Android 10+, se a TV tiver a página): o jogo
 ##      abre ao ligar mesmo sem ser a tela inicial;
 ##   5. TELA INICIAL: STRIKE KIDS + SEMPRE - a TV liga direto no jogo, sem
-##      nem carregar o lançador dela.
+##      nem carregar o lançador dela;
+##   6. ARDUINO AUTOMÁTICO (acessibilidade): nas TVs com Android de TV a
+##      janela do USB não tem "Sempre" e volta a cada vez que a TV liga - o
+##      serviço "Strike Kids: Arduino automático" aperta OK sozinho nela.
 ## O que já está permitido é pulado. No fim fica guardado: NUNCA MAIS aparece
 ## sozinho (o menu do operador roda de novo: "> INSTALAÇÃO").
 ## Ninguém apertou OK em 60 s (a TV Box já está no cliente, sem controle):
@@ -21,18 +24,22 @@ extends Node
 
 signal acabou
 
-const PASSOS := ["camera", "notificacoes", "arduino", "sobrepor", "inicio"]
+const PASSOS := ["camera", "notificacoes", "arduino", "sobrepor", "inicio", "auto_ok"]
+## a instalação mudou (7.9: o passo 6): a TV que já tinha feito convida de
+## novo UMA vez (o que já está feito é pulado)
+const VERSAO := 2
 const CONVITE_S := 60.0
 const ESPERA_ARDUINO_S := 25.0
 const JANELA_MAX_S := 90.0
 const NOTIFICACOES := "android.permission.POST_NOTIFICATIONS"
 const DICAS := {
-	"camera": "1/5  CÂMERA: na janela do Android toque em PERMITIR\n(a foto das crianças no placar)",
-	"notificacoes": "2/5  NOTIFICAÇÕES: toque em PERMITIR\n(o aviso que abre o jogo quando a TV liga)",
-	"arduino": "3/5  ARDUINO: marque \"SEMPRE ABRIR\" (USAR POR PADRÃO) e toque em OK\nassim o Arduino funciona sozinho a cada vez que a TV liga",
-	"arduino_conectar": "3/5  ARDUINO: conecte o cabo USB do Arduino na TV Box agora\n(na janela que aparecer marque \"SEMPRE ABRIR\" e OK)",
-	"sobrepor": "4/5  Ligue \"PERMITIR SOBREPOR A OUTROS APPS\" para o STRIKE KIDS\ne aperte VOLTAR no controle",
-	"inicio": "5/5  TELA INICIAL: escolha STRIKE KIDS e toque em SEMPRE\na TV passa a ligar direto no jogo",
+	"camera": "1/6  CÂMERA: na janela do Android toque em PERMITIR\n(a foto das crianças no placar)",
+	"notificacoes": "2/6  NOTIFICAÇÕES: toque em PERMITIR\n(o aviso que abre o jogo quando a TV liga)",
+	"arduino": "3/6  ARDUINO: marque \"SEMPRE ABRIR\" (USAR POR PADRÃO) e toque em OK\nassim o Arduino funciona sozinho a cada vez que a TV liga",
+	"arduino_conectar": "3/6  ARDUINO: conecte o cabo USB do Arduino na TV Box agora\n(na janela que aparecer marque \"SEMPRE ABRIR\" e OK)",
+	"sobrepor": "4/6  Ligue \"PERMITIR SOBREPOR A OUTROS APPS\" para o STRIKE KIDS\ne aperte VOLTAR no controle",
+	"inicio": "5/6  TELA INICIAL: escolha STRIKE KIDS e toque em SEMPRE\na TV passa a ligar direto no jogo",
+	"auto_ok": "6/6  ACESSIBILIDADE: ligue \"STRIKE KIDS: ARDUINO AUTOMÁTICO\" e aperte VOLTAR\nassim a TV nunca mais pergunta do Arduino (USB) ao ligar",
 }
 
 var hud: Node
@@ -58,7 +65,7 @@ func _ready() -> void:
 static func falta() -> bool:
 	if OS.get_name() != "Android":
 		return false
-	return not bool(Ajustes.valor("android", "instalacao_feita"))
+	return int(Ajustes.valor("android", "instalacao_versao")) < VERSAO
 
 
 ## Já está tudo permitido (instalado pelo PC, com o adb - GERAR_APK -TelaInicial)?
@@ -156,6 +163,8 @@ static func _precisa_com(p: String, plugin: Object) -> bool:
 			return plugin != null and "sobrepor" in str(plugin.call("falta_ao_ligar"))
 		"inicio":
 			return plugin != null and "inicio" in str(plugin.call("falta_ao_ligar"))
+		"auto_ok":
+			return plugin != null and plugin.has_method("auto_ok_ligado") and not bool(plugin.call("auto_ok_ligado"))
 	return false
 
 
@@ -176,11 +185,15 @@ func _abrir_janela() -> void:
 			var r := str(_plugin.call("escolher_tela_inicial"))
 			if r == "" or r == "ja":
 				_proximo()
+		"auto_ok":
+			if str(_plugin.call("pedir_auto_ok")) == "":
+				_proximo()   # a TV não tem a página
 
 
 func _acabar(feita: bool) -> void:
 	if feita:
 		Ajustes.definir("android", "instalacao_feita", true)
+		Ajustes.definir("android", "instalacao_versao", VERSAO)
 	_aviso("")
 	_fase = "fim"
 	emit_signal("acabou")

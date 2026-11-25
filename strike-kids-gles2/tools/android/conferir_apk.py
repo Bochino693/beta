@@ -176,6 +176,11 @@ checar('android.permission.RECEIVE_BOOT_COMPLETED' in perms, 'permissão RECEIVE
 for p_ in ['android.permission.SYSTEM_ALERT_WINDOW', 'android.permission.POST_NOTIFICATIONS']:
     checar(p_ in perms, 'permissão ' + p_)
 checar('android.intent.action.MY_PACKAGE_REPLACED' in acoes_ligou, 'StrikeLigou com MY_PACKAGE_REPLACED')
+# Arduino automático: o serviço de acessibilidade que aperta OK na janela do USB
+servs = [x for x in app.findall('service') if x.get(NS + 'name') == 'com.lazersport.strikeserial.StrikeAutoOk']
+checar(bool(servs) and servs[0].get(NS + 'permission') == 'android.permission.BIND_ACCESSIBILITY_SERVICE',
+       'serviço StrikeAutoOk (Arduino automático) com BIND_ACCESSIBILITY_SERVICE')
+checar('res/xml/strike_auto_ok.xml' in arquivos, 'res/xml/strike_auto_ok.xml no APK')
 
 # dex: o Godot no classes.dex, os plugins no classes2.dex
 print('dex:', sorted(n for n in arquivos if n.endswith('.dex')))
