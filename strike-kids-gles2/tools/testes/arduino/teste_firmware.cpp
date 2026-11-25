@@ -76,7 +76,7 @@ int main(int argc, char **argv) {
   iniciar();
   if (c == "tempo") {
     setup(); saida += Serial.out; Serial.out.clear();
-    CONFERE(saida.find("OLA:STRIKE_KIDS:6") != std::string::npos, "OLA ao ligar");
+    CONFERE(saida.find("OLA:STRIKE_KIDS:7") != std::string::npos, "OLA ao ligar");
     rodar(2);
     CONFERE(motor() == -1, "ao ligar o motor fecha a porta");
     long t = ate("PORTA:FECHADA", 3000);
@@ -322,6 +322,28 @@ int main(int argc, char **argv) {
     rodar(SEM_JOGO_FECHA_MS + 100);
     CONFERE(conta("AVISO:SEM_JOGO") == 1 && conta("PORTA:FECHADA") == 1, "jogo sumiu: fecha sozinha");
     CONFERE(pinOut[RELE_PINO] == desligado, "jogo sumiu: rele desligado");
+  } else if (c == "livre") {
+    // MODO LIVRE: porta sempre aberta - nem o jogo sumindo (TV em espera
+    // com o Arduino ligado) fecha. No MODO FICHAS o vigia fecha.
+    setup(); pega();
+    manda("PING"); manda("MODO:LIVRE"); manda("PORTA:ABRE");
+    rodar(2000);
+    int p0 = pulsos;
+    CONFERE(conta("PORTA:ABERTA") == 1, "modo livre: abre");
+    rodar(600000);
+    CONFERE(pulsos == p0 && conta("AVISO") == 0, "modo livre: 10 min sem o jogo e a porta continua aberta (sem pulso)");
+    // o jogo volta no modo livre: sem pulso
+    manda("PING"); manda("MODO:LIVRE"); manda("PORTA:ABRE"); rodar(2000);
+    CONFERE(pulsos == p0, "o jogo voltou no modo livre: sem pulso");
+    // operador passou para fichas sem credito: fecha (1 pulso); com credito abre (1 pulso)
+    manda("MODO:FICHAS"); manda("PORTA:FECHA"); rodar(2000);
+    manda("PORTA:ABRE"); rodar(2000);
+    pega();
+    rodar(SEM_JOGO_FECHA_MS + 3000);
+    CONFERE(conta("AVISO:SEM_JOGO") == 1, "modo fichas: o jogo sumiu com a porta aberta -> fecha");
+    // reiniciou: volta no modo fichas ate o jogo dizer (o vigia so depois do jogo falar)
+    religar(); pega();
+    CONFERE(!modoLivre, "reiniciou: modo fichas ate o jogo avisar");
   } else if (c == "intruso") {
     // A TV BOX LIGANDO "FALA" COM O ARDUINO: um programa dela testa a porta
     // serial (comandos de modem AT), chega ruido e o eco das respostas. Nada
@@ -330,8 +352,8 @@ int main(int argc, char **argv) {
     EEPROM.update(EE_PORTA, 0); EEPROM.update(EE_PORTA + 1, 0xFF);   // (a porta ficou ABERTA)
 #endif
     setup(); pega();
-    const char *lixo[] = {"AT", "ATE0", "AT+CGMM", "AT+CPIN?", "ATI", "OLA:STRIKE_KIDS:6", "PORTA:ABERTA", "PORTA:FECHADA",
-                          "PONG:STRIKE_KIDS:6", "FICHA:0", "INFO:STRIKE_KIDS:6:LEDS=1", "PONTE:TEMPO:1500:FC:0", "PONTE:TEMPO:800X",
+    const char *lixo[] = {"AT", "ATE0", "AT+CGMM", "AT+CPIN?", "ATI", "OLA:STRIKE_KIDS:7", "PORTA:ABERTA", "PORTA:FECHADA",
+                          "PONG:STRIKE_KIDS:7", "FICHA:0", "INFO:STRIKE_KIDS:7:LEDS=1", "PONTE:TEMPO:1500:FC:0", "PONTE:TEMPO:800X",
                           "PORTA:ABREX", "XPING", "PINGS", "CALIBRAR", "S:1", "SENS:00000", "AVISO:SEM_JOGO", "~~##", "+++"};
     for (int k = 0; k < 6; k++) {
       for (const char *l : lixo) { manda(l); rodar(30); }
@@ -349,7 +371,7 @@ int main(int argc, char **argv) {
     // agora o jogo de verdade: tudo funciona
     pega();
     manda("PING"); rodar(5);
-    CONFERE(conta("PONG:STRIKE_KIDS:6") == 1, "o jogo de verdade e atendido");
+    CONFERE(conta("PONG:STRIKE_KIDS:7") == 1, "o jogo de verdade e atendido");
 #if USAR_RELE && RELE_PULSO && !USAR_PONTE_H
     manda("PORTA:ABRE"); rodar(2000);
     CONFERE(pulsos == 0 && conta("PORTA:ABERTA") == 1, "jogo pede aberta (ja estava): sem pulso");

@@ -72,7 +72,7 @@ GRAVAR EM 1 MINUTO (detalhes no LEIA-ME de cada versao)
      Gerenciar bibliotecas). Sem a fita: no .ino, USAR_LEDS 0.
   3. Ferramentas > Placa: Arduino Nano (ou Uno). Nano clone (CH340):
      Processador "ATmega328P (Old Bootloader)". Porta: a COM do Arduino.
-  4. Carregar (seta ->). No Monitor Serial (9600) aparece OLA:STRIKE_KIDS:6.
+  4. Carregar (seta ->). No Monitor Serial (9600) aparece OLA:STRIKE_KIDS:7.
   5. Cabo USB na TV Box e abra o jogo: na PRIMEIRA INSTALACAO (OK no
      controle remoto) marque "Usar por padrao" na janela do Arduino.
 

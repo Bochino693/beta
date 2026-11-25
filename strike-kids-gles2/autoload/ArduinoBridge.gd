@@ -114,6 +114,7 @@ var _porta_mudou_ms := 0
 var _porta_enviada := -1
 var _porta_envio_ms := 0
 var _porta_reenvios := 0
+var _modo_enviado := ""          # MODO:LIVRE / MODO:FICHAS que o Arduino já sabe
 const PORTA_REENVIOS_MAX := 3   # (a ponte H travada não fica tentando para sempre)
 # fichas do firmware 5: o número da última contada (-1 = nenhuma ainda)
 var _ultima_ficha := -1
@@ -382,6 +383,7 @@ func _desconectar() -> void:
 	info = ""
 	_last_led_sent = ""
 	_porta_enviada = -1
+	_modo_enviado = ""
 	_fase = "procurando"
 	_ultima_procura = Time.get_ticks_msec()
 	if estava:
@@ -493,8 +495,9 @@ func _conectou(fw: String) -> void:
 		# quem é o jogo, antes de tudo: as fichas da fila já podem vir
 		_send("FICHAS:SYNC")
 		enviar_ponte()   # antes da porta: ela já anda no tempo/fim de curso do menu
-		# a porta vai pelo _andar_porta (só o que o jogo já decidiu)
+		# a porta (e o modo) vão pelo _andar_porta (só o que o jogo já decidiu)
 		_porta_enviada = -1
+		_modo_enviado = ""
 		_send("TESTE:1" if _teste else "TESTE:0")
 		_send("INFO?")
 		_send("PORTA?")
@@ -551,6 +554,12 @@ func reenviar_porta() -> void:
 func _andar_porta(agora: int) -> void:
 	if not _porta_decidida or not completo():
 		return
+	# o MODO vai antes da porta (firmware 7: no modo livre o vigia do
+	# Arduino nunca fecha a porta - nem com o jogo parado ou a TV em espera)
+	var modo := "MODO:LIVRE" if Ajustes.modo_livre() else "MODO:FICHAS"
+	if modo != _modo_enviado:
+		_modo_enviado = modo
+		_send(modo)
 	var quer := 1 if porta_quer else 0
 	if quer != _porta_enviada:
 		if agora - _porta_mudou_ms >= PORTA_FIRME_MS:

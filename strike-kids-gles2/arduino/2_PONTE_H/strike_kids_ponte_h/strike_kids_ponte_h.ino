@@ -144,7 +144,7 @@ const uint8_t SENSOR_PINOS[5] = {2, 3, 4, 5, 7};
 #define FILTRO_BOTAO_MS 25
 #define FILTRO_FICHA_MS 5         // moedeiro manda pulsos curtos (20 ms ou mais)
 #define SEM_JOGO_FECHA_MS 30000UL // o jogo falou e sumiu este tempo: fecha a porta
-#define VERSAO "6"
+#define VERSAO "7"
 
 #if USAR_LEDS
 #include <Adafruit_NeoPixel.h>
@@ -205,6 +205,8 @@ bool releDescansando = false;   // acabou de pulsar: espera RELE_DESCANSO_MS
 uint16_t releTrocas = 0;        // contador de pulsos (par = fechada, impar = aberta)
 // o vigia do jogo so vale depois de o jogo falar (ligar o Arduino nao mexe na porta)
 bool jogoFalou = false;
+// MODO:LIVRE (o jogo diz): a porta fica sempre aberta - o vigia nunca fecha
+bool modoLivre = false;
 
 // ponte H: o motor anda ate a porta chegar e so entao confirma ao jogo
 bool ponteAlvoAberta = false;   // para onde a porta vai
@@ -809,6 +811,10 @@ bool comandoDoJogo(const char *c) {
     releAcertar();
     Serial.println(portaDeVerdade() ? F("PORTA:ABERTA") : F("PORTA:FECHADA"));
 #endif
+  } else if (!strcmp(c, "MODO:LIVRE")) {
+    modoLivre = true;
+  } else if (!strcmp(c, "MODO:FICHAS")) {
+    modoLivre = false;
   } else if (!strcmp(c, "FICHAS:SYNC")) {
     protocoloFicha = true;    // jogo novo: confirma cada ficha
     jogoAntigo = false;
@@ -918,6 +924,7 @@ void setup() {
   bufLen = 0;
   streamSensores = false;
   jogoFalou = false;
+  modoLivre = false;
   ultimoComando = millis();
   recebidas = lerContador(EE_RECEBIDAS);
   confirmadas = lerContador(EE_CONFIRMADAS);
@@ -1018,7 +1025,8 @@ void loop() {
   // VIGIA DO JOGO: o jogo falou e depois sumiu com a porta aberta -> fecha.
   // (Antes de o jogo falar a primeira vez nao vale: ligar o Arduino, ou a
   // TV Box ainda abrindo o jogo, nao mexe na porta.)
-  if (jogoFalou && portaAberta && agora - ultimoComando > SEM_JOGO_FECHA_MS) {
+  // (no MODO LIVRE nunca: a porta e sempre aberta, com ou sem o jogo)
+  if (jogoFalou && portaAberta && !modoLivre && agora - ultimoComando > SEM_JOGO_FECHA_MS) {
     porta(false);
     Serial.println(F("AVISO:SEM_JOGO"));
   }

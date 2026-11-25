@@ -54,6 +54,7 @@ for t in "padrao tempo" "padrao ficha_nf" "padrao ficha_na" "fc fim_de_curso" "f
          "fcnf fim_de_curso" "inv invertida" "padrao menu" "soponte so_ponte" \
          "rele pulso" "pulsohigh pulso" "semleds pulso" "rele antigo4" "rele fichas" "padrao fichas" \
          "rele intruso" "pulsohigh intruso" "padrao intruso" \
+         "rele livre" \
          "nivel rele" "nivel5 rele" "rele sem_ponte" "semleds sem_ponte" "nivel sem_ponte" \
          "rele ficha_nf" "rele ficha_na"; do
   set -- $t
