@@ -55,6 +55,9 @@ extends Node
 ## Depois disso o jogo nunca mais pede sozinho - na máquina sem controle
 ## remoto uma janela sem ninguém para responder deixaria o jogo parado atrás
 ## dela. Só o operador pede de novo, nos testes do Arduino no menu.
+## TV SEM "SEMPRE" (Android de TV): com o serviço "Strike Kids: abrir ao
+## ligar e Arduino" ligado (Ajustes > Acessibilidade, uma vez só), o jogo
+## pede a CADA VEZ que liga e o serviço aperta OK sozinho na hora.
 
 signal mudou
 signal sensor(n)
@@ -69,6 +72,7 @@ const PROCURAR_MS := 1500
 const PERMISSOES := "user://permissoes.cfg"
 const JANELA_MAX_MS := 25000
 const ESPERA_JANELA_ANDROID_MS := 6000   # a janela do próprio Android (encaixe) vem antes
+const PEDIDO_AUTO_MS := 15000            # com o serviço ligado: pede de novo a cada 15 s até ter
 const PORTA_FIRME_MS := 250              # o pedido da porta fica firme isto antes de sair
 const PORTA_REENVIO_MS := 2500           # sem confirmação: repete (não dá pulso a mais)
 const DICA_USB := "NA JANELA DO ANDROID: MARQUE \"SEMPRE ABRIR\" (USAR POR PADRÃO) E TOQUE EM OK\nassim ela nunca mais aparece"
@@ -105,6 +109,9 @@ var _janelas_ok := false       # na espera ou no menu: pode abrir janela do Andr
 var _pedir_agora := false      # o operador pediu a janela (testes do Arduino no menu)
 var _janela_ate := 0           # a janela do Android está aberta (até este ms)
 var _visto_sem_permissao := {} # nome do aparelho -> ms em que apareceu no USB sem permissão
+var _auto_ok_cache := false    # o serviço "Strike Kids: abrir ao ligar e Arduino" está ligado?
+var _auto_ok_visto := -100000  # (ms da última consulta)
+var _pedido_auto := -100000    # ms do último pedido feito com o serviço ligado
 var _teste := false
 var _led_state := "MENU"
 var _last_led_sent := ""
@@ -237,7 +244,9 @@ func _procurar(agora: int, lista := "") -> void:
 		return
 	if not sem_permissao.empty():
 		var chave := _chave_de(lista, sem_permissao[0])
-		if _ja_pediu(chave) and not _pedir_agora and not janela_aberta():
+		if _auto_ok_ligado():
+			_set_status("Arduino no USB: pedindo ao Android (o serviço do Strike Kids aceita sozinho)")
+		elif _ja_pediu(chave) and not _pedir_agora and not janela_aberta():
 			_set_status("Arduino no USB sem permissão: no menu, TESTE DOS SENSORES pede de novo (marque \"Sempre abrir\")")
 		else:
 			_set_status("Arduino no USB: aceite a janela do Android (marque \"Sempre abrir\" / \"Usar por padrão\")")
@@ -285,6 +294,18 @@ func _pedir_permissao(nome: String, chave: String, agora: int) -> void:
 		return   # uma janela do Android por vez
 	if _pedir_agora:
 		_pedir_agora = false
+	elif _auto_ok_ligado() and Ajustes.instalacao_feita():
+		# O SERVIÇO APERTA OK SOZINHO (Ajustes > Acessibilidade > "Strike Kids:
+		# abrir ao ligar e Arduino"): o jogo pede a CADA VEZ que a TV liga, sem
+		# ninguém no controle - o Android pergunta, o serviço aceita na hora e
+		# o Arduino conecta. (Se a janela do encaixe ficou escondida atrás do
+		# jogo, este pedido a traz de novo.)
+		if agora - _pedido_auto < PEDIDO_AUTO_MS:
+			return
+		_pedido_auto = agora
+		_janela_ate = agora + JANELA_MAX_MS
+		_timer_real(0.1).connect("timeout", self, "_abrir_janela_usb", [nome])
+		return
 	elif not _janelas_ok or _ja_pediu(chave) or not Ajustes.instalacao_feita():
 		# (antes da INSTALAÇÃO nenhuma janela abre sozinha: quem pede é ela,
 		# com alguém apertando OK - scripts/instalacao.gd)
@@ -314,6 +335,18 @@ func pedir_permissao_agora() -> void:
 		return
 	_pedir_agora = true
 	_ultima_procura = -PROCURAR_MS
+
+
+## O serviço de acessibilidade do jogo (aperta OK na janela do USB) está
+## ligado? (consulta o Android a cada 5 s no máximo)
+func _auto_ok_ligado() -> bool:
+	if _plugin == null or not _plugin.has_method("auto_ok_ligado"):
+		return false
+	var agora := Time.get_ticks_msec()
+	if agora - _auto_ok_visto >= 5000:
+		_auto_ok_visto = agora
+		_auto_ok_cache = bool(_plugin.call("auto_ok_ligado"))
+	return _auto_ok_cache
 
 
 func janela_aberta() -> bool:

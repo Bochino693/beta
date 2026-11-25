@@ -79,6 +79,24 @@ O QUE MUDOU PARA RODAR NA OPENGL ES 2.0
     Godot 4 (nao substitui).
 
 
+VERSAO 8.4: O ARDUINO CONECTA SOZINHO A CADA VEZ QUE A TV LIGA
+---------------------------------------------------------------
+  * Esta TV (Android de TV) nao tem "Sempre" na janela do USB: o Android
+    pergunta a cada vez que liga, e nenhum app tira essa janela (e regra de
+    seguranca do Android; so um app do sistema da TV, ou root, passaria
+    sem ela). Quem responde e o SERVICO do jogo "Strike Kids: abrir ao
+    ligar e Arduino": ligado UMA vez (Configuracoes > Preferencias do
+    dispositivo > Acessibilidade > Strike Kids: abrir ao ligar e Arduino >
+    Ativar > OK), ele aperta OK sozinho na hora, abre o jogo ao ligar e o
+    traz de volta se a TV mostrar a tela inicial. O cliente nao precisa
+    de controle.
+  * 8.4: o servico vigia a janela do USB a cada 0,4 s nos 3 primeiros
+    minutos depois de ligar (e 20 s depois de qualquer janela nova) - a
+    janela que abre atras, desliza ou abriu antes do servico tambem e
+    aceita. Com o servico ligado o jogo pede o Arduino de novo a cada
+    15 s ate conectar (antes pedia uma vez so por Arduino).
+
+
 VERSAO 8.3: CREDITO SO NO MODO FICHAS, SEM CREDITO FANTASMA
 -----------------------------------------------------------
   * FIRMWARE 11 (grave no Arduino): FICHA SO COM O PULSO CERTO. O A2 so

@@ -85,12 +85,33 @@ public class StrikeAutoOk extends AccessibilityService {
 		}
 	};
 
-	private final Runnable reconferir = new Runnable() {
+	/** procura a janela do USB até esta hora (elapsedRealtime) */
+	private long vigiarAte = 0;
+
+	/**
+	 * VIGIA: confere todas as janelas a cada 0,4 s - a janela do USB nem
+	 * sempre avisa ao abrir (ela aparece atrás, desliza, ou abriu antes de o
+	 * serviço subir no boot). Depois do boot vigia 3 minutos; depois de
+	 * qualquer janela nova, 20 s.
+	 */
+	private final Runnable vigia = new Runnable() {
 		@Override
 		public void run() {
 			conferir();
+			if (android.os.SystemClock.elapsedRealtime() < vigiarAte) {
+				h.postDelayed(this, 400);
+			}
 		}
 	};
+
+	private void vigiar(long ms) {
+		long ate = android.os.SystemClock.elapsedRealtime() + ms;
+		if (ate > vigiarAte) {
+			vigiarAte = ate;
+		}
+		h.removeCallbacks(vigia);
+		h.post(vigia);
+	}
 
 	@Override
 	protected void onServiceConnected() {
@@ -98,14 +119,22 @@ public class StrikeAutoOk extends AccessibilityService {
 		// a TV acabou de ligar (ou o serviço foi ligado agora): o jogo abre
 		h.postDelayed(trazerAoLigar, 2500);
 		h.postDelayed(trazerAoLigar, 8000);
-		// a janela do USB pode já estar aberta
-		conferir();
-		h.postDelayed(reconferir, 1500);
+		// a janela do USB pode já estar aberta (ou abrir a qualquer momento
+		// nestes primeiros minutos, enquanto a TV e o Arduino ligam)
+		vigiar(180000);
 	}
 
 	@Override
 	public void onAccessibilityEvent(AccessibilityEvent e) {
-		if (e == null || e.getEventType() != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
+		if (e == null) {
+			return;
+		}
+		if (e.getEventType() == AccessibilityEvent.TYPE_WINDOWS_CHANGED) {
+			// uma janela apareceu/sumiu (a do USB pode ser um painel do lado)
+			vigiar(20000);
+			return;
+		}
+		if (e.getEventType() != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
 			return;
 		}
 		CharSequence cs = e.getPackageName();
@@ -117,9 +146,7 @@ public class StrikeAutoOk extends AccessibilityService {
 			// a janela do USB: confere já e de novo (a da TV desliza e só
 			// mostra os botões um instante depois)
 			conferir();
-			h.removeCallbacks(reconferir);
-			h.postDelayed(reconferir, 600);
-			h.postDelayed(reconferir, 1500);
+			vigiar(20000);
 		} else if (ehLancador(pkg)) {
 			// o lançador da TV apareceu: o jogo volta (um pouquinho depois:
 			// se foi só um piscar, nada acontece)
