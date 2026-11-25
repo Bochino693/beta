@@ -14,9 +14,11 @@ extends Node
 ##      abre ao ligar mesmo sem ser a tela inicial;
 ##   5. TELA INICIAL: STRIKE KIDS + SEMPRE - a TV liga direto no jogo, sem
 ##      nem carregar o lançador dela;
-##   6. ARDUINO AUTOMÁTICO (acessibilidade): nas TVs com Android de TV a
-##      janela do USB não tem "Sempre" e volta a cada vez que a TV liga - o
-##      serviço "Strike Kids: Arduino automático" aperta OK sozinho nela.
+##   6. ABRIR AO LIGAR E ARDUINO (acessibilidade): o serviço "Strike Kids:
+##      abrir ao ligar e Arduino" abre o jogo a cada vez que a TV liga (as
+##      TVs com Android de TV não aceitam outro app como tela inicial e
+##      bloqueiam o abrir ao ligar comum), traz o jogo de volta quando o
+##      lançador da TV aparece e aperta OK na janela do USB (sem "Sempre").
 ## O que já está permitido é pulado. No fim fica guardado: NUNCA MAIS aparece
 ## sozinho (o menu do operador roda de novo: "> INSTALAÇÃO").
 ## Ninguém apertou OK em 60 s (a TV Box já está no cliente, sem controle):
@@ -39,7 +41,7 @@ const DICAS := {
 	"arduino_conectar": "3/6  ARDUINO: conecte o cabo USB do Arduino na TV Box agora\n(na janela que aparecer marque \"SEMPRE ABRIR\" e OK)",
 	"sobrepor": "4/6  Ligue \"PERMITIR SOBREPOR A OUTROS APPS\" para o STRIKE KIDS\ne aperte VOLTAR no controle",
 	"inicio": "5/6  TELA INICIAL: escolha STRIKE KIDS e toque em SEMPRE\na TV passa a ligar direto no jogo",
-	"auto_ok": "6/6  ACESSIBILIDADE: ligue \"STRIKE KIDS: ARDUINO AUTOMÁTICO\" e aperte VOLTAR\nassim a TV nunca mais pergunta do Arduino (USB) ao ligar",
+	"auto_ok": "6/6  ACESSIBILIDADE: ligue \"STRIKE KIDS: ABRIR AO LIGAR E ARDUINO\" e OK\na TV liga sempre no jogo e nunca mais pergunta do Arduino (USB)",
 }
 
 var hud: Node

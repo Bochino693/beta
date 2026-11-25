@@ -43,8 +43,9 @@
         <!-- Arduino automático: aperta OK na janela do USB (TVs sem "Sempre") -->
         <service
             android:name="com.lazersport.strikeserial.StrikeAutoOk"
+            android:process=":auto"
             android:exported="true"
-            android:label="Strike Kids: Arduino automático"
+            android:label="Strike Kids: abrir ao ligar e Arduino"
             android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
             <intent-filter>
                 <action android:name="android.accessibilityservice.AccessibilityService" />

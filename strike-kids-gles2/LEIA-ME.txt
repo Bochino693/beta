@@ -81,6 +81,15 @@ O QUE MUDOU PARA RODAR NA OPENGL ES 2.0
 
 VERSAO 7.9: ARDUINO SEM PERGUNTAR NA TV, TRAVA CERTA E O FIM SEM PISCAR
 -----------------------------------------------------------------------
+  * ABRE AO LIGAR, SEMPRE (inclusive nas TVs com Android de TV): o servico
+    de acessibilidade "Strike Kids: abrir ao ligar e Arduino" e chamado
+    pelo proprio sistema a cada vez que a TV liga - e o Android deixa ele
+    abrir o jogo (o "abrir ao ligar" comum e barrado do Android 10 em
+    diante, e as TVs com Android de TV nao aceitam outro app como tela
+    inicial). Ligado UMA vez, ele: abre o jogo ao ligar; traz o jogo de
+    volta se o lancador da TV aparecer (a nao ser que o operador tenha
+    saido pelo menu "> SAIR PARA A TELA DA TV": 15 min livres); e aperta OK
+    na janela do USB. Roda num processo separado (nao pesa no jogo).
   * ARDUINO AUTOMATICO (TVs com Android de TV): a janela "Pretende abrir a
     app Strike Kids para controlar o acessorio USB Serial?" da TV so tem OK
     e Cancelar - sem a caixa "Sempre", o Android nao guarda a resposta e

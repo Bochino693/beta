@@ -3,13 +3,19 @@ package com.lazersport.strikeserial;
 import android.accessibilityservice.AccessibilityService;
 import android.content.ComponentName;
 import android.content.Context;
+import android.content.Intent;
+import android.content.pm.ResolveInfo;
+import android.os.Handler;
+import android.os.Looper;
 import android.provider.Settings;
 import android.util.Log;
 import android.view.accessibility.AccessibilityEvent;
 import android.view.accessibility.AccessibilityNodeInfo;
 
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 
 /**
  * O ARDUINO SEM PERGUNTAR, A CADA VEZ QUE A TV LIGA.
@@ -24,6 +30,15 @@ import java.util.Locale;
  * -TelaInicial) aperta OK sozinho nessa janela - SÓ nela: a janela do
  * sistema que fala do Strike Kids E de USB. Marca também o "Sempre", nas
  * TVs que têm. Nada mais é tocado.
+ *
+ * O JOGO ABRE AO LIGAR, SEMPRE: o sistema chama este serviço a cada vez que
+ * a TV liga (e o Android deixa um serviço de acessibilidade abrir o app -
+ * as TVs com Android de TV não aceitam outro app como tela inicial e, do
+ * Android 10 em diante, bloqueiam o "abrir ao ligar" comum). Assim que ele
+ * sobe, o jogo abre; e se o lançador da TV aparecer depois (HOME do
+ * controle, o jogo fechou), o jogo volta - a não ser que o operador tenha
+ * saído pelo menu ("> SAIR PARA A TELA DA TV": 15 minutos sem voltar). Roda
+ * num processo só dele (":auto"), separado do jogo.
  */
 public class StrikeAutoOk extends AccessibilityService {
 
@@ -51,27 +66,113 @@ public class StrikeAutoOk extends AccessibilityService {
 		return false;
 	}
 
+	private final Handler h = new Handler(Looper.getMainLooper());
+	private Set<String> lancadores;
+	private long trazerEm = 0;
+
+	private final Runnable trazer = new Runnable() {
+		@Override
+		public void run() {
+			trazerJogo(false);
+		}
+	};
+
+	private final Runnable trazerAoLigar = new Runnable() {
+		@Override
+		public void run() {
+			trazerJogo(true);
+		}
+	};
+
+	private final Runnable reconferir = new Runnable() {
+		@Override
+		public void run() {
+			conferir();
+		}
+	};
+
 	@Override
 	protected void onServiceConnected() {
 		super.onServiceConnected();
-		// a janela pode já estar aberta (a TV ligou antes de o serviço subir)
+		// a TV acabou de ligar (ou o serviço foi ligado agora): o jogo abre
+		h.postDelayed(trazerAoLigar, 2500);
+		h.postDelayed(trazerAoLigar, 8000);
+		// a janela do USB pode já estar aberta
 		conferir();
+		h.postDelayed(reconferir, 1500);
 	}
 
 	@Override
 	public void onAccessibilityEvent(AccessibilityEvent e) {
-		if (e == null) {
+		if (e == null || e.getEventType() != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
 			return;
 		}
-		int t = e.getEventType();
-		if (t != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED && t != AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED) {
+		CharSequence cs = e.getPackageName();
+		if (cs == null) {
 			return;
 		}
-		CharSequence pkg = e.getPackageName();
-		if (pkg == null || !ehDoSistema(pkg.toString())) {
-			return;
+		String pkg = cs.toString();
+		if (ehDoSistema(pkg)) {
+			// a janela do USB: confere já e de novo (a da TV desliza e só
+			// mostra os botões um instante depois)
+			conferir();
+			h.removeCallbacks(reconferir);
+			h.postDelayed(reconferir, 600);
+			h.postDelayed(reconferir, 1500);
+		} else if (ehLancador(pkg)) {
+			// o lançador da TV apareceu: o jogo volta (um pouquinho depois:
+			// se foi só um piscar, nada acontece)
+			h.removeCallbacks(trazer);
+			h.postDelayed(trazer, 1500);
 		}
-		conferir();
+	}
+
+	/** As telas iniciais da TV (menos a do jogo e a "Android iniciando" dos Ajustes). */
+	private boolean ehLancador(String pkg) {
+		if (lancadores == null) {
+			lancadores = new HashSet<String>();
+			try {
+				Intent home = new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME);
+				for (ResolveInfo r : getPackageManager().queryIntentActivities(home, 0)) {
+					if (r.activityInfo != null) {
+						lancadores.add(r.activityInfo.packageName);
+					}
+				}
+			} catch (Throwable ignored) {
+			}
+			lancadores.remove(getPackageName());
+			lancadores.remove("com.android.settings");
+		}
+		return lancadores.contains(pkg);
+	}
+
+	/**
+	 * Traz o jogo para a frente - só se na frente está o lançador da TV (ou
+	 * nada, ao ligar). Um app, os ajustes ou uma janela na frente: não briga.
+	 */
+	private void trazerJogo(boolean aoLigar) {
+		try {
+			if (InicioDaTv.operadorSaiu(this)) {
+				return;
+			}
+			AccessibilityNodeInfo raiz = getRootInActiveWindow();
+			String ativo = raiz != null && raiz.getPackageName() != null ? raiz.getPackageName().toString() : null;
+			if (getPackageName().equals(ativo)) {
+				return;   // o jogo já está na frente
+			}
+			if (ativo != null && !ehLancador(ativo) && !(aoLigar && ativo.equals("com.android.settings"))) {
+				return;
+			}
+			long agora = android.os.SystemClock.elapsedRealtime();
+			if (agora - trazerEm < 3000) {
+				return;
+			}
+			trazerEm = agora;
+			Log.i(TAG, "auto ok: o jogo volta para a frente (" + ativo + ")");
+			InicioDaTv.abrirJogo(this);
+		} catch (Throwable t) {
+			Log.i(TAG, "auto ok: trazer: " + t);
+		}
 	}
 
 	@Override

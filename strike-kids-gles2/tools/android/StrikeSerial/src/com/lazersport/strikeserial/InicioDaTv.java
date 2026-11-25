@@ -192,9 +192,10 @@ final class InicioDaTv {
 		}
 	}
 
-	/** O jogo veio para a frente: o aviso de abrir some. */
+	/** O jogo veio para a frente: o aviso de abrir some (e a saída do operador acabou). */
 	static void jogoNaFrente(Context c) {
 		naFrente = true;
+		limparSaida(c);
 		try {
 			NotificationManager nm = (NotificationManager) c.getSystemService(Context.NOTIFICATION_SERVICE);
 			if (nm != null) {
@@ -360,8 +361,50 @@ final class InicioDaTv {
 		return (r.activityInfo.applicationInfo.flags & ApplicationInfo.FLAG_SYSTEM) != 0;
 	}
 
+	// ------------------------------------------------------------ o operador saiu
+	private static final long SAIDA_MS = 15 * 60 * 1000L;
+
+	/** O operador saiu para a tela da TV: o jogo não volta sozinho por 15 min (nem depois, até religar ou abrir o jogo). */
+	static void marcarSaida(Context c) {
+		try {
+			java.io.File f = new java.io.File(c.getFilesDir(), "saida_tv");
+			java.io.FileOutputStream o = new java.io.FileOutputStream(f);
+			o.write((SystemClock.elapsedRealtime() + SAIDA_MS + "").getBytes("US-ASCII"));
+			o.close();
+		} catch (Throwable ignored) {
+		}
+	}
+
+	/** O jogo abriu: a saída do operador acabou. */
+	static void limparSaida(Context c) {
+		try {
+			new java.io.File(c.getFilesDir(), "saida_tv").delete();
+		} catch (Throwable ignored) {
+		}
+	}
+
+	static boolean operadorSaiu(Context c) {
+		try {
+			java.io.File f = new java.io.File(c.getFilesDir(), "saida_tv");
+			if (!f.exists()) {
+				return false;
+			}
+			byte[] b = new byte[24];
+			java.io.FileInputStream i = new java.io.FileInputStream(f);
+			int n = i.read(b);
+			i.close();
+			long ate = Long.parseLong(new String(b, 0, Math.max(n, 0), "US-ASCII").trim());
+			long agora = SystemClock.elapsedRealtime();
+			// (religou a TV: o relógio recomeçou - a saída não vale mais)
+			return agora < ate && ate - agora <= SAIDA_MS;
+		} catch (Throwable t) {
+			return false;
+		}
+	}
+
 	/** Abre a tela inicial da própria TV (ou os ajustes): o nome dela, "config" ou "". */
 	static String sairParaTv(Context c) {
+		marcarSaida(c);
 		ResolveInfo outra = outraTela(c);
 		if (outra != null) {
 			Intent i = home().setClassName(outra.activityInfo.packageName, outra.activityInfo.name)

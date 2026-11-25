@@ -389,10 +389,10 @@ func _rodar() -> void:
 			erro("ZERAR CRÉDITOS não zerou (%d)" % Ajustes.creditos)
 		else:
 			print("ZERAR CRÉDITOS OK (%d -> 0)" % cred)
-		yield(conferir("zerou no menu: ainda sem pulso", 14, true), "completed")
+		# (7.9) zerar no menu já fecha a trava NA HORA (modo fichas)
+		yield(conferir("zerou no menu: fecha na hora", 15, false), "completed")
 	yield(apertar("input_teste"), "completed")
-	# saiu do menu sem crédito: fecha
-	yield(conferir("saiu do menu sem crédito: fecha", 15, false), "completed")
+	yield(conferir("saiu do menu sem crédito: continua fechada", 15, false), "completed")
 
 	# ---------------------------------------------------------------- ficha junto com o fim
 	yield(ficha(), "completed")

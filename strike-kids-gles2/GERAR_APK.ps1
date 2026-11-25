@@ -1064,7 +1064,7 @@ function Principal {
                 else { $lista = "${atuais}:$servico" }
                 [void](Executar $script:Adb @("shell", "settings", "put", "secure", "enabled_accessibility_services", $lista) -Log (Join-Path $script:Logs "adb-acessibilidade2.log") -LimiteMin 2 -Rotulo "adb" -Quieto)
                 [void](Executar $script:Adb @("shell", "settings", "put", "secure", "accessibility_enabled", "1") -Log (Join-Path $script:Logs "adb-acessibilidade3.log") -LimiteMin 2 -Rotulo "adb" -Quieto)
-                Ok "Arduino automatico ligado (acessibilidade): a TV nao pergunta mais do USB ao ligar"
+                Ok "abrir ao ligar e Arduino automatico ligados (acessibilidade): a TV liga no jogo e nao pergunta do USB"
                 Ok "permissoes da camera, das notificacoes e de sobrepor dadas pelo adb"
             }
             [void](Executar $script:Adb @("shell", "monkey", "-p", $Pacote, "-c", "android.intent.category.LAUNCHER", "1") -Log (Join-Path $script:Logs "adb-abrir.log") -LimiteMin 2 -Rotulo "adb" -Quieto)

@@ -2,7 +2,7 @@
 <!-- Strike Kids: Arduino automático (StrikeAutoOk) - aperta OK na janela do
      USB do Strike Kids a cada vez que a TV liga (TVs sem a caixa "Sempre") -->
 <accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
-    android:accessibilityEventTypes="typeWindowStateChanged|typeWindowContentChanged"
+    android:accessibilityEventTypes="typeWindowStateChanged"
     android:accessibilityFeedbackType="feedbackGeneric"
     android:accessibilityFlags="flagDefault|flagReportViewIds"
     android:canRetrieveWindowContent="true"

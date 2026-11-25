@@ -72,7 +72,7 @@ def injetar(manifesto):
             </intent-filter>
             <meta-data android:name="android.hardware.usb.action.USB_DEVICE_ATTACHED" android:resource="@xml/strike_usb_arduino"/>
         </activity>
-        <service android:exported="true" android:label="Strike Kids: Arduino automático" android:name="com.lazersport.strikeserial.StrikeAutoOk" android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+        <service android:exported="true" android:label="Strike Kids: abrir ao ligar e Arduino" android:name="com.lazersport.strikeserial.StrikeAutoOk" android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE" android:process=":auto">
             <intent-filter>
                 <action android:name="android.accessibilityservice.AccessibilityService"/>
             </intent-filter>
