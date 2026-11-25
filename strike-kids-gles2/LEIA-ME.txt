@@ -81,6 +81,11 @@ O QUE MUDOU PARA RODAR NA OPENGL ES 2.0
 
 VERSAO 8.3: CREDITO SO NO MODO FICHAS, SEM CREDITO FANTASMA
 -----------------------------------------------------------
+  * FIRMWARE 11 (grave no Arduino): FICHA SO COM O PULSO CERTO. O A2 so
+    conta quando sai do repouso e volta em 15 a 250 ms (o pulso do
+    moedeiro). As fichas somam (5 pulsos = 5 creditos). Fio preso no GND,
+    GND encostado e segurado, tranco no fio e o moedeiro ligando depois do
+    Arduino nao viram credito. NA ou NF: o Arduino aprende sozinho.
   * MODO LIVRE: o moedeiro e ignorado por completo (nao conta credito, nao
     mostra aviso). Credito so existe no MODO FICHAS.
   * SEM CREDITO NA APRESENTACAO: firmware 10 (grave de novo) - a fila de

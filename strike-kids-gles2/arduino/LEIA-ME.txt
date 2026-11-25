@@ -56,6 +56,12 @@ O QUE E IGUAL NAS DUAS (pinos)
   Sensores da pista (esquerda -> direita, olhando da crianca para os pinos):
       S1 = D2   S2 = D3   S3 = D4 (centro)   S4 = D5   S5 = D7
   Botao CONFIGURACAO = A0   Botao START = A1 (opcional)   Moedeiro = A2
+  (cada um com o outro fio no GND). So o A2 da credito, e so com o PULSO
+  CERTO do moedeiro (firmware 11): o nivel sai do repouso e volta em 15 a
+  250 ms (o moedeiro manda 30-100 ms). As fichas somam (5 pulsos = 5).
+  Nao vira ficha: tranco no fio, fio preso no GND, GND encostado e
+  segurado, moedeiro ligando depois do Arduino. Moedeiro NA ou NF: tanto
+  faz (o repouso e o nivel que fica parado 2 s).
   Fita de LED WS2812 = D6 (opcional)   LED da placa = D13
   Rele = D8   Servo = D9 (Mega: D11)
   So na versao 2: ponte H IN1 = D10, IN2 = D12, ENA = D11 (Mega: D9) e os
@@ -72,7 +78,7 @@ GRAVAR EM 1 MINUTO (detalhes no LEIA-ME de cada versao)
      Gerenciar bibliotecas). Sem a fita: no .ino, USAR_LEDS 0.
   3. Ferramentas > Placa: Arduino Nano (ou Uno). Nano clone (CH340):
      Processador "ATmega328P (Old Bootloader)". Porta: a COM do Arduino.
-  4. Carregar (seta ->). No Monitor Serial (9600) aparece OLA:STRIKE_KIDS:7.
+  4. Carregar (seta ->). No Monitor Serial (9600) aparece OLA:STRIKE_KIDS:11.
   5. Cabo USB na TV Box e abra o jogo: na PRIMEIRA INSTALACAO (OK no
      controle remoto) marque "Usar por padrao" na janela do Arduino.
 

@@ -141,10 +141,17 @@ const uint8_t SENSOR_PINOS[5] = {2, 3, 4, 5, 7};
 #define REARME_SENSOR_MS 120      // a mesma bola balancando no sensor nao conta 2 vezes
 #define FILTRO_BOTAO_MS 50        // START/CONFIGURACAO: apertado de verdade (50 ms), ruido no fio nao conta
 #define REARME_BOTAO_MS 700       // um aperto por vez (o START nao "aperta sozinho" em rajada)
-#define FILTRO_FICHA_MS 15        // so o MOEDEIRO no A2 da credito: pulso de 15 ms ou mais (ele manda 30-100 ms);
-                                  // um tranco no fio (encostar GND no START, rele, fita de LED) nao vira ficha
+// FICHA (A2): so conta o PULSO CERTO do moedeiro. O moedeiro manda 20-150 ms
+// (o normal e 30-100 ms) e volta ao repouso; as fichas somam (5 pulsos = 5).
+// Nao vira ficha: tranco no fio (menos de 15 ms), fio preso no GND ou
+// encostado e segurado (mais de 250 ms), nem o moedeiro ligando depois do
+// Arduino. NA ou NF tanto faz: o repouso e o nivel que fica parado 2 s.
+#define FICHA_FILTRO_MS 5         // ruido menor que isto nem conta como mudanca
+#define FICHA_PULSO_MIN_MS 15     // pulso mais curto que isto: tranco, nao e ficha
+#define FICHA_PULSO_MAX_MS 250    // pulso mais longo que isto: fio preso/segurado, nao e ficha
+#define FICHA_REPOUSO_MS 2000UL   // nivel parado este tempo vira o novo repouso
 #define SEM_JOGO_FECHA_MS 30000UL // o jogo falou e sumiu este tempo: fecha a porta
-#define VERSAO "10"
+#define VERSAO "11"
 
 #if USAR_LEDS
 #include <Adafruit_NeoPixel.h>
@@ -181,7 +188,9 @@ struct Entrada {
 };
 
 Entrada sensores[5];
-Entrada botoes[3];
+Entrada botoes[2];   // CONFIGURACAO (A0) e START (A1); a FICHA (A2) tem o seu proprio (pulso)
+uint8_t fichaRepouso = HIGH, fichaLeitura = HIGH, fichaEstavel = HIGH;
+unsigned long fichaMudouEm = 0, fichaEstavelDesde = 0;
 const char *const NOMES_SENSOR[5] = {"S:1", "S:2", "S:3", "S:4", "S:5"};
 
 bool streamSensores = false;   // TESTE:1 -> manda SENS: a cada mudanca
@@ -696,6 +705,29 @@ void piscar(unsigned long agora) {
   piscarAte = agora + 60;
 }
 
+// FICHA (A2): conta quando o nivel SAI do repouso e VOLTA dentro do tempo
+// de um pulso de moedeiro (15-250 ms). Preso fora do repouso por 2 s: e o
+// novo repouso (moedeiro NF, moedeiro ligado depois, fio preso) e nada conta.
+void tickFicha(unsigned long agora) {
+  uint8_t l = digitalRead(FICHA_PINO);
+  if (l != fichaLeitura) {
+    fichaLeitura = l;
+    fichaMudouEm = agora;
+  }
+  if (fichaLeitura != fichaEstavel && agora - fichaMudouEm >= FICHA_FILTRO_MS) {
+    unsigned long dur = fichaMudouEm - fichaEstavelDesde;   // quanto o nivel anterior durou
+    uint8_t anterior = fichaEstavel;
+    fichaEstavel = fichaLeitura;
+    fichaEstavelDesde = fichaMudouEm;
+    if (anterior != fichaRepouso && fichaEstavel == fichaRepouso &&
+        dur >= FICHA_PULSO_MIN_MS && dur <= FICHA_PULSO_MAX_MS) {
+      registrarFicha();   // a ficha vai para a fila; o enviarFicha avisa o jogo
+      piscar(agora);
+    }
+  }
+  if (fichaEstavel != fichaRepouso && agora - fichaEstavelDesde >= FICHA_REPOUSO_MS) fichaRepouso = fichaEstavel;
+}
+
 // ============================================================ LEDs
 #if USAR_LEDS
 Efeito efeito = MENU;
@@ -974,7 +1006,7 @@ void setup() {
   for (uint8_t i = 0; i < 5; i++) iniciarEntrada(sensores[i], SENSOR_PINOS[i], FILTRO_SENSOR_MS, REARME_SENSOR_MS, NOMES_SENSOR[i]);
   iniciarEntrada(botoes[0], CONFIG_PINO, FILTRO_BOTAO_MS, REARME_BOTAO_MS, "CFG");
   iniciarEntrada(botoes[1], START_PINO, FILTRO_BOTAO_MS, REARME_BOTAO_MS, "START");
-  iniciarEntrada(botoes[2], FICHA_PINO, FILTRO_FICHA_MS, 40, "FICHA");
+  pinMode(FICHA_PINO, INPUT_PULLUP);
   carregarRepouso();
   Serial.begin(9600);
 #if USAR_LEDS
@@ -985,7 +1017,10 @@ void setup() {
   delay(50);
   // depois do pull-up assentar (e do repouso dos sensores carregado)
   for (uint8_t i = 0; i < 5; i++) assentarEntrada(sensores[i]);
-  for (uint8_t i = 0; i < 3; i++) assentarEntrada(botoes[i]);
+  for (uint8_t i = 0; i < 2; i++) assentarEntrada(botoes[i]);
+  // a ficha: o nivel de agora e o repouso (NA ou NF); so um pulso CERTO conta
+  fichaLeitura = fichaEstavel = fichaRepouso = digitalRead(FICHA_PINO);
+  fichaMudouEm = fichaEstavelDesde = millis();
   Serial.println(F("OLA:STRIKE_KIDS:" VERSAO));
 }
 
@@ -1006,14 +1041,14 @@ void loop() {
     }
   }
   if (mudouSensor && streamSensores) enviarSensores();
-  for (uint8_t i = 0; i < 3; i++) {
+  for (uint8_t i = 0; i < 2; i++) {
     tickEntrada(botoes[i], agora, disparou);
     if (disparou) {
-      if (i == 2) registrarFicha();   // a ficha vai para a fila (EEPROM); o enviarFicha avisa o jogo
-      else Serial.println(botoes[i].evento);
+      Serial.println(botoes[i].evento);
       piscar(agora);
     }
   }
+  tickFicha(agora);     // so o pulso certo do moedeiro vira ficha
   enviarFicha(agora);
 #if USAR_SERVO
   tickServo(agora);

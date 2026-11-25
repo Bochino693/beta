@@ -76,7 +76,7 @@ int main(int argc, char **argv) {
   iniciar();
   if (c == "tempo") {
     setup(); saida += Serial.out; Serial.out.clear();
-    CONFERE(saida.find("OLA:STRIKE_KIDS:10") != std::string::npos, "OLA ao ligar");
+    CONFERE(saida.find("OLA:STRIKE_KIDS:11") != std::string::npos, "OLA ao ligar");
     rodar(2);
     CONFERE(motor() == -1, "ao ligar o motor fecha a porta");
     long t = ate("PORTA:FECHADA", 3000);
@@ -337,6 +337,30 @@ int main(int argc, char **argv) {
     for (int k = 0; k < 5; k++) { pinLevel[FICHA_PINO] = LOW; rodar(30); pinLevel[FICHA_PINO] = HIGH; rodar(100); }
     printf("  5 pulsos de 30 ms no A2 -> %d FICHA\n", conta("FICHA"));
     CONFERE(conta("FICHA") == 5, "moedeiro (30 ms) no A2: 1 ficha por pulso");
+  } else if (c == "ficha_pulso") {
+    // SO O PULSO CERTO DO MOEDEIRO DA FICHA (15-250 ms), e as fichas somam
+    setup(); pega();
+    manda("INFO?"); rodar(5); pega();   // (jogo antigo: a ficha sai como FICHA simples)
+    pinLevel[FICHA_PINO] = LOW; rodar(5000); pinLevel[FICHA_PINO] = HIGH; rodar(3000);
+    CONFERE(conta("FICHA") == 0, "A2 preso no GND 5 s e soltou: nenhuma ficha");
+    pinLevel[FICHA_PINO] = LOW; rodar(600); pinLevel[FICHA_PINO] = HIGH; rodar(500);
+    CONFERE(conta("FICHA") == 0, "GND encostado e segurado (600 ms): nenhuma ficha");
+    for (int k = 0; k < 10; k++) { pinLevel[FICHA_PINO] = LOW; rodar(10); pinLevel[FICHA_PINO] = HIGH; rodar(40); }
+    CONFERE(conta("FICHA") == 0, "trancos de 10 ms: nenhuma ficha");
+    for (int k = 0; k < 6; k++) { pinLevel[FICHA_PINO] = LOW; rodar(k % 2 ? 100 : 50); pinLevel[FICHA_PINO] = HIGH; rodar(60); }
+    rodar(300);
+    printf("  6 pulsos de 50/100 ms -> %d FICHA\n", conta("FICHA"));
+    CONFERE(conta("FICHA") == 6, "fichas somam: 6 pulsos = 6 fichas");
+    pega();
+    // moedeiro NF ligado DEPOIS do Arduino: fica fechado (LOW) e vira o repouso
+    pinLevel[FICHA_PINO] = LOW; rodar(4000);
+    CONFERE(conta("FICHA") == 0, "moedeiro NF ligando depois: nenhuma ficha");
+    for (int k = 0; k < 3; k++) { pinLevel[FICHA_PINO] = HIGH; rodar(40); pinLevel[FICHA_PINO] = LOW; rodar(80); }
+    CONFERE(conta("FICHA") == 3, "depois, o NF conta 1 ficha por pulso");
+    pega();
+    // fio do A2 solto (pull-up, HIGH): o repouso volta a ser HIGH sem ficha
+    pinLevel[FICHA_PINO] = HIGH; rodar(4000);
+    CONFERE(conta("FICHA") == 0, "fio do moedeiro solto: nenhuma ficha");
   } else if (c == "livre") {
     // MODO LIVRE: porta sempre aberta - nem o jogo sumindo (TV em espera
     // com o Arduino ligado) fecha. No MODO FICHAS o vigia fecha.
@@ -367,8 +391,8 @@ int main(int argc, char **argv) {
     EEPROM.update(EE_PORTA, 0); EEPROM.update(EE_PORTA + 1, 0xFF);   // (a porta ficou ABERTA)
 #endif
     setup(); pega();
-    const char *lixo[] = {"AT", "ATE0", "AT+CGMM", "AT+CPIN?", "ATI", "OLA:STRIKE_KIDS:10", "PORTA:ABERTA", "PORTA:FECHADA",
-                          "PONG:STRIKE_KIDS:10", "FICHA:0", "INFO:STRIKE_KIDS:10:LEDS=1", "PONTE:TEMPO:1500:FC:0", "PONTE:TEMPO:800X",
+    const char *lixo[] = {"AT", "ATE0", "AT+CGMM", "AT+CPIN?", "ATI", "OLA:STRIKE_KIDS:11", "PORTA:ABERTA", "PORTA:FECHADA",
+                          "PONG:STRIKE_KIDS:11", "FICHA:0", "INFO:STRIKE_KIDS:11:LEDS=1", "PONTE:TEMPO:1500:FC:0", "PONTE:TEMPO:800X",
                           "PORTA:ABREX", "XPING", "PINGS", "CALIBRAR", "S:1", "SENS:00000", "AVISO:SEM_JOGO", "~~##", "+++"};
     for (int k = 0; k < 6; k++) {
       for (const char *l : lixo) { manda(l); rodar(30); }
@@ -386,7 +410,7 @@ int main(int argc, char **argv) {
     // agora o jogo de verdade: tudo funciona
     pega();
     manda("PING"); rodar(5);
-    CONFERE(conta("PONG:STRIKE_KIDS:10") == 1, "o jogo de verdade e atendido");
+    CONFERE(conta("PONG:STRIKE_KIDS:11") == 1, "o jogo de verdade e atendido");
 #if USAR_RELE && RELE_PULSO && !USAR_PONTE_H
     manda("PORTA:ABRE"); rodar(2000);
     CONFERE(pulsos == 0 && conta("PORTA:ABERTA") == 1, "jogo pede aberta (ja estava): sem pulso");

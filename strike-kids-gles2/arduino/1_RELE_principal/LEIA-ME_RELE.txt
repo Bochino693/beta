@@ -70,8 +70,11 @@ comuns: marrom = +, azul = -, preto = sinal. Sensor de 12 V: o + na fonte
 de 12 V, o - no GND comum e SO o preto no pino. Sempre saida NPN - NUNCA
 PNP (o PNP manda 12 V no pino e queima o Arduino).
 Moedeiro: COIN no A2, GND no GND, DC12V na fonte de 12 V, COUNTER solto.
-NA ou NF, os dois funcionam (1 pulso = 1 ficha). Se ele manda 12 V no
-COIN, use um optoacoplador.
+NA ou NF, os dois funcionam (1 pulso = 1 ficha, as fichas somam). So o
+PULSO CERTO conta (firmware 11): 15 a 250 ms - o CH-926 manda 30, 50 ou
+100 ms (chave FAST/MEDIUM/SLOW), todos valem. Fio preso no GND, GND
+encostado e segurado ou tranco no fio nao viram ficha. Se ele manda 12 V
+no COIN, use um optoacoplador.
 
 
 4. A TRAVA PELO RELE (DE PULSO - O PADRAO DESTA VERSAO)
@@ -187,7 +190,7 @@ OUTRA TRAVA (solenoide / eletroima que fica LIGADO com a porta aberta):
 8. TESTAR SEM O JOGO (Monitor Serial da IDE)
 --------------------------------------------
 Ferramentas > Monitor Serial, 9600 baud, "Nova linha". Ao abrir aparece:
-    OLA:STRIKE_KIDS:7
+    OLA:STRIKE_KIDS:11
 (o rele NAO clica ao ligar). Mande (digite e Enter, em MAIUSCULAS ou
 minusculas, exatamente assim - o que for escrito diferente e ignorado):
     PORTA:ABRE   1 pulso (um clique) e a resposta PORTA:ABERTA
@@ -195,7 +198,7 @@ minusculas, exatamente assim - o que for escrito diferente e ignorado):
     PORTA:FECHA  1 pulso e PORTA:FECHADA
     PORTA:ACERTA a porta de verdade esta ao contrario: troca so a
                  lembranca do Arduino (sem pulso)
-    INFO?        INFO:STRIKE_KIDS:7:LEDS=1:SERVO=0:RELE=8:PONTE_H=0:
+    INFO?        INFO:STRIKE_KIDS:11:LEDS=1:SERVO=0:RELE=8:PONTE_H=0:
                  REPOUSO=HHHHH:PULSO=1:FILA=0
                  (PONTE_H=0 = esta versao; PULSO=1 = rele de pulso;
                  FILA = fichas esperando o jogo)
@@ -208,6 +211,7 @@ Passe a mao num sensor: aparece S:1 ... S:5. Botoes: CFG e START.
 FICHA (moedeiro): depois de mandar INFO? aparece FICHA a cada pulso; com o
 jogo, a ficha vai numerada (FICHA:0, FICHA:1...) e o Arduino guarda cada
 uma ate o jogo confirmar - ficha posta com a TV Box ligando nao se perde.
+A fila comeca vazia toda vez que o Arduino liga (sem credito fantasma).
 Com a porta aberta e sem nenhum comando por 30 s, ela fecha sozinha
 (AVISO:SEM_JOGO) - e o que acontece se o cabo da TV Box soltar.
 
