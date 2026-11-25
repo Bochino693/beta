@@ -391,6 +391,10 @@ public class StrikeSerial extends GodotPlugin {
 						break;
 					}
 					SystemClock.sleep(10);
+				} else if (n == 0 && agora - t0 < 2) {
+					// chip que devolve "nada" na hora (sem esperar): não gira em
+					// falso tomando um processador inteiro da TV
+					SystemClock.sleep(4);
 				}
 				if (agora - conferiu > 1000) {
 					conferiu = agora;

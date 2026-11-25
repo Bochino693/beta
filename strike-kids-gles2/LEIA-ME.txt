@@ -79,6 +79,20 @@ O QUE MUDOU PARA RODAR NA OPENGL ES 2.0
     Godot 4 (nao substitui).
 
 
+VERSAO 8.6: JOGO LISO DE NOVO E O ARDUINO PEDIDO LOGO AO ABRIR
+--------------------------------------------------------------
+  * LISO: com o jogo na frente o servico "Strike Kids: abrir ao ligar e
+    Arduino" fica PARADO (nao consulta nenhuma janela - na 8.4/8.5 ele
+    olhava a tela a cada 0,4 s e pesava nas jogadas). So acorda quando
+    outra janela aparece na frente (a do USB, o lancador da TV).
+  * A leitura do Arduino nunca gira em falso (chip que responde "nada" na
+    hora nao toma mais um processador da TV).
+  * ARDUINO LOGO AO ABRIR: o jogo pede a janela do USB toda vez que abre
+    (inclusive logo depois de instalar - antes so depois de desligar e
+    ligar a TV). Com o servico ligado o OK e automatico; sem ele, OK no
+    controle. Com o servico, no maximo 4 pedidos por vez que abre.
+
+
 VERSAO 8.5: O SERVICO PEGA A JANELA DO USB DE QUALQUER JEITO
 ------------------------------------------------------------
   * O servico "Strike Kids: abrir ao ligar e Arduino" aperta o OK mesmo

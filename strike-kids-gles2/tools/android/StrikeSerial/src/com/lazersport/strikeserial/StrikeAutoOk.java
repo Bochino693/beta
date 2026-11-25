@@ -94,12 +94,21 @@ public class StrikeAutoOk extends AccessibilityService {
 	 * serviço subir no boot). Depois do boot vigia 3 minutos; depois de
 	 * qualquer janela nova, 20 s.
 	 */
+	/**
+	 * O app que está na frente (das próprias notificações do Android, sem
+	 * perguntar nada ao jogo). Com o JOGO na frente o serviço fica PARADO:
+	 * nenhuma consulta às janelas - o jogo roda liso como na 7.8.
+	 */
+	private volatile String frente = "";
+
 	private final Runnable vigia = new Runnable() {
 		@Override
 		public void run() {
-			conferir();
+			if (!getPackageName().equals(frente)) {
+				conferir();
+			}
 			if (android.os.SystemClock.elapsedRealtime() < vigiarAte) {
-				h.postDelayed(this, 400);
+				h.postDelayed(this, 500);
 			}
 		}
 	};
@@ -119,19 +128,14 @@ public class StrikeAutoOk extends AccessibilityService {
 		// a TV acabou de ligar (ou o serviço foi ligado agora): o jogo abre
 		h.postDelayed(trazerAoLigar, 2500);
 		h.postDelayed(trazerAoLigar, 8000);
-		// a janela do USB pode já estar aberta (ou abrir a qualquer momento
-		// nestes primeiros minutos, enquanto a TV e o Arduino ligam)
-		vigiar(180000);
+		// a janela do USB pode já estar aberta (ou abrir enquanto a TV e o
+		// Arduino ligam) - só confere quando o jogo NÃO está na frente
+		vigiar(60000);
 	}
 
 	@Override
 	public void onAccessibilityEvent(AccessibilityEvent e) {
 		if (e == null) {
-			return;
-		}
-		if (e.getEventType() == AccessibilityEvent.TYPE_WINDOWS_CHANGED) {
-			// uma janela apareceu/sumiu (a do USB pode ser um painel do lado)
-			vigiar(20000);
 			return;
 		}
 		if (e.getEventType() != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
@@ -142,17 +146,21 @@ public class StrikeAutoOk extends AccessibilityService {
 			return;
 		}
 		String pkg = cs.toString();
-		if (!pkg.equals(getPackageName())) {
-			// a janela do USB: confere já e de novo (a da TV desliza e só
-			// mostra os botões um instante depois)
-			conferir();
-			vigiar(20000);
-		} else if (ehLancador(pkg)) {
+		frente = pkg;
+		if (pkg.equals(getPackageName())) {
+			return;   // o jogo na frente: nada a fazer (nenhum peso no jogo)
+		}
+		if (ehLancador(pkg)) {
 			// o lançador da TV apareceu: o jogo volta (um pouquinho depois:
 			// se foi só um piscar, nada acontece)
 			h.removeCallbacks(trazer);
 			h.postDelayed(trazer, 1500);
+			return;
 		}
+		// outra janela na frente (a do USB é do sistema da TV): confere já e
+		// por uns segundos (a da TV desliza e só mostra os botões depois)
+		conferir();
+		vigiar(8000);
 	}
 
 	/** As telas iniciais da TV (menos a do jogo e a "Android iniciando" dos Ajustes). */
@@ -207,6 +215,26 @@ public class StrikeAutoOk extends AccessibilityService {
 	public void onInterrupt() {
 	}
 
+	private final java.util.HashMap<String, Boolean> sistema = new java.util.HashMap<String, Boolean>();
+
+	/** App do sistema da TV (vem de fábrica)? A janela do USB sempre é. */
+	private boolean doSistema(String pkg) {
+		if (ehDoSistema(pkg)) {
+			return true;
+		}
+		Boolean b = sistema.get(pkg);
+		if (b == null) {
+			try {
+				int f = getPackageManager().getApplicationInfo(pkg, 0).flags;
+				b = (f & (android.content.pm.ApplicationInfo.FLAG_SYSTEM | android.content.pm.ApplicationInfo.FLAG_UPDATED_SYSTEM_APP)) != 0;
+			} catch (Throwable t) {
+				b = false;
+			}
+			sistema.put(pkg, b);
+		}
+		return b;
+	}
+
 	private static boolean ehDoSistema(String pkg) {
 		return pkg.contains("systemui") || pkg.equals("android") || pkg.contains("usb") || pkg.contains("permissioncontroller");
 	}
@@ -245,7 +273,7 @@ public class StrikeAutoOk extends AccessibilityService {
 		// Só uma janela do SISTEMA (a do USB vem do sistema da TV, nunca de
 		// outro app) - assim o OK não é apertado numa janela qualquer.
 		String pkg = raiz.getPackageName().toString();
-		if (!ehDoSistema(pkg) && !ehLancador(pkg)) {
+		if (!doSistema(pkg) && !ehLancador(pkg)) {
 			return false;
 		}
 		// É a janela do USB? Ela fala do aparelho USB/Serial, ou mostra o

@@ -75,7 +75,7 @@ const ESPERA_JANELA_ANDROID_MS := 6000   # a janela do próprio Android (encaixe
 const PEDIDO_AUTO_MS := 15000            # com o serviço ligado: pede de novo a cada 15 s até ter
 const PORTA_FIRME_MS := 250              # o pedido da porta fica firme isto antes de sair
 const PORTA_REENVIO_MS := 2500           # sem confirmação: repete (não dá pulso a mais)
-const DICA_USB := "NA JANELA DO ANDROID: MARQUE \"SEMPRE ABRIR\" (USAR POR PADRÃO) E TOQUE EM OK\nassim ela nunca mais aparece"
+const DICA_USB := "NA JANELA DO ANDROID: TOQUE EM OK PARA LIGAR O ARDUINO\n(se tiver \"SEMPRE ABRIR\" / \"USAR POR PADRÃO\", marque antes)"
 const LED_COMMANDS := ["MENU", "BLUE", "RED", "IDLE", "NORMAL", "STRIKE", "SPARE", "MISS", "OFF"]
 ## S1..S5, da esquerda para a direita (as mesmas ações da Zero Delay)
 const ACOES_SENSOR := ["input_z", "input_x", "input_c", "input_v", "input_b"]
@@ -112,6 +112,8 @@ var _visto_sem_permissao := {} # nome do aparelho -> ms em que apareceu no USB s
 var _auto_ok_cache := false    # o serviço "Strike Kids: abrir ao ligar e Arduino" está ligado?
 var _auto_ok_visto := -100000  # (ms da última consulta)
 var _pedido_auto := -100000    # ms do último pedido feito com o serviço ligado
+var _pedidos_auto := 0         # quantos pedidos com o serviço ligado desde que o jogo abriu
+var _pedido_sessao := {}       # Arduinos já pedidos desde que o jogo abriu (um pedido por vez que abre)
 var _teste := false
 var _led_state := "MENU"
 var _last_led_sent := ""
@@ -300,16 +302,22 @@ func _pedir_permissao(nome: String, chave: String, agora: int) -> void:
 		# ninguém no controle - o Android pergunta, o serviço aceita na hora e
 		# o Arduino conecta. (Se a janela do encaixe ficou escondida atrás do
 		# jogo, este pedido a traz de novo.)
-		if agora - _pedido_auto < PEDIDO_AUTO_MS:
+		# (no máximo 4 vezes cada vez que o jogo abre: se o serviço não
+		# conseguiu, o jogo não fica abrindo janela para sempre)
+		if agora - _pedido_auto < PEDIDO_AUTO_MS or _pedidos_auto >= 4:
 			return
 		_pedido_auto = agora
+		_pedidos_auto += 1
 		_janela_ate = agora + JANELA_MAX_MS
 		_timer_real(0.1).connect("timeout", self, "_abrir_janela_usb", [nome])
 		return
-	elif not _janelas_ok or _ja_pediu(chave) or not Ajustes.instalacao_feita():
-		# (antes da INSTALAÇÃO nenhuma janela abre sozinha: quem pede é ela,
-		# com alguém apertando OK - scripts/instalacao.gd)
+	elif not _janelas_ok or _pedido_sessao.has(chave):
 		return
+	else:
+		# UM PEDIDO CADA VEZ QUE O JOGO ABRE (a TV não guarda o aceite: sem
+		# o "Sempre", cada vez que liga ela pergunta de novo). Logo depois de
+		# instalar o jogo já pede - antes esperava a TV desligar e ligar.
+		_pedido_sessao[chave] = true
 	_marcar_pedido(chave)
 	_janela_ate = agora + JANELA_MAX_MS
 	# a janela do Android congela a imagem do jogo: o aviso entra antes
