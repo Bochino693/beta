@@ -4,7 +4,8 @@
 # arduino/2_PONTE_H (PONTE H) - com um Arduino de mentira (mock/)
 # e simula a porta (ponte H pelo tempo e com fim de curso, porta presa,
 # inversao, o tempo e o fim de curso escolhidos no menu, so a ponte H sem
-# servo e rele; o rele de PULSO - nenhum pulso ao ligar, um pulso por
+# servo e rele; SO O JOGO MANDA - "AT", ruido e eco da TV Box ligando nao
+# mexem na porta nem ligam o vigia; o rele de PULSO - nenhum pulso ao ligar, um pulso por
 # mudanca, descanso entre pulsos, vigia do jogo, desgaste da EEPROM - e o de
 # NIVEL com o servo, sem ponte H), as FICHAS (fila na EEPROM confirmada pelo
 # jogo), o moedeiro NA e NF, o START e os sensores. Confere tambem que as
@@ -52,6 +53,7 @@ grep -q '^#define RELE_LIGA_EM_LOW 0 ' "$TMP/fw_pulsohigh.ino" || { echo "  FALH
 for t in "padrao tempo" "padrao ficha_nf" "padrao ficha_na" "fc fim_de_curso" "fc travou" \
          "fcnf fim_de_curso" "inv invertida" "padrao menu" "soponte so_ponte" \
          "rele pulso" "pulsohigh pulso" "semleds pulso" "rele antigo4" "rele fichas" "padrao fichas" \
+         "rele intruso" "pulsohigh intruso" "padrao intruso" \
          "nivel rele" "nivel5 rele" "rele sem_ponte" "semleds sem_ponte" "nivel sem_ponte" \
          "rele ficha_nf" "rele ficha_na"; do
   set -- $t

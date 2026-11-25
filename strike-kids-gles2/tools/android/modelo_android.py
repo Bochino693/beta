@@ -66,7 +66,7 @@ def injetar(manifesto):
     # no Android 11+ o jogo enxerga as outras telas iniciais) e o aviso de
     # "ligou" (BOOT_COMPLETED) que também abre o jogo
     s = trocar_uma(s, "    </application>", '''        <meta-data android:name="org.godotengine.plugin.v1.StrikeCamera" android:value="com.lazersport.strikecamera.StrikeCamera"/>
-        <activity android:excludeFromRecents="true" android:exported="true" android:name="com.lazersport.strikeserial.StrikeArduinoAtivo" android:noHistory="true" android:theme="@android:style/Theme.Translucent.NoTitleBar">
+        <activity android:directBootAware="true" android:excludeFromRecents="true" android:exported="true" android:name="com.lazersport.strikeserial.StrikeArduinoAtivo" android:noHistory="true" android:theme="@android:style/Theme.Translucent.NoTitleBar">
             <intent-filter>
                 <action android:name="android.hardware.usb.action.USB_DEVICE_ATTACHED"/>
             </intent-filter>

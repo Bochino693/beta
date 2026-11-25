@@ -76,7 +76,7 @@ int main(int argc, char **argv) {
   iniciar();
   if (c == "tempo") {
     setup(); saida += Serial.out; Serial.out.clear();
-    CONFERE(saida.find("OLA:STRIKE_KIDS:5") != std::string::npos, "OLA ao ligar");
+    CONFERE(saida.find("OLA:STRIKE_KIDS:6") != std::string::npos, "OLA ao ligar");
     rodar(2);
     CONFERE(motor() == -1, "ao ligar o motor fecha a porta");
     long t = ate("PORTA:FECHADA", 3000);
@@ -207,7 +207,9 @@ int main(int argc, char **argv) {
     manda("PONTE:TEMPO:99999");
     manda("PONTE:FC:7");
     rodar(3);
-    CONFERE(conta("PONTE:TEMPO:800:FC:0") == 3, "valor invalido nao muda");
+    // (fora do limite: responde o que vale; escrito errado - FC:7 - nem
+    // responde: nao e comando do jogo)
+    CONFERE(conta("PONTE:TEMPO:800:FC:0") == 2, "valor invalido nao muda");
     // muda o tempo com o motor andando: para e termina no tempo novo
     pega();
     manda("PORTA:FECHA");
@@ -320,6 +322,45 @@ int main(int argc, char **argv) {
     rodar(SEM_JOGO_FECHA_MS + 100);
     CONFERE(conta("AVISO:SEM_JOGO") == 1 && conta("PORTA:FECHADA") == 1, "jogo sumiu: fecha sozinha");
     CONFERE(pinOut[RELE_PINO] == desligado, "jogo sumiu: rele desligado");
+  } else if (c == "intruso") {
+    // A TV BOX LIGANDO "FALA" COM O ARDUINO: um programa dela testa a porta
+    // serial (comandos de modem AT), chega ruido e o eco das respostas. Nada
+    // disso pode mexer na porta nem ligar o vigia do jogo.
+#if USAR_RELE && RELE_PULSO && !USAR_PONTE_H
+    EEPROM.update(EE_PORTA, 0); EEPROM.update(EE_PORTA + 1, 0xFF);   // (a porta ficou ABERTA)
+#endif
+    setup(); pega();
+    const char *lixo[] = {"AT", "ATE0", "AT+CGMM", "AT+CPIN?", "ATI", "OLA:STRIKE_KIDS:6", "PORTA:ABERTA", "PORTA:FECHADA",
+                          "PONG:STRIKE_KIDS:6", "FICHA:0", "INFO:STRIKE_KIDS:6:LEDS=1", "PONTE:TEMPO:1500:FC:0", "PONTE:TEMPO:800X",
+                          "PORTA:ABREX", "XPING", "PINGS", "CALIBRAR", "S:1", "SENS:00000", "AVISO:SEM_JOGO", "~~##", "+++"};
+    for (int k = 0; k < 6; k++) {
+      for (const char *l : lixo) { manda(l); rodar(30); }
+      rodar(20000);
+    }
+    rodar(300000);
+    printf("  %d linhas de fora em 7 minutos -> pulsos=%d\n", 6 * (int)(sizeof lixo / sizeof lixo[0]), pulsos);
+    CONFERE(pulsos == 0, "o que nao e do jogo nao da pulso no rele");
+    CONFERE(conta("AVISO") == 0, "o que nao e do jogo nao liga o vigia (nada de SEM_JOGO)");
+    CONFERE(conta("CAL:OK") == 0, "CALIBRAR (errado) nao calibra");
+    CONFERE(!jogoFalou, "o vigia continua esperando o jogo de verdade");
+#if USAR_PONTE_H
+    CONFERE(ponteTempoAbre == PONTE_TEMPO_ABRE_MS, "a resposta PONTE:TEMPO:1500:FC:0 (eco) nao muda o tempo do motor");
+#endif
+    // agora o jogo de verdade: tudo funciona
+    pega();
+    manda("PING"); rodar(5);
+    CONFERE(conta("PONG:STRIKE_KIDS:6") == 1, "o jogo de verdade e atendido");
+#if USAR_RELE && RELE_PULSO && !USAR_PONTE_H
+    manda("PORTA:ABRE"); rodar(2000);
+    CONFERE(pulsos == 0 && conta("PORTA:ABERTA") == 1, "jogo pede aberta (ja estava): sem pulso");
+    manda("PORTA:FECHA"); rodar(2000);
+    CONFERE(pulsos == 1 && conta("PORTA:FECHADA") == 1, "jogo pede fechada: um pulso");
+    // lixo no meio da partida tambem nao conta como o jogo falando
+    pega();
+    manda("PORTA:ABRE"); rodar(2000);
+    for (int k = 0; k < 40; k++) { manda("AT"); rodar(1000); }
+    CONFERE(conta("AVISO:SEM_JOGO") == 1 && pulsos == 3, "jogo sumiu (so lixo chegando): o vigia fecha mesmo assim");
+#endif
   } else if (c == "pulso") {
 #if USAR_RELE && RELE_PULSO && !USAR_PONTE_H
     // A VERSAO DO RELE COMO ELA E GRAVADA: rele de PULSO (um pulso troca a porta)

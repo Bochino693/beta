@@ -22,9 +22,13 @@
     </queries>
 
     <application>
-        <!-- encaixe do Arduino: "Usar por padrão" guarda a permissão USB -->
+        <!-- encaixe do Arduino: "Usar por padrão" guarda a permissão USB.
+             directBootAware: o Arduino que já está ligado quando a TV Box
+             liga é visto antes de o Android "destravar" o usuário; só uma
+             tela directBootAware é achada nessa hora (e ganha a permissão) -->
         <activity
             android:name="com.lazersport.strikeserial.StrikeArduinoAtivo"
+            android:directBootAware="true"
             android:exported="true"
             android:excludeFromRecents="true"
             android:noHistory="true"

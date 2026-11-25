@@ -143,7 +143,12 @@ for nome, xml in usb:
         continue
     acoes = [c.get(NS + 'name') for f in act.findall('intent-filter') for c in f.findall('action')]
     rec = [recurso(md.get(NS + 'resource')) for md in act.findall('meta-data')]
-    print('   exported=%s noHistory=%s ações=%s filtro=%s' % (act.get(NS + 'exported'), act.get(NS + 'noHistory'), acoes, rec))
+    print('   exported=%s noHistory=%s directBootAware=%s ações=%s filtro=%s' % (act.get(NS + 'exported'), act.get(NS + 'noHistory'),
+          act.get(NS + 'directBootAware'), acoes, rec))
+    if nome.endswith('StrikeArduinoAtivo'):
+        # o Arduino ligado no boot só ganha a permissão do "Sempre" se esta
+        # tela for achada antes de o Android destravar o usuário
+        checar(act.get(NS + 'directBootAware') == 'true', '   directBootAware (a permissão do "Sempre" vale depois de desligar)')
     checar('android.hardware.usb.action.USB_DEVICE_ATTACHED' in acoes and any(xml in r for r in rec),
            '   USB_DEVICE_ATTACHED com res/xml/%s.xml' % xml)
     checar('res/xml/%s.xml' % xml in arquivos, '   res/xml/%s.xml no APK' % xml)

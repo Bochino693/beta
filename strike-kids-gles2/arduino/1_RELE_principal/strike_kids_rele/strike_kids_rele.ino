@@ -141,7 +141,7 @@ const uint8_t SENSOR_PINOS[5] = {2, 3, 4, 5, 7};
 #define FILTRO_BOTAO_MS 25
 #define FILTRO_FICHA_MS 5         // moedeiro manda pulsos curtos (20 ms ou mais)
 #define SEM_JOGO_FECHA_MS 30000UL // o jogo falou e sumiu este tempo: fecha a porta
-#define VERSAO "5"
+#define VERSAO "6"
 
 #if USAR_LEDS
 #include <Adafruit_NeoPixel.h>
@@ -224,6 +224,7 @@ unsigned long ultimoByte = 0;   // linha pela metade ha muito tempo: lixo, desca
 #define LINHA_MAX_MS 60UL
 
 void enviarSensores();
+bool comandoDoJogo(const char *c);
 
 // ============================================================ EEPROM
 // endereco 0: 0x5B (marca)  1: niveis de repouso dos sensores (bit 1 = HIGH)
@@ -515,15 +516,20 @@ void ponteMudou() {
   if (ponteMov != 0) ponteParar(millis());
 }
 
-// PONTE:TEMPO:1500 (ms) e PONTE:FC:0/1, do menu do operador
-void ponteComando(const char *c) {
+// PONTE:TEMPO:1500 (ms) e PONTE:FC:0/1, do menu do operador. Devolve false
+// se a linha nao e um desses escrito certinho (o eco da resposta
+// PONTE:TEMPO:1500:FC:0, ruido): ai nada muda e nada responde.
+bool ponteComando(const char *c) {
   if (!strncmp(c, "PONTE:TEMPO:", 12)) {
-    long t = atol(c + 12);
+    char *fim;
+    long t = strtol(c + 12, &fim, 10);
+    if (fim == c + 12 || *fim) return false;   // so o numero, nada depois
     if (t >= (long)PONTE_TEMPO_MIN_MS && t <= (long)PONTE_TEMPO_LIM_MS && (unsigned long)t != ponteTempoAbre) {
       ponteTempoAbre = ponteTempoFecha = (unsigned long)t;
       ponteMudou();
     }
-  } else if (!strncmp(c, "PONTE:FC:", 9) && (c[9] == '0' || c[9] == '1') && !c[10]) {
+  } else if (!strncmp(c, "PONTE:FC:", 9)) {
+    if ((c[9] != '0' && c[9] != '1') || c[10]) return false;
     bool fc = c[9] == '1';
     if (fc != ponteFC) {
       ponteFC = fc;
@@ -535,6 +541,7 @@ void ponteComando(const char *c) {
     }
   }
   enviarPonte();
+  return true;
 }
 
 // o jogo pediu: a porta vai para la (o tickPonte anda com o motor)
@@ -704,7 +711,8 @@ void setOnda(Efeito e, int maxV, int ms, int rastro, uint8_t cr, uint8_t cg, uin
   ledUltimo = 0;
 }
 
-void ledComando(const char *c) {
+// devolve false se nao era um comando da fita (o executar ignora a linha)
+bool ledComando(const char *c) {
   if (!strcmp(c, "MENU")) { efeito = MENU; menuOffset = 0; ledUltimo = 0; }
   else if (!strcmp(c, "BLUE")) { efeito = BLUE; setTodos(fita.Color(0, 40, 255)); }
   else if (!strcmp(c, "RED")) { efeito = RED; setTodos(fita.Color(255, 0, 0)); }
@@ -714,6 +722,8 @@ void ledComando(const char *c) {
   else if (!strcmp(c, "NORMAL")) setOnda(NORMAL, 3, 22, 10, 0, 180, 255, 0, 90, 190);
   else if (!strcmp(c, "STRIKE")) setOnda(STRIKE, 8, 6, 22, 0, 80, 255, 0, 0, 255);
   else if (!strcmp(c, "OFF")) { efeito = OFF; setTodos(0); }
+  else return false;
+  return true;
 }
 
 void tickLeds(unsigned long agora) {
@@ -769,9 +779,20 @@ void tickLeds(unsigned long agora) {
 #endif
 
 // ============================================================ comandos
+// SO O JOGO MANDA: uma linha so vale se for um comando do jogo, escrito
+// certinho. Qualquer outra coisa que chegue pela serial (a TV Box ligando e
+// testando a porta - comandos "AT" de modem, por exemplo -, ruido no cabo,
+// eco) e ignorada INTEIRA: nao mexe na porta, nao liga o vigia do jogo e nao
+// conta como o jogo falando. (No firmware 5 qualquer linha contava: a TV
+// Box ligando "falava", o vigia achava que o jogo tinha sumido e dava um
+// pulso no rele.)
 void executar(const char *c) {
+  if (!comandoDoJogo(c)) return;
   ultimoComando = millis();
   jogoFalou = true;
+}
+
+bool comandoDoJogo(const char *c) {
   if (!strcmp(c, "PING")) {
     Serial.println(F("PONG:STRIKE_KIDS:" VERSAO));
   } else if (!strcmp(c, "PORTA:ABRE")) {
@@ -806,8 +827,8 @@ void executar(const char *c) {
   } else if (!strcmp(c, "CALIBRA")) {
     calibrar();
 #if USAR_PONTE_H
-  } else if (!strncmp(c, "PONTE:", 6)) {
-    ponteComando(c);
+  } else if (!strncmp(c, "PONTE:", 6) && strcmp(c, "PONTE?")) {
+    return ponteComando(c);
   } else if (!strcmp(c, "PONTE?")) {
     enviarPonte();
 #endif
@@ -836,9 +857,12 @@ void executar(const char *c) {
     Serial.println();
   } else {
 #if USAR_LEDS
-    ledComando(c);
+    return ledComando(c);
+#else
+    return false;
 #endif
   }
+  return true;
 }
 
 void lerSerial() {
@@ -866,6 +890,25 @@ void lerSerial() {
 }
 
 // ============================================================ setup / loop
+#if defined(__AVR__) && USAR_RELE
+// O RELE DESLIGADO NO PRIMEIRO INSTANTE: antes do setup(), antes ate dos
+// objetos da fita de LED - logo depois que a memoria e preparada (secao
+// .init5 do AVR, so escrita direta nos registradores do pino). O tempo do
+// BOOTLOADER (a placa acabando de ligar ou reiniciando porque abriram a
+// serial) vem antes disto e nenhum programa alcanca: nele o pino fica
+// solto - veja no LEIA-ME o resistor de 10k que segura o rele desligado.
+void releCedo() __attribute__((naked, used, section(".init5")));
+void releCedo() {
+  uint8_t bit = digitalPinToBitMask(RELE_PINO);
+  uint8_t qual = digitalPinToPort(RELE_PINO);
+  volatile uint8_t *saida = portOutputRegister(qual);
+  volatile uint8_t *modo = portModeRegister(qual);
+  if (RELE_LIGA_EM_LOW) *saida |= bit;
+  else *saida &= ~bit;
+  *modo |= bit;
+}
+#endif
+
 void setup() {
   // tudo o que e da conversa com o jogo comeca do zero (o Uno/Nano reinicia
   // cada vez que o jogo abre o USB); so a EEPROM fica

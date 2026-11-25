@@ -79,6 +79,32 @@ O QUE MUDOU PARA RODAR NA OPENGL ES 2.0
     Godot 4 (nao substitui).
 
 
+VERSAO 7.8: O "SEMPRE" DO ARDUINO VALE DEPOIS DE DESLIGAR E O RELE QUIETO NA PARTIDA
+--------------------------------------------------------------------------------------
+  * PERMISSAO DO ARDUINO DEPOIS DE DESLIGAR/FALTAR LUZ: o Arduino que ja
+    esta ligado quando a TV Box liga e visto pelo Android bem no comeco do
+    boot, antes de ele "destravar" o usuario (Android 7 em diante). Nesse
+    instante o Android so enxerga as telas marcadas como "directBootAware"
+    - a do Arduino nao era: ele nao achava quem tinha o "Sempre", nao dava
+    a permissao, e o Arduino ficava parado (tirar e por o cabo resolvia).
+    Agora a tela do Arduino (StrikeArduinoAtivo) e directBootAware: com o
+    "Sempre" marcado UMA vez, o Android da a permissao sozinho a cada vez
+    que a TV Box liga - na tomada, faltando luz, pelo controle.
+  * SEM TRAVADINHA AO ENCAIXAR O ARDUINO: com o jogo ja na frente, a tela
+    do Arduino nao chama o jogo de novo (cada chamada pausava o jogo).
+  * FIRMWARE 6 (grave de novo o Arduino): SO O JOGO MANDA. O firmware 5
+    tratava qualquer linha que chegasse pela serial como o jogo falando -
+    a TV Box ligando e testando a porta USB (comandos "AT" de modem) ligava
+    o vigia, e o rele pulsava enquanto a TV Box iniciava. Agora so os
+    comandos do jogo, escritos certinho, valem; o resto e ignorado. E o
+    rele e desligado no primeiro instante do programa (antes de tudo).
+    Para o tempo do bootloader (1-2 s em que nenhum programa roda): um
+    resistor de 10k no IN do modulo rele (arduino/1_RELE_principal/
+    LEIA-ME_RELE.txt, secao 4). Teste no PC: o cenario "intruso" do
+    tools/testes/arduino/testar_firmware.sh (132 linhas de fora em 7
+    minutos: nenhum pulso).
+
+
 VERSAO 7.7: LIGA DIRETO NO JOGO, PERMISSOES UMA VEZ SO E RELE DE PULSO
 ------------------------------------------------------------------------
   * A TV BOX LIGA DIRETO NO JOGO, SEM PASSAR PELO LANCADOR DELA: a tela
