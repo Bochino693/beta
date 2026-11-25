@@ -54,26 +54,18 @@
                 android:name="android.accessibilityservice"
                 android:resource="@xml/strike_auto_ok" />
         </service>
-        <!-- a tela inicial do jogo: DESLIGADA no APK (a TV Box nunca pergunta
-             "app padrão"). O jogo a liga sozinho pelo adb da própria TV
-             (Depuração USB), junto com as telas da TV Box desligadas: aí ela
-             é a ÚNICA tela inicial e a TV Box liga direto no jogo -->
+        <!-- (8.8) o jogo NÃO é mais candidato a tela inicial: a TV Box nunca
+             pergunta "app padrão". Quem abre o jogo ao ligar é o aviso de
+             "ligou" (StrikeLigou), como no Dragon Bowling -->
         <activity
             android:name="com.lazersport.strikeserial.StrikeInicioAtivo"
-            android:enabled="false"
-            android:exported="true"
+            android:exported="false"
             android:excludeFromRecents="true"
             android:launchMode="singleTask"
             android:taskAffinity="com.lazersport.strikeserial.inicio"
             android:clearTaskOnLaunch="true"
             android:stateNotNeeded="true"
-            android:theme="@android:style/Theme.Black.NoTitleBar.Fullscreen">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.HOME" />
-                <category android:name="android.intent.category.DEFAULT" />
-            </intent-filter>
-        </activity>
+            android:theme="@android:style/Theme.Black.NoTitleBar.Fullscreen" />
         <receiver
             android:name="com.lazersport.strikeserial.StrikeLigou"
             android:exported="true">
