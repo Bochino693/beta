@@ -79,6 +79,22 @@ O QUE MUDOU PARA RODAR NA OPENGL ES 2.0
     Godot 4 (nao substitui).
 
 
+VERSAO 8.0: START SEM DISPARAR SOZINHO E O ARDUINO DIRETO FACIL DE LIGAR
+------------------------------------------------------------------------
+  * START "apertando sozinho": firmware 8 (grave de novo) - o START e a
+    CONFIGURACAO so valem apertados de verdade (50 ms, um a cada 0,7 s) e
+    os sensores pedem 5 ms (antes 2): ruido da fita de LED e do rele no fio
+    nao vira START nem bola. No jogo, START em rajada vale uma vez e o
+    "INSIRA FICHA" aparece no maximo a cada 1,5 s (antes cada aperto
+    refazia o letreiro e o som: a imagem "ciscava"). Para saber de onde vem:
+    menu > TESTE DOS SENSORES mostra quantos START o Arduino mandou.
+  * ARDUINO DIRETO (sem PC, so o pendrive): na INSTALACAO, passo 6/6, o jogo
+    espera o OK, abre direto a pagina do servico "Strike Kids: abrir ao
+    ligar e Arduino" (Android 11+; antes, a lista de Acessibilidade): e so
+    LIGAR, confirmar e VOLTAR. Enquanto ele nao estiver ligado, a proxima
+    vez que o jogo abrir convida de novo (so com o OK do controle).
+
+
 VERSAO 7.9: ARDUINO SEM PERGUNTAR NA TV, TRAVA CERTA E O FIM SEM PISCAR
 -----------------------------------------------------------------------
   * ABRE AO LIGAR, SEMPRE (inclusive nas TVs com Android de TV): o servico

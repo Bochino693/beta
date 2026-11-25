@@ -137,12 +137,13 @@ const uint8_t SENSOR_PINOS[5] = {2, 3, 4, 5, 7};
 #define RELE_TEMPO_MAX_S 0        // 0 = sem limite. Trava SOLENOIDE comum nao pode ficar
                                   // ligada muito tempo: ponha 5 (liga 5 s e desliga)
 
-#define FILTRO_SENSOR_MS 2        // o sinal precisa ficar assim este tempo
+#define FILTRO_SENSOR_MS 5        // o sinal precisa ficar assim este tempo (5 ms: ruido da fita/rele nao vira bola)
 #define REARME_SENSOR_MS 120      // a mesma bola balancando no sensor nao conta 2 vezes
-#define FILTRO_BOTAO_MS 25
+#define FILTRO_BOTAO_MS 50        // START/CONFIGURACAO: apertado de verdade (50 ms), ruido no fio nao conta
+#define REARME_BOTAO_MS 700       // um aperto por vez (o START nao "aperta sozinho" em rajada)
 #define FILTRO_FICHA_MS 5         // moedeiro manda pulsos curtos (20 ms ou mais)
 #define SEM_JOGO_FECHA_MS 30000UL // o jogo falou e sumiu este tempo: fecha a porta
-#define VERSAO "7"
+#define VERSAO "8"
 
 #if USAR_LEDS
 #include <Adafruit_NeoPixel.h>
@@ -968,8 +969,8 @@ void setup() {
 #endif
   pinMode(LED_PLACA, OUTPUT);
   for (uint8_t i = 0; i < 5; i++) iniciarEntrada(sensores[i], SENSOR_PINOS[i], FILTRO_SENSOR_MS, REARME_SENSOR_MS, NOMES_SENSOR[i]);
-  iniciarEntrada(botoes[0], CONFIG_PINO, FILTRO_BOTAO_MS, 250, "CFG");
-  iniciarEntrada(botoes[1], START_PINO, FILTRO_BOTAO_MS, 250, "START");
+  iniciarEntrada(botoes[0], CONFIG_PINO, FILTRO_BOTAO_MS, REARME_BOTAO_MS, "CFG");
+  iniciarEntrada(botoes[1], START_PINO, FILTRO_BOTAO_MS, REARME_BOTAO_MS, "START");
   iniciarEntrada(botoes[2], FICHA_PINO, FILTRO_FICHA_MS, 40, "FICHA");
   carregarRepouso();
   Serial.begin(9600);

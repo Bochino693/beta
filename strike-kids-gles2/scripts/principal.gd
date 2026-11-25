@@ -807,7 +807,19 @@ func _zona(tecla: String) -> String:
 	return tecla
 
 
+## START em rajada (ruído no fio, botão com mau contato): um vale, os
+## outros por START_MIN_MS são ignorados - antes cada um refazia o letreiro
+## "INSIRA FICHA" e o som (a imagem "ciscava" e dava travadinhas).
+const START_MIN_MS := 350
+var _start_ms := -100000
+var _insira_ms := -100000
+
+
 func _start() -> void:
+	var agora := Time.get_ticks_msec()
+	if agora - _start_ms < START_MIN_MS:
+		return
+	_start_ms = agora
 	_inativo = 0.0
 	_acordar_trava()
 	if _modal_inativo > 0.0:
@@ -935,8 +947,17 @@ func _start_na_espera() -> void:
 		_quem_bola = ""
 		_escolher_jogadores()
 	else:
-		hud.texto_grande("INSIRA FICHA", Color("#FFF6A8"), 1.0, 0.55)
-		Sons.tocar("selecao")
+		_insira_ficha()
+
+
+## "INSIRA FICHA" (START ou bola sem crédito): no máximo um a cada 1,5 s.
+func _insira_ficha() -> void:
+	var agora := Time.get_ticks_msec()
+	if agora - _insira_ms < 1500:
+		return
+	_insira_ms = agora
+	hud.texto_grande("INSIRA FICHA", Color("#FFF6A8"), 1.0, 0.55)
+	Sons.tocar("selecao")
 
 
 ## O START apertado na capa vale assim que a abertura aparece na tela (a
@@ -987,8 +1008,7 @@ func _jogada_recebida(zona: String) -> void:
 			else:
 				# modo fichas sem ficha: a bola no sensor lembra da ficha
 				hud.sensor_acendeu(zona)
-				hud.texto_grande("INSIRA FICHA", Color("#FFF6A8"), 1.0, 0.55)
-				Sons.tocar("selecao")
+				_insira_ficha()
 		E.FIM:
 			if _bola_comeca() and _fim_t > 2.5:
 				_comecar_pela_bola(zona)

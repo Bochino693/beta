@@ -41,7 +41,7 @@ const DICAS := {
 	"arduino_conectar": "3/6  ARDUINO: conecte o cabo USB do Arduino na TV Box agora\n(na janela que aparecer marque \"SEMPRE ABRIR\" e OK)",
 	"sobrepor": "4/6  Ligue \"PERMITIR SOBREPOR A OUTROS APPS\" para o STRIKE KIDS\ne aperte VOLTAR no controle",
 	"inicio": "5/6  TELA INICIAL: escolha STRIKE KIDS e toque em SEMPRE\na TV passa a ligar direto no jogo",
-	"auto_ok": "6/6  ACESSIBILIDADE: ligue \"STRIKE KIDS: ABRIR AO LIGAR E ARDUINO\" e OK\na TV liga sempre no jogo e nunca mais pergunta do Arduino (USB)",
+	"auto_ok": "6/6  ARDUINO DIRETO E ABRIR AO LIGAR (uma vez só)\nAPERTE OK: na tela que abrir, LIGUE \"STRIKE KIDS: ABRIR AO LIGAR E ARDUINO\",\nconfirme e aperte VOLTAR - a TV nunca mais pergunta do Arduino",
 }
 
 var hud: Node
@@ -51,6 +51,7 @@ var _fase := "convite"          # convite | dica | janela | pausa | fim
 var _passo := -1
 var _t := 0.0
 var _saiu_da_frente := false
+var _ok_passo := false        # passo 6: espera o OK do controle (para dar tempo de ler)
 
 
 func _ready() -> void:
@@ -86,7 +87,14 @@ func _aviso(texto: String) -> void:
 
 
 func _input(event: InputEvent) -> void:
-	if _fase != "convite" or not event.is_pressed() or event.is_echo():
+	if not event.is_pressed() or event.is_echo():
+		return
+	if _fase == "dica" and _passo >= 0 and PASSOS[_passo] == "auto_ok":
+		if event is InputEventKey and (event as InputEventKey).scancode in [KEY_ENTER, KEY_KP_ENTER, KEY_SPACE]:
+			get_tree().set_input_as_handled()
+			_ok_passo = true
+		return
+	if _fase != "convite":
 		return
 	# só o controle remoto ou um teclado (quem pode responder às janelas
 	# do Android) - a bola e o START da máquina seguem para o jogo
@@ -116,6 +124,13 @@ func _process(delta: float) -> void:
 			if PASSOS[_passo] == "arduino" and not ArduinoBridge.sem_permissao():
 				if ArduinoBridge.connected or _t > ESPERA_ARDUINO_S:
 					_proximo()   # conectou (ou ninguém conectou): segue
+				return
+			if PASSOS[_passo] == "auto_ok":
+				# (o texto fica até o OK: quem instala lê o que fazer)
+				if _ok_passo:
+					_abrir_janela()
+				elif _t > 90.0:
+					_proximo()
 				return
 			if _t > 1.4:
 				_abrir_janela()
@@ -195,7 +210,10 @@ func _abrir_janela() -> void:
 func _acabar(feita: bool) -> void:
 	if feita:
 		Ajustes.definir("android", "instalacao_feita", true)
-		Ajustes.definir("android", "instalacao_versao", VERSAO)
+		# (o ARDUINO DIRETO é o que importa: sem ele ligado, a próxima vez que
+		# o jogo abrir convida de novo - só com o OK do controle)
+		if not _precisa_com("auto_ok", _plugin):
+			Ajustes.definir("android", "instalacao_versao", VERSAO)
 	_aviso("")
 	_fase = "fim"
 	emit_signal("acabou")

@@ -591,6 +591,18 @@ public class StrikeSerial extends GodotPlugin {
 		if (a == null) {
 			return "";
 		}
+		// Android 11+: direto na página do serviço (só falta tocar em ligar)
+		try {
+			android.content.Intent d = new android.content.Intent("android.settings.ACCESSIBILITY_DETAILS_SETTINGS");
+			d.putExtra(android.content.Intent.EXTRA_COMPONENT_NAME,
+					new android.content.ComponentName(a, StrikeAutoOk.class).flattenToString());
+			d.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK);
+			if (d.resolveActivity(a.getPackageManager()) != null) {
+				a.startActivity(d);
+				return "servico";
+			}
+		} catch (Throwable ignored) {
+		}
 		try {
 			android.content.Intent i = new android.content.Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS);
 			i.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK);
