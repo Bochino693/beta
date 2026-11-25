@@ -25,6 +25,16 @@ import android.util.Log;
 
 import org.godotengine.godot.utils.ProcessPhoenix;
 
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.RandomAccessFile;
+import java.security.KeyFactory;
+import java.security.KeyPair;
+import java.security.KeyPairGenerator;
+import java.security.spec.PKCS8EncodedKeySpec;
+import java.security.spec.X509EncodedKeySpec;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -241,6 +251,166 @@ final class InicioDaTv {
 	static String pedirSobrepor(Activity a) {
 		Intent i = telaDeSobrepor(a);
 		return i != null && abrir(a, i) ? "ajustes" : "";
+	}
+
+	// ------------------------------------------------------------ pelo adb da própria TV
+	/*
+	 * A TV BOX SÓ DO JOGO, SEM PC (o método do Dragon Bowling): com a
+	 * "Depuração USB" ligada uma vez (Configurações > Sobre > 7 cliques em
+	 * "Build"; Opções do desenvolvedor > Depuração USB), o jogo entra no adb
+	 * da própria TV (127.0.0.1:5555, AdbDaTv) e faz o PREPARAR_TV: ele vira a
+	 * ÚNICA tela inicial (a da TV Box é desligada), ganha "Sobrepor", câmera,
+	 * notificações e o serviço do Arduino ligado, e a TV não dorme. A TV
+	 * pergunta "Permitir depuração?" UMA vez (marque "Sempre"). Com a
+	 * depuração desligada nada aparece: o jogo segue como antes.
+	 */
+	private static final int PORTA_ADB = 5555;
+	private static final String DESLIGADAS = "/data/local/tmp/strikekids_telas_desligadas.txt";
+	private static final String[] TELAS_DO_GOOGLE = {"com.google.android.apps.tv.launcherx",
+			"com.google.android.tungsten.setupwraith", "com.google.android.tvlauncher"};
+	private static volatile boolean preparando = false;
+
+	/** Falta algo que o adb resolve? (a tela inicial, o serviço do Arduino, o "Sobrepor") */
+	static boolean faltaPreparar(Context c) {
+		try {
+			return !estado(c).equals("jogo") || !StrikeAutoOk.ligado(c) || !podeAbrirDeFundo(c);
+		} catch (Throwable t) {
+			return true;
+		}
+	}
+
+	/** O jogo abriu: se falta algo, tenta pelo adb (numa linha própria, nunca na do jogo). */
+	static void prepararSeFaltar(final Context c) {
+		if (preparando || !faltaPreparar(c)) {
+			return;
+		}
+		preparando = true;
+		new Thread(new Runnable() {
+			@Override
+			public void run() {
+				try {
+					String r = prepararPeloAdb(c);
+					Log.i(TAG, "inicio: pelo adb: " + r);
+				} catch (Throwable t) {
+					Log.i(TAG, "inicio: pelo adb: " + t);
+				} finally {
+					preparando = false;
+				}
+			}
+		}, "StrikeAdb").start();
+	}
+
+	/** O que o adb fez da última vez: "pronta", "incompleta", "adb_desligado", "sem_permissao", "erro" ou "". */
+	static String estadoAdb(Context c) {
+		return c.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString("adb", "");
+	}
+
+	static String prepararPeloAdb(Context c) {
+		String r = prepararPeloAdbSemGuardar(c);
+		c.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString("adb", r.startsWith("erro") ? "erro" : r).commit();
+		return r;
+	}
+
+	private static String prepararPeloAdbSemGuardar(Context c) {
+		AdbDaTv adb;
+		try {
+			adb = AdbDaTv.conectar("127.0.0.1", PORTA_ADB, 1500);
+		} catch (IOException e) {
+			return "adb_desligado";
+		}
+		try {
+			SharedPreferences p = c.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+			long ligou = ligouEm(c);
+			boolean podePerguntar = p.getLong("adb_perguntou", Long.MIN_VALUE) != ligou;
+			if (podePerguntar) {
+				p.edit().putLong("adb_perguntou", ligou).commit();
+			}
+			if (!adb.entrar(chaveDoJogo(c), "StrikeKids@tv", podePerguntar, 5000, 120000)) {
+				return "sem_permissao";
+			}
+			String saida = adb.shell(AdbDaTv.comandoPreparar(c.getPackageName(), StrikeInicioAtivo.class.getName(),
+					StrikeAutoOk.class.getName(), outrasTelasIniciais(c), DESLIGADAS), 60000);
+			Log.i(TAG, "inicio: pelo adb: " + saida.trim().replace('\n', ' '));
+			return saida.contains("TV_PRONTA") ? "pronta" : "incompleta";
+		} catch (Throwable t) {
+			return "erro: " + t;
+		} finally {
+			adb.close();
+		}
+	}
+
+	/** Um número que muda a cada vez que a TV liga (pergunta no máximo uma vez por ligada). */
+	private static long ligouEm(Context c) {
+		try {
+			int vezes = Settings.Global.getInt(c.getContentResolver(), "boot_count", -1);
+			if (vezes >= 0) {
+				return vezes;
+			}
+		} catch (Throwable ignored) {
+		}
+		return (System.currentTimeMillis() - SystemClock.elapsedRealtime()) / 600000L;
+	}
+
+	/** A chave do jogo para o adb da TV: criada uma vez e guardada no jogo. */
+	private static KeyPair chaveDoJogo(Context c) throws Exception {
+		File priv = new File(c.getFilesDir(), "adb_chave.pk8");
+		File pub = new File(c.getFilesDir(), "adb_chave.pub");
+		KeyFactory kf = KeyFactory.getInstance("RSA");
+		if (priv.exists() && pub.exists()) {
+			try {
+				return new KeyPair(kf.generatePublic(new X509EncodedKeySpec(lerTudo(pub))),
+						kf.generatePrivate(new PKCS8EncodedKeySpec(lerTudo(priv))));
+			} catch (Throwable estragada) {
+				Log.i(TAG, "inicio: chave do adb estragada: nova");
+			}
+		}
+		KeyPairGenerator g = KeyPairGenerator.getInstance("RSA");
+		g.initialize(2048);
+		KeyPair k = g.generateKeyPair();
+		gravarTudo(priv, k.getPrivate().getEncoded());
+		gravarTudo(pub, k.getPublic().getEncoded());
+		return k;
+	}
+
+	private static byte[] lerTudo(File f) throws IOException {
+		RandomAccessFile r = new RandomAccessFile(f, "r");
+		try {
+			byte[] b = new byte[(int) r.length()];
+			r.readFully(b);
+			return b;
+		} finally {
+			r.close();
+		}
+	}
+
+	private static void gravarTudo(File f, byte[] b) throws IOException {
+		FileOutputStream o = new FileOutputStream(f);
+		try {
+			o.write(b);
+		} finally {
+			o.close();
+		}
+	}
+
+	/** As telas iniciais da TV que saem (menos o jogo, os Ajustes e as de fundo) e as do Google TV. */
+	static List<String> outrasTelasIniciais(Context c) {
+		List<String> lista = new ArrayList<String>();
+		for (ResolveInfo r : c.getPackageManager().queryIntentActivities(home(), PackageManager.MATCH_DEFAULT_ONLY)) {
+			if (r.activityInfo == null || r.priority < 0) {
+				continue;
+			}
+			String pk = r.activityInfo.packageName;
+			if (pk.equals(c.getPackageName()) || pk.equals("android") || pk.matches("com\\.android\\.(tv\\.)?settings") || lista.contains(pk)) {
+				continue;
+			}
+			lista.add(pk);
+		}
+		for (String g : TELAS_DO_GOOGLE) {
+			if (!lista.contains(g)) {
+				lista.add(g);
+			}
+		}
+		return lista;
 	}
 
 	// ------------------------------------------------------------ tela inicial

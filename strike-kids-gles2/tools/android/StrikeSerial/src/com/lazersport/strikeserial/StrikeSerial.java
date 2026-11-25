@@ -461,10 +461,30 @@ public class StrikeSerial extends GodotPlugin {
 
 	@Override
 	public void onMainResume() {
-		Activity a = getActivity();
+		final Activity a = getActivity();
 		if (a != null) {
 			InicioDaTv.jogoNaFrente(a);
+			// A TV BOX SÓ DO JOGO: se falta algo (tela inicial, serviço do
+			// Arduino, "Sobrepor") e a Depuração USB está ligada, o jogo se
+			// prepara pelo adb da própria TV - 8 s depois de abrir, para não
+			// cruzar com as janelas de permissão da instalação
+			final Context app = a.getApplicationContext();
+			new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(new Runnable() {
+				@Override
+				public void run() {
+					if (InicioDaTv.naFrente) {
+						InicioDaTv.prepararSeFaltar(app);
+					}
+				}
+			}, 8000);
 		}
+	}
+
+	/** O que o adb da TV fez da última vez ("pronta", "adb_desligado", "sem_permissao"...). */
+	@UsedByGodot
+	public String estado_adb() {
+		Activity a = getActivity();
+		return a == null ? "" : InicioDaTv.estadoAdb(a);
 	}
 
 	@Override
@@ -687,6 +707,14 @@ public class StrikeSerial extends GodotPlugin {
 	public String relatorio() {
 		StringBuilder sb = new StringBuilder();
 		sb.append("Android ").append(Build.VERSION.RELEASE).append(" (API ").append(Build.VERSION.SDK_INT).append(")\n");
+		Activity at = getActivity();
+		if (at != null) {
+			String e = InicioDaTv.estadoAdb(at);
+			sb.append("TV so do jogo (adb): ").append(e.equals("pronta") ? "PRONTA"
+					: e.equals("sem_permissao") ? "aceite \"Permitir depuracao\" (Sempre)"
+					: e.equals("adb_desligado") || e.isEmpty() ? "ligue a Depuracao USB" : e)
+					.append(" | servico Arduino: ").append(StrikeAutoOk.ligado(at) ? "ligado" : "desligado").append('\n');
+		}
 		UsbManager m = usb();
 		if (m == null) {
 			sb.append("USB: indisponivel\n");

@@ -79,6 +79,28 @@ O QUE MUDOU PARA RODAR NA OPENGL ES 2.0
     Godot 4 (nao substitui).
 
 
+VERSAO 8.9: A TV BOX SO DO JOGO, SEM PC (O METODO DO DRAGON BOWLING)
+--------------------------------------------------------------------
+  As TV Box homologadas (Android TV / Google TV) travam o "abrir ao ligar"
+  (o Launch on Boot para de funcionar) e a janela do USB vem sem "Sempre".
+  O jogo agora faz sozinho o PREPARAR_TV, pelo adb da propria TV Box:
+  UMA VEZ, COM O CONTROLE:
+    1. Configuracoes > Sobre (ou Sistema > Sobre) > clique 7 vezes em
+       "Build" / "Versao da compilacao" -> "voce e um desenvolvedor".
+    2. Configuracoes > Opcoes do desenvolvedor > DEPURACAO USB LIGADA (se
+       houver, ligue tambem "Depuracao por rede" / "ADB pela rede").
+    3. Abra o jogo e espere uns 10 s: a TV Box pergunta "Permitir
+       depuracao USB?" -> marque "SEMPRE PERMITIR" e OK.
+  PRONTO: o jogo vira a UNICA tela inicial (a da TV Box e desligada), ganha
+  "Sobrepor", camera e notificacoes, LIGA O SERVICO DO ARDUINO (que aperta
+  OK na janela do USB a cada vez que liga e marca o "Sempre" onde existe) e
+  a TV nao dorme mais. Tire da tomada e ligue: abre so o jogo, com o
+  Arduino. Confira no menu > TESTE DOS SENSORES: "TV so do jogo: PRONTA".
+  Desligue o Launch on Boot (nao precisa mais). Para atualizar o jogo,
+  instale POR CIMA - nao desinstale (a TV Box ficaria sem tela inicial).
+  Sem a Depuracao USB ligada nada aparece: o jogo segue como a 8.8.
+
+
 VERSAO 8.8: A TV BOX NUNCA MAIS PERGUNTA "APP PADRAO"
 -----------------------------------------------------
   * O jogo NAO e mais candidato a tela inicial: a TV Box nao tem mais o

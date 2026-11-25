@@ -51,6 +51,7 @@ def injetar(manifesto):
     <uses-feature android:name="android.software.leanback" android:required="false"/>
     <uses-permission android:name="android.permission.CAMERA"/>
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
+    <uses-permission android:name="android.permission.INTERNET"/>
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT"/>
@@ -78,7 +79,13 @@ def injetar(manifesto):
             </intent-filter>
             <meta-data android:name="android.accessibilityservice" android:resource="@xml/strike_auto_ok"/>
         </service>
-        <activity android:clearTaskOnLaunch="true" android:excludeFromRecents="true" android:exported="false" android:launchMode="singleTask" android:name="com.lazersport.strikeserial.StrikeInicioAtivo" android:taskAffinity="com.lazersport.strikeserial.inicio" android:stateNotNeeded="true" android:theme="@android:style/Theme.Black.NoTitleBar.Fullscreen"/>
+        <activity android:clearTaskOnLaunch="true" android:enabled="false" android:excludeFromRecents="true" android:exported="true" android:launchMode="singleTask" android:name="com.lazersport.strikeserial.StrikeInicioAtivo" android:taskAffinity="com.lazersport.strikeserial.inicio" android:stateNotNeeded="true" android:theme="@android:style/Theme.Black.NoTitleBar.Fullscreen">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.HOME"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+            </intent-filter>
+        </activity>
         <receiver android:exported="true" android:name="com.lazersport.strikeserial.StrikeLigou">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED"/>
