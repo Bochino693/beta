@@ -772,14 +772,13 @@ func _input(event: InputEvent) -> void:
 		call_deferred("abrir_menu", CENA_OPERADOR)
 		return
 	if ArcadeControls.eh_credito(event):
+		# CRÉDITO SÓ NO MODO FICHAS: no modo livre a ficha é ignorada
+		if Ajustes.modo_livre():
+			return
 		Ajustes.adicionar_credito()
 		Sons.tocar("moeda", 0.65)
 		_acordar_trava()
 		_atualizar_atracao()
-		# modo livre: a ficha não aparece em lugar nenhum - o aviso mostra
-		# que ela chegou (e que o modo fichas está desligado no menu)
-		if Ajustes.modo_livre() and (demo or estado in [E.ABERTURA, E.ATRACAO, E.DEMO, E.FIM]):
-			hud.texto_grande("FICHA RECEBIDA · MODO LIVRE", Color("#FFF6A8"), 1.6, 0.55)
 		# na espera e no fim a ficha já ABRE a trava: a bola começa
 		if demo or estado in [E.ABERTURA, E.ATRACAO, E.DEMO, E.FIM]:
 			_porta_da_espera()
@@ -796,8 +795,9 @@ func _input(event: InputEvent) -> void:
 ## guardado para valer assim que a abertura aparecer.
 func _na_capa(event: InputEvent) -> void:
 	if ArcadeControls.eh_credito(event):
-		Ajustes.adicionar_credito()
-		Sons.tocar("moeda", 0.65)
+		if not Ajustes.modo_livre():
+			Ajustes.adicionar_credito()
+			Sons.tocar("moeda", 0.65)
 	elif ArcadeControls.eh_start(event):
 		_start_guardado = true
 

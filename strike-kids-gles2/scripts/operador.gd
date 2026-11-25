@@ -322,9 +322,10 @@ func _input(event: InputEvent) -> void:
 	get_tree().set_input_as_handled()
 	var cmd := ""
 	if ArcadeControls.eh_credito(event):
-		# ficha com o menu aberto: o crédito conta (antes se perdia)
-		Ajustes.adicionar_credito()
-		Sons.tocar("moeda", 0.65)
+		# ficha com o menu aberto: o crédito conta (só no modo fichas)
+		if not Ajustes.modo_livre():
+			Ajustes.adicionar_credito()
+			Sons.tocar("moeda", 0.65)
 		return
 	if ArcadeControls.eh_config(event):
 		cmd = "sair"

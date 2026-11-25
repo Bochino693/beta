@@ -146,7 +146,7 @@ const uint8_t SENSOR_PINOS[5] = {2, 3, 4, 5, 7};
 #define FILTRO_FICHA_MS 15        // so o MOEDEIRO no A2 da credito: pulso de 15 ms ou mais (ele manda 30-100 ms);
                                   // um tranco no fio (encostar GND no START, rele, fita de LED) nao vira ficha
 #define SEM_JOGO_FECHA_MS 30000UL // o jogo falou e sumiu este tempo: fecha a porta
-#define VERSAO "9"
+#define VERSAO "10"
 
 #if USAR_LEDS
 #include <Adafruit_NeoPixel.h>
@@ -280,7 +280,10 @@ void registrarFicha() {
     Serial.println(F("AVISO:FILA_FICHAS_CHEIA"));
     return;
   }
-  avancarContador(EE_RECEBIDAS, recebidas);   // guardada ANTES de avisar: nao se perde
+  // (10) a fila fica SO na memoria comum: comeca vazia toda vez que o
+  // Arduino liga - nenhuma "ficha" antiga (tranco no fio guardado na
+  // EEPROM por firmwares anteriores) aparece como credito na apresentacao
+  recebidas = (recebidas + 1) % CONT_MOD;
 }
 
 // Uma ficha por vez para o jogo. Sem o jogo dizer quem e (FICHAS:SYNC ou
@@ -295,7 +298,7 @@ void enviarFicha(unsigned long agora) {
     fichaAvisadaEm = agora;
   } else if (jogoAntigo) {
     Serial.println(F("FICHA"));
-    avancarContador(EE_CONFIRMADAS, confirmadas);
+    confirmadas = (confirmadas + 1) % CONT_MOD;
   }
 }
 
@@ -825,7 +828,7 @@ bool comandoDoJogo(const char *c) {
     char *fim;
     long id = strtol(c + 9, &fim, 10);
     if (protocoloFicha && fichaAvisada && fim != c + 9 && *fim == 0 && confirmadas != recebidas && id == (long)confirmadas) {
-      avancarContador(EE_CONFIRMADAS, confirmadas);
+      confirmadas = (confirmadas + 1) % CONT_MOD;
       fichaAvisada = false;   // a proxima da fila sai ja no proximo loop
     }
   } else if (!strcmp(c, "SENS?")) {
@@ -928,8 +931,7 @@ void setup() {
   jogoFalou = false;
   modoLivre = false;
   ultimoComando = millis();
-  recebidas = lerContador(EE_RECEBIDAS);
-  confirmadas = lerContador(EE_CONFIRMADAS);
+  recebidas = confirmadas = 0;   // fila vazia ao ligar (so ficha posta agora vale)
   protocoloFicha = jogoAntigo = fichaAvisada = false;
   portaAberta = false;
 #if USAR_RELE

@@ -315,6 +315,9 @@ func fichas_por_jogador() -> int:
 
 # ---------------------------------------------------------------- créditos
 func adicionar_credito() -> void:
+	# CRÉDITO SÓ NO MODO FICHAS: no modo livre o moedeiro não conta nada
+	if modo_livre():
+		return
 	creditos += 1
 	contar("moedas")
 

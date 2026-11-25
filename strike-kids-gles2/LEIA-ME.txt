@@ -79,6 +79,16 @@ O QUE MUDOU PARA RODAR NA OPENGL ES 2.0
     Godot 4 (nao substitui).
 
 
+VERSAO 8.3: CREDITO SO NO MODO FICHAS, SEM CREDITO FANTASMA
+-----------------------------------------------------------
+  * MODO LIVRE: o moedeiro e ignorado por completo (nao conta credito, nao
+    mostra aviso). Credito so existe no MODO FICHAS.
+  * SEM CREDITO NA APRESENTACAO: firmware 10 (grave de novo) - a fila de
+    fichas fica so na memoria comum do Arduino e comeca vazia toda vez que
+    ele liga. (Do firmware 5 ao 9 ela ficava na EEPROM: um tranco no fio do
+    A2 ficava guardado como "ficha" e virava credito quando o jogo abria.)
+
+
 VERSAO 8.2: CREDITO SO NO A2, TEXTO DO START NO BOTAO
 ----------------------------------------------------
   * PINOS (os da maquina montada): CONFIGURACAO = A0, START = A1, FICHA
