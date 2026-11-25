@@ -79,6 +79,20 @@ O QUE MUDOU PARA RODAR NA OPENGL ES 2.0
     Godot 4 (nao substitui).
 
 
+VERSAO 8.2: CREDITO SO NO A2, TEXTO DO START NO BOTAO
+----------------------------------------------------
+  * PINOS (os da maquina montada): CONFIGURACAO = A0, START = A1, FICHA
+    (moedeiro) = A2 - cada um com o outro fio no GND. So o A2 da credito.
+    Firmware 9 (grave de novo): o A2 so aceita pulso de 15 ms ou mais (o
+    moedeiro manda 30 a 100 ms) - um tranco no fio (encostar GND no START,
+    o rele, a fita de LED) nao vira ficha. Menu > TESTE DOS SENSORES mostra
+    "START (A1): n · FICHA (A2): n": aperte o START e so o do START sobe;
+    se subir o da FICHA, o fio do START esta no A2.
+  * O texto debaixo do "APERTE START!" volta a caber no botao.
+  * A TV que pergunta do Arduino a cada vez que liga: o convite explica e
+    leva direto ao servico "Strike Kids: abrir ao ligar e Arduino".
+
+
 VERSAO 8.1: SO O START COMECA A PARTIDA E A TV OBEDECE O JOGO
 -------------------------------------------------------------
   * SO O START COMECA: a bola nao comeca mais a partida. MODO LIVRE: a

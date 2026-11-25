@@ -141,9 +141,10 @@ const uint8_t SENSOR_PINOS[5] = {2, 3, 4, 5, 7};
 #define REARME_SENSOR_MS 120      // a mesma bola balancando no sensor nao conta 2 vezes
 #define FILTRO_BOTAO_MS 50        // START/CONFIGURACAO: apertado de verdade (50 ms), ruido no fio nao conta
 #define REARME_BOTAO_MS 700       // um aperto por vez (o START nao "aperta sozinho" em rajada)
-#define FILTRO_FICHA_MS 5         // moedeiro manda pulsos curtos (20 ms ou mais)
+#define FILTRO_FICHA_MS 15        // so o MOEDEIRO no A2 da credito: pulso de 15 ms ou mais (ele manda 30-100 ms);
+                                  // um tranco no fio (encostar GND no START, rele, fita de LED) nao vira ficha
 #define SEM_JOGO_FECHA_MS 30000UL // o jogo falou e sumiu este tempo: fecha a porta
-#define VERSAO "8"
+#define VERSAO "9"
 
 #if USAR_LEDS
 #include <Adafruit_NeoPixel.h>
