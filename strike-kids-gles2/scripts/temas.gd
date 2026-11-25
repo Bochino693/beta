@@ -484,7 +484,10 @@ func _obj(tema: String, nome: String, pos: Vector3, rot_y := 0.0, esc := 1.0, co
 ## (7.2: o Saturno com a sombra mais clara — de baixo, da pista, a metade
 ## de baixo dele fica na sombra e escurecia as cores)
 const TINTA_MODELO := {"bau": [Color(1.3, 1.0, 0.82), {"luz_minima": 0.6}],
-	"saturno": [Color.white, {"luz_minima": 0.64}]}
+	"saturno": [Color.white, {"luz_minima": 0.64}],
+	# (7.7) as TORRES do parque (os castelinhos nos pilares): o sol bate de
+	# lado e a metade na sombra ficava azul-marinho
+	"torre": [Color.white, {"luz_minima": 0.58}]}
 
 
 ## VENTO NAS PLANTAS (detalhes extras): [metros que o topo anda, rapidez].
@@ -933,7 +936,12 @@ func _vida(tema: String, feitos: Array, qual: Dictionary) -> void:
 			"pular":
 				item["altura"] = 0.16
 			"chocar":
-				item["cada"] = 4.5 + i * 1.1
+				# (7.7) os ovos do lado da pista CHOCAM: um ciclo treme, o
+				# outro racha e sai o filhote (um ovo de cada vez)
+				item["cada"] = 6.0
+				item["fase"] = i * 5.5
+				item["nascer"] = true
+				_montar_choco(tema, item)
 			"levitar":
 				item["vel"] = 0.9 + 0.2 * i
 			"girar":
@@ -987,7 +995,8 @@ const PILAR_TOPO := 2.76
 const OLHO_DA_PISTA := Vector3(0.0, 1.05, 2.2)
 
 
-func _nos_pilares(tema: String, nome: String, esc: float, giro := 0.0, de_pe := false, largura := 1.0, contorno := 0.004) -> void:
+func _nos_pilares(tema: String, nome: String, esc: float, giro := 0.0, de_pe := false, largura := 1.0, contorno := 0.004) -> Array:
+	var feitas := []
 	var caixa := _caixa(nome)
 	for s in [-1.0, 1.0]:
 		var b := Basis(Vector3.UP, giro * s)
@@ -1002,6 +1011,8 @@ func _nos_pilares(tema: String, nome: String, esc: float, giro := 0.0, de_pe := 
 		var pos := Vector3(s * PILAR_X, PILAR_TOPO - baixo, Medidas.Z_PINO1 + 0.75)
 		var mi := _obj(tema, nome, pos, 0.0, esc, contorno, Color.white, null, pos.distance_to(OLHO_DA_PISTA))
 		mi.transform = Transform(b, pos)
+		feitas.append(mi)
+	return feitas
 
 
 ## Uma peça comprida (o navio, o arco-íris, a roda-gigante): círculos de
@@ -1819,10 +1830,18 @@ func _process(delta: float) -> void:
 				elif ciclo < 0.85 + delta * 2.0:
 					no.scale = Vector3.ONE * e
 			"chocar":
-				# o ovo treme de vez em quando (balança e para)
+				# o ovo treme de vez em quando (balança e para); os dos
+				# pilares, um ciclo sim e outro não, CHOCAM
 				var no: Spatial = item["no"]
-				var ciclo := fposmod(_t + float(item["fase"]), float(item["cada"]))
 				var giro: float = item["giro"]
+				if item.has("nascer"):
+					var dois := fposmod(_t + float(item["fase"]), float(item["cada"]) * 2.0)
+					if dois >= float(item["cada"]):
+						_choco_passo(item, dois - float(item["cada"]))
+						continue
+					elif bool(item.get("chocando", false)):
+						_choco_fim(item)
+				var ciclo := fposmod(_t + float(item["fase"]), float(item["cada"]))
 				if ciclo < 1.1:
 					var u := ciclo / 1.1
 					var k := (1.0 - u) * sin(u * TAU * 3.5)
@@ -1855,6 +1874,237 @@ func _process(delta: float) -> void:
 				no.rotation = b + Vector3(sin(_t * 0.37) * 0.015, 0, sin(_t * 0.5) * 0.025)
 			"borboleta":
 				_borboleta(item)
+
+
+# ================================================================ o ovo choca
+## O OVO QUE CHOCA (7.7): a casca racha em zigue-zague (o MESMO modelo do
+## ovo, desenhado em duas partes por um shader que corta - feito do
+## toon_leve_tex, com 9 dentes em volta), a parte de cima pula e gira, e um
+## FILHOTE de dinossauro (uma malha só, cor nos vértices) sobe, olha para os
+## lados e volta. Fora do choco o ovo é o de sempre: só enquanto choca são
+## 2 desenhos a mais, num ovo de cada vez. As peças nascem escondidas: a
+## capa (Aquecer) já prepara o desenho delas - nada compila na hora.
+const CHOCO_DUR := 4.6
+var _shader_casca: Shader
+
+
+func _casca_shader() -> Shader:
+	if _shader_casca == null:
+		var c: String = (Materiais.shader("res://shaders/toon_leve_tex.shader") as Shader).code
+		c = c.replace("cull_back;", "cull_disabled;")
+		c = c.replace("varying vec4 v_sol;", "uniform float corte_y = 0.0;\nuniform float corte_onda = 0.04;\n" +
+			"uniform vec2 corte_centro = vec2(0.0);\nuniform float lado = 1.0;\nvarying vec3 v_obj;\nvarying vec4 v_sol;")
+		c = c.replace("void vertex() {", "void vertex() {\n\tv_obj = VERTEX;")
+		c = c.replace("void fragment() {", "void fragment() {\n" +
+			"\tfloat ang = atan(v_obj.z - corte_centro.y, v_obj.x - corte_centro.x);\n" +
+			"\tfloat zig = corte_y + corte_onda * (abs(fract(ang * 1.4324) - 0.5) * 4.0 - 1.0);\n" +
+			"\tif ((v_obj.y - zig) * lado < 0.0) {\n\t\tdiscard;\n\t}")
+		_shader_casca = Shader.new()
+		_shader_casca.code = c
+	return _shader_casca
+
+
+func _montar_choco(tema: String, item: Dictionary) -> void:
+	var ovo: MeshInstance = item["no"]
+	var malha: Mesh = ovo.mesh
+	var caixa := malha.get_aabb()
+	var centro := caixa.position + caixa.size * 0.5
+	var corte := caixa.position.y + caixa.size.y * 0.64
+	# o raio do ovo na altura do corte (o ninho embaixo é mais largo)
+	var raio := 0.0
+	var v: PoolVector3Array = malha.surface_get_arrays(0)[Mesh.ARRAY_VERTEX]
+	for p in v:
+		if abs(p.y - corte) < caixa.size.y * 0.06:
+			raio = max(raio, Vector2(p.x - centro.x, p.z - centro.z).length())
+	if raio <= 0.0:
+		raio = caixa.size.x * 0.3
+	var mats := []
+	for lado in [1.0, -1.0]:
+		var m := ShaderMaterial.new()
+		m.shader = _casca_shader()
+		m.set_meta("atlas", true)
+		m.set_shader_param("corte_y", corte)
+		m.set_shader_param("corte_onda", caixa.size.y * 0.035)
+		m.set_shader_param("corte_centro", Vector2(centro.x, centro.z))
+		m.set_shader_param("lado", lado)
+		mats.append(m)
+	var cima := MeshInstance.new()
+	cima.mesh = malha
+	cima.material_override = mats[0]
+	cima.cast_shadow = GeometryInstance.SHADOW_CASTING_SETTING_OFF
+	cima.visible = false
+	cima.name = "casca_cima"
+	ovo.add_child(cima)
+	# (escondida: só para a capa preparar o desenho da metade de baixo)
+	var baixo := cima.duplicate() as MeshInstance
+	baixo.material_override = mats[1]
+	baixo.name = "casca_baixo"
+	ovo.add_child(baixo)
+	var filhote := MeshInstance.new()
+	filhote.mesh = _malha_filhote(raio * 0.82)
+	var mf := SpatialMaterial.new()
+	mf.flags_unshaded = true
+	mf.vertex_color_use_as_albedo = true
+	filhote.material_override = mf
+	filhote.cast_shadow = GeometryInstance.SHADOW_CASTING_SETTING_OFF
+	filhote.visible = false
+	filhote.name = "filhote"
+	ovo.add_child(filhote)
+	item["cima"] = cima
+	item["mats"] = mats
+	item["filhote"] = filhote
+	item["corte"] = corte
+	item["centro"] = centro
+	item["raio"] = raio
+	item["altura"] = caixa.size.y
+	item["mat_ovo"] = ovo.material_override
+
+
+## O FILHOTE: cabeça verde, focinho, bochechas, olhos com brilho e três
+## plaquinhas nas costas - esferas baixas numa malha só (cor nos vértices,
+## com a sombra já pintada: o material nem acende luz).
+func _malha_filhote(r: float) -> ArrayMesh:
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var verde := Color("#56C93A")
+	var escuro := Color("#2F9A2A")
+	_bola_cor(st, Vector3(0, -r * 0.9, 0), Vector3(r * 0.8, r * 1.1, r * 0.8), verde, 10, 6)       # pescoço
+	_bola_cor(st, Vector3(0, 0, 0), Vector3(r, r * 0.92, r), verde, 14, 8)                          # cabeça
+	_bola_cor(st, Vector3(0, -r * 0.22, r * 0.72), Vector3(r * 0.62, r * 0.48, r * 0.5), Color("#86DD5E"), 12, 6)  # focinho
+	for s in [-1.0, 1.0]:
+		_bola_cor(st, Vector3(s * r * 0.42, r * 0.28, r * 0.72), Vector3.ONE * r * 0.3, Color.white, 10, 6)
+		_bola_cor(st, Vector3(s * r * 0.4, r * 0.27, r * 0.95), Vector3.ONE * r * 0.16, Color("#1B1B2F"), 8, 5)
+		_bola_cor(st, Vector3(s * r * 0.35, r * 0.36, r * 1.08), Vector3.ONE * r * 0.06, Color.white, 6, 4)
+		_bola_cor(st, Vector3(s * r * 0.66, -r * 0.12, r * 0.6), Vector3(r * 0.2, r * 0.12, r * 0.08), Color("#FF9AB0"), 8, 4)
+	for k in 3:
+		_bola_cor(st, Vector3(0, r * (0.95 - k * 0.42), -r * (0.25 + k * 0.33)), Vector3(r * 0.09, r * 0.2, r * 0.16), escuro, 6, 4)
+	return st.commit()
+
+
+func _bola_cor(st: SurfaceTool, c: Vector3, raio: Vector3, cor: Color, seg: int, aneis: int) -> void:
+	var pontos := []
+	for i in aneis + 1:
+		var a := PI * float(i) / aneis
+		var linha := []
+		for j in seg + 1:
+			var b := TAU * float(j) / seg
+			var n := Vector3(sin(a) * cos(b), cos(a), sin(a) * sin(b))
+			# a sombra pintada: de cima e da frente mais claro
+			var luz: float = clamp(0.72 + 0.22 * n.y + 0.12 * n.z, 0.55, 1.08)
+			linha.append([c + n * raio, Color(cor.r * luz, cor.g * luz, cor.b * luz)])
+		pontos.append(linha)
+	for i in aneis:
+		for j in seg:
+			var q := [pontos[i][j], pontos[i][j + 1], pontos[i + 1][j + 1], pontos[i + 1][j]]
+			# (Godot 3: a frente é a do sentido horário, vista de fora)
+			for k in [0, 2, 1, 0, 3, 2]:
+				st.add_color(q[k][1])
+				st.add_vertex(q[k][0])
+
+
+## (a cada quadro, no ciclo de chocar) h = segundos desde o começo.
+func _choco_passo(item: Dictionary, h: float) -> void:
+	var ovo: MeshInstance = item["no"]
+	var giro: float = item["giro"]
+	var alt: float = item["altura"]
+	var cima: MeshInstance = item["cima"]
+	var filhote: MeshInstance = item["filhote"]
+	# 0 - 0,9 s: treme mais forte (alguém quer nascer!)
+	if h < 0.9:
+		var u := h / 0.9
+		var k := sin(u * TAU * 4.0) * (0.6 + 0.4 * u)
+		ovo.rotation = Vector3(k * 0.06, giro, k * 0.14)
+		return
+	if h >= CHOCO_DUR:
+		if bool(item.get("chocando", false)):
+			_choco_fim(item)
+		return
+	if not bool(item.get("chocando", false)):
+		_choco_comeco(item)
+	ovo.rotation = Vector3(0, giro, 0)
+	# a casca: racha (1 cm), pula e gira presa num ponto da borda, volta
+	var sobe := 0.0
+	var vira := 0.0
+	if h < 1.25:
+		var u := (h - 0.9) / 0.35
+		sobe = 0.015 * u + 0.006 * sin(u * TAU * 3.0)
+	elif h < 3.9:
+		var u: float = clamp((h - 1.25) / 0.3, 0.0, 1.0)
+		var mola := 1.0 - (1.0 - u) * (1.0 - u) + 0.08 * sin(u * PI)
+		sobe = 0.02 + 0.42 * mola
+		vira = 1.1 * mola
+	else:
+		var u: float = clamp((h - 3.9) / 0.5, 0.0, 1.0)
+		sobe = (0.44 * (1.0 - u * u))
+		vira = 1.1 * (1.0 - u * u)
+	# (gira em volta da linha de quem olha, presa na borda do lado: a
+	# casca tomba para o lado, na frente da criança - não para trás do ovo)
+	var lado: Vector3 = item.get("lado", Vector3(1, 0, 0))
+	var eixo: Vector3 = item.get("eixo", Vector3(0, 0, 1))
+	var c0: Vector3 = item["centro"]
+	var borda := Vector3(c0.x, float(item["corte"]), c0.z) + lado * float(item["raio"])
+	var b := Basis(eixo, -vira)
+	cima.transform = Transform(b, borda - b.xform(borda) + Vector3(0, sobe * alt, 0))
+	# o filhote: sobe (com um pulinho), olha para um lado e para o outro, desce
+	var aparece := 0.0
+	if h < 1.3:
+		aparece = 0.0
+	elif h < 1.7:
+		var u := (h - 1.3) / 0.4
+		aparece = 1.0 - (1.0 - u) * (1.0 - u) + 0.15 * sin(u * PI)
+	elif h < 3.8:
+		aparece = 1.0
+	else:
+		aparece = clamp(1.0 - (h - 3.8) / 0.45, 0.0, 1.0)
+	var r: float = item["raio"] * 0.82
+	var y0: float = float(item["corte"]) - r * 1.6
+	var y1: float = float(item["corte"]) + r * 0.55
+	var c: Vector3 = item["centro"]
+	filhote.translation = Vector3(c.x, lerp(y0, y1, aparece) + (sin(h * 9.0) * 0.012 * alt if aparece >= 1.0 else 0.0), c.z)
+	var olha := 0.0
+	if h > 1.9 and h < 3.7:
+		olha = sin((h - 1.9) * 3.4) * 0.6
+	filhote.rotation = Vector3(0, float(item.get("frente", 0.0)) + olha, sin(h * 5.0) * 0.08 * aparece)
+	var e := 1.0 + 0.06 * sin(h * 11.0) * aparece
+	filhote.scale = Vector3(1.0 / e, e, 1.0 / e)
+
+
+func _choco_comeco(item: Dictionary) -> void:
+	var ovo: MeshInstance = item["no"]
+	item["chocando"] = true
+	item["mat_ovo"] = ovo.material_override
+	# a casca com a luz do cenário de agora (a do ovo inteiro)
+	var base: ShaderMaterial = item["mat_ovo"]
+	for m in item["mats"]:
+		for k in ["textura", "tinta", "faixa", "luz_minima", "borda", "cor_borda", "emissao", "brilho_luz", "sol_dir",
+				"sol_cor", "ambiente", "neblina_cor", "neblina_densidade", "f_sol", "f_sombra", "f_borda_sol",
+				"f_borda_sombra", "f_acesa", "neblina_tela"]:
+			var v = base.get_shader_param(k)
+			if v != null:
+				(m as ShaderMaterial).set_shader_param(k, v)
+	ovo.material_override = item["mats"][1]
+	(item["cima"] as MeshInstance).visible = true
+	(item["filhote"] as MeshInstance).visible = true
+	# o filhote olha para quem joga; a casca tomba para o lado (na vista)
+	var para := OLHO_DA_PISTA - ovo.global_transform.origin
+	item["frente"] = atan2(para.x, para.z) - ovo.rotation.y
+	var local := ovo.global_transform.basis.inverse().xform(para)
+	local.y = 0.0
+	if local.length() > 0.001:
+		local = local.normalized()
+		item["eixo"] = local
+		item["lado"] = Vector3.UP.cross(local).normalized()
+	if som_ambiente:
+		Sons.tocar("pop", 0.45, 1.25)
+
+
+func _choco_fim(item: Dictionary) -> void:
+	var ovo: MeshInstance = item["no"]
+	item["chocando"] = false
+	ovo.material_override = item["mat_ovo"]
+	ovo.rotation = Vector3(0, float(item["giro"]), 0)
+	(item["cima"] as MeshInstance).visible = false
+	(item["filhote"] as MeshInstance).visible = false
 
 
 func _escala_base(item: Dictionary) -> float:

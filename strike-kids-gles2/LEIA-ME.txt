@@ -122,6 +122,21 @@ VERSAO 7.7: LIGA DIRETO NO JOGO, PERMISSOES UMA VEZ SO E RELE DE PULSO
     jogo confirmar (ficha posta com a TV Box ligando chega quando o jogo
     abre); os creditos ficam guardados no jogo (a luz piscou: a ficha paga
     continua la). Menu: "> ZERAR CREDITOS".
+  * CACAPA TEMATICA CLARA: as tiras da boca da cacapa (o desenho de cada
+    cenario) saiam a 30% - a placa via a frente delas como o verso. Agora o
+    desenho aparece inteiro, com um brilho descendo da luz da boca; o tunel
+    e azul noite (nao preto) e os lados da boca tem a cor das paredes do
+    cenario. (Um desenho a menos por quadro.)
+  * O OVO DO LADO DA RAMPA CHOCA (dinos): treme, racha em zigue-zague, a
+    casca pula para o lado e um FILHOTE de dinossauro espia, olha para os
+    lados e volta - um ovo de cada vez. So enquanto choca sao 2 desenhos a
+    mais; as pecas sao preparadas na capa (nada engasga na hora).
+  * CASTELINHOS (torres do parque): o lado na sombra ficava azul-marinho;
+    agora a sombra e mais clara (so uma conta na luz do material).
+  * BOB E MIA MAIS SOLTOS: por cima da animacao, parados eles balancam de
+    leve, a cabeca e os bracos chegam DEPOIS do corpo (mola, como desenho
+    animado) e o corpo estica subindo e amassa ao cair - so umas contas por
+    quadro, nada a mais para a placa de video.
   * ARDUINO: cada coisa no seu tempo (sensores, fichas, rele, LEDs, vigia
     do jogo), nada espera nada; os LEDs esperam o comando do USB terminar
     de chegar; linha pela metade (ruido) e descartada. Testes:

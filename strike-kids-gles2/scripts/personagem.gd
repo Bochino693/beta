@@ -79,6 +79,25 @@ var _fase_resp := 0.0
 var _fase_rabo := 0.0
 var _alegria_suave := 0.5
 var brilho := 1.4
+## VIDA NOS MOVIMENTOS (7.7): por cima da animação, de graça (umas contas
+## por quadro, nada a mais para a placa de vídeo) - o corpo balança de leve
+## parado, a cabeça e os braços chegam DEPOIS do corpo (mola amortecida,
+## como desenho animado) e o corpo estica subindo e amassa ao cair.
+const VIDA_BALANCO := 1.0        # balanço parado (graus x este fator)
+const VIDA_MOLA := 26.0          # rigidez da mola da cabeça e dos braços
+const VIDA_AMORTECE := 7.5
+const VIDA_ESTICA := 0.06        # estica/amassa no máximo 6%
+const CLIPES_CALMOS := ["parado", "pronto", "assistindo", "acenar_uma", "olhar_volta", "triste", "escolhido"]
+var _vida_t := 0.0
+var _vida_calma := 1.0
+var _corpo_ant := Vector3.ZERO
+var _cab_off := Vector3.ZERO
+var _cab_vel := Vector3.ZERO
+var _bracos_off := 0.0
+var _bracos_vel := 0.0
+var _alt_ant := 0.0
+var _alt_vel := 0.0
+var _estica := 0.0
 
 ## ROUPINHA DA FASE ("pirata", "dino", "astronauta", "parque"; "" = a de
 ## sempre): ver trocar_roupa.
@@ -589,15 +608,28 @@ func _aplicar(pose: Dictionary, delta: float) -> void:
 	var voo: float = max(pose.get("voo", 0.0), 0.0)
 	var frente: float = pose.get("frente", 0.0)
 	var giro: float = pose.get("giro", 0.0)
+	_vida_passo(corpo_rot, altura + voo, delta)
+	var balanco := _vida_balanco()
 	for j in juntas:
 		var no: Spatial = juntas[j]
 		var r: Vector3 = pose.get(j, Vector3.ZERO)
 		if j.begins_with("coxa"):
 			r.x -= corpo_rot.x   # pernas em relação ao chão
 		if j == "cabeca":
-			r += Vector3(_olhar.y, _olhar.x, 0)
+			r += Vector3(_olhar.y, _olhar.x, 0) + _cab_off + balanco[1]
+		elif j == "corpo":
+			r += balanco[0]
+		elif j == "braco_e":
+			r.z += _bracos_off + balanco[2]
+		elif j == "braco_d":
+			r.z -= _bracos_off + balanco[2]
 		# base nova a cada quadro (rotação pura, escala 1: nada acumula)
 		no.transform.basis = Basis(r * (PI / 180.0))
+	if abs(_estica) > 0.002:
+		# estica subindo, amassa caindo (o volume fica: x e z compensam)
+		var e := clamp(_estica, -VIDA_ESTICA, VIDA_ESTICA)
+		var c: Spatial = juntas["corpo"]
+		c.transform.basis = c.transform.basis.scaled(Vector3(1.0 - e * 0.5, 1.0 + e, 1.0 - e * 0.5))
 	(juntas["corpo"] as Spatial).translation = _pos_repouso["corpo"] + Vector3(quadril.x, altura, quadril.z)
 	# deslocamento da corrida (para a frente do personagem) e voo
 	var frente_mundo := base.basis.z.normalized() * frente
@@ -613,6 +645,50 @@ func _aplicar(pose: Dictionary, delta: float) -> void:
 		_alegria_suave = lerp(_alegria_suave, _alegria, 1.0 - exp(-delta * 3.0))
 		_fase_rabo = fposmod(_fase_rabo + delta * (7.0 + _alegria_suave * 9.0), TAU * 2.0)
 		_rabo.rotation = Vector3(sin(_fase_rabo * 0.5) * 0.12, sin(_fase_rabo) * (0.35 + _alegria_suave * 0.35), 0)
+
+
+## A camada de vida: a mola da cabeça e dos braços puxada pelo que o corpo
+## fez neste quadro, e o estica/amassa pela velocidade de subir e descer.
+func _vida_passo(corpo_rot: Vector3, alt: float, delta: float) -> void:
+	if delta <= 0.0:
+		return
+	var dt: float = min(delta, 0.05)
+	_vida_t = fposmod(_vida_t + dt, 600.0)
+	# parado (ou num gesto calmo) o balanço aparece inteiro; correndo e
+	# jogando, quase nada (a animação manda)
+	var alvo_calma := 1.0 if _nome_clip in CLIPES_CALMOS else 0.25
+	_vida_calma = lerp(_vida_calma, alvo_calma, 1.0 - exp(-dt * 2.5))
+	# o corpo girou: a cabeça fica um pouco para trás e alcança depois
+	var giro_corpo := (corpo_rot - _corpo_ant) / dt
+	_corpo_ant = corpo_rot
+	var puxa := -giro_corpo * 0.035
+	_cab_vel += (puxa * VIDA_MOLA - _cab_off * VIDA_MOLA - _cab_vel * VIDA_AMORTECE) * dt
+	_cab_off += _cab_vel * dt
+	_cab_off = Vector3(clamp(_cab_off.x, -9.0, 9.0), clamp(_cab_off.y, -9.0, 9.0), clamp(_cab_off.z, -9.0, 9.0))
+	# subiu/desceu: os braços abrem um pouco e voltam (mola)
+	var vel_alt := (alt - _alt_ant) / dt
+	_alt_ant = alt
+	var acel := (vel_alt - _alt_vel) / dt
+	_alt_vel = vel_alt
+	_bracos_vel += (clamp(-acel * 0.9, -40.0, 40.0) - _bracos_off * VIDA_MOLA - _bracos_vel * VIDA_AMORTECE) * dt
+	_bracos_off = clamp(_bracos_off + _bracos_vel * dt, -12.0, 12.0)
+	# estica com a velocidade (subindo ou caindo depressa), amassa ao parar
+	var alvo_e: float = clamp(abs(vel_alt) * 0.06, 0.0, VIDA_ESTICA) - clamp(acel * 0.0025, 0.0, VIDA_ESTICA)
+	_estica = lerp(_estica, alvo_e, 1.0 - exp(-dt * 14.0))
+
+
+## O balanço de quem está parado: [corpo, cabeça, braços] (graus), três
+## ondas que não batem juntas - nunca parece repetido.
+func _vida_balanco() -> Array:
+	var k := _vida_calma * VIDA_BALANCO
+	if k < 0.01:
+		return [Vector3.ZERO, Vector3.ZERO, 0.0]
+	# (Bob e Mia em fases diferentes: não balançam juntos)
+	var t := _vida_t + float(int(abs(nome_modelo.hash())) % 97) * 0.37
+	var corpo := Vector3(sin(t * 0.9) * 1.6, sin(t * 0.55) * 3.0, sin(t * 1.15 + 0.7) * 2.6) * k
+	var cab := Vector3(sin(t * 1.3 + 1.1) * 3.5, sin(t * 0.7 + 0.4) * 7.0, sin(t * 1.05 + 2.0) * 5.0) * k
+	var bracos := (sin(t * 1.9) * 4.0 + 2.0) * k
+	return [corpo, cab, bracos]
 
 
 ## Olha para a bola com uma mola amortecida (sem trancos). Só olha para o
