@@ -1041,8 +1041,18 @@ function Principal {
                 if ($codInicio -eq 0 -and (Ler-Log (Join-Path $script:Logs "adb-tela-inicial.log")) -notmatch 'Error|Exception|Unknown') {
                     Ok "o jogo agora e a TELA INICIAL da TV: abre sozinho ao ligar"
                 } else {
-                    Aviso "a TV nao aceitou o jogo como tela inicial pelo adb: no menu do operador use '> ABRIR O JOGO AO LIGAR A TV' (veja adb-tela-inicial.log)."
+                    # Android 10+: o papel de tela inicial (o mesmo que o set-home-activity)
+                    [void](Executar $script:Adb @("shell", "cmd", "role", "add-role-holder", "android.app.role.HOME", $Pacote) -Log (Join-Path $script:Logs "adb-papel.log") -LimiteMin 2 -Rotulo "adb" -Quieto)
+                    Aviso "a TV nao aceitou o jogo como tela inicial pelo set-home-activity (tentei tambem o papel do Android 10+): se ela ainda abrir o lancador, use no menu do operador '> INSTALACAO' (veja adb-tela-inicial.log)."
                 }
+                # as permissoes de uma vez, pelo adb: a INSTALACAO do jogo nem
+                # convida (camera, notificacoes, sobrepor; o Arduino e o
+                # "Usar por padrao" da janela do Android ao encaixar)
+                foreach ($perm in @("android.permission.CAMERA", "android.permission.POST_NOTIFICATIONS")) {
+                    [void](Executar $script:Adb @("shell", "pm", "grant", $Pacote, $perm) -Log (Join-Path $script:Logs "adb-permissoes.log") -LimiteMin 2 -Rotulo "adb" -Quieto)
+                }
+                [void](Executar $script:Adb @("shell", "appops", "set", $Pacote, "SYSTEM_ALERT_WINDOW", "allow") -Log (Join-Path $script:Logs "adb-permissoes.log") -LimiteMin 2 -Rotulo "adb" -Quieto)
+                Ok "permissoes da camera, das notificacoes e de sobrepor dadas pelo adb"
             }
             [void](Executar $script:Adb @("shell", "monkey", "-p", $Pacote, "-c", "android.intent.category.LAUNCHER", "1") -Log (Join-Path $script:Logs "adb-abrir.log") -LimiteMin 2 -Rotulo "adb" -Quieto)
             Ok "instalado e aberto na TV Box"

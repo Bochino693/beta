@@ -81,6 +81,11 @@ var _liberada := false
 var _ultima_jogada_ms := -100000
 var _inativo := 0.0
 var _modal_inativo := 0.0
+## MODO FICHAS, com crédito e ninguém jogando: o tempo de espera e, passado
+## o "Fechar a trava sem jogar" do menu, a trava fechada à espera de outra
+## ficha ou do START (o crédito continua guardado)
+var _espera_paga_t := 0.0
+var _trava_dormiu := false
 var _ativo := "bob"
 var _plateia := "mia"
 var _em_pe_antes: Array = []
@@ -116,7 +121,8 @@ var _destaque := 0       # amigo escolhido na tela da escolha: 0 = Bob, 1 = Mia,
 var _fim_t := 0.0
 var _demo_t := 0.0
 var _camera_t := 0.0
-var _tela_inicial_pedida := false   # pediu (uma vez por abertura) para ser a tela inicial
+var _instalacao: Node = null        # a INSTALAÇÃO da TV Box (scripts/instalacao.gd), aberta
+var _instalacao_vista := false      # o convite da instalação já apareceu nesta abertura
 var _demo_vez := 0
 var _ultimo_som_pino := 0
 ## as fases (cenários) de cada rodada desta partida, sorteadas no START
@@ -443,6 +449,9 @@ func _ligar_roteiro_de_teste() -> void:
 		if a.begins_with("--instantes") and ResourceLoader.exists("res://tools/testes/instantes.gd"):
 			add_child(load("res://tools/testes/instantes.gd").new())
 			return
+		if a.begins_with("--porta-rele") and ResourceLoader.exists("res://tools/testes/porta_rele.gd"):
+			add_child(load("res://tools/testes/porta_rele.gd").new())
+			return
 
 
 # ================================================================ montagem
@@ -765,6 +774,7 @@ func _input(event: InputEvent) -> void:
 	if ArcadeControls.eh_credito(event):
 		Ajustes.adicionar_credito()
 		Sons.tocar("moeda", 0.65)
+		_acordar_trava()
 		_atualizar_atracao()
 		# modo livre: a ficha não aparece em lugar nenhum - o aviso mostra
 		# que ela chegou (e que o modo fichas está desligado no menu)
@@ -799,6 +809,7 @@ func _zona(tecla: String) -> String:
 
 func _start() -> void:
 	_inativo = 0.0
+	_acordar_trava()
 	if _modal_inativo > 0.0:
 		_fechar_inatividade()
 		return
@@ -844,18 +855,53 @@ func _bola_comeca() -> bool:
 
 
 ## A TRAVA das bolas e o convite da espera (abertura, atração, demonstração,
-## fim de jogo): modo livre = sem trava (porta sempre aberta) e "ROLE A
-## BOLA!"; modo fichas = fechada e "INSIRA FICHA" até a ficha entrar, aí
-## ABRE e pede a bola.
+## fim de jogo) — A REGRA DA PORTA, num lugar só:
+##   MODO LIVRE: sempre ABERTA ("ROLE A BOLA!").
+##   MODO FICHAS: FECHADA sem crédito ("INSIRA FICHA"); o crédito ABRE (um
+##   pulso do relé) e pede a bola; com crédito e ninguém jogando pelo tempo
+##   do menu ("Fechar a trava sem jogar"), FECHA de novo (um pulso) e espera
+##   outra ficha ou o START — o crédito fica guardado.
+## Durante a partida a porta fica aberta (_escolher_jogadores); no fim ela
+## passa por aqui de novo: fecha se não sobrou crédito.
+## Chamar de novo com tudo igual não manda nada ao Arduino (ArduinoBridge).
 func _porta_da_espera() -> void:
 	var pode := Ajustes.pode_comecar()
-	ArduinoBridge.porta(pode)
+	if Ajustes.modo_livre() or not pode:
+		_trava_dormiu = false
+		_espera_paga_t = 0.0
+	ArduinoBridge.porta(pode and not _trava_dormiu)
 	if Ajustes.modo_livre():
 		hud.modo_espera("livre")
 	elif not pode:
 		hud.modo_espera("ficha")
+	elif _trava_dormiu:
+		hud.modo_espera("dormiu")
 	else:
 		hud.modo_espera("pago2" if Ajustes.jogadores_pagos() == 2 else "pago1")
+
+
+## Ficha, START ou bola: a espera recomeça e a trava que tinha fechado de
+## tanto esperar abre de novo (se há crédito).
+func _acordar_trava() -> void:
+	_espera_paga_t = 0.0
+	if _trava_dormiu:
+		_trava_dormiu = false
+		if estado in [E.ABERTURA, E.ATRACAO, E.DEMO, E.FIM] or demo:
+			_porta_da_espera()
+
+
+## (a cada quadro, na espera) MODO FICHAS com crédito e ninguém jogando: conta
+## o tempo e, passado o do menu, fecha a trava.
+func _contar_espera_paga(real: float) -> void:
+	if _trava_dormiu or Ajustes.modo_livre() or not Ajustes.pode_comecar():
+		return
+	var limite := Ajustes.fechar_sem_jogar()
+	if limite <= 0.0:
+		return
+	_espera_paga_t += real
+	if _espera_paga_t >= limite:
+		_trava_dormiu = true
+		_porta_da_espera()
 
 
 ## O amigo pelo lado da bola: esquerda = BOB, direita = MIA (onde cada um
@@ -901,6 +947,7 @@ func _jogada_recebida(zona: String) -> void:
 	if _preparando:
 		return
 	_inativo = 0.0
+	_espera_paga_t = 0.0
 	if _modal_inativo > 0.0:
 		_fechar_inatividade()
 	# modo livre pela bola: na demonstração inteira (arremesso, bola
@@ -1040,7 +1087,7 @@ func _abertura() -> void:
 ## pesadas; mostra a média de quadros por segundo e a qualidade recomendada.
 func _teste_desempenho() -> void:
 	estado = E.TESTE
-	ArduinoBridge.porta(false)
+	# (a porta fica como a espera deixou: o teste não dá pulso no relé)
 	_novo_seq()
 	hud.atracao(false)
 	_posicionar_atracao()
@@ -1095,20 +1142,39 @@ func _atracao() -> void:
 	Fotos.na_espera()
 
 
-## O jogo como TELA INICIAL da TV (abre sozinho ao ligar - StrikeSerial,
-## InicioDaTv): enquanto a TV não abre o jogo sozinha, uma vez a cada vez
-## que o jogo abre, na tela de espera, pede a escolha ao Android ("Strike
-## Kids" + SEMPRE). Uma janela do Android por vez: depois da câmera e do
-## Arduino.
-func _pedir_tela_inicial() -> void:
-	if _tela_inicial_pedida or not Engine.has_singleton("StrikeSerial"):
+## A INSTALAÇÃO DA TV BOX (scripts/instalacao.gd): na primeira vez, na tela
+## de espera, o convite "aperte OK no controle remoto"; com o OK, as
+## permissões (câmera, notificações, Arduino) e o jogo como TELA INICIAL, uma
+## janela do Android por vez - e nunca mais. Antes, o jogo abria SOZINHO a
+## escolha da tela inicial / os ajustes do Android a cada vez que abria: sem
+## controle remoto a TV Box ficava parada nos ajustes ou no lançador dela.
+func _conferir_instalacao() -> void:
+	if _instalacao_vista or _instalacao != null or Ajustes.instalacao_feita():
 		return
 	if Fotos.janela_aberta() or ArduinoBridge.janela_aberta():
 		return
-	_tela_inicial_pedida = true
-	var s = Engine.get_singleton("StrikeSerial")
-	if str(s.tela_inicial()) != "jogo":
-		s.pedir_tela_inicial()
+	_instalacao_vista = true
+	var script_instalacao = load("res://scripts/instalacao.gd")
+	if script_instalacao.nada_falta():
+		# tudo já permitido (instalado pelo PC, com o adb): nem convida
+		Ajustes.definir("android", "instalacao_feita", true)
+		return
+	instalar(false)
+
+
+## forcado: o operador pediu (menu) - sem o convite, direto nas janelas.
+func instalar(forcado: bool) -> void:
+	if _instalacao != null or OS.get_name() != "Android":
+		return
+	_instalacao = load("res://scripts/instalacao.gd").new()
+	_instalacao.hud = hud
+	_instalacao.forcado = forcado
+	_instalacao.connect("acabou", self, "_instalacao_acabou")
+	add_child(_instalacao)
+
+
+func _instalacao_acabou() -> void:
+	_instalacao = null
 
 
 func _posicionar_atracao() -> void:
@@ -1144,7 +1210,9 @@ func _atualizar_atracao() -> void:
 func _escolher_jogadores() -> void:
 	estado = E.JOGADORES
 	# START valeu: a porta das bolas ABRE (a criança já escolhe o amigo
-	# rolando a bola)
+	# rolando a bola) e fica aberta a partida inteira
+	_trava_dormiu = false
+	_espera_paga_t = 0.0
 	ArduinoBridge.porta(true)
 	ArduinoBridge.na_espera(false)
 	_novo_seq()
@@ -1663,6 +1731,9 @@ func _process(delta: float) -> void:
 	_conferir_msaa()
 	# as contagens da tela andam em segundos de verdade
 	var real := _delta_real()
+	# modo fichas: crédito parado tempo demais fecha a trava (na espera)
+	if (estado in [E.ABERTURA, E.ATRACAO, E.DEMO, E.FIM] or demo) and _menu == null:
+		_contar_espera_paga(real)
 	# PC em tela cheia: a setinha do mouse some sozinha quando ninguém mexe
 	_mouse_parado += real
 	if _mouse_parado > 2.5 and Input.mouse_mode == Input.MOUSE_MODE_VISIBLE:
@@ -1693,7 +1764,7 @@ func _process(delta: float) -> void:
 			if _camera_t > 6.0:
 				_camera_t = 0.0
 				Fotos.na_espera()
-				_pedir_tela_inicial()
+				_conferir_instalacao()
 			if bool(Ajustes.valor("jogo", "demo")) and _demo_t > 9.0:
 				_demo_t = 0.0
 				_jogada_demo()

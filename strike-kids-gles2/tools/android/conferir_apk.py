@@ -158,6 +158,9 @@ if inicio is not None:
     checar(any('android.intent.action.MAIN' in acs and 'android.intent.category.HOME' in cs
                and 'android.intent.category.DEFAULT' in cs for acs, cs in filtros), '   MAIN + HOME + DEFAULT')
     checar(inicio.get(NS + 'exported') == 'true', '   exported')
+    # fica por baixo do jogo (não fecha): o Android não reabre a tela inicial no boot
+    checar(inicio.get(NS + 'noHistory') != 'true', '   sem noHistory (fica por baixo do jogo)')
+    checar(inicio.get(NS + 'launchMode') in ('singleTask', '2'), '   launchMode singleTask')
 casas = [c.get(NS + 'name') for q in m.findall('queries') for i in q.findall('intent') for c in i.findall('category')]
 checar('android.intent.category.HOME' in casas, '<queries> das telas iniciais (Android 11+)')
 # a TV ligou na tomada: o aviso BOOT_COMPLETED também abre o jogo
@@ -165,6 +168,9 @@ ligou = [r for r in app.findall('receiver') if r.get(NS + 'name') == 'com.lazers
 acoes_ligou = [a_.get(NS + 'name') for r in ligou for f in r.findall('intent-filter') for a_ in f.findall('action')]
 checar('android.intent.action.BOOT_COMPLETED' in acoes_ligou, 'StrikeLigou com BOOT_COMPLETED (%s)' % acoes_ligou)
 checar('android.permission.RECEIVE_BOOT_COMPLETED' in perms, 'permissão RECEIVE_BOOT_COMPLETED')
+for p_ in ['android.permission.SYSTEM_ALERT_WINDOW', 'android.permission.POST_NOTIFICATIONS']:
+    checar(p_ in perms, 'permissão ' + p_)
+checar('android.intent.action.MY_PACKAGE_REPLACED' in acoes_ligou, 'StrikeLigou com MY_PACKAGE_REPLACED')
 
 # dex: o Godot no classes.dex, os plugins no classes2.dex
 print('dex:', sorted(n for n in arquivos if n.endswith('.dex')))

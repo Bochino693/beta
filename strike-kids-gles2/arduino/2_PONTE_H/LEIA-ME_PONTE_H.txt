@@ -133,11 +133,11 @@ Outras pontes (o mesmo firmware, os mesmos pinos):
 
 8. TESTAR SEM O JOGO (Monitor Serial, 9600, "Nova linha")
 ---------------------------------------------------------
-  Ao ligar: OLA:STRIKE_KIDS:3 e o motor FECHA a porta.
+  Ao ligar: OLA:STRIKE_KIDS:5 e o motor FECHA a porta.
     PORTA:ABRE   o motor abre; quando chega: PORTA:ABERTA
     PORTA:FECHA  o motor fecha; quando chega: PORTA:FECHADA
     PONTE?       PONTE:TEMPO:1500:FC:0 (o tempo e o fim de curso em uso)
-    INFO?        INFO:STRIKE_KIDS:3:...:PONTE_H=TEMPO:TEMPO=1500:...
+    INFO?        INFO:STRIKE_KIDS:5:...:PONTE_H=TEMPO:TEMPO=1500:...
                  (ou PONTE_H=FIM_DE_CURSO)
     TESTE:1 / TESTE:0 / CALIBRA   os sensores (igual a versao 1)
   AVISO:PORTA_TRAVOU = com fim de curso, a porta nao chegou (algo
@@ -146,7 +146,10 @@ Outras pontes (o mesmo firmware, os mesmos pinos):
 
 9. NO JOGO (TV Box)
 -------------------
-  - Cabo USB na TV Box, abra o jogo, "Usar por padrao" e OK.
+  - Cabo USB na TV Box e abra o jogo. Na PRIMEIRA vez: "PRIMEIRA
+    INSTALACAO, aperte OK no controle remoto" - uma janela por vez (camera,
+    notificacoes, Arduino com "Usar por padrao", TELA INICIAL = STRIKE KIDS
+    e SEMPRE). Depois nunca mais pergunta.
   - CONFIGURACAO -> MENU DO OPERADOR:
       > TESTE DA PORTA: C ou START abre e fecha; mostra "Ponte H: anda
         1,5 s" ou "anda ate o FIM DE CURSO" e "o Arduino confirmou" quando

@@ -1,6 +1,10 @@
 package com.lazersport.strikeserial;
 
 import android.app.Activity;
+import android.app.Notification;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
+import android.app.PendingIntent;
 import android.app.role.RoleManager;
 import android.content.ActivityNotFoundException;
 import android.content.BroadcastReceiver;
@@ -41,6 +45,12 @@ import java.util.List;
  *    espera. Ligada na tomada, StrikeLigou também abre o jogo.
  * 3. SAÍDA DO OPERADOR: sairParaTv() abre a tela inicial da própria TV (o
  *    menu do operador, ou HOME 5 vezes seguidas - pediuParaSair()).
+ * 4. LIGOU (StrikeLigou): abrirAoLigar() - a segunda garantia, para a TV
+ *    que ainda não tem o jogo como tela inicial.
+ *
+ * NADA DAQUI ABRE SOZINHO uma tela do Android (ajustes, escolha da tela
+ * inicial): na máquina sem controle remoto o jogo ficaria parado atrás dela.
+ * Só a INSTALAÇÃO (com alguém apertando OK) e o menu do operador pedem.
  */
 final class InicioDaTv {
 
@@ -49,14 +59,22 @@ final class InicioDaTv {
 	private static final String PREFS = "strike_inicio";
 	private static final int VEZES_PARA_SAIR = 5;
 	private static final long JANELA_SAIR_MS = 10000;
-	private static final long SEM_CONTAR_AO_LIGAR_MS = 90000;
+	/** HOME só conta para sair com a TV ligada há mais disto (no boot o Android abre a tela inicial várias vezes) */
+	private static final long SEM_CONTAR_AO_LIGAR_MS = 120000;
 	private static final long APAGADA_PARA_REINICIAR_MS = 10000;
 	private static final long ESPERA_AO_ACENDER_MS = 1500;
+
+	private static final String CANAL = "strike_inicio";
+	private static final int AVISO_ID = 7601;
+	private static final int PEDIDO_AVISO = 7602;
+	private static final long[] TENTATIVAS_MS = {0, 3000, 7000};
 
 	private static long pedidoEm = 0;
 	private static boolean pedidoSozinho = false;
 	private static long apagouEm = 0;
 	private static BroadcastReceiver tela;
+	/** O jogo está na frente (StrikeSerial: onMainResume / onMainPause). */
+	static volatile boolean naFrente = false;
 
 	private InicioDaTv() {
 	}
@@ -86,6 +104,140 @@ final class InicioDaTv {
 			jogo.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED);
 			c.startActivity(jogo);
 		}
+	}
+
+	// ------------------------------------------------------------ ligou
+	/** O Android deixa um aviso de "ligou" abrir uma tela? (até o 9 sempre; 10+ só com "sobrepor") */
+	static boolean podeAbrirDeFundo(Context c) {
+		if (Build.VERSION.SDK_INT < 29) {
+			return true;
+		}
+		try {
+			return Settings.canDrawOverlays(c);
+		} catch (Throwable t) {
+			return false;
+		}
+	}
+
+	/** A TV ligou: abre o jogo (3 tentativas) e, se não veio, o aviso que abre. */
+	static void abrirAoLigar(final Context c, final BroadcastReceiver.PendingResult fim) {
+		if (estado(c).equals("jogo")) {
+			// o jogo é a tela inicial: o próprio Android já abriu (e ela fica
+			// por baixo do jogo) - nada de abrir de novo nem de aviso
+			if (fim != null) {
+				fim.finish();
+			}
+			return;
+		}
+		final Handler h = new Handler(Looper.getMainLooper());
+		for (int k = 0; k < TENTATIVAS_MS.length; k++) {
+			final boolean ultima = k == TENTATIVAS_MS.length - 1;
+			h.postDelayed(new Runnable() {
+				@Override
+				public void run() {
+					try {
+						if (!naFrente) {
+							abrirJogo(c);
+						}
+						if (ultima && !naFrente && !podeAbrirDeFundo(c)) {
+							avisar(c);
+						}
+					} catch (Throwable t) {
+						Log.i(TAG, "inicio: ligou: " + t);
+					} finally {
+						if (ultima && fim != null) {
+							fim.finish();
+						}
+					}
+				}
+			}, TENTATIVAS_MS[k]);
+		}
+	}
+
+	/**
+	 * Android 10+ sem "sobrepor a outros apps": um aviso (notificação) que
+	 * abre o jogo - na tela cheia quando o Android deixa, senão no canto
+	 * ("toque para abrir").
+	 */
+	private static void avisar(Context c) {
+		if (Build.VERSION.SDK_INT < 26) {
+			return;
+		}
+		NotificationManager nm = (NotificationManager) c.getSystemService(Context.NOTIFICATION_SERVICE);
+		if (nm == null) {
+			return;
+		}
+		Intent jogo = c.getPackageManager().getLaunchIntentForPackage(c.getPackageName());
+		if (jogo == null) {
+			return;
+		}
+		jogo.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED);
+		NotificationChannel canal = new NotificationChannel(CANAL, "Abrir o jogo ao ligar", NotificationManager.IMPORTANCE_HIGH);
+		nm.createNotificationChannel(canal);
+		PendingIntent pi = PendingIntent.getActivity(c, PEDIDO_AVISO, jogo,
+				PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+		Notification n = new Notification.Builder(c, CANAL)
+				.setSmallIcon(android.R.drawable.ic_media_play)
+				.setContentTitle("Strike Kids")
+				.setContentText("Toque para abrir o jogo")
+				.setCategory(Notification.CATEGORY_ALARM)
+				.setContentIntent(pi)
+				.setFullScreenIntent(pi, true)
+				.setAutoCancel(true)
+				.build();
+		try {
+			nm.notify(AVISO_ID, n);
+		} catch (Throwable t) {
+			Log.i(TAG, "inicio: aviso: " + t);
+		}
+	}
+
+	/** O jogo veio para a frente: o aviso de abrir some. */
+	static void jogoNaFrente(Context c) {
+		naFrente = true;
+		try {
+			NotificationManager nm = (NotificationManager) c.getSystemService(Context.NOTIFICATION_SERVICE);
+			if (nm != null) {
+				nm.cancel(AVISO_ID);
+			}
+		} catch (Throwable ignored) {
+		}
+	}
+
+	// ------------------------------------------------------------ instalação
+	/**
+	 * O que falta para o jogo abrir sozinho e direto ao ligar, separado por
+	 * vírgula: "inicio" (não é a tela inicial), "sobrepor" (Android 10+ sem
+	 * "sobrepor a outros apps", e o jogo não é a tela inicial).
+	 */
+	static String falta(Activity a) {
+		StringBuilder sb = new StringBuilder();
+		boolean inicio = estado(a).equals("jogo");
+		if (!inicio) {
+			sb.append("inicio");
+		}
+		if (!inicio && !podeAbrirDeFundo(a) && telaDeSobrepor(a) != null) {
+			sb.append(sb.length() > 0 ? "," : "").append("sobrepor");
+		}
+		return sb.toString();
+	}
+
+	private static Intent telaDeSobrepor(Context c) {
+		if (Build.VERSION.SDK_INT < 23) {
+			return null;
+		}
+		Intent i = new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:" + c.getPackageName()));
+		if (i.resolveActivity(c.getPackageManager()) != null) {
+			return i;
+		}
+		i = new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION);
+		return i.resolveActivity(c.getPackageManager()) != null ? i : null;
+	}
+
+	/** Abre a página "sobrepor a outros apps" do jogo: "ajustes" ou "" (a TV não tem). */
+	static String pedirSobrepor(Activity a) {
+		Intent i = telaDeSobrepor(a);
+		return i != null && abrir(a, i) ? "ajustes" : "";
 	}
 
 	// ------------------------------------------------------------ tela inicial
@@ -240,10 +392,9 @@ final class InicioDaTv {
 			desde = agora;
 			vezes = 0;
 		}
-		// TV sem contador de ligadas e sem relógio (não dá para saber se é a
-		// mesma ligada): no começo, quando o próprio Android abre a tela
-		// inicial, não conta
-		if (ligada < 0 && agora < SEM_CONTAR_AO_LIGAR_MS) {
+		// no começo (o próprio Android abrindo a tela inicial, o lançador da
+		// TV montando, o Arduino e a câmera aparecendo no USB) não conta
+		if (agora < SEM_CONTAR_AO_LIGAR_MS) {
 			vezes = 0;
 		} else {
 			vezes++;

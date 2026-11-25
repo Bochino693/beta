@@ -72,8 +72,9 @@ GRAVAR EM 1 MINUTO (detalhes no LEIA-ME de cada versao)
      Gerenciar bibliotecas). Sem a fita: no .ino, USAR_LEDS 0.
   3. Ferramentas > Placa: Arduino Nano (ou Uno). Nano clone (CH340):
      Processador "ATmega328P (Old Bootloader)". Porta: a COM do Arduino.
-  4. Carregar (seta ->). No Monitor Serial (9600) aparece OLA:STRIKE_KIDS:3.
-  5. Cabo USB na TV Box, abra o jogo e marque "Usar por padrao".
+  4. Carregar (seta ->). No Monitor Serial (9600) aparece OLA:STRIKE_KIDS:5.
+  5. Cabo USB na TV Box e abra o jogo: na PRIMEIRA INSTALACAO (OK no
+     controle remoto) marque "Usar por padrao" na janela do Arduino.
 
 
 O QUE O JOGO FAZ COM A TRAVA (as duas versoes)
@@ -89,5 +90,9 @@ O QUE O JOGO FAZ COM A TRAVA (as duas versoes)
                    por 10 s, o jogo sorteia);
         2 fichas = 2 jogadores, BOB x MIA.
       Fim da partida: a trava FECHA (com ficha sobrando, continua aberta).
-  Jogo sumiu (cabo solto, TV desligada) com a trava aberta: o Arduino
-  FECHA sozinho em 15 s.
+      Credito parado e ninguem jogando: FECHA depois de "Fechar a trava
+      sem jogar" (menu, 3 min); outra ficha ou o START abrem de novo.
+      Menu > ZERAR CREDITOS apaga os creditos (fichas de teste).
+  Ligar o Arduino NAO mexe na trava (o rele de pulso da versao 1 lembra
+  a posicao). Jogo sumiu (cabo solto, TV desligada) com a trava aberta:
+  o Arduino FECHA sozinho em 30 s.

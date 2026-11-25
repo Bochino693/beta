@@ -255,7 +255,10 @@ func _pedir_permissao() -> void:
 		return   # uma janela do Android por vez
 	if _pedir_agora:
 		_pedir_agora = false
-	elif _lembrado("permissao_pedida"):
+	elif _lembrado("permissao_pedida") or not Ajustes.instalacao_feita():
+		# (antes da INSTALAÇÃO - scripts/instalacao.gd, com alguém apertando
+		# OK - nenhuma janela do Android abre sozinha: na máquina sem
+		# controle remoto o jogo ficaria parado atrás dela)
 		return
 	_lembrar("permissao_pedida")
 	if not get_tree().is_connected("on_request_permissions_result", self, "_permissao"):
