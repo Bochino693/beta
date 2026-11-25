@@ -71,11 +71,11 @@ const APRESENTAR_MS := 6000      # abriu: espera o OLA/PONG (o Uno reinicia ~2 s
 const PROCURAR_MS := 1500
 const PERMISSOES := "user://permissoes.cfg"
 const JANELA_MAX_MS := 25000
-const ESPERA_JANELA_ANDROID_MS := 6000   # a janela do próprio Android (encaixe) vem antes
+const ESPERA_JANELA_ANDROID_MS := 800    # (8.6) o jogo pede NA HORA: a janela dele é a que tem o "SEMPRE"
 const PEDIDO_AUTO_MS := 15000            # com o serviço ligado: pede de novo a cada 15 s até ter
 const PORTA_FIRME_MS := 250              # o pedido da porta fica firme isto antes de sair
 const PORTA_REENVIO_MS := 2500           # sem confirmação: repete (não dá pulso a mais)
-const DICA_USB := "NA JANELA DO ANDROID: TOQUE EM OK PARA LIGAR O ARDUINO\n(se tiver \"SEMPRE ABRIR\" / \"USAR POR PADRÃO\", marque antes)"
+const DICA_USB := "MARQUE \"SEMPRE\" (USAR POR PADRÃO) E TOQUE EM OK\nfica salvo para sempre: o Arduino nunca mais pergunta"
 const LED_COMMANDS := ["MENU", "BLUE", "RED", "IDLE", "NORMAL", "STRIKE", "SPARE", "MISS", "OFF"]
 ## S1..S5, da esquerda para a direita (as mesmas ações da Zero Delay)
 const ACOES_SENSOR := ["input_z", "input_x", "input_c", "input_v", "input_b"]
@@ -283,11 +283,12 @@ func _tipo_de(lista: String, nome: String) -> String:
 ## A janela de permissão USB do Android: UMA vez por Arduino, sozinha, na
 ## tela de espera; depois, só quando o operador pede (menu, instalação).
 func _pedir_permissao(nome: String, chave: String, agora: int) -> void:
-	# UMA JANELA SÓ: ao encaixar o Arduino o próprio Android já pergunta
-	# ("Abrir o Strike Kids com este aparelho USB?" - com "Usar por padrão",
-	# que guarda a permissão para sempre). Se o jogo pedisse na mesma hora,
-	# apareciam DUAS janelas, uma atrás da outra. O jogo espera a do Android;
-	# só pede a dele se, passado um tempo, o Arduino continua sem permissão.
+	# (8.6) O JOGO PEDE NA HORA, COMO ATÉ A 7.x: a janela do JOGO ("Permitir
+	# que o Strike Kids acesse...") é a que tem o "SEMPRE" / "Usar por padrão"
+	# nesta TV - a do encaixe (do sistema) vem sem ele. Marcado uma vez, o
+	# Android guarda: a cada boot ele mesmo dá a permissão (StrikeArduinoAtivo,
+	# directBootAware) e nenhuma janela aparece mais. A janela do jogo fica
+	# por cima da do encaixe; a de baixo pode ser OK ou CANCELAR.
 	if not _visto_sem_permissao.has(nome):
 		_visto_sem_permissao = {nome: agora}
 	if not _pedir_agora and agora - int(_visto_sem_permissao[nome]) < ESPERA_JANELA_ANDROID_MS:

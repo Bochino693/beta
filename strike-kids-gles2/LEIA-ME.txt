@@ -87,10 +87,12 @@ VERSAO 8.6: JOGO LISO DE NOVO E O ARDUINO PEDIDO LOGO AO ABRIR
     outra janela aparece na frente (a do USB, o lancador da TV).
   * A leitura do Arduino nunca gira em falso (chip que responde "nada" na
     hora nao toma mais um processador da TV).
-  * ARDUINO LOGO AO ABRIR: o jogo pede a janela do USB toda vez que abre
-    (inclusive logo depois de instalar - antes so depois de desligar e
-    ligar a TV). Com o servico ligado o OK e automatico; sem ele, OK no
-    controle. Com o servico, no maximo 4 pedidos por vez que abre.
+  * O "SEMPRE" VOLTOU: o jogo pede o Arduino NA HORA, como ate a 7.x - a
+    janela do jogo e a que tem "SEMPRE" / "USAR POR PADRAO" (a do sistema,
+    que aparece ao encaixar, vem sem ele). MARQUE "SEMPRE" E OK UMA VEZ: o
+    Android guarda, igual a camera, e o Arduino nunca mais pergunta (nem
+    depois de desligar a TV). Se aparecer outra janela por baixo, OK.
+  * Tambem logo depois de instalar (antes so depois de desligar e ligar).
 
 
 VERSAO 8.5: O SERVICO PEGA A JANELA DO USB DE QUALQUER JEITO
