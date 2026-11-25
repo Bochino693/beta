@@ -160,12 +160,8 @@ if inicio is not None:
     filtros = [([a_.get(NS + 'name') for a_ in f.findall('action')], [c.get(NS + 'name') for c in f.findall('category')])
                for f in inicio.findall('intent-filter')]
     print('   exported=%s noHistory=%s filtros=%s' % (inicio.get(NS + 'exported'), inicio.get(NS + 'noHistory'), filtros))
-    checar(any('android.intent.action.MAIN' in acs and 'android.intent.category.HOME' in cs
-               and 'android.intent.category.DEFAULT' in cs for acs, cs in filtros), '   MAIN + HOME + DEFAULT')
-    checar(inicio.get(NS + 'exported') == 'true', '   exported')
-    # fica por baixo do jogo (não fecha): o Android não reabre a tela inicial no boot
-    checar(inicio.get(NS + 'noHistory') != 'true', '   sem noHistory (fica por baixo do jogo)')
-    checar(inicio.get(NS + 'launchMode') in ('singleTask', '2'), '   launchMode singleTask')
+    # (8.8) SEM HOME: a TV Box nunca pergunta "app padrão" (quem abre é o StrikeLigou)
+    checar(not any('android.intent.category.HOME' in cs for acs, cs in filtros), '   sem HOME (nunca pergunta "app padrão")')
 casas = [c.get(NS + 'name') for q in m.findall('queries') for i in q.findall('intent') for c in i.findall('category')]
 checar('android.intent.category.HOME' in casas, '<queries> das telas iniciais (Android 11+)')
 # a TV ligou na tomada: o aviso BOOT_COMPLETED também abre o jogo

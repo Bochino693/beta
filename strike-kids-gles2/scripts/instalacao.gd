@@ -28,7 +28,9 @@ signal acabou
 
 ## (8.7) sem o passo da acessibilidade: na TV Box a janela do Arduino tem
 ## "USAR POR PADRÃO" (fica salvo) e quem abre o jogo é a TELA INICIAL
-const PASSOS := ["camera", "notificacoes", "arduino", "sobrepor", "inicio"]
+## (8.8) sem a TELA INICIAL: o jogo não é mais "app padrão" (a TV Box nunca
+## pergunta); quem abre o jogo ao ligar é o aviso de "ligou" do Android
+const PASSOS := ["camera", "notificacoes", "arduino", "sobrepor"]
 ## a instalação mudou (7.9: o passo 6): a TV que já tinha feito convida de
 ## novo UMA vez (o que já está feito é pulado)
 const VERSAO := 2
@@ -37,11 +39,11 @@ const ESPERA_ARDUINO_S := 25.0
 const JANELA_MAX_S := 90.0
 const NOTIFICACOES := "android.permission.POST_NOTIFICATIONS"
 const DICAS := {
-	"camera": "1/5  CÂMERA: na janela do Android toque em PERMITIR\n(a foto das crianças no placar)",
-	"notificacoes": "2/5  NOTIFICAÇÕES: toque em PERMITIR\n(o aviso que abre o jogo quando a TV liga)",
-	"arduino": "3/5  ARDUINO: marque \"USAR POR PADRÃO\" (SEMPRE) e toque em OK\nfica salvo: o Arduino nunca mais pergunta, nem depois de desligar",
-	"arduino_conectar": "3/5  ARDUINO: conecte o cabo USB do Arduino na TV Box agora\n(na janela que aparecer marque \"USAR POR PADRÃO\" e OK)",
-	"sobrepor": "4/5  Ligue \"PERMITIR SOBREPOR A OUTROS APPS\" para o STRIKE KIDS\ne aperte VOLTAR no controle",
+	"camera": "1/4  CÂMERA: na janela do Android toque em PERMITIR\n(a foto das crianças no placar)",
+	"notificacoes": "2/4  NOTIFICAÇÕES: toque em PERMITIR\n(o aviso que abre o jogo quando a TV liga)",
+	"arduino": "3/4  ARDUINO: marque \"USAR POR PADRÃO\" (SEMPRE) e toque em OK\nfica salvo: o Arduino nunca mais pergunta, nem depois de desligar",
+	"arduino_conectar": "3/4  ARDUINO: conecte o cabo USB do Arduino na TV Box agora\n(na janela que aparecer marque \"USAR POR PADRÃO\" e OK)",
+	"sobrepor": "4/4  Ligue \"PERMITIR SOBREPOR A OUTROS APPS\" para o STRIKE KIDS\ne aperte VOLTAR: assim o jogo abre sozinho toda vez que a TV Box liga",
 	"inicio": "5/5  TELA INICIAL: escolha STRIKE KIDS e toque em SEMPRE\na TV Box passa a ligar direto no jogo (uma vez só)",
 	"auto_ok": "6/6  ARDUINO DIRETO E ABRIR AO LIGAR (uma vez só)\nAPERTE OK: na tela que abrir, LIGUE \"STRIKE KIDS: ABRIR AO LIGAR E ARDUINO\",\nconfirme e aperte VOLTAR (\"configuração restrita\"? Ajustes > Apps > Strike Kids > permitir)",
 }

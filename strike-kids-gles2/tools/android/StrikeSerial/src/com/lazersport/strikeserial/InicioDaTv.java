@@ -67,7 +67,9 @@ final class InicioDaTv {
 	private static final String CANAL = "strike_inicio";
 	private static final int AVISO_ID = 7601;
 	private static final int PEDIDO_AVISO = 7602;
-	private static final long[] TENTATIVAS_MS = {0, 3000, 7000};
+	// (8.8) o jogo não é mais tela inicial: o aviso de "ligou" abre o jogo e
+	// tenta de novo enquanto a tela da TV Box (que sobe devagar) o cobrir
+	private static final long[] TENTATIVAS_MS = {0, 2500, 6000, 12000, 25000};
 
 	private static long pedidoEm = 0;
 	private static boolean pedidoSozinho = false;

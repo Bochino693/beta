@@ -79,6 +79,21 @@ O QUE MUDOU PARA RODAR NA OPENGL ES 2.0
     Godot 4 (nao substitui).
 
 
+VERSAO 8.8: A TV BOX NUNCA MAIS PERGUNTA "APP PADRAO"
+-----------------------------------------------------
+  * O jogo NAO e mais candidato a tela inicial: a TV Box nao tem mais o
+    que perguntar (havia TV Box que esquecia o "SEMPRE" a cada vez que
+    ligava). Quem abre o jogo ao ligar e o aviso de "ligou" do Android:
+    na hora e de novo aos 2,5 / 6 / 12 / 25 s, se a tela da TV Box cobrir.
+  * As permissoes sao pedidas DENTRO do jogo, uma vez so: camera, Arduino
+    ("USAR POR PADRAO") e, no Android 10 ou mais novo, "SOBREPOR A OUTROS
+    APPS" (e o que deixa o jogo abrir sozinho ao ligar). TV Box com
+    Android 7 a 9: nem essa precisa.
+  * Ja instalou a 8.7 e escolheu o jogo como tela inicial? Instale a 8.8
+    por cima: a TV Box volta a usar a propria tela inicial por baixo, e o
+    jogo abre por cima sozinho.
+
+
 VERSAO 8.7: TV BOX - O JOGO E A TELA INICIAL E O ARDUINO PERGUNTA UMA VEZ
 -------------------------------------------------------------------------
   * QUEM ABRE O JOGO E A TELA INICIAL: na instalacao (ou na 1a vez que a

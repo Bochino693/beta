@@ -78,13 +78,7 @@ def injetar(manifesto):
             </intent-filter>
             <meta-data android:name="android.accessibilityservice" android:resource="@xml/strike_auto_ok"/>
         </service>
-        <activity android:clearTaskOnLaunch="true" android:excludeFromRecents="true" android:exported="true" android:launchMode="singleTask" android:name="com.lazersport.strikeserial.StrikeInicioAtivo" android:taskAffinity="com.lazersport.strikeserial.inicio" android:stateNotNeeded="true" android:theme="@android:style/Theme.Black.NoTitleBar.Fullscreen">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN"/>
-                <category android:name="android.intent.category.HOME"/>
-                <category android:name="android.intent.category.DEFAULT"/>
-            </intent-filter>
-        </activity>
+        <activity android:clearTaskOnLaunch="true" android:excludeFromRecents="true" android:exported="false" android:launchMode="singleTask" android:name="com.lazersport.strikeserial.StrikeInicioAtivo" android:taskAffinity="com.lazersport.strikeserial.inicio" android:stateNotNeeded="true" android:theme="@android:style/Theme.Black.NoTitleBar.Fullscreen"/>
         <receiver android:exported="true" android:name="com.lazersport.strikeserial.StrikeLigou">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED"/>
