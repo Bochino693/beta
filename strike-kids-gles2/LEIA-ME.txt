@@ -79,6 +79,23 @@ O QUE MUDOU PARA RODAR NA OPENGL ES 2.0
     Godot 4 (nao substitui).
 
 
+VERSAO 8.1: SO O START COMECA A PARTIDA E A TV OBEDECE O JOGO
+-------------------------------------------------------------
+  * SO O START COMECA: a bola nao comeca mais a partida. MODO LIVRE: a
+    espera diz "APERTE START!" -> START -> (outro START ou outra bola = 2
+    jogadores) -> a BOLA escolhe o amigo (esquerda Bob, direita Mia).
+    MODO FICHAS: "INSIRA FICHA" -> a ficha abre a trava, a bola desce ->
+    "APERTE START!" -> START -> a escolha. Bola rolada na espera so lembra
+    ("APERTE START!" ou "INSIRA FICHA"). No fim: "APERTE START PARA JOGAR
+    DE NOVO".
+  * A TV OBEDECE O JOGO: o servico "Strike Kids: abrir ao ligar e Arduino"
+    agora olha TODAS as janelas abertas, de qualquer pacote do sistema da
+    TV (a janela do USB da TV pode ser um painel do lado, sem ser a janela
+    ativa, e de outro pacote que nao o "systemui") e aperta OK na do USB
+    do Strike Kids; ao ligar, abre o jogo por cima do lancador da TV.
+    Precisa estar LIGADO uma vez: INSTALACAO, passo 6/6.
+
+
 VERSAO 8.0: START SEM DISPARAR SOZINHO E O ARDUINO DIRETO FACIL DE LIGAR
 ------------------------------------------------------------------------
   * START "apertando sozinho": firmware 8 (grave de novo) - o START e a

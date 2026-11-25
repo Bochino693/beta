@@ -950,6 +950,21 @@ func _start_na_espera() -> void:
 		_insira_ficha()
 
 
+## A bola rolada na espera: acende o sensor e lembra - "APERTE START!" (modo
+## livre, ou com ficha) ou "INSIRA FICHA". Quem começa é sempre o START.
+func _bola_na_espera(zona: String) -> void:
+	hud.sensor_acendeu(zona)
+	if Ajustes.pode_comecar():
+		var agora := Time.get_ticks_msec()
+		if agora - _insira_ms < 1500:
+			return
+		_insira_ms = agora
+		hud.texto_grande("APERTE START!", Color("#FFF6A8"), 1.0, 0.55)
+		Sons.tocar("selecao")
+	else:
+		_insira_ficha()
+
+
 ## "INSIRA FICHA" (START ou bola sem crédito): no máximo um a cada 1,5 s.
 func _insira_ficha() -> void:
 	var agora := Time.get_ticks_msec()
@@ -976,10 +991,10 @@ func _jogada_recebida(zona: String) -> void:
 	_espera_paga_t = 0.0
 	if _modal_inativo > 0.0:
 		_fechar_inatividade()
-	# modo livre pela bola: na demonstração inteira (arremesso, bola
-	# rolando, resultado, replay) a bola de verdade começa, como o START
-	if demo and estado in [E.DEMO, E.ARREMESSO, E.ROLANDO, E.RESULTADO, E.REPLAY] and _bola_comeca():
-		_comecar_pela_bola(zona)
+	# (8.1) A BOLA NÃO COMEÇA A PARTIDA: quem começa é o START (modo livre,
+	# ou com ficha). Na espera a bola só lembra o que fazer.
+	if demo and estado in [E.DEMO, E.ARREMESSO, E.ROLANDO, E.RESULTADO, E.REPLAY]:
+		_bola_na_espera(zona)
 		return
 	match estado:
 		E.PRONTO:
@@ -1002,16 +1017,8 @@ func _jogada_recebida(zona: String) -> void:
 				_sortear_amigo()
 			else:
 				_amigo_escolhido(0 if amigo == "bob" else 1)
-		E.ATRACAO, E.DEMO, E.ABERTURA:
-			if _bola_comeca():
-				_comecar_pela_bola(zona)
-			else:
-				# modo fichas sem ficha: a bola no sensor lembra da ficha
-				hud.sensor_acendeu(zona)
-				_insira_ficha()
-		E.FIM:
-			if _bola_comeca() and _fim_t > 2.5:
-				_comecar_pela_bola(zona)
+		E.ATRACAO, E.DEMO, E.ABERTURA, E.FIM:
+			_bola_na_espera(zona)
 		# (arremesso, bola rolando, resultado, replay, começo da vez: a
 		# jogada não vale — nem fica guardada para quando a pista abrir)
 

@@ -11,6 +11,7 @@ import android.provider.Settings;
 import android.util.Log;
 import android.view.accessibility.AccessibilityEvent;
 import android.view.accessibility.AccessibilityNodeInfo;
+import android.view.accessibility.AccessibilityWindowInfo;
 
 import java.util.HashSet;
 import java.util.List;
@@ -112,7 +113,7 @@ public class StrikeAutoOk extends AccessibilityService {
 			return;
 		}
 		String pkg = cs.toString();
-		if (ehDoSistema(pkg)) {
+		if (!pkg.equals(getPackageName())) {
 			// a janela do USB: confere já e de novo (a da TV desliza e só
 			// mostra os botões um instante depois)
 			conferir();
@@ -183,31 +184,54 @@ public class StrikeAutoOk extends AccessibilityService {
 		return pkg.contains("systemui") || pkg.equals("android") || pkg.contains("usb") || pkg.contains("permissioncontroller");
 	}
 
+	/**
+	 * Todas as janelas abertas (a do USB da TV pode ser um painel do lado,
+	 * de qualquer pacote do sistema da TV, sem ser a janela "ativa").
+	 */
 	private void conferir() {
-		AccessibilityNodeInfo raiz;
 		try {
-			raiz = getRootInActiveWindow();
-		} catch (Throwable t) {
-			return;
+			List<AccessibilityWindowInfo> janelas = getWindows();
+			if (janelas != null) {
+				for (AccessibilityWindowInfo j : janelas) {
+					AccessibilityNodeInfo r = j.getRoot();
+					if (r != null && conferirJanela(r)) {
+						return;
+					}
+				}
+			}
+		} catch (Throwable ignored) {
 		}
-		if (raiz == null || raiz.getPackageName() == null || !ehDoSistema(raiz.getPackageName().toString())) {
-			return;
+		try {
+			AccessibilityNodeInfo r = getRootInActiveWindow();
+			if (r != null) {
+				conferirJanela(r);
+			}
+		} catch (Throwable ignored) {
+		}
+	}
+
+	/** true = era a janela do USB do Strike Kids e o OK foi apertado. */
+	private boolean conferirJanela(AccessibilityNodeInfo raiz) {
+		if (raiz.getPackageName() == null || getPackageName().contentEquals(raiz.getPackageName())) {
+			return false;
 		}
 		// só a janela do USB do Strike Kids
 		String nome = String.valueOf(getApplicationInfo().loadLabel(getPackageManager()));
 		if (raiz.findAccessibilityNodeInfosByText(nome).isEmpty()) {
-			return;
+			return false;
 		}
 		if (raiz.findAccessibilityNodeInfosByText("USB").isEmpty() && raiz.findAccessibilityNodeInfosByText("usb").isEmpty()) {
-			return;
+			return false;
 		}
 		// "Sempre" / "Usar por padrão", nas TVs que têm a caixa
 		marcarCaixas(raiz, 0);
 		AccessibilityNodeInfo botao = acharBotao(raiz, 0);
 		if (botao != null) {
-			Log.i(TAG, "auto ok: aceitando a janela do USB");
+			Log.i(TAG, "auto ok: aceitando a janela do USB (" + raiz.getPackageName() + ")");
 			botao.performAction(AccessibilityNodeInfo.ACTION_CLICK);
+			return true;
 		}
+		return false;
 	}
 
 	private void marcarCaixas(AccessibilityNodeInfo n, int fundo) {

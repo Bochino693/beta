@@ -908,7 +908,8 @@ func modo_espera(modo: String) -> void:
 	# "dormiu": tem crédito, mas a trava fechou de tanto esperar — outra
 	# ficha (ou o START) abre de novo
 	_modo_bola = modo != "ficha" and modo != "dormiu"
-	_aperte.text = "ROLE A BOLA!" if _modo_bola else "INSIRA FICHA"
+	# (8.1) quem começa é o START; a bola escolhe o amigo depois
+	_aperte.text = "APERTE START!" if _modo_bola else "INSIRA FICHA"
 	match modo:
 		"dormiu":
 			_aperte_sub.text = "CRÉDITO GUARDADO: FICHA OU START ABRE A TRAVA"
@@ -918,15 +919,15 @@ func modo_espera(modo: String) -> void:
 		"pago2":
 			_aperte_sub.text = "%d FICHAS: BOB x MIA!" % (n * 2)
 		_:
-			_aperte_sub.text = "ESQUERDA = BOB  ·  DIREITA = MIA"
+			_aperte_sub.text = "DEPOIS A BOLA ESCOLHE: ESQUERDA BOB · DIREITA MIA"
 	var fichas := modo != "livre"
 	for i in _jog_cartoes.size():
 		var c: Painel3D = _jog_cartoes[i]
-		(c.get_node("botao/texto") as Label).text = "ROLE"
+		(c.get_node("botao/texto") as Label).text = "START"
 		if fichas:
 			(c.get_node("vezes") as Label).text = ("1 FICHA" if n == 1 else "%d FICHAS" % n) if i == 0 else "%d FICHAS" % (n * 2)
 		else:
-			(c.get_node("vezes") as Label).text = "1 BOLA" if i == 0 else "2 BOLAS"
+			(c.get_node("vezes") as Label).text = "1 VEZ" if i == 0 else "2 VEZES"
 	_chave_melhores = ""
 	layout()
 
@@ -1626,7 +1627,7 @@ func _quadro_classificacao(lista: Array, js: Array, area: Rect2) -> void:
 
 
 func _jogar_de_novo() -> String:
-	return "ROLE A BOLA PARA JOGAR DE NOVO" if _modo_bola else "INSIRA FICHA PARA JOGAR DE NOVO"
+	return "APERTE START PARA JOGAR DE NOVO" if _modo_bola else "INSIRA FICHA PARA JOGAR DE NOVO"
 
 
 ## (a cada quadro, no fim) O botão "jogar de novo" com a contagem. O texto
