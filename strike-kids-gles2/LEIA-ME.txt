@@ -79,6 +79,25 @@ O QUE MUDOU PARA RODAR NA OPENGL ES 2.0
     Godot 4 (nao substitui).
 
 
+VERSAO 8.8.2 + FIRMWARE 12: A TRAVA SEMPRE CERTA E O JOGO SEM TRANCOS
+---------------------------------------------------------------------
+  * A TRAVA ABRIA SOZINHA AO LIGAR (com 0 credito) E FICAVA AO CONTRARIO:
+    - o jogo NAO reinicia mais o Arduino ao conectar (o USB abre sem DTR):
+      antes cada conexao reiniciava o Arduino;
+    - FIRMWARE 12 (grave no Arduino): sem energia a trava fica FECHADA. A
+      maquina ligou na tomada -> o Arduino sabe que ela esta fechada, mesmo
+      que tenham desligado no meio da partida: nenhum pulso ate a ficha
+      (ou o modo livre). Reiniciar sem faltar energia nao confunde.
+      (Trava que guarda a posicao sem energia: PORTA_FECHA_SEM_ENERGIA 0.)
+  * CREDITO NAO FICA GUARDADO: desligou a maquina, liga com 0 credito.
+  * SEM TRANCOS NA FICHA E NAS JOGADAS (TV Box fraca):
+    - a ficha so troca os textos da espera (antes refazia a tela inteira);
+    - a camera DESCANSA durante a partida (depois das fotos): ligada, a TV
+      Box decodificava a webcam o tempo todo e isso tirava o processador
+      das jogadas. No fim da partida ela acorda para a proxima;
+    - o estado do USB e conferido a cada 250 ms (nao a cada quadro).
+
+
 VERSAO 8.8.1: A BOLA COMECA A PARTIDA (O RESTO IGUAL A 8.8)
 ------------------------------------------------------------
   * A 8.8 inteira (abre pelo auto start / Launch on Boot, sem "app

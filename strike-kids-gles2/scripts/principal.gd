@@ -434,6 +434,9 @@ func _ligar_roteiro_de_teste() -> void:
 		if a.begins_with("--glifos") and ResourceLoader.exists("res://tools/testes/glifos.gd"):
 			add_child(load("res://tools/testes/glifos.gd").new())
 	for a in OS.get_cmdline_args():
+		if a == "--custo-eventos" and ResourceLoader.exists("res://tools/testes/custo_eventos.gd"):
+			add_child(load("res://tools/testes/custo_eventos.gd").new())
+			return
 		if a.begins_with("--start-livre") and ResourceLoader.exists("res://tools/testes/start_livre.gd"):
 			add_child(load("res://tools/testes/start_livre.gd").new())
 			return
@@ -1039,6 +1042,7 @@ func _jogada_recebida(zona: String) -> void:
 # ================================================================ abertura e atração
 func _abertura() -> void:
 	estado = E.ABERTURA
+	Fotos.na_partida(false)
 	# (modo livre, ou com ficha: a porta fica aberta e a bola é o START)
 	_porta_da_espera()
 	var s := _novo_seq()
@@ -1147,6 +1151,7 @@ func _teste_desempenho() -> void:
 
 func _atracao() -> void:
 	estado = E.ATRACAO
+	Fotos.na_partida(false)   # (partida interrompida: a câmera volta)
 	if _qualidade_salvar:
 		_qualidade_salvar = false
 		if str(Ajustes.valor("video", "qualidade")) == "auto":
@@ -1424,6 +1429,9 @@ func _comecar(lista: Array) -> void:
 	if Fotos.pode_fotografar():
 		if not yield(_sessao_de_fotos(lista), "completed"):
 			return
+	# as fotos já foram tiradas: a câmera descansa até o fim (as jogadas
+	# ficam com o processador todo)
+	Fotos.na_partida(true)
 	hud.configurar_placar(lista)
 	hud.atualizar_placar(placar)
 	Sons.musica("musica_jogo")
@@ -2339,6 +2347,7 @@ func _desempate() -> void:
 # ================================================================ fim de jogo
 func _fim_de_jogo() -> void:
 	estado = E.FIM
+	Fotos.na_partida(false)   # a câmera acorda para a próxima partida
 	# fim da partida: no modo fichas a trava FECHA (as bolas da última
 	# jogada voltam e ficam), a não ser que sobre ficha; no modo livre (sem
 	# trava) fica aberta - a bola começa outra

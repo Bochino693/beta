@@ -527,8 +527,27 @@ func _acordar() -> void:
 
 
 ## Abre a câmera (se ainda não está), sem ninguém vendo: só conta quadros.
+## (9.0) NA PARTIDA (as fotos já tiradas) a câmera do Android fica FECHADA
+## até o fim: ligada, a TV Box decodifica a webcam o tempo todo (30 quadros
+## por segundo, mesmo sem ninguém vendo) e isso tirava o processador das
+## jogadas. No fim da partida ela abre de novo e fica pronta para a próxima.
+var _na_partida := false
+
+
+func na_partida(sim: bool) -> void:
+	if sim == _na_partida:
+		return
+	_na_partida = sim
+	if fonte != "android":
+		return
+	if sim:
+		_parar()
+	else:
+		_manter_ligada()
+
+
 func _manter_ligada() -> void:
-	if not _sempre or fonte != "android" or _plugin == null or _ligada:
+	if not _sempre or fonte != "android" or _plugin == null or _ligada or _na_partida:
 		return
 	if not pronta() or not bool(Ajustes.valor("jogo", "foto")):
 		return

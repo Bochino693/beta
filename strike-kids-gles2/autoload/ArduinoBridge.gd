@@ -104,6 +104,7 @@ var _candidatos: Array = []
 var _falhou := {}              # nome -> ms (não tenta de novo logo)
 var _desde := 0
 var _ultimo_rx := 0
+var _estado_ms := 0
 var _ultimo_ping := 0
 var _ultima_procura := 0
 var _janelas_ok := false       # na espera ou no menu: pode abrir janela do Android
@@ -173,10 +174,14 @@ func _process(_delta: float) -> void:
 			elif e == "erro" or e == "fechada" or agora - _desde > 8000:
 				_falha(str(_plugin.call("erro")) if e == "erro" else "não abriu")
 		"apresentando", "conectado":
-			var e := str(_plugin.call("estado"))
-			if e != "aberta":
-				_perdeu(str(_plugin.call("erro")))
-				return
+			# (9.0) o estado do USB a cada 250 ms (não a cada quadro): uma
+			# chamada ao Android a menos por quadro na TV Box fraca
+			if agora - _estado_ms >= 250:
+				_estado_ms = agora
+				var e := str(_plugin.call("estado"))
+				if e != "aberta":
+					_perdeu(str(_plugin.call("erro")))
+					return
 			var texto := str(_plugin.call("ler"))
 			if texto != "":
 				for linha in texto.split("\n", false):

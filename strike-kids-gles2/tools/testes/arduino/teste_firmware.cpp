@@ -76,7 +76,7 @@ int main(int argc, char **argv) {
   iniciar();
   if (c == "tempo") {
     setup(); saida += Serial.out; Serial.out.clear();
-    CONFERE(saida.find("OLA:STRIKE_KIDS:11") != std::string::npos, "OLA ao ligar");
+    CONFERE(saida.find("OLA:STRIKE_KIDS:12") != std::string::npos, "OLA ao ligar");
     rodar(2);
     CONFERE(motor() == -1, "ao ligar o motor fecha a porta");
     long t = ate("PORTA:FECHADA", 3000);
@@ -389,10 +389,11 @@ int main(int argc, char **argv) {
     // disso pode mexer na porta nem ligar o vigia do jogo.
 #if USAR_RELE && RELE_PULSO && !USAR_PONTE_H
     EEPROM.update(EE_PORTA, 0); EEPROM.update(EE_PORTA + 1, 0xFF);   // (a porta ficou ABERTA)
+    lembrarPortaRam(true);   // (12) e o Arduino reiniciou SEM faltar energia
 #endif
     setup(); pega();
-    const char *lixo[] = {"AT", "ATE0", "AT+CGMM", "AT+CPIN?", "ATI", "OLA:STRIKE_KIDS:11", "PORTA:ABERTA", "PORTA:FECHADA",
-                          "PONG:STRIKE_KIDS:11", "FICHA:0", "INFO:STRIKE_KIDS:11:LEDS=1", "PONTE:TEMPO:1500:FC:0", "PONTE:TEMPO:800X",
+    const char *lixo[] = {"AT", "ATE0", "AT+CGMM", "AT+CPIN?", "ATI", "OLA:STRIKE_KIDS:12", "PORTA:ABERTA", "PORTA:FECHADA",
+                          "PONG:STRIKE_KIDS:12", "FICHA:0", "INFO:STRIKE_KIDS:12:LEDS=1", "PONTE:TEMPO:1500:FC:0", "PONTE:TEMPO:800X",
                           "PORTA:ABREX", "XPING", "PINGS", "CALIBRAR", "S:1", "SENS:00000", "AVISO:SEM_JOGO", "~~##", "+++"};
     for (int k = 0; k < 6; k++) {
       for (const char *l : lixo) { manda(l); rodar(30); }
@@ -410,7 +411,7 @@ int main(int argc, char **argv) {
     // agora o jogo de verdade: tudo funciona
     pega();
     manda("PING"); rodar(5);
-    CONFERE(conta("PONG:STRIKE_KIDS:11") == 1, "o jogo de verdade e atendido");
+    CONFERE(conta("PONG:STRIKE_KIDS:12") == 1, "o jogo de verdade e atendido");
 #if USAR_RELE && RELE_PULSO && !USAR_PONTE_H
     manda("PORTA:ABRE"); rodar(2000);
     CONFERE(pulsos == 0 && conta("PORTA:ABERTA") == 1, "jogo pede aberta (ja estava): sem pulso");
@@ -540,6 +541,44 @@ int main(int argc, char **argv) {
     }
 #else
     CONFERE(false, "o cenario pulso e so da versao do rele de pulso");
+#endif
+  } else if (c == "energia") {
+#if USAR_RELE && RELE_PULSO && !USAR_PONTE_H
+    // (12) DESLIGARAM A MAQUINA NO MEIO DA PARTIDA (porta aberta): sem
+    // energia a trava fecha. Ao ligar o Arduino SABE que ela esta fechada -
+    // e um reinicio SEM faltar energia lembra onde ela estava.
+    setup(); pega();
+    manda("PING"); manda("MODO:FICHAS"); manda("PORTA:ABRE"); rodar(2000);
+    CONFERE(pulsos == 1 && conta("PORTA:ABERTA") >= 1, "partida: a porta abriu (1 pulso)");
+    // falta energia no meio da partida: a RAM se apaga (a EEPROM guardou "aberta")
+    ramMarca = 0; ramPorta = 0x77; ramPortaNeg = 0x12;
+    pulsos = 0; religar(); pega();
+    rodar(3000);
+    CONFERE(pulsos == 0, "ligou na tomada: nenhum pulso sozinho");
+    manda("PING"); manda("PORTA?"); rodar(50);
+    CONFERE(conta("PORTA:FECHADA") >= 1 && conta("PORTA:ABERTA") == 0, "ligou na tomada: sabe que a trava esta FECHADA");
+    pega();
+    manda("MODO:FICHAS"); manda("PORTA:FECHA"); rodar(2000);
+    CONFERE(pulsos == 0, "0 credito: o jogo pede fechada e NAO pulsa (antes abria sozinha)");
+    manda("PORTA:ABRE"); rodar(2000);
+    CONFERE(pulsos == 1, "a ficha: UM pulso abre");
+    // reiniciou SEM faltar energia (botao reset) com a porta aberta: lembra
+    pulsos = 0; religar(); pega();
+    manda("PING"); manda("PORTA?"); rodar(50);
+    CONFERE(conta("PORTA:ABERTA") >= 1, "reinicio sem faltar energia: lembra que esta ABERTA");
+    manda("PORTA:ABRE"); rodar(2000);
+    CONFERE(pulsos == 0, "... e nao pulsa a toa");
+    manda("PORTA:FECHA"); rodar(2000);
+    CONFERE(pulsos == 1, "fim da partida: UM pulso fecha");
+    // dez vezes seguidas: desliga no meio, liga, joga - nunca erra
+    int erros = 0;
+    for (int k = 0; k < 10; k++) {
+      manda("PORTA:ABRE"); rodar(2000);                     // partida (aberta)
+      ramMarca = 0; religar(); pega(); int p0 = pulsos;      // desligou no meio
+      manda("PING"); manda("PORTA:FECHA"); rodar(2000);      // 0 credito
+      if (pulsos != p0 || releAberta) erros++;
+    }
+    CONFERE(erros == 0, "10 vezes desligada no meio da partida: sempre fechada e sem pulso a toa");
 #endif
   } else if (c == "antigo4") {
 #if USAR_RELE && RELE_PULSO && !USAR_PONTE_H
