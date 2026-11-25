@@ -30,7 +30,7 @@ const PASSOS := ["camera", "notificacoes", "arduino", "sobrepor", "inicio", "aut
 ## a instalação mudou (7.9: o passo 6): a TV que já tinha feito convida de
 ## novo UMA vez (o que já está feito é pulado)
 const VERSAO := 2
-const CONVITE_S := 60.0
+const CONVITE_S := 120.0
 const ESPERA_ARDUINO_S := 25.0
 const JANELA_MAX_S := 90.0
 const NOTIFICACOES := "android.permission.POST_NOTIFICATIONS"
@@ -41,7 +41,7 @@ const DICAS := {
 	"arduino_conectar": "3/6  ARDUINO: conecte o cabo USB do Arduino na TV Box agora\n(na janela que aparecer marque \"SEMPRE ABRIR\" e OK)",
 	"sobrepor": "4/6  Ligue \"PERMITIR SOBREPOR A OUTROS APPS\" para o STRIKE KIDS\ne aperte VOLTAR no controle",
 	"inicio": "5/6  TELA INICIAL: escolha STRIKE KIDS e toque em SEMPRE\na TV passa a ligar direto no jogo",
-	"auto_ok": "6/6  ARDUINO DIRETO E ABRIR AO LIGAR (uma vez só)\nAPERTE OK: na tela que abrir, LIGUE \"STRIKE KIDS: ABRIR AO LIGAR E ARDUINO\",\nconfirme e aperte VOLTAR - a TV nunca mais pergunta do Arduino",
+	"auto_ok": "6/6  ARDUINO DIRETO E ABRIR AO LIGAR (uma vez só)\nAPERTE OK: na tela que abrir, LIGUE \"STRIKE KIDS: ABRIR AO LIGAR E ARDUINO\",\nconfirme e aperte VOLTAR (\"configuração restrita\"? Ajustes > Apps > Strike Kids > permitir)",
 }
 
 var hud: Node
@@ -60,6 +60,9 @@ func _ready() -> void:
 		_plugin = Engine.get_singleton("StrikeSerial")
 	if forcado:
 		_proximo()
+	elif _so_falta_auto_ok():
+		# a TV perguntou do Arduino de novo: o motivo e o que fazer, claro
+		_aviso("A TV PERGUNTA DO ARDUINO TODA VEZ QUE LIGA?\nAPERTE OK NO CONTROLE e ligue \"STRIKE KIDS: ABRIR AO LIGAR E ARDUINO\"\n(uma vez só: a TV nunca mais pergunta e liga direto no jogo)")
 	else:
 		_aviso("PRIMEIRA INSTALAÇÃO DO STRIKE KIDS\naperte OK no controle remoto para liberar a câmera, o Arduino\ne o jogo abrindo sozinho ao ligar a TV (uma vez só)")
 
@@ -69,6 +72,14 @@ static func falta() -> bool:
 	if OS.get_name() != "Android":
 		return false
 	return int(Ajustes.valor("android", "instalacao_versao")) < VERSAO
+
+
+## Só falta o serviço (o resto já foi permitido)?
+func _so_falta_auto_ok() -> bool:
+	for p in PASSOS:
+		if p != "auto_ok" and _precisa(p):
+			return false
+	return _precisa("auto_ok")
 
 
 ## Já está tudo permitido (instalado pelo PC, com o adb - GERAR_APK -TelaInicial)?

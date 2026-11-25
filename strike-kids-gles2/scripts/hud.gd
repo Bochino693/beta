@@ -912,14 +912,14 @@ func modo_espera(modo: String) -> void:
 	_aperte.text = "APERTE START!" if _modo_bola else "INSIRA FICHA"
 	match modo:
 		"dormiu":
-			_aperte_sub.text = "CRÉDITO GUARDADO: FICHA OU START ABRE A TRAVA"
+			_aperte_sub.text = "FICHA OU START ABRE A TRAVA"
 		"ficha":
 			# quantas fichas para 1 e para 2 jogadores
-			_aperte_sub.text = "%d %s: 1 JOGADOR  ·  %d FICHAS: 2 JOGADORES" % [n, "FICHA" if n == 1 else "FICHAS", n * 2]
+			_aperte_sub.text = "%d %s: 1 JOGADOR · %d: 2 JOGADORES" % [n, "FICHA" if n == 1 else "FICHAS", n * 2]
 		"pago2":
 			_aperte_sub.text = "%d FICHAS: BOB x MIA!" % (n * 2)
 		_:
-			_aperte_sub.text = "DEPOIS A BOLA ESCOLHE: ESQUERDA BOB · DIREITA MIA"
+			_aperte_sub.text = "ESQUERDA = BOB  ·  DIREITA = MIA"
 	var fichas := modo != "livre"
 	for i in _jog_cartoes.size():
 		var c: Painel3D = _jog_cartoes[i]
@@ -2173,6 +2173,9 @@ func layout() -> void:
 	_aperte_sub.rect_size = Vector2(bw, 50 * u)
 	_aperte_sub.rect_position = Vector2(0, 118 * u)
 	_caber(_aperte_sub, 34 * u, bw - 70 * u)
+	# (nunca passa da borda do botão: o que não couber é cortado)
+	_aperte_sub.clip_text = true
+	_aperte.clip_text = true
 	_tamanho_rotulo(_recorde, 40 * u, 8 * u)
 	_tamanho_rotulo(_creditos, 30 * u, 8 * u)
 	_creditos.rect_size = Vector2(T.x, 46 * u)
