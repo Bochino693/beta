@@ -7,15 +7,13 @@
 //
 // DUAS VERSOES, O MESMO JOGO (o mesmo APK serve para as duas):
 //   arduino/1_RELE_principal/strike_kids_rele (ESTA, A PRINCIPAL) - porta
-//     pelo RELE (trava solenoide / eletroima) e/ou SERVO, sem ponte H, como
-//     a primeira versao. Desenho: 1_RELE_principal/ligacao_arduino_rele.pdf
-//     e o passo a passo: 1_RELE_principal/LEIA-ME_RELE.txt
+//     pelo RELE e/ou SERVO, sem ponte H. Desenho:
+//     1_RELE_principal/ligacao_arduino_rele.pdf e o passo a passo:
+//     1_RELE_principal/LEIA-ME_RELE.txt
 //   arduino/2_PONTE_H/strike_kids_ponte_h - porta com MOTOR DC ou ATUADOR
 //     LINEAR por uma PONTE H. Desenho: 2_PONTE_H/ligacao_arduino_ponte_h.pdf
-//   O codigo e o mesmo nas duas; so muda o USAR_PONTE_H abaixo. Aqui o
-//   Arduino confirma a porta ao jogo na hora; "Porta: tempo do motor" e
-//   "Porta: fim de curso" do menu do operador sao so da ponte H (esta
-//   versao ignora).
+//   O codigo e o mesmo nas duas; so mudam USAR_PONTE_H, USAR_SERVO e
+//   RELE_PULSO abaixo.
 //
 // Placas: Arduino Uno, Nano (original ou clone CH340), Pro Mini 5 V,
 // Mega 2560 e Leonardo/Micro.
@@ -35,31 +33,47 @@
 //   TRAVA (porta das bolas) - use um dos dois, ou os dois juntos (recebem
 //   o mesmo comando):
 //     RELE:  D8 -> entrada (IN) de um modulo rele 5 V (VCC no 5V, GND no
-//            GND). No contato do rele: COM no + da fonte de 12 V e NO no
-//            + da trava solenoide; o - da trava no - da fonte (diodo
-//            1N4007 nos fios da trava, a faixa no +). O rele LIGA com a
-//            porta ABERTA (RELE_LIGADO_ABERTA). Eletroima que segura a
-//            porta fechada: use o NC no lugar do NO (e RELE_TEMPO_MAX_S 0).
-//            Trava SOLENOIDE comum nao pode ficar ligada muito tempo:
-//            RELE_TEMPO_MAX_S 5 (liga 5 s e solta). Modulo que liga com
-//            HIGH: RELE_LIGA_EM_LOW 0. Sem rele: USAR_RELE 0.
+//            GND). Modulo que liga com HIGH: RELE_LIGA_EM_LOW 0. Sem rele:
+//            USAR_RELE 0.
+//            RELE_PULSO 1 (ESTA VERSAO): o rele da UM PULSO (RELE_PULSO_MS)
+//            e a porta TROCA de posicao - um pulso abre, outro pulso fecha
+//            (comando de porta/trava que alterna a cada toque).
+//            RELE_PULSO 0: o rele fica LIGADO com a porta aberta (trava
+//            solenoide / eletroima), como na primeira versao; veja
+//            RELE_LIGADO_ABERTA e RELE_TEMPO_MAX_S.
 //     SERVO: sinal no D9 (Mega: D11). Alimente o servo por uma fonte
 //            de 5-6 V propria (servo grande puxa muita corrente) e ligue o
 //            GND dessa fonte no GND do Arduino. Angulos: SERVO_FECHADA e
-//            SERVO_ABERTA. Sem servo: USAR_SERVO 0.
+//            SERVO_ABERTA. Tem servo: USAR_SERVO 1.
 //   D10, D11, D12, A3 e A4 ficam livres (sao da ponte H na outra versao).
 //   Fita de LED WS2812 (NeoPixel), opcional: D6
 //   LED da placa (D13): pisca a cada sensor/botao acionado.
 //
-// A PORTA comeca FECHADA. O jogo manda ABRIR quando a partida comeca
-// (START com ficha; no modo livre, so o START) e FECHAR no fim da partida;
-// com outra ficha + START (ou outro START no modo livre) ela abre de novo.
-// Se o jogo sumir (cabo solto, TV Box desligada) com a porta aberta, ela
-// fecha sozinha em 15 s.
-// (No modo livre com "comecar rolando a bola" ligado no menu do operador a
-// porta fica aberta tambem na espera: rolar a bola e o START.)
-// Abriu quando devia fechar? Ligue "Porta invertida" no menu do operador
-// (ou troque RELE_LIGADO_ABERTA / os angulos do servo).
+// O RELE DE PULSO, PASSO A PASSO (o que esta versao garante):
+//   * AO LIGAR O ARDUINO O RELE NAO MEXE. Nem na tomada, nem quando o jogo
+//     abre o USB (o Uno/Nano reinicia nessa hora). A ultima posicao da
+//     porta fica guardada na EEPROM; so um pedido DIFERENTE dela da pulso.
+//   * UM PULSO POR MUDANCA, NUNCA EM SEQUENCIA: pedido igual a posicao de
+//     agora so confirma (PORTA:ABERTA / PORTA:FECHADA), sem pulso. Abre e
+//     fecha chegando juntos (menos de RELE_FIRME_MS) se anulam, sem pulso.
+//     Entre dois pulsos ha sempre RELE_DESCANSO_MS (a porta termina de andar).
+//   * QUEM MANDA E O JOGO: modo livre = porta sempre aberta; modo fichas =
+//     fechada sem credito, UM pulso abre quando o credito entra, UM pulso
+//     fecha no fim da partida (se nao sobrou credito) ou depois de muito
+//     tempo sem ninguem jogar ("Fechar a trava sem jogar" no menu).
+//   * O JOGO SUMIU (TV Box desligada, cabo solto) com a porta aberta: fecha
+//     sozinha depois de SEM_JOGO_FECHA_MS - mas so depois de o jogo ter
+//     falado pelo menos uma vez desde que o Arduino ligou (ligar o Arduino
+//     antes da TV Box nao da pulso nenhum).
+//   * NA PRIMEIRA GRAVACAO deixe a porta FECHADA (a EEPROM comeca em
+//     "fechada"). Se um dia a porta ficar ao contrario do que o jogo
+//     mostra (alguem mexeu nela com a mao): menu do operador, TESTE DA
+//     PORTA, "acertar" (comando PORTA:ACERTA) - ou "Porta invertida".
+//
+// FICHAS QUE NAO SE PERDEM: cada ficha do moedeiro e guardada na EEPROM
+// antes de ser avisada ao jogo, e so sai da fila quando o jogo confirma
+// (FICHA:<n> / FICHA:OK:<n>). Ficha posta com a TV Box ainda ligando, ou
+// com o cabo solto, chega ao jogo assim que ele conectar.
 //
 // Sem fita de LED (ou sem a biblioteca "Adafruit NeoPixel" instalada):
 // troque USAR_LEDS para 0.
@@ -81,8 +95,8 @@ const uint8_t SENSOR_PINOS[5] = {2, 3, 4, 5, 7};
 
 // ---- PORTA DAS BOLAS: o que esta ligado (todos recebem o mesmo comando)
 #define USAR_PONTE_H 0            // 0 = SEM ponte H (esta versao). Com ponte H: arduino/2_PONTE_H
-#define USAR_SERVO 1              // servo no D9 (Mega: D11); 0 = nao tem servo
-#define USAR_RELE 1               // rele no D8 (trava solenoide / eletroima); 0 = nao tem rele
+#define USAR_SERVO 0              // servo no D9 (Mega: D11); 0 = nao tem servo
+#define USAR_RELE 1               // rele no D8 (de PULSO ou de NIVEL: RELE_PULSO abaixo); 0 = nao tem rele
 
 // Ponte H da porta (motor DC ou atuador linear).
 #define PONTE_IN1 10
@@ -112,6 +126,12 @@ const uint8_t SENSOR_PINOS[5] = {2, 3, 4, 5, 7};
 
 // Rele da trava.
 #define RELE_LIGA_EM_LOW 1        // modulo rele comum liga com LOW; o seu liga com HIGH? troque para 0
+#define RELE_PULSO 1              // 1 = PULSO: cada pulso TROCA a porta (abre <-> fecha). 0 = NIVEL: rele ligado = porta aberta
+// so com RELE_PULSO 1:
+#define RELE_PULSO_MS 200UL       // quanto tempo o rele fica ligado em cada pulso
+#define RELE_DESCANSO_MS 1000UL   // tempo minimo entre dois pulsos (a porta termina de andar)
+#define RELE_FIRME_MS 150UL       // o pedido fica firme este tempo antes do pulso (abre+fecha juntos nao pulsam)
+// so com RELE_PULSO 0:
 #define RELE_LIGADO_ABERTA 1      // 1 = rele ligado com a porta aberta; 0 = ligado com ela fechada
 #define RELE_TEMPO_MAX_S 0        // 0 = sem limite. Trava SOLENOIDE comum nao pode ficar
                                   // ligada muito tempo: ponha 5 (liga 5 s e desliga)
@@ -120,8 +140,8 @@ const uint8_t SENSOR_PINOS[5] = {2, 3, 4, 5, 7};
 #define REARME_SENSOR_MS 120      // a mesma bola balancando no sensor nao conta 2 vezes
 #define FILTRO_BOTAO_MS 25
 #define FILTRO_FICHA_MS 5         // moedeiro manda pulsos curtos (20 ms ou mais)
-#define SEM_JOGO_FECHA_MS 15000UL // sem noticia do jogo: fecha a porta
-#define VERSAO "3"
+#define SEM_JOGO_FECHA_MS 30000UL // o jogo falou e sumiu este tempo: fecha a porta
+#define VERSAO "5"
 
 #if USAR_LEDS
 #include <Adafruit_NeoPixel.h>
@@ -172,8 +192,16 @@ int16_t servoAlvo10 = SERVO_FECHADA * 10;
 unsigned long servoPasso = 0;
 unsigned long servoChegou = 0;
 bool servoSegurando = true;
-unsigned long releLigouEm = 0;
-bool releLigado = false;
+bool releLigado = false;        // a bobina do rele agora
+unsigned long releMudouEm = 0;  // ligou / desligou
+// rele de PULSO: a porta troca de posicao a cada pulso
+bool releAberta = false;        // onde a porta ficou depois do ultimo pulso (guardado na EEPROM)
+bool relePedida = false;        // onde o jogo quer a porta
+unsigned long relePedidoEm = 0; // quando o pedido mudou
+bool releDescansando = false;   // acabou de pulsar: espera RELE_DESCANSO_MS
+uint16_t releTrocas = 0;        // contador de pulsos (par = fechada, impar = aberta)
+// o vigia do jogo so vale depois de o jogo falar (ligar o Arduino nao mexe na porta)
+bool jogoFalou = false;
 
 // ponte H: o motor anda ate a porta chegar e so entao confirma ao jogo
 bool ponteAlvoAberta = false;   // para onde a porta vai
@@ -192,6 +220,8 @@ bool ponteFC = PONTE_FIM_DE_CURSO;
 // ------------------------------------------------------------ serial
 char buf[24];
 uint8_t bufLen = 0;
+unsigned long ultimoByte = 0;   // linha pela metade ha muito tempo: lixo, descarta
+#define LINHA_MAX_MS 60UL
 
 void enviarSensores();
 
@@ -203,6 +233,63 @@ void enviarSensores();
 #define EE_PONTE_MARCA 2
 #define EE_PONTE_TEMPO 3
 #define EE_PONTE_FC 5
+#define EE_PORTA_ANTIGA 6  // firmware 4: 0xA1 = porta aberta (lido uma vez e passado para o contador)
+
+// CONTADORES CIRCULARES na EEPROM (fichas recebidas, fichas confirmadas e
+// trocas da porta). Cada passo grava UM byte, e cada contador se espalha por
+// 32 enderecos: a EEPROM aguenta 100 mil gravacoes por endereco, assim sao
+// mais de 3 milhoes de fichas (ou de pulsos da porta).
+// O byte guarda a volta (modulo 256); a posicao dele guarda o resto.
+const uint8_t CONT_SLOTS = 32;
+const uint16_t CONT_MOD = 256U * CONT_SLOTS;
+const uint8_t EE_RECEBIDAS = 16, EE_CONFIRMADAS = 48, EE_PORTA = 80;
+uint16_t recebidas = 0, confirmadas = 0;
+bool protocoloFicha = false;    // jogo novo: FICHA:<n> ate o jogo confirmar (FICHA:OK:<n>)
+bool jogoAntigo = false;        // jogo antigo (so INFO?): FICHA simples
+unsigned long fichaAvisadaEm = 0;
+bool fichaAvisada = false;
+
+uint16_t lerContador(uint8_t base) {
+  uint8_t volta = EEPROM.read(base);
+  for (uint8_t i = 1; i < CONT_SLOTS; ++i) {
+    if (EEPROM.read(base + i) != volta) return ((uint16_t)volta * CONT_SLOTS + i) % CONT_MOD;
+  }
+  return (uint16_t)(uint8_t)(volta + 1) * CONT_SLOTS;
+}
+
+void avancarContador(uint8_t base, uint16_t &n) {
+  EEPROM.update(base + n % CONT_SLOTS, n / CONT_SLOTS);
+  n = (n + 1) % CONT_MOD;
+}
+
+// fichas na fila (recebidas do moedeiro e ainda nao confirmadas pelo jogo)
+uint16_t fichasNaFila() {
+  return (recebidas + CONT_MOD - confirmadas) % CONT_MOD;
+}
+
+void registrarFicha() {
+  if ((recebidas + 1) % CONT_MOD == confirmadas) {
+    Serial.println(F("AVISO:FILA_FICHAS_CHEIA"));
+    return;
+  }
+  avancarContador(EE_RECEBIDAS, recebidas);   // guardada ANTES de avisar: nao se perde
+}
+
+// Uma ficha por vez para o jogo. Sem o jogo dizer quem e (FICHAS:SYNC ou
+// INFO?), a ficha espera na fila - e chega assim que ele conectar.
+void enviarFicha(unsigned long agora) {
+  if (confirmadas == recebidas) return;
+  if (protocoloFicha) {
+    if (fichaAvisada && agora - fichaAvisadaEm < 500) return;
+    Serial.print(F("FICHA:"));
+    Serial.println((int)confirmadas);
+    fichaAvisada = true;
+    fichaAvisadaEm = agora;
+  } else if (jogoAntigo) {
+    Serial.println(F("FICHA"));
+    avancarContador(EE_CONFIRMADAS, confirmadas);
+  }
+}
 
 void carregarRepouso() {
   uint8_t mascara = 0x1F;  // padrao: todos em HIGH (pull-up, aciona em LOW)
@@ -291,15 +378,58 @@ void releEscrever(bool ligado) {
   digitalWrite(RELE_PINO, nivel ? HIGH : LOW);
 }
 
-void tickRele(unsigned long agora) {
-  if (RELE_TEMPO_MAX_S > 0 && releLigado && agora - releLigouEm > (unsigned long)RELE_TEMPO_MAX_S * 1000UL) {
-    releEscrever(false);  // protege a solenoide; a porta continua "aberta" para o jogo
-  }
-}
-
 void confirmarPorta() {
   Serial.println(portaAberta ? F("PORTA:ABERTA") : F("PORTA:FECHADA"));
 }
+
+#if RELE_PULSO
+// RELE DE PULSO: um pulso troca a porta de posicao. Daqui sai UM pulso por
+// mudanca pedida - nunca dois seguidos, nunca sem pedido:
+//   1. pulso em curso: so termina (RELE_PULSO_MS) e comeca o descanso;
+//   2. descanso (RELE_DESCANSO_MS): nada acontece - a porta esta andando;
+//   3. a porta ja esta onde o jogo pediu: nada;
+//   4. pedido novo: espera ficar firme (RELE_FIRME_MS) e da o pulso.
+void tickRele(unsigned long agora) {
+  if (releLigado) {
+    if (agora - releMudouEm >= RELE_PULSO_MS) {
+      releEscrever(false);
+      releMudouEm = agora;
+      releDescansando = true;
+    }
+    return;
+  }
+  if (releDescansando) {
+    if (agora - releMudouEm < RELE_DESCANSO_MS) return;
+    releDescansando = false;
+  }
+  if (relePedida == releAberta) return;
+  if (agora - relePedidoEm < RELE_FIRME_MS) return;
+  releEscrever(true);
+  releMudouEm = agora;
+  releAberta = relePedida;
+  avancarContador(EE_PORTA, releTrocas);   // a posicao nova fica guardada (vale depois de reiniciar)
+#if !USAR_PONTE_H
+  confirmarPorta();
+#endif
+}
+
+// A porta de verdade esta ao contrario do que o Arduino lembra (alguem
+// mexeu nela com a mao, a primeira gravacao foi com ela aberta): troca so
+// a lembranca, SEM pulso. Se o jogo quer a outra posicao, ai sim o tickRele
+// da o pulso que acerta tudo.
+void releAcertar() {
+  releAberta = !releAberta;
+  avancarContador(EE_PORTA, releTrocas);
+  relePedidoEm = millis();
+}
+#else
+// RELE DE NIVEL: ligado = porta aberta (RELE_LIGADO_ABERTA)
+void tickRele(unsigned long agora) {
+  if (RELE_TEMPO_MAX_S > 0 && releLigado && agora - releMudouEm > (unsigned long)RELE_TEMPO_MAX_S * 1000UL) {
+    releEscrever(false);  // protege a solenoide; a porta continua "aberta" para o jogo
+  }
+}
+#endif
 
 // ------------------------------------------------------------ ponte H
 #if USAR_PONTE_H
@@ -459,6 +589,8 @@ void tickPonte(unsigned long agora) {
 }
 #endif
 
+// O jogo pediu a porta aberta ou fechada. Pedido repetido nao mexe em nada:
+// so confirma de novo.
 void porta(bool abrir) {
   portaAberta = abrir;
 #if USAR_SERVO
@@ -466,14 +598,32 @@ void porta(bool abrir) {
   servoPasso = millis();
 #endif
 #if USAR_RELE
+#if RELE_PULSO
+  if (abrir != relePedida) {
+    relePedida = abrir;
+    relePedidoEm = millis();
+  }
+#else
   bool ligar = RELE_LIGADO_ABERTA ? abrir : !abrir;
-  if (ligar && !releLigado) releLigouEm = millis();
+  if (ligar && !releLigado) releMudouEm = millis();
   releEscrever(ligar);
+#endif
 #endif
 #if USAR_PONTE_H
   ponteIr(abrir);    // confirma (PORTA:ABERTA/FECHADA) quando a porta chegar
+#elif USAR_RELE && RELE_PULSO
+  if (abrir == releAberta) confirmarPorta();   // ja esta la: confirma sem pulso (senao, o pulso confirma)
 #else
   confirmarPorta();
+#endif
+}
+
+// a porta como ela esta (rele de pulso: onde o ultimo pulso a deixou)
+bool portaDeVerdade() {
+#if USAR_RELE && RELE_PULSO && !USAR_PONTE_H
+  return releAberta;
+#else
+  return portaAberta;
 #endif
 }
 
@@ -621,6 +771,7 @@ void tickLeds(unsigned long agora) {
 // ============================================================ comandos
 void executar(const char *c) {
   ultimoComando = millis();
+  jogoFalou = true;
   if (!strcmp(c, "PING")) {
     Serial.println(F("PONG:STRIKE_KIDS:" VERSAO));
   } else if (!strcmp(c, "PORTA:ABRE")) {
@@ -628,7 +779,23 @@ void executar(const char *c) {
   } else if (!strcmp(c, "PORTA:FECHA")) {
     porta(false);
   } else if (!strcmp(c, "PORTA?")) {
-    Serial.println(portaAberta ? F("PORTA:ABERTA") : F("PORTA:FECHADA"));
+    Serial.println(portaDeVerdade() ? F("PORTA:ABERTA") : F("PORTA:FECHADA"));
+#if USAR_RELE && RELE_PULSO
+  } else if (!strcmp(c, "PORTA:ACERTA")) {
+    releAcertar();
+    Serial.println(portaDeVerdade() ? F("PORTA:ABERTA") : F("PORTA:FECHADA"));
+#endif
+  } else if (!strcmp(c, "FICHAS:SYNC")) {
+    protocoloFicha = true;    // jogo novo: confirma cada ficha
+    jogoAntigo = false;
+    fichaAvisada = false;     // avisa de novo a que estava esperando
+  } else if (!strncmp(c, "FICHA:OK:", 9)) {
+    char *fim;
+    long id = strtol(c + 9, &fim, 10);
+    if (protocoloFicha && fichaAvisada && fim != c + 9 && *fim == 0 && confirmadas != recebidas && id == (long)confirmadas) {
+      avancarContador(EE_CONFIRMADAS, confirmadas);
+      fichaAvisada = false;   // a proxima da fila sai ja no proximo loop
+    }
   } else if (!strcmp(c, "SENS?")) {
     enviarSensores();
   } else if (!strcmp(c, "TESTE:1")) {
@@ -645,6 +812,7 @@ void executar(const char *c) {
     enviarPonte();
 #endif
   } else if (!strcmp(c, "INFO?")) {
+    if (!protocoloFicha) jogoAntigo = true;   // jogo antigo: nunca manda FICHAS:SYNC
     Serial.print(F("INFO:STRIKE_KIDS:" VERSAO ":LEDS="));
     Serial.print(USAR_LEDS);
     Serial.print(F(":SERVO="));
@@ -661,6 +829,10 @@ void executar(const char *c) {
 #endif
     Serial.print(F(":REPOUSO="));
     for (uint8_t i = 0; i < 5; i++) Serial.print(sensores[i].repouso == HIGH ? 'H' : 'L');
+    Serial.print(F(":PULSO="));
+    Serial.print((USAR_RELE && RELE_PULSO) ? 1 : 0);
+    Serial.print(F(":FILA="));
+    Serial.print((int)fichasNaFila());
     Serial.println();
   } else {
 #if USAR_LEDS
@@ -670,14 +842,18 @@ void executar(const char *c) {
 }
 
 void lerSerial() {
+  // linha pela metade ha muito tempo (ruido, cabo encaixando): joga fora,
+  // para nao grudar no comeco do proximo comando
+  if (bufLen && millis() - ultimoByte > LINHA_MAX_MS) bufLen = 0;
   uint8_t n = 0;
   while (Serial.available() && n++ < 32) {
     char c = Serial.read();
+    ultimoByte = millis();
     if (c == '\n' || c == '\r') {
       if (bufLen) {
         buf[bufLen] = '\0';
-        executar(buf);
         bufLen = 0;
+        executar(buf);
       }
       continue;
     }
@@ -691,11 +867,38 @@ void lerSerial() {
 
 // ============================================================ setup / loop
 void setup() {
-  // a porta nasce fechada: rele desligado e motor parado ja antes de virar saida
+  // tudo o que e da conversa com o jogo comeca do zero (o Uno/Nano reinicia
+  // cada vez que o jogo abre o USB); so a EEPROM fica
+  bufLen = 0;
+  streamSensores = false;
+  jogoFalou = false;
+  ultimoComando = millis();
+  recebidas = lerContador(EE_RECEBIDAS);
+  confirmadas = lerContador(EE_CONFIRMADAS);
+  protocoloFicha = jogoAntigo = fichaAvisada = false;
+  portaAberta = false;
 #if USAR_RELE
-  releLigado = true;
+  // O RELE NAO MEXE AO LIGAR: desligado ja antes de o pino virar saida (o
+  // modulo que liga com LOW nao da nem um estalo), e a porta fica onde a
+  // EEPROM diz que ela ficou - so um pedido diferente do jogo da pulso.
   releEscrever(false);
   pinMode(RELE_PINO, OUTPUT);
+  releMudouEm = millis();
+  releDescansando = false;
+#if RELE_PULSO
+  releTrocas = lerContador(EE_PORTA);
+  if (EEPROM.read(EE_PORTA_ANTIGA) == 0xA1) {
+    // gravado por cima do firmware 4 com a porta aberta: leva para o contador
+    if (releTrocas == 0) avancarContador(EE_PORTA, releTrocas);
+    EEPROM.update(EE_PORTA_ANTIGA, 0xA0);
+  }
+  releAberta = (releTrocas & 1) != 0;
+  relePedida = releAberta;
+  relePedidoEm = millis();
+#if !USAR_PONTE_H
+  portaAberta = releAberta;
+#endif
+#endif
 #endif
 #if USAR_PONTE_H
   ponteEscrever(0);
@@ -709,6 +912,7 @@ void setup() {
   ponteDesde = millis() - PONTE_PAUSA_MS;  // ja no 1o loop o motor fecha a porta
 #endif
 #if USAR_SERVO
+  servoAtual10 = servoAlvo10 = (portaAberta ? SERVO_ABERTA : SERVO_FECHADA) * 10;
   servoIniciar();
 #endif
   pinMode(LED_PLACA, OUTPUT);
@@ -730,9 +934,13 @@ void setup() {
   Serial.println(F("OLA:STRIKE_KIDS:" VERSAO));
 }
 
+// CADA COISA NO SEU TEMPO, NADA ESPERA NADA: o loop passa por tudo sem
+// parar (sem delay). Sensores, botoes, fichas, rele, servo, ponte H, vigia
+// do jogo e LEDs tem cada um o seu relogio; um comando chegando, um pulso
+// do rele ou um efeito dos LEDs nunca seguram os sensores nem os outros.
 void loop() {
-  unsigned long agora = millis();
   lerSerial();
+  unsigned long agora = millis();   // depois dos comandos (eles marcam a hora com millis)
   bool mudouSensor = false;
   bool disparou;
   for (uint8_t i = 0; i < 5; i++) {
@@ -746,10 +954,12 @@ void loop() {
   for (uint8_t i = 0; i < 3; i++) {
     tickEntrada(botoes[i], agora, disparou);
     if (disparou) {
-      Serial.println(botoes[i].evento);
+      if (i == 2) registrarFicha();   // a ficha vai para a fila (EEPROM); o enviarFicha avisa o jogo
+      else Serial.println(botoes[i].evento);
       piscar(agora);
     }
   }
+  enviarFicha(agora);
 #if USAR_SERVO
   tickServo(agora);
 #endif
@@ -759,7 +969,10 @@ void loop() {
 #if USAR_PONTE_H
   tickPonte(agora);
 #endif
-  if (portaAberta && agora - ultimoComando > SEM_JOGO_FECHA_MS) {
+  // VIGIA DO JOGO: o jogo falou e depois sumiu com a porta aberta -> fecha.
+  // (Antes de o jogo falar a primeira vez nao vale: ligar o Arduino, ou a
+  // TV Box ainda abrindo o jogo, nao mexe na porta.)
+  if (jogoFalou && portaAberta && agora - ultimoComando > SEM_JOGO_FECHA_MS) {
     porta(false);
     Serial.println(F("AVISO:SEM_JOGO"));
   }
@@ -768,6 +981,9 @@ void loop() {
     digitalWrite(LED_PLACA, LOW);
   }
 #if USAR_LEDS
-  tickLeds(agora);
+  // A fita de LED para as interrupcoes enquanto e atualizada (~2 ms com 60
+  // LEDs): com um comando chegando pelo USB, os LEDs esperam ele terminar -
+  // nenhuma letra do comando se perde.
+  if (bufLen == 0 && !Serial.available()) tickLeds(agora);
 #endif
 }
