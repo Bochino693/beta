@@ -772,14 +772,13 @@ func _input(event: InputEvent) -> void:
 		call_deferred("abrir_menu", CENA_OPERADOR)
 		return
 	if ArcadeControls.eh_credito(event):
+		# CRÉDITO SÓ NO MODO FICHAS: no modo livre a ficha é ignorada
+		if Ajustes.modo_livre():
+			return
 		Ajustes.adicionar_credito()
 		Sons.tocar("moeda", 0.65)
 		_acordar_trava()
 		_atualizar_atracao()
-		# modo livre: a ficha não aparece em lugar nenhum - o aviso mostra
-		# que ela chegou (e que o modo fichas está desligado no menu)
-		if Ajustes.modo_livre() and (demo or estado in [E.ABERTURA, E.ATRACAO, E.DEMO, E.FIM]):
-			hud.texto_grande("FICHA RECEBIDA · MODO LIVRE", Color("#FFF6A8"), 1.6, 0.55)
 		# na espera e no fim a ficha já ABRE a trava: a bola começa
 		if demo or estado in [E.ABERTURA, E.ATRACAO, E.DEMO, E.FIM]:
 			_porta_da_espera()
@@ -796,8 +795,9 @@ func _input(event: InputEvent) -> void:
 ## guardado para valer assim que a abertura aparecer.
 func _na_capa(event: InputEvent) -> void:
 	if ArcadeControls.eh_credito(event):
-		Ajustes.adicionar_credito()
-		Sons.tocar("moeda", 0.65)
+		if not Ajustes.modo_livre():
+			Ajustes.adicionar_credito()
+			Sons.tocar("moeda", 0.65)
 	elif ArcadeControls.eh_start(event):
 		_start_guardado = true
 
@@ -807,7 +807,19 @@ func _zona(tecla: String) -> String:
 	return tecla
 
 
+## START em rajada (ruído no fio, botão com mau contato): um vale, os
+## outros por START_MIN_MS são ignorados - antes cada um refazia o letreiro
+## "INSIRA FICHA" e o som (a imagem "ciscava" e dava travadinhas).
+const START_MIN_MS := 350
+var _start_ms := -100000
+var _insira_ms := -100000
+
+
 func _start() -> void:
+	var agora := Time.get_ticks_msec()
+	if agora - _start_ms < START_MIN_MS:
+		return
+	_start_ms = agora
 	_inativo = 0.0
 	_acordar_trava()
 	if _modal_inativo > 0.0:
@@ -835,7 +847,11 @@ func _start() -> void:
 		E.PERSONAGEM:
 			_confirmar_personagem()
 		E.FIM:
-			if _fim_t > 2.5 and Ajustes.pode_comecar():
+			# o mesmo da espera: com crédito (ou no modo livre) vai para a
+			# escolha; sem crédito, o "INSIRA FICHA" de sempre
+			if not Ajustes.pode_comecar():
+				_start_na_espera()
+			elif _fim_t > 2.5:
 				_quem_bola = ""
 				_escolher_jogadores()
 
@@ -931,7 +947,32 @@ func _start_na_espera() -> void:
 		_quem_bola = ""
 		_escolher_jogadores()
 	else:
-		hud.texto_grande("INSIRA FICHA", Color("#FFF6A8"), 1.0, 0.55)
+		_insira_ficha()
+
+
+## A bola rolada na espera: acende o sensor e lembra - "APERTE START!" (modo
+## livre, ou com ficha) ou "INSIRA FICHA". Quem começa é sempre o START.
+func _bola_na_espera(zona: String) -> void:
+	hud.sensor_acendeu(zona)
+	if Ajustes.pode_comecar():
+		var agora := Time.get_ticks_msec()
+		if agora - _insira_ms < 1500:
+			return
+		_insira_ms = agora
+		hud.texto_grande("APERTE START!", Color("#FFF6A8"), 1.0, 0.55)
+		Sons.tocar("selecao")
+	else:
+		_insira_ficha()
+
+
+## "INSIRA FICHA" (START ou bola sem crédito): no máximo um a cada 1,5 s.
+func _insira_ficha() -> void:
+	var agora := Time.get_ticks_msec()
+	if agora - _insira_ms < 1500:
+		return
+	_insira_ms = agora
+	hud.texto_grande("INSIRA FICHA", Color("#FFF6A8"), 1.0, 0.55)
+	Sons.tocar("selecao")
 
 
 ## O START apertado na capa vale assim que a abertura aparece na tela (a
@@ -950,10 +991,14 @@ func _jogada_recebida(zona: String) -> void:
 	_espera_paga_t = 0.0
 	if _modal_inativo > 0.0:
 		_fechar_inatividade()
-	# modo livre pela bola: na demonstração inteira (arremesso, bola
-	# rolando, resultado, replay) a bola de verdade começa, como o START
-	if demo and estado in [E.DEMO, E.ARREMESSO, E.ROLANDO, E.RESULTADO, E.REPLAY] and _bola_comeca():
-		_comecar_pela_bola(zona)
+	# (8.9) A BOLA COMEÇA A PARTIDA DE NOVO, como até a 8.0: no modo livre
+	# sempre; no modo fichas depois da ficha (a trava abriu e a bola desceu).
+	# O START também começa. Sem ficha, a bola lembra "INSIRA FICHA".
+	if demo and estado in [E.DEMO, E.ARREMESSO, E.ROLANDO, E.RESULTADO, E.REPLAY]:
+		if _bola_comeca():
+			_comecar_pela_bola(zona)
+		else:
+			_bola_na_espera(zona)
 		return
 	match estado:
 		E.PRONTO:
@@ -980,13 +1025,13 @@ func _jogada_recebida(zona: String) -> void:
 			if _bola_comeca():
 				_comecar_pela_bola(zona)
 			else:
-				# modo fichas sem ficha: a bola no sensor lembra da ficha
-				hud.sensor_acendeu(zona)
-				hud.texto_grande("INSIRA FICHA", Color("#FFF6A8"), 1.0, 0.55)
-				Sons.tocar("selecao")
+				_bola_na_espera(zona)
 		E.FIM:
-			if _bola_comeca() and _fim_t > 2.5:
-				_comecar_pela_bola(zona)
+			if _bola_comeca():
+				if _fim_t > 2.5:
+					_comecar_pela_bola(zona)
+			else:
+				_bola_na_espera(zona)
 		# (arremesso, bola rolando, resultado, replay, começo da vez: a
 		# jogada não vale — nem fica guardada para quando a pista abrir)
 
@@ -1149,7 +1194,7 @@ func _atracao() -> void:
 ## escolha da tela inicial / os ajustes do Android a cada vez que abria: sem
 ## controle remoto a TV Box ficava parada nos ajustes ou no lançador dela.
 func _conferir_instalacao() -> void:
-	if _instalacao_vista or _instalacao != null or Ajustes.instalacao_feita():
+	if _instalacao_vista or _instalacao != null or Ajustes.instalacao_atual():
 		return
 	if Fotos.janela_aberta() or ArduinoBridge.janela_aberta():
 		return
@@ -1158,6 +1203,7 @@ func _conferir_instalacao() -> void:
 	if script_instalacao.nada_falta():
 		# tudo já permitido (instalado pelo PC, com o adb): nem convida
 		Ajustes.definir("android", "instalacao_feita", true)
+		Ajustes.definir("android", "instalacao_versao", 2)
 		return
 	instalar(false)
 

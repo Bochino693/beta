@@ -1052,6 +1052,19 @@ function Principal {
                     [void](Executar $script:Adb @("shell", "pm", "grant", $Pacote, $perm) -Log (Join-Path $script:Logs "adb-permissoes.log") -LimiteMin 2 -Rotulo "adb" -Quieto)
                 }
                 [void](Executar $script:Adb @("shell", "appops", "set", $Pacote, "SYSTEM_ALERT_WINDOW", "allow") -Log (Join-Path $script:Logs "adb-permissoes.log") -LimiteMin 2 -Rotulo "adb" -Quieto)
+                # ARDUINO AUTOMATICO (acessibilidade): nas TVs sem a caixa "Sempre"
+                # aperta OK sozinho na janela do USB a cada vez que a TV liga
+                $servico = "$Pacote/com.lazersport.strikeserial.StrikeAutoOk"
+                $logAcess = Join-Path $script:Logs "adb-acessibilidade.log"
+                [void](Executar $script:Adb @("shell", "settings", "get", "secure", "enabled_accessibility_services") -Log $logAcess -LimiteMin 2 -Rotulo "adb" -Quieto)
+                $atuais = ((Ler-Log $logAcess) -split "`n" | Where-Object { $_ -match '/' } | Select-Object -Last 1)
+                if ($atuais) { $atuais = $atuais.Trim() }
+                if (-not $atuais -or $atuais -eq "null") { $lista = $servico }
+                elseif ($atuais -split ":" -contains $servico) { $lista = $atuais }
+                else { $lista = "${atuais}:$servico" }
+                [void](Executar $script:Adb @("shell", "settings", "put", "secure", "enabled_accessibility_services", $lista) -Log (Join-Path $script:Logs "adb-acessibilidade2.log") -LimiteMin 2 -Rotulo "adb" -Quieto)
+                [void](Executar $script:Adb @("shell", "settings", "put", "secure", "accessibility_enabled", "1") -Log (Join-Path $script:Logs "adb-acessibilidade3.log") -LimiteMin 2 -Rotulo "adb" -Quieto)
+                Ok "abrir ao ligar e Arduino automatico ligados (acessibilidade): a TV liga no jogo e nao pergunta do USB"
                 Ok "permissoes da camera, das notificacoes e de sobrepor dadas pelo adb"
             }
             [void](Executar $script:Adb @("shell", "monkey", "-p", $Pacote, "-c", "android.intent.category.LAUNCHER", "1") -Log (Join-Path $script:Logs "adb-abrir.log") -LimiteMin 2 -Rotulo "adb" -Quieto)

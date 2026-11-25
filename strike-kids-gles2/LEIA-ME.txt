@@ -79,6 +79,211 @@ O QUE MUDOU PARA RODAR NA OPENGL ES 2.0
     Godot 4 (nao substitui).
 
 
+VERSAO 8.8.1: A BOLA COMECA A PARTIDA (O RESTO IGUAL A 8.8)
+------------------------------------------------------------
+  * A 8.8 inteira (abre pelo auto start / Launch on Boot, sem "app
+    padrao", Arduino pede uma vez) e so isto a mais:
+  * A BOLA COMECA A PARTIDA, como ate a 8.0 - nao precisa de START:
+    MODO LIVRE: role a bola e a partida comeca (o lado dela escolhe o
+    amigo). MODO FICHAS: ponha a ficha -> a trava abre e a bola desce ->
+    role a bola e comeca. Sem ficha a trava fica fechada e a tela pede
+    INSIRA FICHA. (O START continua valendo, para quem apertar.)
+
+
+VERSAO 8.8: A TV BOX NUNCA MAIS PERGUNTA "APP PADRAO"
+-----------------------------------------------------
+  * O jogo NAO e mais candidato a tela inicial: a TV Box nao tem mais o
+    que perguntar (havia TV Box que esquecia o "SEMPRE" a cada vez que
+    ligava). Quem abre o jogo ao ligar e o aviso de "ligou" do Android:
+    na hora e de novo aos 2,5 / 6 / 12 / 25 s, se a tela da TV Box cobrir.
+  * As permissoes sao pedidas DENTRO do jogo, uma vez so: camera, Arduino
+    ("USAR POR PADRAO") e, no Android 10 ou mais novo, "SOBREPOR A OUTROS
+    APPS" (e o que deixa o jogo abrir sozinho ao ligar). TV Box com
+    Android 7 a 9: nem essa precisa.
+  * Ja instalou a 8.7 e escolheu o jogo como tela inicial? Instale a 8.8
+    por cima: a TV Box volta a usar a propria tela inicial por baixo, e o
+    jogo abre por cima sozinho.
+
+
+VERSAO 8.7: TV BOX - O JOGO E A TELA INICIAL E O ARDUINO PERGUNTA UMA VEZ
+-------------------------------------------------------------------------
+  * QUEM ABRE O JOGO E A TELA INICIAL: na instalacao (ou na 1a vez que a
+    TV Box liga) escolha STRIKE KIDS e toque em SEMPRE. Pronto: liga
+    direto no jogo, sem o sistema.
+  * ARDUINO, UMA PERMISSAO SO: na janela do Arduino marque "USAR POR
+    PADRAO" e OK - o Android guarda e nunca mais pergunta (nem depois de
+    desligar). A janela do encaixe NAO abre mais o jogo (so da a
+    permissao); e o jogo nunca poe uma janela por cima da outra.
+  * A instalacao nao pede mais a acessibilidade (5 passos, nao 6) - na TV
+    Box ela nao e preciso.
+
+
+VERSAO 8.6: JOGO LISO DE NOVO E O ARDUINO PEDIDO LOGO AO ABRIR
+--------------------------------------------------------------
+  * LISO: com o jogo na frente o servico "Strike Kids: abrir ao ligar e
+    Arduino" fica PARADO (nao consulta nenhuma janela - na 8.4/8.5 ele
+    olhava a tela a cada 0,4 s e pesava nas jogadas). So acorda quando
+    outra janela aparece na frente (a do USB, o lancador da TV).
+  * A leitura do Arduino nunca gira em falso (chip que responde "nada" na
+    hora nao toma mais um processador da TV).
+  * O "SEMPRE" VOLTOU: o jogo pede o Arduino NA HORA, como ate a 7.x - a
+    janela do jogo e a que tem "SEMPRE" / "USAR POR PADRAO" (a do sistema,
+    que aparece ao encaixar, vem sem ele). MARQUE "SEMPRE" E OK UMA VEZ: o
+    Android guarda, igual a camera, e o Arduino nunca mais pergunta (nem
+    depois de desligar a TV). Se aparecer outra janela por baixo, OK.
+  * Tambem logo depois de instalar (antes so depois de desligar e ligar).
+
+
+VERSAO 8.5: O SERVICO PEGA A JANELA DO USB DE QUALQUER JEITO
+------------------------------------------------------------
+  * O servico "Strike Kids: abrir ao ligar e Arduino" aperta o OK mesmo
+    quando a janela mostra so o nome do aparelho (sem o nome do jogo), em
+    portugues ("acessorio USB Serial") ou ingles, e na janela de ESCOLHA
+    (lista de apps): o 1o toque escolhe o Strike Kids, o 2o aperta OK.
+    So aperta em janela do sistema da TV - nunca numa janela de outro app.
+
+
+VERSAO 8.4: O ARDUINO CONECTA SOZINHO A CADA VEZ QUE A TV LIGA
+---------------------------------------------------------------
+  * Esta TV (Android de TV) nao tem "Sempre" na janela do USB: o Android
+    pergunta a cada vez que liga, e nenhum app tira essa janela (e regra de
+    seguranca do Android; so um app do sistema da TV, ou root, passaria
+    sem ela). Quem responde e o SERVICO do jogo "Strike Kids: abrir ao
+    ligar e Arduino": ligado UMA vez (Configuracoes > Preferencias do
+    dispositivo > Acessibilidade > Strike Kids: abrir ao ligar e Arduino >
+    Ativar > OK), ele aperta OK sozinho na hora, abre o jogo ao ligar e o
+    traz de volta se a TV mostrar a tela inicial. O cliente nao precisa
+    de controle.
+  * 8.4: o servico vigia a janela do USB a cada 0,4 s nos 3 primeiros
+    minutos depois de ligar (e 20 s depois de qualquer janela nova) - a
+    janela que abre atras, desliza ou abriu antes do servico tambem e
+    aceita. Com o servico ligado o jogo pede o Arduino de novo a cada
+    15 s ate conectar (antes pedia uma vez so por Arduino).
+
+
+VERSAO 8.3: CREDITO SO NO MODO FICHAS, SEM CREDITO FANTASMA
+-----------------------------------------------------------
+  * FIRMWARE 11 (grave no Arduino): FICHA SO COM O PULSO CERTO. O A2 so
+    conta quando sai do repouso e volta em 15 a 250 ms (o pulso do
+    moedeiro). As fichas somam (5 pulsos = 5 creditos). Fio preso no GND,
+    GND encostado e segurado, tranco no fio e o moedeiro ligando depois do
+    Arduino nao viram credito. NA ou NF: o Arduino aprende sozinho.
+  * MODO LIVRE: o moedeiro e ignorado por completo (nao conta credito, nao
+    mostra aviso). Credito so existe no MODO FICHAS.
+  * SEM CREDITO NA APRESENTACAO: firmware 10 (grave de novo) - a fila de
+    fichas fica so na memoria comum do Arduino e comeca vazia toda vez que
+    ele liga. (Do firmware 5 ao 9 ela ficava na EEPROM: um tranco no fio do
+    A2 ficava guardado como "ficha" e virava credito quando o jogo abria.)
+
+
+VERSAO 8.2: CREDITO SO NO A2, TEXTO DO START NO BOTAO
+----------------------------------------------------
+  * PINOS (os da maquina montada): CONFIGURACAO = A0, START = A1, FICHA
+    (moedeiro) = A2 - cada um com o outro fio no GND. So o A2 da credito.
+    Firmware 9 (grave de novo): o A2 so aceita pulso de 15 ms ou mais (o
+    moedeiro manda 30 a 100 ms) - um tranco no fio (encostar GND no START,
+    o rele, a fita de LED) nao vira ficha. Menu > TESTE DOS SENSORES mostra
+    "START (A1): n · FICHA (A2): n": aperte o START e so o do START sobe;
+    se subir o da FICHA, o fio do START esta no A2.
+  * O texto debaixo do "APERTE START!" volta a caber no botao.
+  * A TV que pergunta do Arduino a cada vez que liga: o convite explica e
+    leva direto ao servico "Strike Kids: abrir ao ligar e Arduino".
+
+
+VERSAO 8.1: SO O START COMECA A PARTIDA E A TV OBEDECE O JOGO
+-------------------------------------------------------------
+  * SO O START COMECA: a bola nao comeca mais a partida. MODO LIVRE: a
+    espera diz "APERTE START!" -> START -> (outro START ou outra bola = 2
+    jogadores) -> a BOLA escolhe o amigo (esquerda Bob, direita Mia).
+    MODO FICHAS: "INSIRA FICHA" -> a ficha abre a trava, a bola desce ->
+    "APERTE START!" -> START -> a escolha. Bola rolada na espera so lembra
+    ("APERTE START!" ou "INSIRA FICHA"). No fim: "APERTE START PARA JOGAR
+    DE NOVO".
+  * A TV OBEDECE O JOGO: o servico "Strike Kids: abrir ao ligar e Arduino"
+    agora olha TODAS as janelas abertas, de qualquer pacote do sistema da
+    TV (a janela do USB da TV pode ser um painel do lado, sem ser a janela
+    ativa, e de outro pacote que nao o "systemui") e aperta OK na do USB
+    do Strike Kids; ao ligar, abre o jogo por cima do lancador da TV.
+    Precisa estar LIGADO uma vez: INSTALACAO, passo 6/6.
+
+
+VERSAO 8.0: START SEM DISPARAR SOZINHO E O ARDUINO DIRETO FACIL DE LIGAR
+------------------------------------------------------------------------
+  * START "apertando sozinho": firmware 8 (grave de novo) - o START e a
+    CONFIGURACAO so valem apertados de verdade (50 ms, um a cada 0,7 s) e
+    os sensores pedem 5 ms (antes 2): ruido da fita de LED e do rele no fio
+    nao vira START nem bola. No jogo, START em rajada vale uma vez e o
+    "INSIRA FICHA" aparece no maximo a cada 1,5 s (antes cada aperto
+    refazia o letreiro e o som: a imagem "ciscava"). Para saber de onde vem:
+    menu > TESTE DOS SENSORES mostra quantos START o Arduino mandou.
+  * ARDUINO DIRETO (sem PC, so o pendrive): na INSTALACAO, passo 6/6, o jogo
+    espera o OK, abre direto a pagina do servico "Strike Kids: abrir ao
+    ligar e Arduino" (Android 11+; antes, a lista de Acessibilidade): e so
+    LIGAR, confirmar e VOLTAR. Enquanto ele nao estiver ligado, a proxima
+    vez que o jogo abrir convida de novo (so com o OK do controle).
+
+
+VERSAO 7.9: ARDUINO SEM PERGUNTAR NA TV, TRAVA CERTA E O FIM SEM PISCAR
+-----------------------------------------------------------------------
+  * ABRE AO LIGAR, SEMPRE (inclusive nas TVs com Android de TV): o servico
+    de acessibilidade "Strike Kids: abrir ao ligar e Arduino" e chamado
+    pelo proprio sistema a cada vez que a TV liga - e o Android deixa ele
+    abrir o jogo (o "abrir ao ligar" comum e barrado do Android 10 em
+    diante, e as TVs com Android de TV nao aceitam outro app como tela
+    inicial). Ligado UMA vez, ele: abre o jogo ao ligar; traz o jogo de
+    volta se o lancador da TV aparecer (a nao ser que o operador tenha
+    saido pelo menu "> SAIR PARA A TELA DA TV": 15 min livres); e aperta OK
+    na janela do USB. Roda num processo separado (nao pesa no jogo).
+  * ARDUINO AUTOMATICO (TVs com Android de TV): a janela "Pretende abrir a
+    app Strike Kids para controlar o acessorio USB Serial?" da TV so tem OK
+    e Cancelar - sem a caixa "Sempre", o Android nao guarda a resposta e
+    pergunta a cada vez que a TV liga. O jogo agora traz o servico de
+    acessibilidade "Strike Kids: Arduino automatico": ligado UMA vez
+    (INSTALACAO, passo 6/6: Ajustes > Acessibilidade; ou GERAR_APK.bat
+    -TelaInicial, pelo adb), ele aperta OK sozinho nessa janela - so na do
+    USB do Strike Kids, em mais nada. A TV que ja tinha feito a instalacao
+    convida de novo UMA vez (aperte OK no controle; o que ja esta feito e
+    pulado).
+  * A TRAVA NA PARTIDA DO JOGO: o jogo sempre comeca com 0 credito (um
+    credito que sobrou abria a trava ao ligar). So ficha NOVA abre - a posta
+    com a TV ligando chega pela fila do Arduino. Firmware 7 (grave de novo):
+    o jogo diz o modo (MODO:LIVRE / MODO:FICHAS) e no modo livre o vigia do
+    Arduino nunca fecha a porta (nem com a TV em espera).
+  * MENU: trocar "Modo livre" (ou ZERAR CREDITOS) ja mexe na trava NA HORA:
+    livre abre; fichas sem credito fecha.
+  * START igual em toda a espera: sem credito, "INSIRA FICHA" (tambem no
+    fim de jogo); com credito ou no modo livre, vai para a escolha.
+  * FIM DE JOGO SEM PISCAR: o botao "INSIRA FICHA PARA JOGAR DE NOVO (12)"
+    trocava o tamanho da letra a cada quadro (pulava entre dois tamanhos);
+    agora so muda quando o numero muda, e pulsa junto com o botao.
+
+
+VERSAO 7.8: O "SEMPRE" DO ARDUINO VALE DEPOIS DE DESLIGAR E O RELE QUIETO NA PARTIDA
+--------------------------------------------------------------------------------------
+  * PERMISSAO DO ARDUINO DEPOIS DE DESLIGAR/FALTAR LUZ: o Arduino que ja
+    esta ligado quando a TV Box liga e visto pelo Android bem no comeco do
+    boot, antes de ele "destravar" o usuario (Android 7 em diante). Nesse
+    instante o Android so enxerga as telas marcadas como "directBootAware"
+    - a do Arduino nao era: ele nao achava quem tinha o "Sempre", nao dava
+    a permissao, e o Arduino ficava parado (tirar e por o cabo resolvia).
+    Agora a tela do Arduino (StrikeArduinoAtivo) e directBootAware: com o
+    "Sempre" marcado UMA vez, o Android da a permissao sozinho a cada vez
+    que a TV Box liga - na tomada, faltando luz, pelo controle.
+  * SEM TRAVADINHA AO ENCAIXAR O ARDUINO: com o jogo ja na frente, a tela
+    do Arduino nao chama o jogo de novo (cada chamada pausava o jogo).
+  * FIRMWARE 6 (grave de novo o Arduino): SO O JOGO MANDA. O firmware 5
+    tratava qualquer linha que chegasse pela serial como o jogo falando -
+    a TV Box ligando e testando a porta USB (comandos "AT" de modem) ligava
+    o vigia, e o rele pulsava enquanto a TV Box iniciava. Agora so os
+    comandos do jogo, escritos certinho, valem; o resto e ignorado. E o
+    rele e desligado no primeiro instante do programa (antes de tudo).
+    Para o tempo do bootloader (1-2 s em que nenhum programa roda): um
+    resistor de 10k no IN do modulo rele (arduino/1_RELE_principal/
+    LEIA-ME_RELE.txt, secao 4). Teste no PC: o cenario "intruso" do
+    tools/testes/arduino/testar_firmware.sh (132 linhas de fora em 7
+    minutos: nenhum pulso).
+
+
 VERSAO 7.7: LIGA DIRETO NO JOGO, PERMISSOES UMA VEZ SO E RELE DE PULSO
 ------------------------------------------------------------------------
   * A TV BOX LIGA DIRETO NO JOGO, SEM PASSAR PELO LANCADOR DELA: a tela

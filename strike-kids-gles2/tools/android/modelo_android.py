@@ -66,19 +66,19 @@ def injetar(manifesto):
     # no Android 11+ o jogo enxerga as outras telas iniciais) e o aviso de
     # "ligou" (BOOT_COMPLETED) que também abre o jogo
     s = trocar_uma(s, "    </application>", '''        <meta-data android:name="org.godotengine.plugin.v1.StrikeCamera" android:value="com.lazersport.strikecamera.StrikeCamera"/>
-        <activity android:excludeFromRecents="true" android:exported="true" android:name="com.lazersport.strikeserial.StrikeArduinoAtivo" android:noHistory="true" android:theme="@android:style/Theme.Translucent.NoTitleBar">
+        <activity android:directBootAware="true" android:excludeFromRecents="true" android:exported="true" android:name="com.lazersport.strikeserial.StrikeArduinoAtivo" android:noHistory="true" android:theme="@android:style/Theme.Translucent.NoTitleBar">
             <intent-filter>
                 <action android:name="android.hardware.usb.action.USB_DEVICE_ATTACHED"/>
             </intent-filter>
             <meta-data android:name="android.hardware.usb.action.USB_DEVICE_ATTACHED" android:resource="@xml/strike_usb_arduino"/>
         </activity>
-        <activity android:clearTaskOnLaunch="true" android:excludeFromRecents="true" android:exported="true" android:launchMode="singleTask" android:name="com.lazersport.strikeserial.StrikeInicioAtivo" android:taskAffinity="com.lazersport.strikeserial.inicio" android:stateNotNeeded="true" android:theme="@android:style/Theme.Black.NoTitleBar.Fullscreen">
+        <service android:exported="true" android:label="Strike Kids: abrir ao ligar e Arduino" android:name="com.lazersport.strikeserial.StrikeAutoOk" android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE" android:process=":auto">
             <intent-filter>
-                <action android:name="android.intent.action.MAIN"/>
-                <category android:name="android.intent.category.HOME"/>
-                <category android:name="android.intent.category.DEFAULT"/>
+                <action android:name="android.accessibilityservice.AccessibilityService"/>
             </intent-filter>
-        </activity>
+            <meta-data android:name="android.accessibilityservice" android:resource="@xml/strike_auto_ok"/>
+        </service>
+        <activity android:clearTaskOnLaunch="true" android:excludeFromRecents="true" android:exported="false" android:launchMode="singleTask" android:name="com.lazersport.strikeserial.StrikeInicioAtivo" android:taskAffinity="com.lazersport.strikeserial.inicio" android:stateNotNeeded="true" android:theme="@android:style/Theme.Black.NoTitleBar.Fullscreen"/>
         <receiver android:exported="true" android:name="com.lazersport.strikeserial.StrikeLigou">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED"/>
@@ -128,7 +128,8 @@ def main():
                 os.rmdir(os.path.join(dec, "res", d))
         injetar(os.path.join(dec, "AndroidManifest.xml"))
         os.makedirs(os.path.join(dec, "res", "xml"), exist_ok=True)
-        for f in ("StrikeSerial/res/xml/strike_usb_arduino.xml", "StrikeCamera/res/xml/strike_usb_webcam.xml"):
+        for f in ("StrikeSerial/res/xml/strike_usb_arduino.xml", "StrikeSerial/res/xml/strike_auto_ok.xml",
+                  "StrikeCamera/res/xml/strike_usb_webcam.xml"):
             shutil.copy(os.path.join(AQUI, f), os.path.join(dec, "res", "xml"))
         os.makedirs(os.path.join(dec, "res", "drawable-xhdpi"), exist_ok=True)
         shutil.copy(os.path.join(AQUI, "tv", "strike_banner.png"), os.path.join(dec, "res", "drawable-xhdpi"))

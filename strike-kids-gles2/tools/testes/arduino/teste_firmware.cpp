@@ -76,7 +76,7 @@ int main(int argc, char **argv) {
   iniciar();
   if (c == "tempo") {
     setup(); saida += Serial.out; Serial.out.clear();
-    CONFERE(saida.find("OLA:STRIKE_KIDS:5") != std::string::npos, "OLA ao ligar");
+    CONFERE(saida.find("OLA:STRIKE_KIDS:11") != std::string::npos, "OLA ao ligar");
     rodar(2);
     CONFERE(motor() == -1, "ao ligar o motor fecha a porta");
     long t = ate("PORTA:FECHADA", 3000);
@@ -207,7 +207,9 @@ int main(int argc, char **argv) {
     manda("PONTE:TEMPO:99999");
     manda("PONTE:FC:7");
     rodar(3);
-    CONFERE(conta("PONTE:TEMPO:800:FC:0") == 3, "valor invalido nao muda");
+    // (fora do limite: responde o que vale; escrito errado - FC:7 - nem
+    // responde: nao e comando do jogo)
+    CONFERE(conta("PONTE:TEMPO:800:FC:0") == 2, "valor invalido nao muda");
     // muda o tempo com o motor andando: para e termina no tempo novo
     pega();
     manda("PORTA:FECHA");
@@ -320,6 +322,106 @@ int main(int argc, char **argv) {
     rodar(SEM_JOGO_FECHA_MS + 100);
     CONFERE(conta("AVISO:SEM_JOGO") == 1 && conta("PORTA:FECHADA") == 1, "jogo sumiu: fecha sozinha");
     CONFERE(pinOut[RELE_PINO] == desligado, "jogo sumiu: rele desligado");
+  } else if (c == "pinos") {
+    // A0 = CONFIGURACAO, A1 = START, A2 = FICHA (so o A2 da credito)
+    setup(); pega();
+    manda("INFO?"); rodar(5); pega();   // (jogo antigo: a ficha sai como FICHA simples)
+    pinLevel[START_PINO] = LOW; rodar(80); pinLevel[START_PINO] = HIGH; rodar(800);
+    CONFERE(conta("\nSTART\n") + (saida.rfind("START\n", 0) == 0) >= 1 && conta("FICHA") == 0, "GND no A1: START, nunca ficha");
+    pega();
+    pinLevel[CONFIG_PINO] = LOW; rodar(80); pinLevel[CONFIG_PINO] = HIGH; rodar(800);
+    CONFERE(conta("CFG") == 1 && conta("FICHA") == 0, "GND no A0: CONFIGURACAO, nunca ficha");
+    pega();
+    for (int k = 0; k < 20; k++) { pinLevel[FICHA_PINO] = LOW; rodar(8); pinLevel[FICHA_PINO] = HIGH; rodar(200); }
+    CONFERE(conta("FICHA") == 0, "trancos de 8 ms no A2 (ruido) nao viram ficha");
+    for (int k = 0; k < 5; k++) { pinLevel[FICHA_PINO] = LOW; rodar(30); pinLevel[FICHA_PINO] = HIGH; rodar(100); }
+    printf("  5 pulsos de 30 ms no A2 -> %d FICHA\n", conta("FICHA"));
+    CONFERE(conta("FICHA") == 5, "moedeiro (30 ms) no A2: 1 ficha por pulso");
+  } else if (c == "ficha_pulso") {
+    // SO O PULSO CERTO DO MOEDEIRO DA FICHA (15-250 ms), e as fichas somam
+    setup(); pega();
+    manda("INFO?"); rodar(5); pega();   // (jogo antigo: a ficha sai como FICHA simples)
+    pinLevel[FICHA_PINO] = LOW; rodar(5000); pinLevel[FICHA_PINO] = HIGH; rodar(3000);
+    CONFERE(conta("FICHA") == 0, "A2 preso no GND 5 s e soltou: nenhuma ficha");
+    pinLevel[FICHA_PINO] = LOW; rodar(600); pinLevel[FICHA_PINO] = HIGH; rodar(500);
+    CONFERE(conta("FICHA") == 0, "GND encostado e segurado (600 ms): nenhuma ficha");
+    for (int k = 0; k < 10; k++) { pinLevel[FICHA_PINO] = LOW; rodar(10); pinLevel[FICHA_PINO] = HIGH; rodar(40); }
+    CONFERE(conta("FICHA") == 0, "trancos de 10 ms: nenhuma ficha");
+    for (int k = 0; k < 6; k++) { pinLevel[FICHA_PINO] = LOW; rodar(k % 2 ? 100 : 50); pinLevel[FICHA_PINO] = HIGH; rodar(60); }
+    rodar(300);
+    printf("  6 pulsos de 50/100 ms -> %d FICHA\n", conta("FICHA"));
+    CONFERE(conta("FICHA") == 6, "fichas somam: 6 pulsos = 6 fichas");
+    pega();
+    // moedeiro NF ligado DEPOIS do Arduino: fica fechado (LOW) e vira o repouso
+    pinLevel[FICHA_PINO] = LOW; rodar(4000);
+    CONFERE(conta("FICHA") == 0, "moedeiro NF ligando depois: nenhuma ficha");
+    for (int k = 0; k < 3; k++) { pinLevel[FICHA_PINO] = HIGH; rodar(40); pinLevel[FICHA_PINO] = LOW; rodar(80); }
+    CONFERE(conta("FICHA") == 3, "depois, o NF conta 1 ficha por pulso");
+    pega();
+    // fio do A2 solto (pull-up, HIGH): o repouso volta a ser HIGH sem ficha
+    pinLevel[FICHA_PINO] = HIGH; rodar(4000);
+    CONFERE(conta("FICHA") == 0, "fio do moedeiro solto: nenhuma ficha");
+  } else if (c == "livre") {
+    // MODO LIVRE: porta sempre aberta - nem o jogo sumindo (TV em espera
+    // com o Arduino ligado) fecha. No MODO FICHAS o vigia fecha.
+    setup(); pega();
+    manda("PING"); manda("MODO:LIVRE"); manda("PORTA:ABRE");
+    rodar(2000);
+    int p0 = pulsos;
+    CONFERE(conta("PORTA:ABERTA") == 1, "modo livre: abre");
+    rodar(600000);
+    CONFERE(pulsos == p0 && conta("AVISO") == 0, "modo livre: 10 min sem o jogo e a porta continua aberta (sem pulso)");
+    // o jogo volta no modo livre: sem pulso
+    manda("PING"); manda("MODO:LIVRE"); manda("PORTA:ABRE"); rodar(2000);
+    CONFERE(pulsos == p0, "o jogo voltou no modo livre: sem pulso");
+    // operador passou para fichas sem credito: fecha (1 pulso); com credito abre (1 pulso)
+    manda("MODO:FICHAS"); manda("PORTA:FECHA"); rodar(2000);
+    manda("PORTA:ABRE"); rodar(2000);
+    pega();
+    rodar(SEM_JOGO_FECHA_MS + 3000);
+    CONFERE(conta("AVISO:SEM_JOGO") == 1, "modo fichas: o jogo sumiu com a porta aberta -> fecha");
+    // reiniciou: volta no modo fichas ate o jogo dizer (o vigia so depois do jogo falar)
+    religar(); pega();
+    CONFERE(!modoLivre, "reiniciou: modo fichas ate o jogo avisar");
+  } else if (c == "intruso") {
+    // A TV BOX LIGANDO "FALA" COM O ARDUINO: um programa dela testa a porta
+    // serial (comandos de modem AT), chega ruido e o eco das respostas. Nada
+    // disso pode mexer na porta nem ligar o vigia do jogo.
+#if USAR_RELE && RELE_PULSO && !USAR_PONTE_H
+    EEPROM.update(EE_PORTA, 0); EEPROM.update(EE_PORTA + 1, 0xFF);   // (a porta ficou ABERTA)
+#endif
+    setup(); pega();
+    const char *lixo[] = {"AT", "ATE0", "AT+CGMM", "AT+CPIN?", "ATI", "OLA:STRIKE_KIDS:11", "PORTA:ABERTA", "PORTA:FECHADA",
+                          "PONG:STRIKE_KIDS:11", "FICHA:0", "INFO:STRIKE_KIDS:11:LEDS=1", "PONTE:TEMPO:1500:FC:0", "PONTE:TEMPO:800X",
+                          "PORTA:ABREX", "XPING", "PINGS", "CALIBRAR", "S:1", "SENS:00000", "AVISO:SEM_JOGO", "~~##", "+++"};
+    for (int k = 0; k < 6; k++) {
+      for (const char *l : lixo) { manda(l); rodar(30); }
+      rodar(20000);
+    }
+    rodar(300000);
+    printf("  %d linhas de fora em 7 minutos -> pulsos=%d\n", 6 * (int)(sizeof lixo / sizeof lixo[0]), pulsos);
+    CONFERE(pulsos == 0, "o que nao e do jogo nao da pulso no rele");
+    CONFERE(conta("AVISO") == 0, "o que nao e do jogo nao liga o vigia (nada de SEM_JOGO)");
+    CONFERE(conta("CAL:OK") == 0, "CALIBRAR (errado) nao calibra");
+    CONFERE(!jogoFalou, "o vigia continua esperando o jogo de verdade");
+#if USAR_PONTE_H
+    CONFERE(ponteTempoAbre == PONTE_TEMPO_ABRE_MS, "a resposta PONTE:TEMPO:1500:FC:0 (eco) nao muda o tempo do motor");
+#endif
+    // agora o jogo de verdade: tudo funciona
+    pega();
+    manda("PING"); rodar(5);
+    CONFERE(conta("PONG:STRIKE_KIDS:11") == 1, "o jogo de verdade e atendido");
+#if USAR_RELE && RELE_PULSO && !USAR_PONTE_H
+    manda("PORTA:ABRE"); rodar(2000);
+    CONFERE(pulsos == 0 && conta("PORTA:ABERTA") == 1, "jogo pede aberta (ja estava): sem pulso");
+    manda("PORTA:FECHA"); rodar(2000);
+    CONFERE(pulsos == 1 && conta("PORTA:FECHADA") == 1, "jogo pede fechada: um pulso");
+    // lixo no meio da partida tambem nao conta como o jogo falando
+    pega();
+    manda("PORTA:ABRE"); rodar(2000);
+    for (int k = 0; k < 40; k++) { manda("AT"); rodar(1000); }
+    CONFERE(conta("AVISO:SEM_JOGO") == 1 && pulsos == 3, "jogo sumiu (so lixo chegando): o vigia fecha mesmo assim");
+#endif
   } else if (c == "pulso") {
 #if USAR_RELE && RELE_PULSO && !USAR_PONTE_H
     // A VERSAO DO RELE COMO ELA E GRAVADA: rele de PULSO (um pulso troca a porta)
@@ -461,10 +563,14 @@ int main(int argc, char **argv) {
     for (int i = 0; i < 3; i++) { pinLevel[FICHA_PINO] = LOW; rodar(30); pinLevel[FICHA_PINO] = HIGH; rodar(70); }
     rodar(5000);
     CONFERE(conta("FICHA") == 0, "sem jogo: a ficha espera na fila");
-    religar(); pega();                      // o jogo abre o USB: o Uno reinicia
-    rodar(1000);
-    CONFERE(conta("FICHA") == 0, "reiniciou: continua esperando o jogo");
-    manda("PING"); manda("FICHAS:SYNC"); manda("INFO?");
+    // (10) a fila e so da memoria comum: reiniciar o Arduino a esvazia - nada
+    // de ficha antiga virando credito na apresentacao
+    religar(); pega();
+    manda("PING"); manda("FICHAS:SYNC"); rodar(2000);
+    CONFERE(conta("FICHA") == 0, "reiniciou: a fila comeca vazia (sem credito fantasma)");
+    pega();
+    for (int i = 0; i < 3; i++) { pinLevel[FICHA_PINO] = LOW; rodar(30); pinLevel[FICHA_PINO] = HIGH; rodar(70); }
+    manda("INFO?");
     rodar(20);
     CONFERE(conta("FICHA:0\n") == 1, "o jogo conectou: a 1a ficha da fila");
     CONFERE(conta(":FILA=3") == 1, "INFO: 3 fichas na fila");
@@ -484,10 +590,6 @@ int main(int argc, char **argv) {
     CONFERE(conta("FICHA:2") == 0, "confirmacao repetida nao pula ficha");
     manda("FICHA:OK:1"); rodar(20);
     CONFERE(conta("FICHA:2\n") == 1, "sai a 2");
-    // o Arduino reinicia ANTES de o jogo confirmar a 2: ela volta
-    religar(); pega();
-    manda("FICHAS:SYNC"); rodar(20);
-    CONFERE(conta("FICHA:2\n") == 1, "reiniciou sem confirmar: a ficha volta (nao se perde)");
     manda("FICHA:OK:2"); rodar(700);
     pega();
     rodar(3000);
@@ -512,7 +614,7 @@ int main(int argc, char **argv) {
         if (id == proxima) { vistas++; proxima++; } else if (id < proxima) repetidas++; else CONFERE(false, "ficha fora de ordem");
         char ok[24]; snprintf(ok, sizeof ok, "FICHA:OK:%d", id); manda(ok);
       }
-      if (i % 37 == 0) { religar(); manda("FICHAS:SYNC"); }
+      if (i % 37 == 0) manda("FICHAS:SYNC");   // (o jogo reconectando: nada se perde nem repete)
     }
     printf("  300 fichas -> %d contadas (%d avisos repetidos, descartados pelo numero)\n", vistas, repetidas);
     CONFERE(vistas == 300, "300 fichas: uma por pulso do moedeiro");

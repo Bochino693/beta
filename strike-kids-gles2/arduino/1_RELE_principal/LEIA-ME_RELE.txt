@@ -70,8 +70,11 @@ comuns: marrom = +, azul = -, preto = sinal. Sensor de 12 V: o + na fonte
 de 12 V, o - no GND comum e SO o preto no pino. Sempre saida NPN - NUNCA
 PNP (o PNP manda 12 V no pino e queima o Arduino).
 Moedeiro: COIN no A2, GND no GND, DC12V na fonte de 12 V, COUNTER solto.
-NA ou NF, os dois funcionam (1 pulso = 1 ficha). Se ele manda 12 V no
-COIN, use um optoacoplador.
+NA ou NF, os dois funcionam (1 pulso = 1 ficha, as fichas somam). So o
+PULSO CERTO conta (firmware 11): 15 a 250 ms - o CH-926 manda 30, 50 ou
+100 ms (chave FAST/MEDIUM/SLOW), todos valem. Fio preso no GND, GND
+encostado e segurado ou tranco no fio nao viram ficha. Se ele manda 12 V
+no COIN, use um optoacoplador.
 
 
 4. A TRAVA PELO RELE (DE PULSO - O PADRAO DESTA VERSAO)
@@ -102,6 +105,24 @@ O QUE O ARDUINO GARANTE (firmware 5):
   - TV Box desligada ou cabo solto com a porta aberta: o Arduino fecha
     sozinho em 30 s (1 pulso) - so depois de o jogo ter falado com ele
     (ligar o Arduino antes da TV Box nao da pulso).
+  - MODO LIVRE (firmware 7): o jogo avisa o modo (MODO:LIVRE / MODO:FICHAS);
+    no modo livre a porta fica sempre aberta - o vigia nunca fecha, nem
+    com a TV em espera.
+  - SO O JOGO MANDA (firmware 6): o Arduino so obedece aos comandos do
+    jogo escritos certinho. O que mais chegar pela serial - a TV Box
+    ligando e testando a porta USB (comandos "AT" de modem), ruido, eco -
+    e ignorado: nao da pulso e nao liga o vigia. (No firmware 5 isso fazia
+    o rele pulsar enquanto a TV Box iniciava.)
+  - O RELE DESLIGADO DESDE O PRIMEIRO INSTANTE: o programa desliga o rele
+    antes de tudo. So o BOOTLOADER do Arduino (1 a 2 s, logo que ele liga
+    ou quando a TV Box abre a porta USB e ele reinicia) vem antes, com o
+    pino D8 solto. Se o seu modulo liga sozinho com o pino solto, ponha UM
+    RESISTOR DE 10k entre o IN e o VCC do modulo (modulo que liga com LOW,
+    o comum) - ou entre o IN e o GND (modulo que liga com HIGH). Com ele o
+    rele fica desligado ate com o Arduino desligado ou reiniciando.
+    Alimente o modulo rele pelo 5V do proprio Arduino (nao por outra
+    fonte): com o Arduino sem energia e o modulo ligado em outra fonte, o
+    pino do Arduino puxa o IN para baixo e o rele LIGA.
   - Na PRIMEIRA GRAVACAO deixe a porta FECHADA (o Arduino comeca contando
     "fechada"). Se um dia a porta ficar ao contrario do que o jogo mostra
     (alguem mexeu com a mao): menu > TESTE DA PORTA > Z ou B (ACERTAR).
@@ -169,14 +190,15 @@ OUTRA TRAVA (solenoide / eletroima que fica LIGADO com a porta aberta):
 8. TESTAR SEM O JOGO (Monitor Serial da IDE)
 --------------------------------------------
 Ferramentas > Monitor Serial, 9600 baud, "Nova linha". Ao abrir aparece:
-    OLA:STRIKE_KIDS:5
-(o rele NAO clica ao ligar). Mande (digite e Enter):
+    OLA:STRIKE_KIDS:11
+(o rele NAO clica ao ligar). Mande (digite e Enter, em MAIUSCULAS ou
+minusculas, exatamente assim - o que for escrito diferente e ignorado):
     PORTA:ABRE   1 pulso (um clique) e a resposta PORTA:ABERTA
                  mande de novo: so a resposta, SEM pulso
     PORTA:FECHA  1 pulso e PORTA:FECHADA
     PORTA:ACERTA a porta de verdade esta ao contrario: troca so a
                  lembranca do Arduino (sem pulso)
-    INFO?        INFO:STRIKE_KIDS:5:LEDS=1:SERVO=0:RELE=8:PONTE_H=0:
+    INFO?        INFO:STRIKE_KIDS:11:LEDS=1:SERVO=0:RELE=8:PONTE_H=0:
                  REPOUSO=HHHHH:PULSO=1:FILA=0
                  (PONTE_H=0 = esta versao; PULSO=1 = rele de pulso;
                  FILA = fichas esperando o jogo)
@@ -189,6 +211,7 @@ Passe a mao num sensor: aparece S:1 ... S:5. Botoes: CFG e START.
 FICHA (moedeiro): depois de mandar INFO? aparece FICHA a cada pulso; com o
 jogo, a ficha vai numerada (FICHA:0, FICHA:1...) e o Arduino guarda cada
 uma ate o jogo confirmar - ficha posta com a TV Box ligando nao se perde.
+A fila comeca vazia toda vez que o Arduino liga (sem credito fantasma).
 Com a porta aberta e sem nenhum comando por 30 s, ela fecha sozinha
 (AVISO:SEM_JOGO) - e o que acontece se o cabo da TV Box soltar.
 
@@ -238,6 +261,9 @@ Com a porta aberta e sem nenhum comando por 30 s, ela fecha sozinha
     Adafruit NeoPixel ou ponha USAR_LEDS 0.
   - Erro ao carregar no Nano clone: Processador "ATmega328P (Old
     Bootloader)".
+  - O rele liga (ou da um clique) enquanto a TV Box esta ligando: grave o
+    firmware 6 (so o jogo manda) e ponha o resistor de 10k no IN do
+    modulo (secao 4). O modulo rele no 5V do Arduino, nao em outra fonte.
   - O rele nao clica: VCC no 5V, GND no GND e IN no D8; modulo que liga
     com HIGH: RELE_LIGA_EM_LOW 0.
   - O rele clica mas a trava nao mexe: + da fonte 12 V no COM, + da trava

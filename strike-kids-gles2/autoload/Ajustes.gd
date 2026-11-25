@@ -41,6 +41,7 @@ const PADRAO := {
 		# a INSTALAÇÃO da TV Box (scripts/instalacao.gd) já foi feita: as
 		# janelas do Android não aparecem mais sozinhas
 		"instalacao_feita": false,
+		"instalacao_versao": 0,   # scripts/instalacao.gd VERSAO: subiu = convida de novo uma vez
 	},
 	"arduino": {
 		"porta_invertida": false,     # a trava abre quando devia fechar? troca aqui
@@ -95,9 +96,13 @@ var creditos := 0
 func _ready() -> void:
 	pause_mode = Node.PAUSE_MODE_PROCESS
 	_cfg.load(ARQUIVO)
-	# os créditos ficam guardados: a luz piscou (ou a TV reiniciou o jogo)
-	# e a ficha já paga não se perde
-	creditos = Compat.imax(0, int(_cfg.get_value("caixa", "creditos", 0)))
+	# O JOGO SEMPRE COMEÇA COM 0 CRÉDITO: um crédito que sobrou de antes
+	# abria a trava assim que o jogo abria (o relé pulsava ao ligar). A
+	# trava só abre com ficha NOVA - inclusive a posta com a TV Box ainda
+	# ligando, que o Arduino guarda e entrega quando o jogo conecta.
+	creditos = 0
+	if _cfg.has_section_key("caixa", "creditos"):
+		_cfg.erase_section_key("caixa", "creditos")
 	_medir_de_novo()
 
 
@@ -310,9 +315,11 @@ func fichas_por_jogador() -> int:
 
 # ---------------------------------------------------------------- créditos
 func adicionar_credito() -> void:
+	# CRÉDITO SÓ NO MODO FICHAS: no modo livre o moedeiro não conta nada
+	if modo_livre():
+		return
 	creditos += 1
-	_cfg.set_value("caixa", "creditos", creditos)
-	contar("moedas")   # (já grava o arquivo, sem parar o jogo)
+	contar("moedas")
 
 
 ## A INSTALAÇÃO da TV Box já foi feita (no PC: sempre).
@@ -320,11 +327,14 @@ func instalacao_feita() -> bool:
 	return OS.get_name() != "Android" or bool(valor("android", "instalacao_feita"))
 
 
+## A instalação desta versão (com o passo do Arduino automático) já foi feita?
+func instalacao_atual() -> bool:
+	return OS.get_name() != "Android" or int(valor("android", "instalacao_versao")) >= 2
+
+
 ## Menu do operador: ZERAR CRÉDITOS (fichas de teste, crédito esquecido).
 func zerar_creditos() -> void:
 	creditos = 0
-	_cfg.set_value("caixa", "creditos", 0)
-	_salvar()
 	emit_signal("mudaram")
 
 
@@ -353,8 +363,6 @@ func jogadores_pagos() -> int:
 func gastar_creditos(jogadores: int) -> void:
 	if not modo_livre():
 		creditos = Compat.imax(0, creditos - _fichas_por_jogador() * jogadores)
-		_cfg.set_value("caixa", "creditos", creditos)
-		_salvar()
 
 
 # ---------------------------------------------------------------- recorde

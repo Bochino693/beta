@@ -24,7 +24,7 @@ javac --release 8 -Xlint:all -Xlint:-options -encoding UTF-8 -cp "$CLASSES:$T/es
 cp "$AQUI/AndroidManifest.xml" "$T/aar/AndroidManifest.xml"
 # o filtro dos Arduinos (atividade de encaixe: "Usar por padrão")
 cp -r "$AQUI/res" "$T/aar/res"
-printf 'int xml strike_usb_arduino 0x7f140001\n' > "$T/aar/R.txt"
+printf 'int xml strike_usb_arduino 0x7f140001\nint xml strike_auto_ok 0x7f140002\n' > "$T/aar/R.txt"
 mkdir -p "$RAIZ/android/plugins"
 rm -f "$RAIZ/android/plugins/StrikeSerial.aar"
 (cd "$T/aar" && jar cfM "$RAIZ/android/plugins/StrikeSerial.aar" AndroidManifest.xml classes.jar R.txt res)

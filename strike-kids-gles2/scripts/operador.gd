@@ -322,9 +322,10 @@ func _input(event: InputEvent) -> void:
 	get_tree().set_input_as_handled()
 	var cmd := ""
 	if ArcadeControls.eh_credito(event):
-		# ficha com o menu aberto: o crédito conta (antes se perdia)
-		Ajustes.adicionar_credito()
-		Sons.tocar("moeda", 0.65)
+		# ficha com o menu aberto: o crédito conta (só no modo fichas)
+		if not Ajustes.modo_livre():
+			Ajustes.adicionar_credito()
+			Sons.tocar("moeda", 0.65)
 		return
 	if ArcadeControls.eh_config(event):
 		cmd = "sair"
@@ -425,6 +426,8 @@ func _mudar(d: int) -> void:
 		Fotos.iniciar()
 		if bool(v):
 			Fotos.pedir_permissao_agora()
+	if item[2] == "modo_livre" or item[2] == "creditos_por_partida":
+		_porta_do_modo()
 	if item[2] == "porta_invertida":
 		ArduinoBridge.reenviar_porta()
 	if item[2] == "porta_tempo" or item[2] == "porta_fim_de_curso":
@@ -507,6 +510,7 @@ func _acao() -> void:
 			# as fichas de teste, ou o crédito que ficou esquecido: zera (na
 			# saída do menu a trava fecha, se o modo é o de fichas)
 			Ajustes.zerar_creditos()
+			_porta_do_modo()
 			Sons.tocar("pop")
 		"padrao":
 			Ajustes.restaurar_padrao()
@@ -515,6 +519,13 @@ func _acao() -> void:
 			Sons.tocar("pop")
 		"voltar":
 			_sair()
+
+
+## Trocou o MODO (ou zerou os créditos) no menu: a trava já fica como o modo
+## manda, na hora - modo livre ABERTA; modo fichas fechada sem crédito
+## (aberta se as fichas já pagam uma partida). (Antes só mudava na saída.)
+func _porta_do_modo() -> void:
+	ArduinoBridge.porta(Ajustes.pode_comecar())
 
 
 func _entrar_no_teste() -> void:
@@ -694,8 +705,10 @@ func _mostrar_teste(ultimo: String) -> void:
 			agora = "   • BOLA" if ao_vivo[i] == "1" else "   – livre"
 		txt += "%s%s:  %d%s\n" % ["» " if ["Z", "X", "C", "V", "B"][i] == ultimo else "", nomes[i], _teste_contagem[i], agora]
 	if ArduinoBridge.completo():
-		txt += "\nMOEDEIRO (A2): %d ficha(s) recebida(s) neste teste" % int(ArduinoBridge.botoes["FICHA"])
-		txt += "\nponha uma ficha: o número tem que subir 1 por ficha"
+		txt += "\nSTART (A1): %d   ·   MOEDEIRO / FICHA (A2): %d   ·   CONFIGURAÇÃO (A0)" % [
+			int(ArduinoBridge.botoes["START"]), int(ArduinoBridge.botoes["FICHA"])]
+		txt += "\naperte o START: só o número do START sobe · ponha uma ficha: só o da FICHA sobe"
+		txt += "\n(se o START faz subir a FICHA, o fio do START está no A2)"
 		txt += "\n\nArduino conectado: • aparece enquanto a bola tapa o sensor."
 	else:
 		txt += "\nSem o Arduino (contando os botões da placa).\n%s" % ArduinoBridge.status

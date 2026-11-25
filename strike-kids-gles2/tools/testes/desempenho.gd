@@ -114,7 +114,22 @@ func _sonda_proc(lado: int) -> void:
 		_terminar()
 
 
+var _gravado := false
+
+
+## (o roteiro fecha o jogo no fim da partida: grava o que mediu até ali)
+func _exit_tree() -> void:
+	if not _gravado:
+		_gravar()
+
+
 func _terminar() -> void:
+	_gravar()
+	get_tree().quit()
+
+
+func _gravar() -> void:
+	_gravado = true
 	var f := File.new()
 	f.open(arquivo, File.WRITE)
 	f.store_line("t;quadro_us;passos;fisica_us;scripts_us;desenho_us;estado;desenhos;vertices;tex_mb;objetos;nos;corrotinas_us;relogio_ms;jogo_s")
@@ -125,4 +140,3 @@ func _terminar() -> void:
 		f.store_line(partes.join(";"))
 	f.close()
 	print("PERFIL: %d quadros em %s" % [_linhas.size(), arquivo])
-	get_tree().quit()

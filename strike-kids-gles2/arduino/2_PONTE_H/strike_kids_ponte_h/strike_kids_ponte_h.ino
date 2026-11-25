@@ -139,12 +139,21 @@ const uint8_t SENSOR_PINOS[5] = {2, 3, 4, 5, 7};
 #define RELE_TEMPO_MAX_S 0        // 0 = sem limite. Trava SOLENOIDE comum nao pode ficar
                                   // ligada muito tempo: ponha 5 (liga 5 s e desliga)
 
-#define FILTRO_SENSOR_MS 2        // o sinal precisa ficar assim este tempo
+#define FILTRO_SENSOR_MS 5        // o sinal precisa ficar assim este tempo (5 ms: ruido da fita/rele nao vira bola)
 #define REARME_SENSOR_MS 120      // a mesma bola balancando no sensor nao conta 2 vezes
-#define FILTRO_BOTAO_MS 25
-#define FILTRO_FICHA_MS 5         // moedeiro manda pulsos curtos (20 ms ou mais)
+#define FILTRO_BOTAO_MS 50        // START/CONFIGURACAO: apertado de verdade (50 ms), ruido no fio nao conta
+#define REARME_BOTAO_MS 700       // um aperto por vez (o START nao "aperta sozinho" em rajada)
+// FICHA (A2): so conta o PULSO CERTO do moedeiro. O moedeiro manda 20-150 ms
+// (o normal e 30-100 ms) e volta ao repouso; as fichas somam (5 pulsos = 5).
+// Nao vira ficha: tranco no fio (menos de 15 ms), fio preso no GND ou
+// encostado e segurado (mais de 250 ms), nem o moedeiro ligando depois do
+// Arduino. NA ou NF tanto faz: o repouso e o nivel que fica parado 2 s.
+#define FICHA_FILTRO_MS 5         // ruido menor que isto nem conta como mudanca
+#define FICHA_PULSO_MIN_MS 15     // pulso mais curto que isto: tranco, nao e ficha
+#define FICHA_PULSO_MAX_MS 250    // pulso mais longo que isto: fio preso/segurado, nao e ficha
+#define FICHA_REPOUSO_MS 2000UL   // nivel parado este tempo vira o novo repouso
 #define SEM_JOGO_FECHA_MS 30000UL // o jogo falou e sumiu este tempo: fecha a porta
-#define VERSAO "5"
+#define VERSAO "11"
 
 #if USAR_LEDS
 #include <Adafruit_NeoPixel.h>
@@ -181,7 +190,9 @@ struct Entrada {
 };
 
 Entrada sensores[5];
-Entrada botoes[3];
+Entrada botoes[2];   // CONFIGURACAO (A0) e START (A1); a FICHA (A2) tem o seu proprio (pulso)
+uint8_t fichaRepouso = HIGH, fichaLeitura = HIGH, fichaEstavel = HIGH;
+unsigned long fichaMudouEm = 0, fichaEstavelDesde = 0;
 const char *const NOMES_SENSOR[5] = {"S:1", "S:2", "S:3", "S:4", "S:5"};
 
 bool streamSensores = false;   // TESTE:1 -> manda SENS: a cada mudanca
@@ -205,6 +216,8 @@ bool releDescansando = false;   // acabou de pulsar: espera RELE_DESCANSO_MS
 uint16_t releTrocas = 0;        // contador de pulsos (par = fechada, impar = aberta)
 // o vigia do jogo so vale depois de o jogo falar (ligar o Arduino nao mexe na porta)
 bool jogoFalou = false;
+// MODO:LIVRE (o jogo diz): a porta fica sempre aberta - o vigia nunca fecha
+bool modoLivre = false;
 
 // ponte H: o motor anda ate a porta chegar e so entao confirma ao jogo
 bool ponteAlvoAberta = false;   // para onde a porta vai
@@ -227,6 +240,7 @@ unsigned long ultimoByte = 0;   // linha pela metade ha muito tempo: lixo, desca
 #define LINHA_MAX_MS 60UL
 
 void enviarSensores();
+bool comandoDoJogo(const char *c);
 
 // ============================================================ EEPROM
 // endereco 0: 0x5B (marca)  1: niveis de repouso dos sensores (bit 1 = HIGH)
@@ -275,7 +289,10 @@ void registrarFicha() {
     Serial.println(F("AVISO:FILA_FICHAS_CHEIA"));
     return;
   }
-  avancarContador(EE_RECEBIDAS, recebidas);   // guardada ANTES de avisar: nao se perde
+  // (10) a fila fica SO na memoria comum: comeca vazia toda vez que o
+  // Arduino liga - nenhuma "ficha" antiga (tranco no fio guardado na
+  // EEPROM por firmwares anteriores) aparece como credito na apresentacao
+  recebidas = (recebidas + 1) % CONT_MOD;
 }
 
 // Uma ficha por vez para o jogo. Sem o jogo dizer quem e (FICHAS:SYNC ou
@@ -290,7 +307,7 @@ void enviarFicha(unsigned long agora) {
     fichaAvisadaEm = agora;
   } else if (jogoAntigo) {
     Serial.println(F("FICHA"));
-    avancarContador(EE_CONFIRMADAS, confirmadas);
+    confirmadas = (confirmadas + 1) % CONT_MOD;
   }
 }
 
@@ -518,15 +535,20 @@ void ponteMudou() {
   if (ponteMov != 0) ponteParar(millis());
 }
 
-// PONTE:TEMPO:1500 (ms) e PONTE:FC:0/1, do menu do operador
-void ponteComando(const char *c) {
+// PONTE:TEMPO:1500 (ms) e PONTE:FC:0/1, do menu do operador. Devolve false
+// se a linha nao e um desses escrito certinho (o eco da resposta
+// PONTE:TEMPO:1500:FC:0, ruido): ai nada muda e nada responde.
+bool ponteComando(const char *c) {
   if (!strncmp(c, "PONTE:TEMPO:", 12)) {
-    long t = atol(c + 12);
+    char *fim;
+    long t = strtol(c + 12, &fim, 10);
+    if (fim == c + 12 || *fim) return false;   // so o numero, nada depois
     if (t >= (long)PONTE_TEMPO_MIN_MS && t <= (long)PONTE_TEMPO_LIM_MS && (unsigned long)t != ponteTempoAbre) {
       ponteTempoAbre = ponteTempoFecha = (unsigned long)t;
       ponteMudou();
     }
-  } else if (!strncmp(c, "PONTE:FC:", 9) && (c[9] == '0' || c[9] == '1') && !c[10]) {
+  } else if (!strncmp(c, "PONTE:FC:", 9)) {
+    if ((c[9] != '0' && c[9] != '1') || c[10]) return false;
     bool fc = c[9] == '1';
     if (fc != ponteFC) {
       ponteFC = fc;
@@ -538,6 +560,7 @@ void ponteComando(const char *c) {
     }
   }
   enviarPonte();
+  return true;
 }
 
 // o jogo pediu: a porta vai para la (o tickPonte anda com o motor)
@@ -684,6 +707,29 @@ void piscar(unsigned long agora) {
   piscarAte = agora + 60;
 }
 
+// FICHA (A2): conta quando o nivel SAI do repouso e VOLTA dentro do tempo
+// de um pulso de moedeiro (15-250 ms). Preso fora do repouso por 2 s: e o
+// novo repouso (moedeiro NF, moedeiro ligado depois, fio preso) e nada conta.
+void tickFicha(unsigned long agora) {
+  uint8_t l = digitalRead(FICHA_PINO);
+  if (l != fichaLeitura) {
+    fichaLeitura = l;
+    fichaMudouEm = agora;
+  }
+  if (fichaLeitura != fichaEstavel && agora - fichaMudouEm >= FICHA_FILTRO_MS) {
+    unsigned long dur = fichaMudouEm - fichaEstavelDesde;   // quanto o nivel anterior durou
+    uint8_t anterior = fichaEstavel;
+    fichaEstavel = fichaLeitura;
+    fichaEstavelDesde = fichaMudouEm;
+    if (anterior != fichaRepouso && fichaEstavel == fichaRepouso &&
+        dur >= FICHA_PULSO_MIN_MS && dur <= FICHA_PULSO_MAX_MS) {
+      registrarFicha();   // a ficha vai para a fila; o enviarFicha avisa o jogo
+      piscar(agora);
+    }
+  }
+  if (fichaEstavel != fichaRepouso && agora - fichaEstavelDesde >= FICHA_REPOUSO_MS) fichaRepouso = fichaEstavel;
+}
+
 // ============================================================ LEDs
 #if USAR_LEDS
 Efeito efeito = MENU;
@@ -707,7 +753,8 @@ void setOnda(Efeito e, int maxV, int ms, int rastro, uint8_t cr, uint8_t cg, uin
   ledUltimo = 0;
 }
 
-void ledComando(const char *c) {
+// devolve false se nao era um comando da fita (o executar ignora a linha)
+bool ledComando(const char *c) {
   if (!strcmp(c, "MENU")) { efeito = MENU; menuOffset = 0; ledUltimo = 0; }
   else if (!strcmp(c, "BLUE")) { efeito = BLUE; setTodos(fita.Color(0, 40, 255)); }
   else if (!strcmp(c, "RED")) { efeito = RED; setTodos(fita.Color(255, 0, 0)); }
@@ -717,6 +764,8 @@ void ledComando(const char *c) {
   else if (!strcmp(c, "NORMAL")) setOnda(NORMAL, 3, 22, 10, 0, 180, 255, 0, 90, 190);
   else if (!strcmp(c, "STRIKE")) setOnda(STRIKE, 8, 6, 22, 0, 80, 255, 0, 0, 255);
   else if (!strcmp(c, "OFF")) { efeito = OFF; setTodos(0); }
+  else return false;
+  return true;
 }
 
 void tickLeds(unsigned long agora) {
@@ -772,9 +821,20 @@ void tickLeds(unsigned long agora) {
 #endif
 
 // ============================================================ comandos
+// SO O JOGO MANDA: uma linha so vale se for um comando do jogo, escrito
+// certinho. Qualquer outra coisa que chegue pela serial (a TV Box ligando e
+// testando a porta - comandos "AT" de modem, por exemplo -, ruido no cabo,
+// eco) e ignorada INTEIRA: nao mexe na porta, nao liga o vigia do jogo e nao
+// conta como o jogo falando. (No firmware 5 qualquer linha contava: a TV
+// Box ligando "falava", o vigia achava que o jogo tinha sumido e dava um
+// pulso no rele.)
 void executar(const char *c) {
+  if (!comandoDoJogo(c)) return;
   ultimoComando = millis();
   jogoFalou = true;
+}
+
+bool comandoDoJogo(const char *c) {
   if (!strcmp(c, "PING")) {
     Serial.println(F("PONG:STRIKE_KIDS:" VERSAO));
   } else if (!strcmp(c, "PORTA:ABRE")) {
@@ -788,6 +848,10 @@ void executar(const char *c) {
     releAcertar();
     Serial.println(portaDeVerdade() ? F("PORTA:ABERTA") : F("PORTA:FECHADA"));
 #endif
+  } else if (!strcmp(c, "MODO:LIVRE")) {
+    modoLivre = true;
+  } else if (!strcmp(c, "MODO:FICHAS")) {
+    modoLivre = false;
   } else if (!strcmp(c, "FICHAS:SYNC")) {
     protocoloFicha = true;    // jogo novo: confirma cada ficha
     jogoAntigo = false;
@@ -796,7 +860,7 @@ void executar(const char *c) {
     char *fim;
     long id = strtol(c + 9, &fim, 10);
     if (protocoloFicha && fichaAvisada && fim != c + 9 && *fim == 0 && confirmadas != recebidas && id == (long)confirmadas) {
-      avancarContador(EE_CONFIRMADAS, confirmadas);
+      confirmadas = (confirmadas + 1) % CONT_MOD;
       fichaAvisada = false;   // a proxima da fila sai ja no proximo loop
     }
   } else if (!strcmp(c, "SENS?")) {
@@ -809,8 +873,8 @@ void executar(const char *c) {
   } else if (!strcmp(c, "CALIBRA")) {
     calibrar();
 #if USAR_PONTE_H
-  } else if (!strncmp(c, "PONTE:", 6)) {
-    ponteComando(c);
+  } else if (!strncmp(c, "PONTE:", 6) && strcmp(c, "PONTE?")) {
+    return ponteComando(c);
   } else if (!strcmp(c, "PONTE?")) {
     enviarPonte();
 #endif
@@ -839,9 +903,12 @@ void executar(const char *c) {
     Serial.println();
   } else {
 #if USAR_LEDS
-    ledComando(c);
+    return ledComando(c);
+#else
+    return false;
 #endif
   }
+  return true;
 }
 
 void lerSerial() {
@@ -869,15 +936,34 @@ void lerSerial() {
 }
 
 // ============================================================ setup / loop
+#if defined(__AVR__) && USAR_RELE
+// O RELE DESLIGADO NO PRIMEIRO INSTANTE: antes do setup(), antes ate dos
+// objetos da fita de LED - logo depois que a memoria e preparada (secao
+// .init5 do AVR, so escrita direta nos registradores do pino). O tempo do
+// BOOTLOADER (a placa acabando de ligar ou reiniciando porque abriram a
+// serial) vem antes disto e nenhum programa alcanca: nele o pino fica
+// solto - veja no LEIA-ME o resistor de 10k que segura o rele desligado.
+void releCedo() __attribute__((naked, used, section(".init5")));
+void releCedo() {
+  uint8_t bit = digitalPinToBitMask(RELE_PINO);
+  uint8_t qual = digitalPinToPort(RELE_PINO);
+  volatile uint8_t *saida = portOutputRegister(qual);
+  volatile uint8_t *modo = portModeRegister(qual);
+  if (RELE_LIGA_EM_LOW) *saida |= bit;
+  else *saida &= ~bit;
+  *modo |= bit;
+}
+#endif
+
 void setup() {
   // tudo o que e da conversa com o jogo comeca do zero (o Uno/Nano reinicia
   // cada vez que o jogo abre o USB); so a EEPROM fica
   bufLen = 0;
   streamSensores = false;
   jogoFalou = false;
+  modoLivre = false;
   ultimoComando = millis();
-  recebidas = lerContador(EE_RECEBIDAS);
-  confirmadas = lerContador(EE_CONFIRMADAS);
+  recebidas = confirmadas = 0;   // fila vazia ao ligar (so ficha posta agora vale)
   protocoloFicha = jogoAntigo = fichaAvisada = false;
   portaAberta = false;
 #if USAR_RELE
@@ -920,9 +1006,9 @@ void setup() {
 #endif
   pinMode(LED_PLACA, OUTPUT);
   for (uint8_t i = 0; i < 5; i++) iniciarEntrada(sensores[i], SENSOR_PINOS[i], FILTRO_SENSOR_MS, REARME_SENSOR_MS, NOMES_SENSOR[i]);
-  iniciarEntrada(botoes[0], CONFIG_PINO, FILTRO_BOTAO_MS, 250, "CFG");
-  iniciarEntrada(botoes[1], START_PINO, FILTRO_BOTAO_MS, 250, "START");
-  iniciarEntrada(botoes[2], FICHA_PINO, FILTRO_FICHA_MS, 40, "FICHA");
+  iniciarEntrada(botoes[0], CONFIG_PINO, FILTRO_BOTAO_MS, REARME_BOTAO_MS, "CFG");
+  iniciarEntrada(botoes[1], START_PINO, FILTRO_BOTAO_MS, REARME_BOTAO_MS, "START");
+  pinMode(FICHA_PINO, INPUT_PULLUP);
   carregarRepouso();
   Serial.begin(9600);
 #if USAR_LEDS
@@ -933,7 +1019,10 @@ void setup() {
   delay(50);
   // depois do pull-up assentar (e do repouso dos sensores carregado)
   for (uint8_t i = 0; i < 5; i++) assentarEntrada(sensores[i]);
-  for (uint8_t i = 0; i < 3; i++) assentarEntrada(botoes[i]);
+  for (uint8_t i = 0; i < 2; i++) assentarEntrada(botoes[i]);
+  // a ficha: o nivel de agora e o repouso (NA ou NF); so um pulso CERTO conta
+  fichaLeitura = fichaEstavel = fichaRepouso = digitalRead(FICHA_PINO);
+  fichaMudouEm = fichaEstavelDesde = millis();
   Serial.println(F("OLA:STRIKE_KIDS:" VERSAO));
 }
 
@@ -954,14 +1043,14 @@ void loop() {
     }
   }
   if (mudouSensor && streamSensores) enviarSensores();
-  for (uint8_t i = 0; i < 3; i++) {
+  for (uint8_t i = 0; i < 2; i++) {
     tickEntrada(botoes[i], agora, disparou);
     if (disparou) {
-      if (i == 2) registrarFicha();   // a ficha vai para a fila (EEPROM); o enviarFicha avisa o jogo
-      else Serial.println(botoes[i].evento);
+      Serial.println(botoes[i].evento);
       piscar(agora);
     }
   }
+  tickFicha(agora);     // so o pulso certo do moedeiro vira ficha
   enviarFicha(agora);
 #if USAR_SERVO
   tickServo(agora);
@@ -975,7 +1064,8 @@ void loop() {
   // VIGIA DO JOGO: o jogo falou e depois sumiu com a porta aberta -> fecha.
   // (Antes de o jogo falar a primeira vez nao vale: ligar o Arduino, ou a
   // TV Box ainda abrindo o jogo, nao mexe na porta.)
-  if (jogoFalou && portaAberta && agora - ultimoComando > SEM_JOGO_FECHA_MS) {
+  // (no MODO LIVRE nunca: a porta e sempre aberta, com ou sem o jogo)
+  if (jogoFalou && portaAberta && !modoLivre && agora - ultimoComando > SEM_JOGO_FECHA_MS) {
     porta(false);
     Serial.println(F("AVISO:SEM_JOGO"));
   }

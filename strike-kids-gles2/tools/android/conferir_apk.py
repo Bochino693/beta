@@ -143,7 +143,12 @@ for nome, xml in usb:
         continue
     acoes = [c.get(NS + 'name') for f in act.findall('intent-filter') for c in f.findall('action')]
     rec = [recurso(md.get(NS + 'resource')) for md in act.findall('meta-data')]
-    print('   exported=%s noHistory=%s ações=%s filtro=%s' % (act.get(NS + 'exported'), act.get(NS + 'noHistory'), acoes, rec))
+    print('   exported=%s noHistory=%s directBootAware=%s ações=%s filtro=%s' % (act.get(NS + 'exported'), act.get(NS + 'noHistory'),
+          act.get(NS + 'directBootAware'), acoes, rec))
+    if nome.endswith('StrikeArduinoAtivo'):
+        # o Arduino ligado no boot só ganha a permissão do "Sempre" se esta
+        # tela for achada antes de o Android destravar o usuário
+        checar(act.get(NS + 'directBootAware') == 'true', '   directBootAware (a permissão do "Sempre" vale depois de desligar)')
     checar('android.hardware.usb.action.USB_DEVICE_ATTACHED' in acoes and any(xml in r for r in rec),
            '   USB_DEVICE_ATTACHED com res/xml/%s.xml' % xml)
     checar('res/xml/%s.xml' % xml in arquivos, '   res/xml/%s.xml no APK' % xml)
@@ -155,12 +160,8 @@ if inicio is not None:
     filtros = [([a_.get(NS + 'name') for a_ in f.findall('action')], [c.get(NS + 'name') for c in f.findall('category')])
                for f in inicio.findall('intent-filter')]
     print('   exported=%s noHistory=%s filtros=%s' % (inicio.get(NS + 'exported'), inicio.get(NS + 'noHistory'), filtros))
-    checar(any('android.intent.action.MAIN' in acs and 'android.intent.category.HOME' in cs
-               and 'android.intent.category.DEFAULT' in cs for acs, cs in filtros), '   MAIN + HOME + DEFAULT')
-    checar(inicio.get(NS + 'exported') == 'true', '   exported')
-    # fica por baixo do jogo (não fecha): o Android não reabre a tela inicial no boot
-    checar(inicio.get(NS + 'noHistory') != 'true', '   sem noHistory (fica por baixo do jogo)')
-    checar(inicio.get(NS + 'launchMode') in ('singleTask', '2'), '   launchMode singleTask')
+    # (8.8) SEM HOME: a TV Box nunca pergunta "app padrão" (quem abre é o StrikeLigou)
+    checar(not any('android.intent.category.HOME' in cs for acs, cs in filtros), '   sem HOME (nunca pergunta "app padrão")')
 casas = [c.get(NS + 'name') for q in m.findall('queries') for i in q.findall('intent') for c in i.findall('category')]
 checar('android.intent.category.HOME' in casas, '<queries> das telas iniciais (Android 11+)')
 # a TV ligou na tomada: o aviso BOOT_COMPLETED também abre o jogo
@@ -171,6 +172,11 @@ checar('android.permission.RECEIVE_BOOT_COMPLETED' in perms, 'permissão RECEIVE
 for p_ in ['android.permission.SYSTEM_ALERT_WINDOW', 'android.permission.POST_NOTIFICATIONS']:
     checar(p_ in perms, 'permissão ' + p_)
 checar('android.intent.action.MY_PACKAGE_REPLACED' in acoes_ligou, 'StrikeLigou com MY_PACKAGE_REPLACED')
+# Arduino automático: o serviço de acessibilidade que aperta OK na janela do USB
+servs = [x for x in app.findall('service') if x.get(NS + 'name') == 'com.lazersport.strikeserial.StrikeAutoOk']
+checar(bool(servs) and servs[0].get(NS + 'permission') == 'android.permission.BIND_ACCESSIBILITY_SERVICE',
+       'serviço StrikeAutoOk (Arduino automático) com BIND_ACCESSIBILITY_SERVICE')
+checar('res/xml/strike_auto_ok.xml' in arquivos, 'res/xml/strike_auto_ok.xml no APK')
 
 # dex: o Godot no classes.dex, os plugins no classes2.dex
 print('dex:', sorted(n for n in arquivos if n.endswith('.dex')))

@@ -908,13 +908,15 @@ func modo_espera(modo: String) -> void:
 	# "dormiu": tem crédito, mas a trava fechou de tanto esperar — outra
 	# ficha (ou o START) abre de novo
 	_modo_bola = modo != "ficha" and modo != "dormiu"
+	# (8.1) quem começa é o START; a bola escolhe o amigo depois
+	# (8.9) a bola começa de novo (o START também)
 	_aperte.text = "ROLE A BOLA!" if _modo_bola else "INSIRA FICHA"
 	match modo:
 		"dormiu":
-			_aperte_sub.text = "CRÉDITO GUARDADO: FICHA OU START ABRE A TRAVA"
+			_aperte_sub.text = "FICHA OU START ABRE A TRAVA"
 		"ficha":
 			# quantas fichas para 1 e para 2 jogadores
-			_aperte_sub.text = "%d %s: 1 JOGADOR  ·  %d FICHAS: 2 JOGADORES" % [n, "FICHA" if n == 1 else "FICHAS", n * 2]
+			_aperte_sub.text = "%d %s: 1 JOGADOR · %d: 2 JOGADORES" % [n, "FICHA" if n == 1 else "FICHAS", n * 2]
 		"pago2":
 			_aperte_sub.text = "%d FICHAS: BOB x MIA!" % (n * 2)
 		_:
@@ -1167,10 +1169,10 @@ func _montar_jogadores() -> void:
 		var bt := Painel3D.new(Color("#E8384F"), 26, 7, 4)
 		bt.name = "botao"
 		c.add_child(bt)
-		var bl := rotulo("START", 34, Color.white, 8, MARINHO, fonte_titulo)
+		var bl := rotulo("ROLE", 34, Color.white, 8, MARINHO, fonte_titulo)
 		bl.name = "texto"
 		bt.add_child(bl)
-		var vezes := rotulo("1 VEZ" if i == 0 else "2 VEZES", 40, MARINHO, 0, MARINHO, fonte_titulo)
+		var vezes := rotulo("1 BOLA" if i == 0 else "2 BOLAS", 40, MARINHO, 0, MARINHO, fonte_titulo)
 		vezes.align = Label.ALIGN_LEFT
 		vezes.name = "vezes"
 		c.add_child(vezes)
@@ -1629,17 +1631,26 @@ func _jogar_de_novo() -> String:
 	return "ROLE A BOLA PARA JOGAR DE NOVO" if _modo_bola else "INSIRA FICHA PARA JOGAR DE NOVO"
 
 
+## (a cada quadro, no fim) O botão "jogar de novo" com a contagem. O texto
+## só é trocado - e a letra só é ajustada - quando o NÚMERO muda, e sempre
+## pela largura do BOTÃO: antes era ajustado a cada quadro pela largura do
+## próprio rótulo, que mudava com o ajuste - a letra pulava entre dois
+## tamanhos, quadro sim, quadro não (o botão "piscando frenético"). O
+## pulsar é só a escala do botão inteiro, com o texto junto.
 func fim_contagem(segundos: int) -> void:
+	var b := _fim.get_node_or_null("botao") as Control
+	var largura: float = (b.rect_size.x if b else Tela.tamanho().x * 0.9) - 70 * u
 	var ap := _fim.find_node("aperte", true, false) as Label
 	if ap:
-		ap.text = "%s  (%d)" % [_jogar_de_novo(), segundos]
-		_caber(ap, 44 * u, ap.rect_size.x - 70 * u)
+		var novo := "%s  (%d)" % [_jogar_de_novo(), segundos]
+		if ap.text != novo:
+			ap.text = novo
+			_caber(ap, 44 * u, largura)
 	var sub := _fim.find_node("sub", true, false) as Label
 	if sub and sub.text != _aperte_sub.text:
 		# a ficha entrou (ou outra): o aviso acompanha o da espera
 		sub.text = _aperte_sub.text
-		_caber(sub, 28 * u, sub.rect_size.x - 70 * u)
-	var b := _fim.get_node_or_null("botao") as Control
+		_caber(sub, 28 * u, largura)
 	if b:
 		b.rect_pivot_offset = b.rect_size / 2
 		b.rect_scale = Vector2.ONE * (1.0 + sin(_tempo * 4.0) * 0.025)
@@ -2163,6 +2174,9 @@ func layout() -> void:
 	_aperte_sub.rect_size = Vector2(bw, 50 * u)
 	_aperte_sub.rect_position = Vector2(0, 118 * u)
 	_caber(_aperte_sub, 34 * u, bw - 70 * u)
+	# (nunca passa da borda do botão: o que não couber é cortado)
+	_aperte_sub.clip_text = true
+	_aperte.clip_text = true
 	_tamanho_rotulo(_recorde, 40 * u, 8 * u)
 	_tamanho_rotulo(_creditos, 30 * u, 8 * u)
 	_creditos.rect_size = Vector2(T.x, 46 * u)
