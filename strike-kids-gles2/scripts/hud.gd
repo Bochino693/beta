@@ -905,9 +905,13 @@ func modo_espera(modo: String) -> void:
 	if chave == _modo_espera:
 		return
 	_modo_espera = chave
-	_modo_bola = modo != "ficha"
+	# "dormiu": tem crédito, mas a trava fechou de tanto esperar — outra
+	# ficha (ou o START) abre de novo
+	_modo_bola = modo != "ficha" and modo != "dormiu"
 	_aperte.text = "ROLE A BOLA!" if _modo_bola else "INSIRA FICHA"
 	match modo:
+		"dormiu":
+			_aperte_sub.text = "CRÉDITO GUARDADO: FICHA OU START ABRE A TRAVA"
 		"ficha":
 			# quantas fichas para 1 e para 2 jogadores
 			_aperte_sub.text = "%d %s: 1 JOGADOR  ·  %d FICHAS: 2 JOGADORES" % [n, "FICHA" if n == 1 else "FICHAS", n * 2]

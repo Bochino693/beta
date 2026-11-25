@@ -74,24 +74,48 @@ NA ou NF, os dois funcionam (1 pulso = 1 ficha). Se ele manda 12 V no
 COIN, use um optoacoplador.
 
 
-4. A TRAVA PELO RELE
---------------------
+4. A TRAVA PELO RELE (DE PULSO - O PADRAO DESTA VERSAO)
+------------------------------------------------------
+O rele da UM PULSO (200 ms) na entrada do comando da porta, e cada pulso
+TROCA a porta de posicao: um pulso abre, o proximo pulso fecha (comando de
+porta / trava que alterna a cada toque - RELE_PULSO 1).
+
+      COM do rele  ------------>  um fio da entrada de comando da porta
+      NO do rele   ------------>  o outro fio da entrada (o "botao")
+      NC do rele: solto
+
+O QUE O ARDUINO GARANTE (firmware 5):
+  - AO LIGAR O ARDUINO O RELE NAO MEXE - nem na tomada, nem quando o jogo
+    abre o USB (o Uno/Nano reinicia nessa hora). A ultima posicao da porta
+    fica guardada no Arduino (EEPROM).
+  - UM PULSO POR MUDANCA, NUNCA EM SEQUENCIA: pedido igual a posicao de
+    agora nao pulsa; abre e fecha chegando juntos se anulam; entre dois
+    pulsos ha sempre 1 s de descanso (a porta termina de andar).
+  - Quem decide e o jogo:
+      MODO LIVRE ............ porta SEMPRE ABERTA
+      MODO FICHAS, sem credito ... FECHADA
+      entrou credito ........ 1 pulso: ABRE (fica aberta a partida toda)
+      fim da partida ........ 1 pulso: FECHA (se nao sobrou credito)
+      credito parado ........ 1 pulso: FECHA depois de "Fechar a trava sem
+                              jogar" (menu, 3 min de fabrica); outra ficha
+                              ou o START abrem de novo (o credito fica)
+  - TV Box desligada ou cabo solto com a porta aberta: o Arduino fecha
+    sozinho em 30 s (1 pulso) - so depois de o jogo ter falado com ele
+    (ligar o Arduino antes da TV Box nao da pulso).
+  - Na PRIMEIRA GRAVACAO deixe a porta FECHADA (o Arduino comeca contando
+    "fechada"). Se um dia a porta ficar ao contrario do que o jogo mostra
+    (alguem mexeu com a mao): menu > TESTE DA PORTA > Z ou B (ACERTAR).
+
+OUTRA TRAVA (solenoide / eletroima que fica LIGADO com a porta aberta):
+  troque RELE_PULSO 1 para RELE_PULSO 0 no .ino e ligue assim:
       + da fonte 12 V  ------------>  COM do rele
       NO do rele       ------------>  + da trava
       - da trava       ------------>  - da fonte 12 V (e no GND do Arduino)
       diodo 1N4007 entre os 2 fios da trava, a FAIXA no +
-      NC do rele: solto
-
-  - O rele LIGA com a porta ABERTA (RELE_LIGADO_ABERTA 1): a trava
-    solenoide comum (fechadura) solta a lingueta quando recebe 12 V.
-  - ELETROIMA que segura a porta fechada (precisa ficar ligado com a porta
-    fechada): ligue no NC no lugar do NO e deixe RELE_TEMPO_MAX_S 0. Assim,
-    se faltar energia, a porta fica presa.
-  - Trava solenoide comum ESQUENTA se ficar ligada muito tempo: no comeco
-    do .ino troque RELE_TEMPO_MAX_S 0 para 5 (liga 5 s e solta; para o jogo
-    a porta continua "aberta").
-  - Modulo rele que liga com HIGH (alguns tem o jumper H/L no H):
-    RELE_LIGA_EM_LOW 0.
+  - O rele LIGA com a porta ABERTA (RELE_LIGADO_ABERTA 1).
+  - ELETROIMA que segura a porta fechada: ligue no NC no lugar do NO.
+  - Trava solenoide comum ESQUENTA ligada muito tempo: RELE_TEMPO_MAX_S 5.
+  - Modulo rele que liga com HIGH (jumper H/L no H): RELE_LIGA_EM_LOW 0.
   - A trava NUNCA direto no Arduino: so pelo contato do rele.
 
 
@@ -108,18 +132,22 @@ COIN, use um optoacoplador.
 ----------------------------------------------
   USAR_PONTE_H 0         esta versao (NAO mude; com ponte H use a 2_PONTE_H)
   USAR_RELE 1            0 = sem rele (o D8 fica livre)
-  USAR_SERVO 1           0 = sem servo (o D9 fica livre)
+  USAR_SERVO 0           1 = tem servo no D9
   USAR_LEDS 1            0 = sem fita de LED (ou sem a biblioteca NeoPixel)
   NUM_LEDS 60            quantos LEDs tem a fita
   BRILHO 180             brilho da fita (0 a 255)
   RELE_LIGA_EM_LOW 1     modulo comum (liga com LOW); 0 = liga com HIGH
-  RELE_LIGADO_ABERTA 1   rele ligado com a porta ABERTA; 0 = ao contrario
-  RELE_TEMPO_MAX_S 0     0 = sem limite; trava solenoide comum: 5
+  RELE_PULSO 1           1 = PULSO (cada pulso troca a porta); 0 = NIVEL
+  RELE_PULSO_MS 200      quanto dura cada pulso
+  RELE_DESCANSO_MS 1000  tempo minimo entre dois pulsos
+  RELE_FIRME_MS 150      o pedido fica firme este tempo antes do pulso
+  RELE_LIGADO_ABERTA 1   (so NIVEL) rele ligado com a porta ABERTA
+  RELE_TEMPO_MAX_S 0     (so NIVEL) 0 = sem limite; trava solenoide: 5
   SERVO_FECHADA 0        angulo do servo com a porta fechada
   SERVO_ABERTA 90        angulo do servo com a porta aberta
   SERVO_GRAUS_POR_S 240  velocidade do servo
   SERVO_SOLTA_PARADO 0   1 = o servo para de segurar 1 s depois de chegar
-  SEM_JOGO_FECHA_MS      15000 = sem noticia do jogo por 15 s, fecha a porta
+  SEM_JOGO_FECHA_MS      30000 = o jogo falou e sumiu 30 s: fecha a porta
   (os PONTE_* e FC_* nao valem nesta versao)
 
 
@@ -141,37 +169,51 @@ COIN, use um optoacoplador.
 8. TESTAR SEM O JOGO (Monitor Serial da IDE)
 --------------------------------------------
 Ferramentas > Monitor Serial, 9600 baud, "Nova linha". Ao abrir aparece:
-    OLA:STRIKE_KIDS:3
-Mande (digite e Enter):
-    PORTA:ABRE   o rele liga (clique), o servo vai a 90 graus
-                 resposta: PORTA:ABERTA
-    PORTA:FECHA  o rele desliga, o servo volta a 0
-                 resposta: PORTA:FECHADA
-    INFO?        INFO:STRIKE_KIDS:3:LEDS=1:SERVO=9:RELE=8:PONTE_H=0:...
-                 (PONTE_H=0 = esta versao, sem ponte H)
+    OLA:STRIKE_KIDS:5
+(o rele NAO clica ao ligar). Mande (digite e Enter):
+    PORTA:ABRE   1 pulso (um clique) e a resposta PORTA:ABERTA
+                 mande de novo: so a resposta, SEM pulso
+    PORTA:FECHA  1 pulso e PORTA:FECHADA
+    PORTA:ACERTA a porta de verdade esta ao contrario: troca so a
+                 lembranca do Arduino (sem pulso)
+    INFO?        INFO:STRIKE_KIDS:5:LEDS=1:SERVO=0:RELE=8:PONTE_H=0:
+                 REPOUSO=HHHHH:PULSO=1:FILA=0
+                 (PONTE_H=0 = esta versao; PULSO=1 = rele de pulso;
+                 FILA = fichas esperando o jogo)
     TESTE:1      os sensores ao vivo: SENS:00000 (1 = bola passando)
     TESTE:0      para
     CALIBRA      com a pista VAZIA: guarda o "sem bola" de cada sensor
                  resposta: CAL:OK:HHHHH
     STRIKE / MENU / OFF   efeitos da fita de LED
-Passe a mao num sensor: aparece S:1 ... S:5. Botoes: CFG, START, FICHA.
-Com a porta aberta e sem nenhum comando por 15 s, ela fecha sozinha
+Passe a mao num sensor: aparece S:1 ... S:5. Botoes: CFG e START.
+FICHA (moedeiro): depois de mandar INFO? aparece FICHA a cada pulso; com o
+jogo, a ficha vai numerada (FICHA:0, FICHA:1...) e o Arduino guarda cada
+uma ate o jogo confirmar - ficha posta com a TV Box ligando nao se perde.
+Com a porta aberta e sem nenhum comando por 30 s, ela fecha sozinha
 (AVISO:SEM_JOGO) - e o que acontece se o cabo da TV Box soltar.
 
 
 9. NO JOGO (TV Box)
 -------------------
-  - Cabo USB do Arduino na TV Box e abra o jogo; na janela do Android
-    marque "Usar por padrao" e OK (uma vez so).
+  - Cabo USB do Arduino na TV Box e abra o jogo. Na PRIMEIRA vez o jogo
+    mostra "PRIMEIRA INSTALACAO: aperte OK no controle remoto": com o OK
+    ele pede, uma janela por vez, a camera, as notificacoes, o Arduino
+    (marque "Usar por padrao" / "Sempre abrir") e a TELA INICIAL (escolha
+    STRIKE KIDS e SEMPRE: a TV liga direto no jogo). Depois disso nunca
+    mais pergunta nada.
   - Botao CONFIGURACAO -> MENU DO OPERADOR:
       > TESTE DOS SENSORES: passe a bola em cada sensor (acende ao vivo)
       > CALIBRAR SENSORES (pista vazia)
-      > TESTE DA PORTA (trava das bolas): C ou START abre e fecha; aparece
-        "Arduino do RELE/SERVO (sem ponte H): confirma a porta na hora"
+      > TESTE DA PORTA (trava das bolas): C ou START abre e fecha (1 pulso
+        cada); Z ou B = ACERTAR (a porta de verdade esta ao contrario);
+        CONFIGURACAO sai e a porta volta como estava. Entrar no menu nao
+        mexe na porta.
       Porta invertida ................ troca aberta e fechada
       Sensores invertidos ............ esquerda e direita trocadas
       Modo livre (sem ficha e sem trava) ... SIM ou NAO
       Fichas por jogador ............. 1 (padrao)
+      Fechar a trava sem jogar (min) . 3 (0 = nunca)
+      > ZERAR CREDITOS ............... apaga os creditos (fichas de teste)
     ("Porta: tempo do motor" e "Porta: fim de curso" sao so da ponte H:
     com este Arduino aparecem como "rele: nao usa".)
   - O QUE O JOGO FAZ COM A TRAVA:
@@ -183,6 +225,9 @@ Com a porta aberta e sem nenhum comando por 15 s, ela fecha sozinha
                      no meio ou sem bola por 10 s, o jogo sorteia;
           2 fichas = BOB x MIA.
         Fim da partida: a trava FECHA (com ficha sobrando, fica aberta).
+        Credito parado sem ninguem jogar: FECHA depois do tempo do menu;
+        outra ficha ou o START abrem de novo. Os creditos ficam guardados
+        (a luz piscou, a TV reiniciou: a ficha paga nao se perde).
 
 
 10. PROBLEMAS COMUNS
@@ -197,9 +242,12 @@ Com a porta aberta e sem nenhum comando por 15 s, ela fecha sozinha
     com HIGH: RELE_LIGA_EM_LOW 0.
   - O rele clica mas a trava nao mexe: + da fonte 12 V no COM, + da trava
     no NO, - da trava no - da fonte.
-  - A porta abre quando devia fechar: menu "Porta invertida" (ou
-    RELE_LIGADO_ABERTA 0 no .ino).
-  - A trava esquenta: RELE_TEMPO_MAX_S 5.
+  - A porta esta ao contrario (aberta quando a tela diz fechada): menu >
+    TESTE DA PORTA > Z ou B (ACERTAR). Com o rele de NIVEL: "Porta
+    invertida" (ou RELE_LIGADO_ABERTA 0 no .ino).
+  - O rele da 2 pulsos seguidos: a entrada da porta e de NIVEL (fica
+    ligada enquanto aberta) - use RELE_PULSO 0.
+  - A trava esquenta (rele de nivel): RELE_TEMPO_MAX_S 5.
   - O Arduino reinicia quando a trava liga: falta o diodo 1N4007 na trava
     ou os GND nao estao todos juntos.
   - Sensor sempre aceso ou nunca acende: CALIBRAR SENSORES com a pista

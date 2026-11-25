@@ -8,25 +8,39 @@ extends Node
 ##   * o botão de CONFIGURAÇÃO entra e sai do menu do operador;
 ##   * START e FICHA, se estiverem ligados no Arduino (a Zero Delay também
 ##     continua valendo, com o teclado);
-##   * a PORTA das bolas (ponte H, servo ou relé): fechada na espera, ABRE
-##     depois do START, FECHA no fim da partida (e sozinha, no Arduino, se o
-##     jogo sumir);
+##   * a PORTA das bolas (relé de pulso, relé de nível, servo ou ponte H);
 ##   * a fita de LED (mesmos comandos de antes: MENU, STRIKE, SPARE...).
 ##
+## A PORTA, UMA REGRA SÓ (quem decide é o jogo, em principal.gd):
+##   MODO LIVRE: sempre ABERTA.
+##   MODO FICHAS: FECHADA sem crédito; o crédito ABRE; fica aberta a partida
+##   inteira; no fim FECHA se não sobrou crédito; com crédito sobrando e
+##   ninguém jogando por muito tempo, FECHA (menu: "Fechar a trava sem jogar").
+## Daqui o pedido só sai para o Arduino quando MUDA e fica firme por
+## PORTA_FIRME_MS (abre+fecha no mesmo instante não viram dois pulsos do
+## relé). Sem a confirmação do Arduino (PORTA:ABERTA / PORTA:FECHADA) o
+## pedido é repetido a cada PORTA_REENVIO_MS — repetir não dá pulso: o
+## Arduino só pulsa quando a posição pedida é diferente da que ele lembra.
+## Antes de o jogo decidir a porta pela primeira vez (ele ainda montando),
+## nada é mandado: ligar a máquina não mexe no relé.
+##
 ## Protocolo (linhas de texto, 9600):
-##   Arduino -> jogo: OLA:STRIKE_KIDS:3, PONG:STRIKE_KIDS:3, S:1..S:5, CFG,
-##     START, FICHA, SENS:00100 (ao vivo, no teste), PORTA:ABERTA/FECHADA
-##     (com a ponte H, quando a porta chega), CAL:OK:HHHHH, INFO:...,
+##   Arduino -> jogo: OLA:STRIKE_KIDS:5, PONG:STRIKE_KIDS:5, S:1..S:5, CFG,
+##     START, FICHA:<n> (firmware 5; o 3 mandava só FICHA), SENS:00100 (ao
+##     vivo, no teste), PORTA:ABERTA/FECHADA, CAL:OK:HHHHH, INFO:...,
 ##     PONTE:TEMPO:1500:FC:0, AVISO:SEM_JOGO, AVISO:PORTA_TRAVOU (o fim de
 ##     curso não chegou)
-##   jogo -> Arduino: PING, PORTA:ABRE, PORTA:FECHA, PORTA?, SENS?, TESTE:1,
-##     TESTE:0, CALIBRA, INFO?, PONTE:TEMPO:<ms>, PONTE:FC:<0|1>, PONTE?,
-##     MENU, IDLE, STRIKE...
-## PONTE H da porta (firmware 3): o tempo do motor e o fim de curso vêm do
+##   jogo -> Arduino: PING, FICHAS:SYNC, FICHA:OK:<n>, PORTA:ABRE,
+##     PORTA:FECHA, PORTA?, PORTA:ACERTA, SENS?, TESTE:1, TESTE:0, CALIBRA,
+##     INFO?, PONTE:TEMPO:<ms>, PONTE:FC:<0|1>, PONTE?, MENU, IDLE, STRIKE...
+## FICHAS QUE NÃO SE PERDEM (firmware 5): o Arduino guarda cada ficha na
+## EEPROM e manda FICHA:<n> até o jogo responder FICHA:OK:<n>. Ficha posta
+## com a TV Box ainda ligando chega assim que o jogo conecta. O mesmo <n>
+## repetido (a confirmação se perdeu) não conta duas vezes.
+## PONTE H da porta (firmware 3+): o tempo do motor e o fim de curso vêm do
 ## menu do operador ("Porta: tempo do motor", "Porta: fim de curso"); o jogo
 ## manda ao conectar (antes da porta) e a cada mudança, e o Arduino guarda
-## na EEPROM (vale já ao ligar, antes de o jogo abrir). O firmware 2 ignora
-## (usa os PONTE_* do .ino).
+## na EEPROM (vale já ao ligar, antes de o jogo abrir).
 ## O firmware antigo só de LEDs (DRAGON_BOWLING) também conecta (só LEDs).
 ##
 ## No PC não tem Arduino: o teclado faz tudo (A S D F G = sensores, 1 =
@@ -34,10 +48,13 @@ extends Node
 ##
 ## PERMISSÃO USB SÓ NA PRIMEIRA VEZ: a janela do Android ("Permitir que o
 ## Strike Kids acesse o USB?") é pedida UMA vez por Arduino (guardado em
-## user://permissoes.cfg), na tela de espera, com o aviso na tela para
-## marcar "Sempre abrir" (Usar por padrão). Marcado, o Android dá a
-## permissão sozinho a cada boot e nada mais aparece. Depois disso o jogo
-## nunca mais pede sozinho: só o operador, nos testes do Arduino no menu.
+## user://permissoes.cfg), na tela de espera ou na INSTALAÇÃO (a primeira
+## vez que o jogo abre), com o aviso na tela para marcar "Sempre abrir"
+## (Usar por padrão). Marcado, o Android dá a permissão sozinho a cada boot
+## (e ainda abre o jogo quando o Arduino aparece no USB): nada mais aparece.
+## Depois disso o jogo nunca mais pede sozinho - na máquina sem controle
+## remoto uma janela sem ninguém para responder deixaria o jogo parado atrás
+## dela. Só o operador pede de novo, nos testes do Arduino no menu.
 
 signal mudou
 signal sensor(n)
@@ -52,6 +69,8 @@ const PROCURAR_MS := 1500
 const PERMISSOES := "user://permissoes.cfg"
 const JANELA_MAX_MS := 25000
 const ESPERA_JANELA_ANDROID_MS := 6000   # a janela do próprio Android (encaixe) vem antes
+const PORTA_FIRME_MS := 250              # o pedido da porta fica firme isto antes de sair
+const PORTA_REENVIO_MS := 2500           # sem confirmação: repete (não dá pulso a mais)
 const DICA_USB := "NA JANELA DO ANDROID: MARQUE \"SEMPRE ABRIR\" (USAR POR PADRÃO) E TOQUE EM OK\nassim ela nunca mais aparece"
 const LED_COMMANDS := ["MENU", "BLUE", "RED", "IDLE", "NORMAL", "STRIKE", "SPARE", "MISS", "OFF"]
 ## S1..S5, da esquerda para a direita (as mesmas ações da Zero Delay)
@@ -61,7 +80,7 @@ var status := "Iniciando USB..."
 var connected := false
 var device := ""
 var tipo := ""                 # chip USB: ch340, cdc, ftdi, cp210x
-var firmware := ""             # STRIKE_KIDS:1 (ou DRAGON_BOWLING:1, o antigo só de LEDs)
+var firmware := ""             # STRIKE_KIDS:5 (ou DRAGON_BOWLING:1, o antigo só de LEDs)
 var info := ""                 # resposta do INFO?
 var calibracao := ""           # resposta do CALIBRA (CAL:OK:HHHHH)
 var sensores := ""             # estado ao vivo (só no teste): "00100", 1 = bola no sensor
@@ -71,6 +90,7 @@ var contagem := [0, 0, 0, 0, 0]
 var botoes := {"FICHA": 0, "START": 0, "CFG": 0}
 var porta_aberta := false      # o que o Arduino confirmou (no jeito do jogo)
 var porta_quer := false        # o que o jogo pediu
+var porta_pulsos := 0          # mudanças de porta mandadas desde que o jogo abriu (teste da porta)
 var aviso := ""                # último AVISO: do Arduino (PORTA_TRAVOU...); a porta chegou = ""
 var ponte := ""                # o que o Arduino usa na ponte H: "TEMPO:1500:FC:0" ("" = não disse)
 var _plugin: Object
@@ -88,6 +108,15 @@ var _visto_sem_permissao := {} # nome do aparelho -> ms em que apareceu no USB s
 var _teste := false
 var _led_state := "MENU"
 var _last_led_sent := ""
+# a porta: o jogo já decidiu? o que foi mandado por último (-1 = nada)
+var _porta_decidida := false
+var _porta_mudou_ms := 0
+var _porta_enviada := -1
+var _porta_envio_ms := 0
+var _porta_reenvios := 0
+const PORTA_REENVIOS_MAX := 3   # (a ponte H travada não fica tentando para sempre)
+# fichas do firmware 5: o número da última contada (-1 = nenhuma ainda)
+var _ultima_ficha := -1
 
 
 func _ready() -> void:
@@ -146,12 +175,14 @@ func _process(_delta: float) -> void:
 					_send("PING")
 				if agora - _desde > APRESENTAR_MS:
 					_falha("o aparelho não respondeu como Arduino do Strike Kids")
-			else:
+			elif _fase == "conectado":
 				if agora - _ultimo_rx > SEM_RESPOSTA_MS:
 					_perdeu("o Arduino parou de responder")
-				elif agora - _ultimo_ping >= PING_MS:
+					return
+				if agora - _ultimo_ping >= PING_MS:
 					_ultimo_ping = agora
 					_send("PING")
+				_andar_porta(agora)
 
 
 ## Na TV Box a lista do USB vem do Android (pode levar alguns ms numa TV
@@ -220,7 +251,7 @@ func _procurar(agora: int, lista := "") -> void:
 const NOMES_CHIP := {"ch34x": "CH340", "cdc": "USB original", "ftdi": "FTDI", "cp210x": "CP2102"}
 
 
-## vendor:produto do aparelho (a permissão é pedida uma vez por Arduino)
+## vendor:produto do aparelho
 func _chave_de(lista: String, nome: String) -> String:
 	for linha in lista.split("\n", false):
 		var p: PoolStringArray = linha.split("|")
@@ -238,7 +269,7 @@ func _tipo_de(lista: String, nome: String) -> String:
 
 
 ## A janela de permissão USB do Android: UMA vez por Arduino, sozinha, na
-## tela de espera; depois, só quando o operador pede (menu).
+## tela de espera; depois, só quando o operador pede (menu, instalação).
 func _pedir_permissao(nome: String, chave: String, agora: int) -> void:
 	# UMA JANELA SÓ: ao encaixar o Arduino o próprio Android já pergunta
 	# ("Abrir o Strike Kids com este aparelho USB?" - com "Usar por padrão",
@@ -253,7 +284,9 @@ func _pedir_permissao(nome: String, chave: String, agora: int) -> void:
 		return   # uma janela do Android por vez
 	if _pedir_agora:
 		_pedir_agora = false
-	elif not _janelas_ok or _ja_pediu(chave):
+	elif not _janelas_ok or _ja_pediu(chave) or not Ajustes.instalacao_feita():
+		# (antes da INSTALAÇÃO nenhuma janela abre sozinha: quem pede é ela,
+		# com alguém apertando OK - scripts/instalacao.gd)
 		return
 	_marcar_pedido(chave)
 	_janela_ate = agora + JANELA_MAX_MS
@@ -274,7 +307,7 @@ func _timer_real(segundos: float) -> SceneTreeTimer:
 	return get_tree().create_timer(segundos * Engine.time_scale, true)
 
 
-## O operador pediu (testes do Arduino no menu): a janela pode abrir de novo.
+## O operador pediu (testes do Arduino no menu, instalação): a janela abre já.
 func pedir_permissao_agora() -> void:
 	if _plugin == null or connected:
 		return
@@ -286,9 +319,16 @@ func janela_aberta() -> bool:
 	return _janela_ate > 0 and Time.get_ticks_msec() < _janela_ate
 
 
+## O Arduino está no USB sem permissão? (a instalação pede a janela)
+func sem_permissao() -> bool:
+	return _plugin != null and not connected and not _visto_sem_permissao.empty() and _fase == "procurando"
+
+
 func _fechou_janela() -> void:
 	if _janela_ate > 0:
 		_janela_ate = 0
+		# a resposta da janela vale já: procura de novo sem esperar
+		_ultima_procura = -PROCURAR_MS
 		emit_signal("janela_android", "")
 
 
@@ -339,7 +379,9 @@ func _desconectar() -> void:
 	firmware = ""
 	sensores = ""
 	ponte = ""
+	info = ""
 	_last_led_sent = ""
+	_porta_enviada = -1
 	_fase = "procurando"
 	_ultima_procura = Time.get_ticks_msec()
 	if estava:
@@ -353,8 +395,8 @@ func _receber(linha: String, agora: int) -> void:
 	if linha.begins_with("OLA:") or linha.begins_with("PONG:") or linha.begins_with("READY:"):
 		var fw := linha.substr(linha.find(":") + 1)
 		# OLA = o Arduino acabou de LIGAR. Se ele reiniciou sozinho com o USB
-		# aberto (ruído do motor, queda de tensão), voltou com a porta
-		# fechada e sem o teste/LEDs: manda tudo de novo, como numa conexão.
+		# aberto (ruído do motor, queda de tensão), voltou sem o teste/LEDs e
+		# sem saber quem é o jogo: manda tudo de novo, como numa conexão.
 		if not connected or fw != firmware or linha.begins_with("OLA:"):
 			_conectou(fw)
 		return
@@ -369,6 +411,9 @@ func _receber(linha: String, agora: int) -> void:
 			_pulsar(ACOES_SENSOR[n - 1])
 			emit_signal("sensor", n)
 		return
+	if linha.begins_with("FICHA:"):
+		_ficha_numerada(linha.substr(6))
+		return
 	match linha:
 		"CFG":
 			botoes["CFG"] += 1
@@ -377,9 +422,8 @@ func _receber(linha: String, agora: int) -> void:
 			botoes["START"] += 1
 			_pulsar("input_start")
 		"FICHA":
-			botoes["FICHA"] += 1
-			_pulsar("input_credit")
-			emit_signal("mudou")
+			# (firmware 3 e 4: a ficha sem número)
+			_contar_ficha()
 		"PORTA:ABERTA", "PORTA:FECHADA":
 			var aberta := linha == "PORTA:ABERTA"
 			porta_aberta = aberta != bool(Ajustes.valor("arduino", "porta_invertida"))
@@ -402,7 +446,30 @@ func _receber(linha: String, agora: int) -> void:
 				emit_signal("mudou")
 			elif linha.begins_with("AVISO:"):
 				aviso = linha.substr(6)
+				if aviso == "SEM_JOGO":
+					# o jogo ficou parado tempo demais e o Arduino fechou a
+					# porta: o pedido do jogo vai de novo
+					_porta_enviada = -1
 				emit_signal("mudou")
+
+
+## FICHA:<n> (firmware 5): confirma SEMPRE (o Arduino repete até ouvir o
+## FICHA:OK) e conta cada número uma vez só.
+func _ficha_numerada(numero: String) -> void:
+	if not numero.is_valid_integer():
+		return
+	var n := int(numero)
+	_send("FICHA:OK:%d" % n)
+	if n == _ultima_ficha:
+		return   # a mesma de novo: a confirmação anterior se perdeu
+	_ultima_ficha = n
+	_contar_ficha()
+
+
+func _contar_ficha() -> void:
+	botoes["FICHA"] += 1
+	_pulsar("input_credit")
+	emit_signal("mudou")
 
 
 ## Godot 3: String não tem reverse().
@@ -419,13 +486,18 @@ func _conectou(fw: String) -> void:
 	firmware = fw
 	_fase = "conectado"
 	_falhou.clear()
+	_visto_sem_permissao.clear()
 	if fw.begins_with("STRIKE_KIDS"):
 		_set_status("Arduino conectado (%s): sensores, botão e porta OK" % tipo)
 		ponte = ""
+		# quem é o jogo, antes de tudo: as fichas da fila já podem vir
+		_send("FICHAS:SYNC")
 		enviar_ponte()   # antes da porta: ela já anda no tempo/fim de curso do menu
-		_enviar_porta()
+		# a porta vai pelo _andar_porta (só o que o jogo já decidiu)
+		_porta_enviada = -1
 		_send("TESTE:1" if _teste else "TESTE:0")
 		_send("INFO?")
+		_send("PORTA?")
 	else:
 		_set_status("Arduino com o firmware ANTIGO (só LEDs): grave o arduino 1_RELE_principal (ou 2_PONTE_H)")
 	_send(_led_state)
@@ -453,28 +525,65 @@ func _soltar(acao: String) -> void:
 
 
 # ================================================================ porta
-## O jogo pede a porta aberta (depois do START) ou fechada (espera, fim,
-## menu). Vale também se o Arduino conectar depois: ele recebe ao conectar.
+## O jogo diz como quer a porta (aberta ou fechada). Pode chamar quantas
+## vezes quiser, com o mesmo valor ou trocando: só o que ficar FIRME sai
+## para o Arduino (_andar_porta), e só quando for diferente do que já foi.
 func porta(abrir: bool) -> void:
-	if abrir == porta_quer and connected:
+	if _porta_decidida and abrir == porta_quer:
 		return
+	_porta_decidida = true
 	porta_quer = abrir
-	_enviar_porta()
+	_porta_mudou_ms = Time.get_ticks_msec()
+	emit_signal("mudou")
 
 
 ## O operador trocou "porta invertida": manda de novo, do jeito certo.
 func reenviar_porta() -> void:
-	_enviar_porta()
+	_porta_enviada = -1
+	_porta_mudou_ms = Time.get_ticks_msec()
 
 
-func _enviar_porta() -> void:
-	if not completo():
+## (a cada quadro, conectado) O pedido da porta para o Arduino:
+##   1. o jogo ainda não decidiu: nada (ligar a máquina não mexe no relé);
+##   2. pedido novo: espera ficar firme e manda UMA vez;
+##   3. mandou e o Arduino não confirmou: repete de tempos em tempos (a
+##      linha pode ter se perdido; repetir não dá pulso a mais).
+func _andar_porta(agora: int) -> void:
+	if not _porta_decidida or not completo():
 		return
+	var quer := 1 if porta_quer else 0
+	if quer != _porta_enviada:
+		if agora - _porta_mudou_ms >= PORTA_FIRME_MS:
+			if _porta_enviada >= 0:
+				porta_pulsos += 1
+			_porta_reenvios = 0
+			_enviar_porta(agora)
+	elif porta_aberta != porta_quer and agora - _porta_envio_ms >= PORTA_REENVIO_MS \
+			and _porta_reenvios < PORTA_REENVIOS_MAX and aviso != "PORTA_TRAVOU":
+		_porta_reenvios += 1
+		_enviar_porta(agora)
+
+
+func _enviar_porta(agora: int) -> void:
+	_porta_enviada = 1 if porta_quer else 0
+	_porta_envio_ms = agora
 	var abre := porta_quer != bool(Ajustes.valor("arduino", "porta_invertida"))
 	_send("PORTA:ABRE" if abre else "PORTA:FECHA")
 
 
-## A versão do firmware (STRIKE_KIDS:3 -> 3; 0 = sem Arduino ou o antigo).
+## Relé de PULSO: a porta de verdade está ao contrário do que o jogo mostra
+## (mexeram nela com a mão, o Arduino foi gravado com ela aberta). O Arduino
+## troca só a lembrança dele, sem pulso — e então dá o pulso que deixa a
+## porta como o jogo quer.
+func acertar_porta() -> bool:
+	if not rele_de_pulso():
+		return false
+	_send("PORTA:ACERTA")
+	_porta_envio_ms = Time.get_ticks_msec()
+	return true
+
+
+## A versão do firmware (STRIKE_KIDS:5 -> 5; 0 = sem Arduino ou o antigo).
 func versao() -> int:
 	if not completo():
 		return 0
@@ -482,9 +591,15 @@ func versao() -> int:
 
 
 ## O Arduino é o da versão do RELÉ/SERVO (arduino/1_RELE_principal, sem ponte H):
-## confirma a porta na hora e ignora o tempo do motor e o fim de curso.
+## ignora o tempo do motor e o fim de curso.
 func sem_ponte() -> bool:
 	return completo() and info.find(":PONTE_H=0:") >= 0
+
+
+## O relé da porta é de PULSO (firmware 5, RELE_PULSO 1): um pulso troca a
+## porta de posição.
+func rele_de_pulso() -> bool:
+	return completo() and info.find(":PULSO=1") >= 0
 
 
 ## A ponte H como o menu do operador escolheu, no jeito da resposta do
@@ -495,7 +610,7 @@ func ponte_pedida() -> String:
 
 
 ## O tempo do motor e o fim de curso (menu do operador) para o Arduino, que
-## guarda na EEPROM e responde PONTE:TEMPO:...:FC:... (o firmware 2 ignora).
+## guarda na EEPROM e responde PONTE:TEMPO:...:FC:... (o do relé ignora).
 func enviar_ponte() -> void:
 	if not completo():
 		return

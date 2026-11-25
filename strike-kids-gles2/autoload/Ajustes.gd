@@ -23,6 +23,10 @@ const PADRAO := {
 		"modo_livre": true,      # sem ficha e sem trava: a bola sempre começa
 		"creditos_por_partida": 1,  # fichas por JOGADOR (1 ficha = 1 jogador, 2 = Bob x Mia)
 		"tempo_inatividade": 45, # segundos sem jogar até o aviso
+		# MODO FICHAS: com crédito sobrando e ninguém jogando, a trava das
+		# bolas FECHA depois destes minutos (0 = nunca). O crédito fica
+		# guardado: outra ficha ou o START abrem de novo.
+		"fechar_sem_jogar": 3,
 		"demo": true,
 		"foto": true,            # foto das crianças com a câmera da máquina
 		"camera_giro": 0,        # 0, 90, 180, 270 (câmera montada de lado)
@@ -32,6 +36,11 @@ const PADRAO := {
 		"musica": 0.8,
 		"efeitos": 1.0,
 		"som_na_demo": true,
+	},
+	"android": {
+		# a INSTALAÇÃO da TV Box (scripts/instalacao.gd) já foi feita: as
+		# janelas do Android não aparecem mais sozinhas
+		"instalacao_feita": false,
 	},
 	"arduino": {
 		"porta_invertida": false,     # a trava abre quando devia fechar? troca aqui
@@ -86,6 +95,9 @@ var creditos := 0
 func _ready() -> void:
 	pause_mode = Node.PAUSE_MODE_PROCESS
 	_cfg.load(ARQUIVO)
+	# os créditos ficam guardados: a luz piscou (ou a TV reiniciou o jogo)
+	# e a ficha já paga não se perde
+	creditos = Compat.imax(0, int(_cfg.get_value("caixa", "creditos", 0)))
 	_medir_de_novo()
 
 
@@ -186,6 +198,8 @@ func definir(secao: String, chave: String, v) -> void:
 
 func restaurar_padrao() -> void:
 	for secao in PADRAO:
+		if secao == "android":
+			continue   # a instalação da TV Box continua feita
 		for chave in PADRAO[secao]:
 			_cfg.set_value(secao, chave, PADRAO[secao][chave])
 	_marcar_antisserrilhado()
@@ -297,7 +311,27 @@ func fichas_por_jogador() -> int:
 # ---------------------------------------------------------------- créditos
 func adicionar_credito() -> void:
 	creditos += 1
-	contar("moedas")
+	_cfg.set_value("caixa", "creditos", creditos)
+	contar("moedas")   # (já grava o arquivo, sem parar o jogo)
+
+
+## A INSTALAÇÃO da TV Box já foi feita (no PC: sempre).
+func instalacao_feita() -> bool:
+	return OS.get_name() != "Android" or bool(valor("android", "instalacao_feita"))
+
+
+## Menu do operador: ZERAR CRÉDITOS (fichas de teste, crédito esquecido).
+func zerar_creditos() -> void:
+	creditos = 0
+	_cfg.set_value("caixa", "creditos", 0)
+	_salvar()
+	emit_signal("mudaram")
+
+
+## Modo fichas: minutos com crédito e sem ninguém jogar até a trava fechar
+## (0 = nunca).
+func fechar_sem_jogar() -> float:
+	return max(0.0, float(valor("jogo", "fechar_sem_jogar"))) * 60.0
 
 
 func pode_comecar() -> bool:
@@ -319,6 +353,8 @@ func jogadores_pagos() -> int:
 func gastar_creditos(jogadores: int) -> void:
 	if not modo_livre():
 		creditos = Compat.imax(0, creditos - _fichas_por_jogador() * jogadores)
+		_cfg.set_value("caixa", "creditos", creditos)
+		_salvar()
 
 
 # ---------------------------------------------------------------- recorde

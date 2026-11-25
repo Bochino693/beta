@@ -79,6 +79,73 @@ O QUE MUDOU PARA RODAR NA OPENGL ES 2.0
     Godot 4 (nao substitui).
 
 
+VERSAO 7.7: LIGA DIRETO NO JOGO, PERMISSOES UMA VEZ SO E RELE DE PULSO
+------------------------------------------------------------------------
+  * A TV BOX LIGA DIRETO NO JOGO, SEM PASSAR PELO LANCADOR DELA: a tela
+    inicial do Strike Kids agora FICA POR BAIXO do jogo (fundo preto,
+    "Abrindo o Strike Kids..."), como nas maquinas de quiosque. Antes ela
+    fechava na hora; no boot o Android abria a tela inicial varias vezes
+    seguidas, o jogo achava que era o operador apertando HOME 5 vezes e
+    SAIA PARA O LANCADOR DA TV - era o "mesmo pondo o jogo como padrao,
+    vai pro launcher". Agora: o jogo fechou ou caiu = abre de novo; HOME =
+    volta ao jogo; o HOME 5 vezes so vale com a TV ligada ha mais de 2
+    minutos. Caiu 5 vezes em 2 minutos: para e mostra "OK abre de novo,
+    VOLTAR 3 vezes = tela da TV".
+  * NENHUMA JANELA DO ANDROID ABRE SOZINHA: antes, a cada vez que o jogo
+    abria sem ser a tela inicial, ele mesmo abria a escolha da tela
+    inicial ou os AJUSTES do Android - na maquina sem controle remoto a
+    TV Box ficava parada nos ajustes ou no lancador ("corre pro sistema").
+  * INSTALACAO UMA VEZ SO (scripts/instalacao.gd): na primeira vez que o
+    jogo abre aparece "PRIMEIRA INSTALACAO: aperte OK no controle remoto".
+    Com o OK, uma janela por vez, com o aviso do que tocar: CAMERA,
+    NOTIFICACOES (Android 13+), ARDUINO ("Sempre abrir" / "Usar por
+    padrao": o Android da a permissao sozinho a cada boot), SOBREPOR A
+    OUTROS APPS (Android 10+, se a TV tiver) e TELA INICIAL (STRIKE KIDS +
+    SEMPRE). O que ja esta permitido e pulado; no fim NUNCA MAIS pergunta.
+    Sem ninguem apertar OK em 60 s, nenhuma janela abre (o jogo segue).
+    Instalado pelo PC (GERAR_APK.bat -TelaInicial: tela inicial + camera
+    + notificacoes + sobrepor pelo adb) nem convida. O menu do operador
+    roda de novo: "> INSTALACAO".
+  * LIGOU NA TOMADA sem o jogo ser a tela inicial: 3 tentativas de abrir
+    (na hora, 3 s e 7 s); Android 10+ sem "sobrepor" mostra o aviso
+    "Toque para abrir o jogo". Abre tambem depois de atualizar o APK.
+  * RELE DE PULSO (arduino/1_RELE_principal, firmware 5): um pulso troca a
+    porta (abre <-> fecha). Ao energizar o Arduino o rele NAO mexe (a
+    posicao fica guardada); pedido repetido nao pulsa; abre e fecha juntos
+    se anulam; 1 s de descanso entre dois pulsos. A trava: modo livre
+    sempre aberta; modo fichas fechada sem credito, 1 pulso abre com o
+    credito, 1 pulso fecha no fim (sem credito sobrando) ou com o credito
+    parado ("Fechar a trava sem jogar", 3 min; ficha ou START abrem de
+    novo). Entrar no menu do operador nao mexe na porta. TESTE DA PORTA:
+    Z ou B = ACERTAR (a porta de verdade ficou ao contrario).
+  * FICHAS QUE NAO SE PERDEM: o Arduino guarda cada ficha e repete ate o
+    jogo confirmar (ficha posta com a TV Box ligando chega quando o jogo
+    abre); os creditos ficam guardados no jogo (a luz piscou: a ficha paga
+    continua la). Menu: "> ZERAR CREDITOS".
+  * CACAPA TEMATICA CLARA: as tiras da boca da cacapa (o desenho de cada
+    cenario) saiam a 30% - a placa via a frente delas como o verso. Agora o
+    desenho aparece inteiro, com um brilho descendo da luz da boca; o tunel
+    e azul noite (nao preto) e os lados da boca tem a cor das paredes do
+    cenario. (Um desenho a menos por quadro.)
+  * O OVO DO LADO DA RAMPA CHOCA (dinos): treme, racha em zigue-zague, a
+    casca pula para o lado e um FILHOTE de dinossauro espia, olha para os
+    lados e volta - um ovo de cada vez. So enquanto choca sao 2 desenhos a
+    mais; as pecas sao preparadas na capa (nada engasga na hora).
+  * CASTELINHOS (torres do parque): o lado na sombra ficava azul-marinho;
+    agora a sombra e mais clara (so uma conta na luz do material).
+  * BOB E MIA MAIS SOLTOS: por cima da animacao, parados eles balancam de
+    leve, a cabeca e os bracos chegam DEPOIS do corpo (mola, como desenho
+    animado) e o corpo estica subindo e amassa ao cair - so umas contas por
+    quadro, nada a mais para a placa de video.
+  * ARDUINO: cada coisa no seu tempo (sensores, fichas, rele, LEDs, vigia
+    do jogo), nada espera nada; os LEDs esperam o comando do USB terminar
+    de chegar; linha pela metade (ruido) e descartada. Testes:
+    bash tools/testes/arduino/testar_firmware.sh (firmware no PC) e
+    godot3 --path . -- --porta-rele=fichas_fechada (o JOGO de verdade com um
+    Arduino simulado contando cada pulso: livre_aberta, livre_fechada,
+    fichas_aberta, fichas_fechada).
+
+
 A MAQUINA SEM BOTOES: A FICHA ABRE A TRAVA E A BOLA E O START
 -------------------------------------------------------------
   * MODO LIVRE (menu: "Modo livre (sem ficha e sem trava)" = SIM): SEM
@@ -1233,15 +1300,15 @@ gerar de novo no Windows: GERAR_APK.bat (veja "COMO GERAR O APK").
     TV Boxes com Android de 32 bits, comum nas com Mali-450).
   - Aparece no inicio da TV Box (icone de TV) e no menu de apps.
   - Ja vem com o ARDUINO (StrikeSerial) e com a CAMERA (StrikeCamera:
-    camera do sistema e Camera2). PERMISSOES UMA VEZ SO: na 1a vez o
-    Android pergunta da CAMERA (Permitir) e do Arduino no USB (marque
-    "Usar por padrao" e OK). O jogo pede cada uma so uma vez, so na tela
-    de espera e uma janela de cada vez; a da camera o Android guarda para
-    sempre e a do Arduino tambem, com "Usar por padrao" marcado. (A webcam
-    entra pela camera do sistema: nao pede permissao de USB.)
-    Se a versao Godot 4 tambem estiver instalada, o Android pode perguntar
-    qual app abre o Arduino: escolha o Strike Kids (OpenGL ES 2.0) e
-    marque "Usar por padrao" (ou desinstale a outra versao).
+    camera do sistema e Camera2). PERMISSOES UMA VEZ SO: na 1a vez o jogo
+    mostra "PRIMEIRA INSTALACAO: aperte OK no controle remoto" e pede,
+    uma janela por vez, a CAMERA, as NOTIFICACOES, o ARDUINO (marque
+    "Usar por padrao" / "Sempre abrir"), SOBREPOR A OUTROS APPS e a TELA
+    INICIAL (STRIKE KIDS + SEMPRE). Depois nunca mais pergunta.
+    Se a versao Godot 4 (ou um "Launch on Boot") tambem estiver instalada,
+    o Android pode perguntar qual app abre o Arduino ou qual e a tela
+    inicial a cada vez que liga: DESINSTALE a outra versao e o Launch on
+    Boot da TV Box da maquina.
   - Assinado com a chave do projeto (tools/android/strikekids.keystore).
   - Na primeira vez, no menu do operador, rode o TESTE DE DESEMPENHO: ele
     mede a TV Box e escolhe a qualidade. "Mostrar desempenho na tela"
@@ -1250,36 +1317,31 @@ gerar de novo no Windows: GERAR_APK.bat (veja "COMO GERAR O APK").
 
 ABRIR O JOGO SOZINHO AO LIGAR A TV
 ----------------------------------
-O jogo e uma TELA INICIAL do Android: escolhido uma vez, a TV (ou TV Box)
-abre o Strike Kids sozinha - ligando na tomada, pelo controle remoto
-(volta da espera) e a cada HOME. Nao precisa de outro app (o "Launch on
-Boot" pode ser DESLIGADO ou desinstalado: dois apps abrindo o jogo ao
-mesmo tempo so atrapalham).
+O jogo e a TELA INICIAL do Android: escolhido uma vez, a TV Box liga DIRETO
+no Strike Kids (o lancador dela nem carrega) - na tomada, pelo controle
+remoto (volta da espera) e a cada HOME. Nao precisa de outro app: o
+"Launch on Boot" deve ser DESINSTALADO (dois apps abrindo o jogo ao mesmo
+tempo so atrapalham).
   1. Instale o APK (por cima do antigo: as configuracoes ficam) e abra o
-     jogo uma vez.
-  2. Na tela de espera o jogo pede sozinho: o Android pergunta qual e a
-     tela inicial (ou "Definir Strike Kids como app de tela inicial?").
-     Escolha STRIKE KIDS e aperte SEMPRE (ou "Definir como padrao").
-     Nao apareceu nada? Aperte HOME no controle remoto: escolha STRIKE
-     KIDS e SEMPRE.
-     Nao perguntou (abriu o inicio da TV de novo)? Abra o jogo, entre no
-     menu do operador e escolha "> ABRIR O JOGO AO LIGAR A TV": ele diz
-     SIM ou NAO e, com OK, abre a escolha do Android (a janela "Definir
-     como app de tela inicial", os ajustes da tela inicial ou a janela
-     "Sempre / So uma vez"). Se abrir a pagina do app do inicio da TV:
-     aperte LIMPAR PADROES (em "Abrir por padrao"), volte e aperte HOME >
-     STRIKE KIDS > SEMPRE.
-  3. Confira: tire a TV da tomada, ligue de novo - abre o jogo. Desligue
-     pelo controle, espere 15 s e ligue - abre o jogo (ele reinicia do
-     zero quando a tela fica 10 s ou mais apagada).
-  ULTIMO RECURSO, PELO PC (TV com a depuracao USB/rede ligada):
+     jogo uma vez, com o controle remoto na mao.
+  2. "PRIMEIRA INSTALACAO": aperte OK. Na janela da tela inicial escolha
+     STRIKE KIDS e SEMPRE (ou "Definir como padrao").
+     Ja tinha passado a instalacao? Menu do operador > "> INSTALACAO" (ou
+     "> ABRIR O JOGO AO LIGAR A TV", que diz SIM ou NAO e abre a escolha).
+     Se abrir a pagina do app do inicio da TV: aperte LIMPAR PADROES (em
+     "Abrir por padrao"), volte e aperte HOME > STRIKE KIDS > SEMPRE.
+  3. Confira: tire a TV Box da tomada e ligue de novo - aparece "Abrindo o
+     Strike Kids..." e o jogo, sem o lancador da TV.
+  PELO PC, SEM PERGUNTA NENHUMA (TV Box com a depuracao USB/rede ligada):
+     GERAR_APK.bat -TelaInicial   (instala, faz do jogo a tela inicial e
+     da as permissoes da camera, das notificacoes e de sobrepor)
+  ou so a tela inicial:
      adb shell cmd package set-home-activity com.lazersport.strikekids.gles2/com.lazersport.strikeserial.StrikeInicioAtivo
-  ou gere e instale com: GERAR_APK.bat -TelaInicial
 PARA USAR A TV (ajustes, Wi-Fi, outros apps): no menu do operador,
-"> SAIR PARA A TELA DA TV" - ou aperte HOME 5 vezes seguidas no controle
-remoto. Um HOME volta ao jogo. Para a TV deixar de abrir o jogo: nos
-ajustes do Android, tela inicial (ou "Apps padrao") > o inicio da TV; ou
-desinstale o Strike Kids.
+"> SAIR PARA A TELA DA TV" - ou HOME 5 vezes seguidas no controle remoto
+(com a TV ligada ha mais de 2 minutos). Um HOME volta ao jogo. Para a TV
+deixar de abrir o jogo: ajustes do Android, tela inicial (ou "Apps
+padrao") > o inicio da TV; ou desinstale o Strike Kids.
 
 
 COMO TESTAR NO PC

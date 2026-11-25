@@ -450,7 +450,21 @@ public class StrikeSerial extends GodotPlugin {
 
 	@Override
 	public void onMainDestroy() {
+		InicioDaTv.naFrente = false;
 		fechar();
+	}
+
+	@Override
+	public void onMainResume() {
+		Activity a = getActivity();
+		if (a != null) {
+			InicioDaTv.jogoNaFrente(a);
+		}
+	}
+
+	@Override
+	public void onMainPause() {
+		InicioDaTv.naFrente = false;
 	}
 
 	// ------------------------------------------------------------ tela
@@ -558,6 +572,42 @@ public class StrikeSerial extends GodotPlugin {
 			return InicioDaTv.escolher(a, true);
 		} catch (Throwable t) {
 			anotar("tela inicial: " + t);
+			return "";
+		}
+	}
+
+	/** A versão do Android (API: 33 = Android 13 - a partir dela, a permissão das notificações). */
+	@UsedByGodot
+	public int api() {
+		return Build.VERSION.SDK_INT;
+	}
+
+	/** INSTALAÇÃO: o que falta para abrir sozinho ao ligar ("inicio", "sobrepor"; "" = nada). */
+	@UsedByGodot
+	public String falta_ao_ligar() {
+		Activity a = getActivity();
+		if (a == null) {
+			return "";
+		}
+		try {
+			return InicioDaTv.falta(a);
+		} catch (Throwable t) {
+			anotar("instalacao: " + t);
+			return "";
+		}
+	}
+
+	/** INSTALAÇÃO (alguém apertou OK): a página "sobrepor a outros apps" ("ajustes" ou ""). */
+	@UsedByGodot
+	public String pedir_sobrepor() {
+		Activity a = getActivity();
+		if (a == null) {
+			return "";
+		}
+		try {
+			return InicioDaTv.pedirSobrepor(a);
+		} catch (Throwable t) {
+			anotar("instalacao: " + t);
 			return "";
 		}
 	}

@@ -38,6 +38,8 @@ const ITENS := [
 	["Giro da câmera", "jogo", "camera_giro", "lista", [0, 90, 180, 270]],
 	["Espelhar a câmera", "jogo", "camera_espelho", "bool", []],
 	["Fichas por jogador", "jogo", "creditos_por_partida", "int", [1, 5]],
+	["Fechar a trava sem jogar (min; 0 = nunca)", "jogo", "fechar_sem_jogar", "int", [0, 30]],
+	["> ZERAR CRÉDITOS", "", "creditos", "acao", []],
 	["Tempo sem jogar até o aviso (s)", "jogo", "tempo_inatividade", "int", [20, 180]],
 	["Volume da música", "som", "musica", "vol", []],
 	["Volume dos efeitos", "som", "efeitos", "vol", []],
@@ -64,6 +66,7 @@ const ITENS := [
 	["Porta: fim de curso (micro-switch A3/A4)", "arduino", "porta_fim_de_curso", "bool", []],
 	["> TESTE DA CÂMERA", "", "camera", "acao", []],
 	["> CONFIGURAR BOTÕES DA PLACA", "", "botoes", "acao", []],
+	["> INSTALAÇÃO (câmera, Arduino, abrir ao ligar)", "", "instalacao", "acao", []],
 	["> ABRIR O JOGO AO LIGAR A TV", "", "inicio", "acao", []],
 	["> SAIR PARA A TELA DA TV (ajustes, outros apps)", "", "sair_tv", "acao", []],
 	["> ZERAR RECORDES", "", "recordes", "acao", []],
@@ -88,6 +91,7 @@ var _camera_tela: TextureRect
 var _camera_ms := 0
 var _camera_t := 0.0
 var _porta := false            # teste da porta
+var _porta_antes := false      # como a porta estava antes do teste (volta assim)
 var _calibrando := false       # calibração dos sensores
 var _inicio := false           # abrir o jogo ao ligar a TV
 var _inicio_estado := ""       # "jogo", "escolher", "outra|Nome" ("" = fora da TV Box)
@@ -103,9 +107,9 @@ func _ready() -> void:
 	# Godot 3: sem Callable, a conexão é pelo nome do método
 	Fotos.connect("mudou", self, "_atualizar")
 	ArduinoBridge.connect("mudou", self, "_arduino_mudou")
-	# no menu a porta das bolas fica fechada; aqui pode aparecer a janela
-	# de permissão USB do Arduino
-	ArduinoBridge.porta(false)
+	# o menu NÃO mexe na porta das bolas (abrir o menu não dá pulso no
+	# relé): ela fica como o jogo deixou, e o jogo decide de novo na saída.
+	# Aqui pode aparecer a janela de permissão USB do Arduino.
 	ArduinoBridge.na_espera(true)
 	_inicio_estado = tela_inicial()
 	_atualizar()
@@ -204,6 +208,8 @@ func _valor_texto(item: Array) -> String:
 	if item[3] == "acao":
 		if item[2] == "inicio" and _inicio_estado != "":
 			return "SIM" if _inicio_estado == "jogo" else "NÃO"
+		if item[2] == "creditos":
+			return "%d" % Ajustes.creditos
 		return ""
 	var v = Ajustes.valor(item[1], item[2]) if item[1] != "tela" else Tela.giro
 	if item[2] == "cenario":
@@ -357,6 +363,13 @@ func comando(cmd: String) -> void:
 		Sons.tocar("selecao")
 		_mostrar_porta()
 		return
+	if _porta and (cmd == "menos" or cmd == "mais"):
+		# relé de pulso: a porta de verdade está ao contrário do que a tela
+		# diz - o Arduino acerta a lembrança e dá o pulso que falta
+		if ArduinoBridge.acertar_porta():
+			Sons.tocar("pop")
+		_mostrar_porta()
+		return
 	if _inicio and cmd == "ok" and _inicio_estado != "" and _inicio_estado != "jogo":
 		# OK: abre a escolha da tela inicial do Android
 		_inicio_passo = str(Engine.get_singleton("StrikeSerial").escolher_tela_inicial())
@@ -364,7 +377,7 @@ func comando(cmd: String) -> void:
 		_mostrar_inicio()
 		return
 	if _teste or _camera or _porta or _calibrando or _inicio:
-		if cmd == "sair" or cmd == "ok":
+		if cmd == "sair" or (cmd == "ok" and not _porta):
 			_sair_do_teste()
 		return
 	match cmd:
@@ -442,8 +455,9 @@ func _acao() -> void:
 		"porta":
 			ArduinoBridge.pedir_permissao_agora()
 			_porta = true
+			# (começa como a porta está: entrar no teste não dá pulso)
+			_porta_antes = ArduinoBridge.porta_quer
 			_entrar_no_teste()
-			ArduinoBridge.porta(false)
 			_mostrar_porta()
 		"camera":
 			_camera = true
@@ -476,12 +490,23 @@ func _acao() -> void:
 				_inicio = true
 				_entrar_no_teste()
 				_mostrar_inicio()
+		"instalacao":
+			# volta ao jogo e roda a instalação (uma janela do Android por vez)
+			var jogo_i: Node = get_tree().current_scene
+			_sair()
+			if jogo_i != null and jogo_i.has_method("instalar"):
+				jogo_i.call_deferred("instalar", true)
 		"desempenho":
 			# volta ao jogo e roda o teste
 			Ajustes.definir("video", "testar", true)
 			_sair()
 		"recordes":
 			Ajustes.zerar_recordes()
+			Sons.tocar("pop")
+		"creditos":
+			# as fichas de teste, ou o crédito que ficou esquecido: zera (na
+			# saída do menu a trava fecha, se o modo é o de fichas)
+			Ajustes.zerar_creditos()
 			Sons.tocar("pop")
 		"padrao":
 			Ajustes.restaurar_padrao()
@@ -506,7 +531,8 @@ func _sair_do_teste() -> void:
 	if _teste:
 		ArduinoBridge.modo_teste(false)
 	if _porta:
-		ArduinoBridge.porta(false)
+		# a porta volta para onde estava antes do teste
+		ArduinoBridge.porta(_porta_antes)
 	_teste = false
 	_camera = false
 	_porta = false
@@ -541,8 +567,12 @@ func _mostrar_porta() -> void:
 		if ArduinoBridge.aviso == "PORTA_TRAVOU":
 			t += "A PORTA NÃO CHEGOU: confira o motor, a ponte H e o fim de curso\n\n"
 		t += _texto_ponte() + "\n\n"
-		t += "C ou START: abre / fecha\nCONFIGURAÇÃO: sai (a porta fecha)\n\n"
-		t += "Abriu quando devia fechar? Ligue \"Porta invertida\" no menu\n(ponte H com fim de curso: inverta os fios do motor)."
+		t += "C ou START: abre / fecha\nCONFIGURAÇÃO: sai (a porta volta como estava)\n\n"
+		if ArduinoBridge.rele_de_pulso():
+			t += "Mudanças mandadas (1 pulso cada): %d\n" % ArduinoBridge.porta_pulsos
+			t += "A porta de verdade está AO CONTRÁRIO do que diz aqui?\nZ ou B: ACERTAR (o relé dá o pulso que falta)."
+		else:
+			t += "Abriu quando devia fechar? Ligue \"Porta invertida\" no menu\n(ponte H com fim de curso: inverta os fios do motor)."
 	else:
 		Compat.tamanho_rotulo(_teste_rotulo, int(30 * u))
 		t += "SEM O ARDUINO\n%s\n\n%s\n\nCONFIGURAÇÃO ou START sai" % [ArduinoBridge.status, _relatorio_arduino()]
@@ -554,6 +584,8 @@ func _mostrar_porta() -> void:
 func _texto_ponte() -> String:
 	if ArduinoBridge.versao() < 3:
 		return "Firmware antigo (versão %d): grave o Arduino da pasta arduino/1_RELE_principal (relé)\nou da arduino/2_PONTE_H (ponte H)" % ArduinoBridge.versao()
+	if ArduinoBridge.rele_de_pulso():
+		return "Arduino do RELÉ DE PULSO: cada mudança = 1 pulso (um abre, outro fecha)\nligar a máquina não dá pulso; pedido repetido também não"
 	if ArduinoBridge.sem_ponte():
 		return "Arduino do RELÉ/SERVO (sem ponte H): confirma a porta na hora\n(\"tempo do motor\" e \"fim de curso\" são só da ponte H)"
 	var fc := bool(Ajustes.valor("arduino", "porta_fim_de_curso"))

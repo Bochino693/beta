@@ -27,6 +27,11 @@ const VISTAS := {
 	# (7.0) de pertinho, o símbolo da Lazer & Sport da fase (na selva, o
 	# pterodáctilo com a placa pendurada pelas patas)
 	"placa": [Vector3(-0.9, 2.5, -5.4), Vector3(-1.75, 2.3, -7.5), 40, 40],
+	# a CAÇAPA das bolas (o fundo do fosso, onde a bola some), de perto
+	"cacapa": [Vector3(0.0, 0.62, -9.2), Vector3(0.0, 0.1, -13.7), 32, 38],
+	# a torre (castelinho) do pilar da direita, de perto (parque: torres de
+	# circo; dinos: o ovo)
+	"torre": [Vector3(0.7, 2.6, -6.6), Vector3(1.93, 3.15, -9.75), 34, 40],
 }
 
 

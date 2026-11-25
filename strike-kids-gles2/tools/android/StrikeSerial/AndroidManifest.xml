@@ -6,8 +6,12 @@
 
     <uses-feature android:name="android.hardware.usb.host" android:required="false" />
 
-    <!-- a TV ligou na tomada: abre o jogo (StrikeLigou) -->
+    <!-- a TV ligou na tomada: abre o jogo (StrikeLigou); Android 10+: só
+         com "sobrepor a outros apps" ou pelo aviso (notificação) -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
 
     <!-- Android 11+: enxergar as telas iniciais da TV (InicioDaTv) -->
     <queries>
@@ -37,9 +41,11 @@
             android:name="com.lazersport.strikeserial.StrikeInicioAtivo"
             android:exported="true"
             android:excludeFromRecents="true"
-            android:noHistory="true"
+            android:launchMode="singleTask"
+            android:taskAffinity="com.lazersport.strikeserial.inicio"
+            android:clearTaskOnLaunch="true"
             android:stateNotNeeded="true"
-            android:theme="@android:style/Theme.Translucent.NoTitleBar">
+            android:theme="@android:style/Theme.Black.NoTitleBar.Fullscreen">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.HOME" />
@@ -52,6 +58,8 @@
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
                 <action android:name="android.intent.action.QUICKBOOT_POWERON" />
+                <action android:name="com.htc.intent.action.QUICKBOOT_POWERON" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
             </intent-filter>
         </receiver>
         <!-- Godot 3.6.3: plugin v1 (no Godot 4 era "org.godotengine.plugin.v2.");
