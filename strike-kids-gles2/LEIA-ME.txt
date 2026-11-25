@@ -79,6 +79,15 @@ O QUE MUDOU PARA RODAR NA OPENGL ES 2.0
     Godot 4 (nao substitui).
 
 
+VERSAO 8.5: O SERVICO PEGA A JANELA DO USB DE QUALQUER JEITO
+------------------------------------------------------------
+  * O servico "Strike Kids: abrir ao ligar e Arduino" aperta o OK mesmo
+    quando a janela mostra so o nome do aparelho (sem o nome do jogo), em
+    portugues ("acessorio USB Serial") ou ingles, e na janela de ESCOLHA
+    (lista de apps): o 1o toque escolhe o Strike Kids, o 2o aperta OK.
+    So aperta em janela do sistema da TV - nunca numa janela de outro app.
+
+
 VERSAO 8.4: O ARDUINO CONECTA SOZINHO A CADA VEZ QUE A TV LIGA
 ---------------------------------------------------------------
   * Esta TV (Android de TV) nao tem "Sempre" na janela do USB: o Android

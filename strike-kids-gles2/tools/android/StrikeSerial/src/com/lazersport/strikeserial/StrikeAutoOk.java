@@ -242,21 +242,68 @@ public class StrikeAutoOk extends AccessibilityService {
 		if (raiz.getPackageName() == null || getPackageName().contentEquals(raiz.getPackageName())) {
 			return false;
 		}
-		// só a janela do USB do Strike Kids
-		String nome = String.valueOf(getApplicationInfo().loadLabel(getPackageManager()));
-		if (raiz.findAccessibilityNodeInfosByText(nome).isEmpty()) {
+		// Só uma janela do SISTEMA (a do USB vem do sistema da TV, nunca de
+		// outro app) - assim o OK não é apertado numa janela qualquer.
+		String pkg = raiz.getPackageName().toString();
+		if (!ehDoSistema(pkg) && !ehLancador(pkg)) {
 			return false;
 		}
-		if (raiz.findAccessibilityNodeInfosByText("USB").isEmpty() && raiz.findAccessibilityNodeInfosByText("usb").isEmpty()) {
+		// É a janela do USB? Ela fala do aparelho USB/Serial, ou mostra o
+		// nome do jogo. (Em português: "...acessório USB Serial"; outras
+		// TVs mostram só o nome do aparelho, sem o nome do app - por isso
+		// basta UMA destas pistas.)
+		String nome = String.valueOf(getApplicationInfo().loadLabel(getPackageManager()));
+		boolean fala = temTexto(raiz, "usb") || temTexto(raiz, "serial")
+			|| temTexto(raiz, "acessóri") || temTexto(raiz, "acessori") || temTexto(raiz, "accessory")
+			|| !raiz.findAccessibilityNodeInfosByText(nome).isEmpty();
+		if (!fala) {
+			return false;
+		}
+		// precisa ter um botão de aceitar (senão não é uma janela de pergunta)
+		AccessibilityNodeInfo botao = acharBotao(raiz, 0);
+		if (botao == null) {
 			return false;
 		}
 		// "Sempre" / "Usar por padrão", nas TVs que têm a caixa
 		marcarCaixas(raiz, 0);
-		AccessibilityNodeInfo botao = acharBotao(raiz, 0);
+		botao = acharBotao(raiz, 0);   // a caixa pode ter trocado os botões de lugar
 		if (botao != null) {
-			Log.i(TAG, "auto ok: aceitando a janela do USB (" + raiz.getPackageName() + ")");
+			Log.i(TAG, "auto ok: aceitando a janela do USB (" + pkg + ")");
 			botao.performAction(AccessibilityNodeInfo.ACTION_CLICK);
+			// numa janela de ESCOLHA (lista de apps) o 1o toque escolhe o app;
+			// confere de novo logo depois para apertar o OK que aparecer
+			h.removeCallbacks(reconfere);
+			h.postDelayed(reconfere, 350);
+			h.postDelayed(reconfere, 1000);
 			return true;
+		}
+		return false;
+	}
+
+	private final Runnable reconfere = new Runnable() {
+		@Override
+		public void run() {
+			conferir();
+		}
+	};
+
+	/** procura um texto (minúsculas) em qualquer pedaço da janela */
+	private boolean temTexto(AccessibilityNodeInfo n, String alvo) {
+		if (n == null) {
+			return false;
+		}
+		CharSequence t = n.getText();
+		if (t != null && t.toString().toLowerCase(Locale.ROOT).contains(alvo)) {
+			return true;
+		}
+		CharSequence d = n.getContentDescription();
+		if (d != null && d.toString().toLowerCase(Locale.ROOT).contains(alvo)) {
+			return true;
+		}
+		for (int i = 0; i < n.getChildCount(); i++) {
+			if (temTexto(n.getChild(i), alvo)) {
+				return true;
+			}
 		}
 		return false;
 	}
@@ -280,16 +327,21 @@ public class StrikeAutoOk extends AccessibilityService {
 		CharSequence txt = n.getText();
 		if (txt != null && !n.isCheckable()) {
 			String t = txt.toString().trim().toLowerCase(Locale.ROOT);
+			String nomeApp = String.valueOf(getApplicationInfo().loadLabel(getPackageManager())).trim().toLowerCase(Locale.ROOT);
+			boolean aceita = t.equals(nomeApp) && !nomeApp.isEmpty();
 			for (String a : ACEITA) {
 				if (t.equals(a)) {
-					// o próprio texto ou quem o contém é o botão
-					AccessibilityNodeInfo b = n;
-					for (int k = 0; b != null && !b.isClickable() && k < 3; k++) {
-						b = b.getParent();
-					}
-					if (b != null && b.isClickable() && b.isEnabled()) {
-						return b;
-					}
+					aceita = true;
+				}
+			}
+			if (aceita) {
+				// o próprio texto ou quem o contém é o botão
+				AccessibilityNodeInfo b = n;
+				for (int k = 0; b != null && !b.isClickable() && k < 3; k++) {
+					b = b.getParent();
+				}
+				if (b != null && b.isClickable() && b.isEnabled()) {
+					return b;
 				}
 			}
 		}
