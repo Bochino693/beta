@@ -434,6 +434,9 @@ func _ligar_roteiro_de_teste() -> void:
 		if a.begins_with("--glifos") and ResourceLoader.exists("res://tools/testes/glifos.gd"):
 			add_child(load("res://tools/testes/glifos.gd").new())
 	for a in OS.get_cmdline_args():
+		if a.begins_with("--tela-fichas") and ResourceLoader.exists("res://tools/testes/tela_fichas.gd"):
+			add_child(load("res://tools/testes/tela_fichas.gd").new())
+			return
 		if a == "--custo-eventos" and ResourceLoader.exists("res://tools/testes/custo_eventos.gd"):
 			add_child(load("res://tools/testes/custo_eventos.gd").new())
 			return
@@ -981,7 +984,8 @@ func _insira_ficha() -> void:
 	if agora - _insira_ms < 1500:
 		return
 	_insira_ms = agora
-	hud.texto_grande("INSIRA FICHA", Color("#FFF6A8"), 1.0, 0.55)
+	# (o botão da espera/do fim já diz INSIRA FICHA: ele pula - nada repetido)
+	hud.lembrar_ficha()
 	Sons.tocar("selecao")
 
 
@@ -1049,7 +1053,6 @@ func _jogada_recebida(zona: String) -> void:
 # ================================================================ abertura e atração
 func _abertura() -> void:
 	estado = E.ABERTURA
-	Fotos.na_partida(false)
 	# (14) NA ABERTURA A TRAVA NÃO MEXE: ela só é decidida na tela inicial
 	# (atração), com o jogo pronto e o Arduino já sabendo que a máquina
 	# ligou - aqui só os textos da espera
@@ -1160,7 +1163,6 @@ func _teste_desempenho() -> void:
 
 func _atracao() -> void:
 	estado = E.ATRACAO
-	Fotos.na_partida(false)   # (partida interrompida: a câmera volta)
 	if _qualidade_salvar:
 		_qualidade_salvar = false
 		if str(Ajustes.valor("video", "qualidade")) == "auto":
@@ -1449,9 +1451,6 @@ func _comecar(lista: Array) -> void:
 	if Fotos.pode_fotografar():
 		if not yield(_sessao_de_fotos(lista), "completed"):
 			return
-	# as fotos já foram tiradas: a câmera descansa até o fim (as jogadas
-	# ficam com o processador todo)
-	Fotos.na_partida(true)
 	hud.configurar_placar(lista)
 	hud.atualizar_placar(placar)
 	Sons.musica("musica_jogo")
@@ -2367,7 +2366,6 @@ func _desempate() -> void:
 # ================================================================ fim de jogo
 func _fim_de_jogo() -> void:
 	estado = E.FIM
-	Fotos.na_partida(false)   # a câmera acorda para a próxima partida
 	# fim da partida: no modo fichas a trava FECHA (as bolas da última
 	# jogada voltam e ficam), a não ser que sobre ficha; no modo livre (sem
 	# trava) fica aberta - a bola começa outra

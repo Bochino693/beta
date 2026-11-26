@@ -79,6 +79,21 @@ O QUE MUDOU PARA RODAR NA OPENGL ES 2.0
     Godot 4 (nao substitui).
 
 
+VERSAO 8.8.5 (FIRMWARE 14, O MESMO): CAMERA DE VOLTA E NADA REPETIDO
+-------------------------------------------------------------------
+  * A CAMERA volta a ficar sempre pronta (a 8.8.2 a desligava na partida e
+    ela nem sempre voltava).
+  * "INSIRA FICHA" UMA VEZ SO: a bola rolada sem ficha faz o botao da espera
+    (ou o do fim) pular - antes aparecia um letreiro grande igual por cima.
+  * Sem o aviso PORTA:LIGOU (o firmware 14 ja sabe: ligou = trava fechada).
+  * O RELE SE MEXENDO COM O ARDUINO SEM ENERGIA (tirando o cabo, a TV Box
+    desligando): nesses instantes NENHUM programa roda no Arduino. E o
+    modulo rele: o comum liga quando a entrada fica "sem sinal". Conserto
+    (uma vez): no modulo com o jumper H/L, ponha em H (HIGH) e no .ino
+    RELE_LIGA_EM_LOW 0; ou alimente o modulo pelo 5V do proprio Arduino e
+    ponha um resistor de 10k entre o IN do modulo e o 5V.
+
+
 VERSAO 8.8.4 + FIRMWARE 14: A TRAVA SEGUE O CREDITO, SEM ADIVINHAR
 -------------------------------------------------------------------
   * FIRMWARE 14 (grave no Arduino): O ARDUINO LIGOU = A TRAVA ESTA

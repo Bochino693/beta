@@ -556,10 +556,6 @@ func _conectou(fw: String) -> void:
 		# quem é o jogo, antes de tudo: as fichas da fila já podem vir
 		_send("FICHAS:SYNC")
 		enviar_ponte()   # antes da porta: ela já anda no tempo/fim de curso do menu
-		# (13) A MÁQUINA ACABOU DE LIGAR: sem energia a trava fecha sozinha -
-		# ela está FECHADA agora. O Arduino passa a saber disso (sem pulso)
-		# antes de qualquer pedido; daqui em diante o crédito manda nela.
-		_avisar_ligou()
 		# a porta (e o modo) vão pelo _andar_porta (só o que o jogo já decidiu)
 		_porta_enviada = -1
 		_modo_enviado = ""
