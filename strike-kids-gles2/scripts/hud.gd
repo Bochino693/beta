@@ -930,32 +930,7 @@ func modo_espera(modo: String) -> void:
 		else:
 			(c.get_node("vezes") as Label).text = "1 BOLA" if i == 0 else "2 BOLAS"
 	_chave_melhores = ""
-	# (9.0) SÓ OS TEXTOS QUE MUDARAM: antes a ficha refazia a tela inteira
-	# (layout), um tranco na TV Box fraca a cada crédito
-	_caber_espera()
-
-
-## Encaixa de novo só os textos da espera que a ficha/modo trocam: o botão
-## "ROLE A BOLA!"/"INSIRA FICHA" e o "1 BOLA"/"1 FICHA" dos cartões (as
-## posições e tamanhos ficam os que o layout já deu).
-func _caber_espera() -> void:
-	if _aperte_botao == null or _aperte_botao.rect_size.x <= 0.0:
-		layout()
-		return
-	var bw: float = _aperte_botao.rect_size.x
-	_caber(_aperte, 84 * u, bw - 90 * u)
-	_caber(_aperte_sub, 34 * u, bw - 70 * u)
-	for i in _jog_cartoes.size():
-		var c: Painel3D = _jog_cartoes[i]
-		var cw: float = c.rect_size.x
-		var vezes := c.get_node("vezes") as Label
-		var bt := c.get_node("botao") as Painel3D
-		var bbw := 150 * u
-		var vw := _largura_texto(vezes, vezes.text)
-		var x0 := (cw - (bbw + 14 * u + vw)) / 2
-		bt.rect_position.x = x0
-		vezes.rect_size.x = vw + 10 * u
-		vezes.rect_position.x = x0 + bbw + 14 * u
+	layout()
 
 
 ## "INSIRA FICHA" SEM REPETIR: se o botão da espera (ou o do fim de jogo)

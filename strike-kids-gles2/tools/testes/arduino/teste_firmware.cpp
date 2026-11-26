@@ -76,7 +76,7 @@ int main(int argc, char **argv) {
   iniciar();
   if (c == "tempo") {
     setup(); saida += Serial.out; Serial.out.clear();
-    CONFERE(saida.find("OLA:STRIKE_KIDS:14") != std::string::npos, "OLA ao ligar");
+    CONFERE(saida.find("OLA:STRIKE_KIDS:15") != std::string::npos, "OLA ao ligar");
     rodar(2);
     CONFERE(motor() == -1, "ao ligar o motor fecha a porta");
     long t = ate("PORTA:FECHADA", 3000);
@@ -391,8 +391,8 @@ int main(int argc, char **argv) {
     EEPROM.update(EE_PORTA, 0); EEPROM.update(EE_PORTA + 1, 0xFF);   // (a porta ficou ABERTA)
 #endif
     setup(); pega();
-    const char *lixo[] = {"AT", "ATE0", "AT+CGMM", "AT+CPIN?", "ATI", "OLA:STRIKE_KIDS:14", "PORTA:ABERTA", "PORTA:FECHADA",
-                          "PONG:STRIKE_KIDS:14", "FICHA:0", "INFO:STRIKE_KIDS:14:LEDS=1", "PONTE:TEMPO:1500:FC:0", "PONTE:TEMPO:800X",
+    const char *lixo[] = {"AT", "ATE0", "AT+CGMM", "AT+CPIN?", "ATI", "OLA:STRIKE_KIDS:15", "PORTA:ABERTA", "PORTA:FECHADA",
+                          "PONG:STRIKE_KIDS:15", "FICHA:0", "INFO:STRIKE_KIDS:15:LEDS=1", "PONTE:TEMPO:1500:FC:0", "PONTE:TEMPO:800X",
                           "PORTA:ABREX", "XPING", "PINGS", "CALIBRAR", "S:1", "SENS:00000", "AVISO:SEM_JOGO", "~~##", "+++"};
     for (int k = 0; k < 6; k++) {
       for (const char *l : lixo) { manda(l); rodar(30); }
@@ -410,7 +410,7 @@ int main(int argc, char **argv) {
     // agora o jogo de verdade: tudo funciona
     pega();
     manda("PING"); rodar(5);
-    CONFERE(conta("PONG:STRIKE_KIDS:14") == 1, "o jogo de verdade e atendido");
+    CONFERE(conta("PONG:STRIKE_KIDS:15") == 1, "o jogo de verdade e atendido");
 #if USAR_RELE && RELE_PULSO && !USAR_PONTE_H
 #if PORTA_FECHA_SEM_ENERGIA
     // (14) ligou: a trava esta FECHADA (a EEPROM dizendo "aberta" nao vale)
@@ -607,6 +607,39 @@ int main(int argc, char **argv) {
     // PORTA:LIGOU no meio de um pulso nao muda nada (nunca bagunca o pulso)
     manda("MODO:FICHAS"); manda("PORTA:FECHA"); rodar(170); manda("PORTA:LIGOU"); rodar(3000);
     CONFERE(pulsos == 2 && !releAberta, "PORTA:LIGOU durante o pulso: o pulso termina certo");
+#endif
+  } else if (c == "desliga_jogando") {
+#if USAR_RELE && RELE_PULSO && !USAR_PONTE_H && !PORTA_FECHA_SEM_ENERGIA
+    // (15) O CASO DA MAQUINA: a trava guarda a posicao sem energia. Desligaram
+    // JOGANDO (aberta) -> ao ligar, 0 credito: UM pulso fecha. Desligaram com
+    // ela fechada -> nada. Depois a ficha abre com UM pulso. Nunca inverte.
+    bool fisica = false;   // a trava de verdade (cada pulso troca)
+    setup(); pega();
+    manda("PING"); manda("MODO:FICHAS"); manda("PORTA:FECHA"); rodar(2000);
+    CONFERE(pulsos == 0, "ligou fechada, 0 credito: nenhum pulso");
+    int erros = 0, total = 0;
+    for (int k = 0; k < 30; k++) {
+      int p0 = pulsos;
+      manda("PORTA:ABRE"); rodar(2000);                  // a ficha: abre
+      if (pulsos - p0 != 1) erros++;
+      fisica = !fisica;
+      bool jogando = (k % 3) != 2;                       // 2 em 3: desliga JOGANDO
+      if (!jogando) {                                    // fim da partida: fecha
+        p0 = pulsos; manda("PORTA:FECHA"); rodar(2000);
+        if (pulsos - p0 != 1) erros++;
+        fisica = !fisica;
+      }
+      religar(); pega();                                 // DESLIGOU e ligou (a trava ficou onde estava)
+      p0 = pulsos;
+      manda("PING"); manda("MODO:FICHAS"); manda("PORTA:FECHA"); rodar(3000);   // 0 credito
+      int dados = pulsos - p0;
+      if (dados == 1) fisica = !fisica;
+      if (dados != (jogando ? 1 : 0)) erros++;           // jogando: UM pulso fecha; fechada: nenhum
+      if (fisica || releAberta) erros++;                 // a trava de verdade FECHADA e o Arduino sabendo
+      total++;
+    }
+    printf("  %d desligadas (2 em 3 jogando) -> %d erros\n", total, erros);
+    CONFERE(erros == 0, "desligou jogando ou fechada: ao ligar sem credito sempre FECHADA, um pulso so quando precisa");
 #endif
   } else if (c == "antigo4") {
 #if USAR_RELE && RELE_PULSO && !USAR_PONTE_H

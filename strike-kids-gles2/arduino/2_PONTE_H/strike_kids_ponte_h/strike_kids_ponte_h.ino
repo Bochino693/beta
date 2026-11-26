@@ -134,10 +134,11 @@ const uint8_t SENSOR_PINOS[5] = {2, 3, 4, 5, 7};
 #define RELE_PULSO_MS 200UL       // quanto tempo o rele fica ligado em cada pulso
 #define RELE_DESCANSO_MS 1000UL   // tempo minimo entre dois pulsos (a porta termina de andar)
 #define RELE_FIRME_MS 150UL       // o pedido fica firme este tempo antes do pulso (abre+fecha juntos nao pulsam)
-#define PORTA_FECHA_SEM_ENERGIA 1 // (14) 1 = SEM ENERGIA A TRAVA FICA FECHADA (comando de toque eletronico):
-                                  // o Arduino LIGOU -> a trava esta FECHADA. Sempre, sem adivinhar (o jogo
-                                  // nao reinicia mais o Arduino: ele so liga quando a maquina liga).
-                                  // 0 = trava que guarda a posicao sem energia: lembra pela EEPROM (ate o 11)
+#define PORTA_FECHA_SEM_ENERGIA 0 // (15) 0 = A TRAVA GUARDA A POSICAO SEM ENERGIA (a desta maquina): o Arduino
+                                  // LEMBRA na EEPROM onde a deixou. Desligaram JOGANDO (aberta): ao ligar,
+                                  // 0 credito -> o jogo pede fechada -> UM pulso fecha. Desligaram fechada:
+                                  // nada. Nunca inverte, nunca repete.
+                                  // 1 = trava que FECHA sozinha sem energia: ao ligar ela esta fechada
 // so com RELE_PULSO 0:
 #define RELE_LIGADO_ABERTA 1      // 1 = rele ligado com a porta aberta; 0 = ligado com ela fechada
 #define RELE_TEMPO_MAX_S 0        // 0 = sem limite. Trava SOLENOIDE comum nao pode ficar
@@ -157,7 +158,7 @@ const uint8_t SENSOR_PINOS[5] = {2, 3, 4, 5, 7};
 #define FICHA_PULSO_MAX_MS 250    // pulso mais longo que isto: fio preso/segurado, nao e ficha
 #define FICHA_REPOUSO_MS 2000UL   // nivel parado este tempo vira o novo repouso
 #define SEM_JOGO_FECHA_MS 30000UL // o jogo falou e sumiu este tempo: fecha a porta
-#define VERSAO "14"
+#define VERSAO "15"
 
 #if USAR_LEDS
 #include <Adafruit_NeoPixel.h>
