@@ -933,6 +933,20 @@ func modo_espera(modo: String) -> void:
 	layout()
 
 
+## "INSIRA FICHA" SEM REPETIR: se o botão da espera (ou o do fim de jogo)
+## já diz isso na tela, ele é que pula; só sem nenhum dos dois na tela o
+## letreiro grande aparece.
+func lembrar_ficha() -> void:
+	if _atracao.visible and _aperte_botao != null and _aperte_botao.is_visible_in_tree():
+		_pular(_aperte_botao)
+		return
+	var b: Control = _fim.get_node_or_null("botao") as Control if _fim != null else null
+	if b != null and b.is_visible_in_tree():
+		_pular(b)
+		return
+	texto_grande("INSIRA FICHA", Color("#FFF6A8"), 1.0, 0.55)
+
+
 func atracao(ligado: bool, recorde := "", creditos := "", foto_recorde: Texture = null, melhores := []) -> void:
 	_atracao.visible = ligado
 	_melhores_hoje = melhores

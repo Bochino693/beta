@@ -104,6 +104,8 @@ var _candidatos: Array = []
 var _falhou := {}              # nome -> ms (não tenta de novo logo)
 var _desde := 0
 var _ultimo_rx := 0
+var _estado_ms := 0
+var _ligou_avisado := false    # (14) PORTA:LIGOU já foi neste jogo aberto
 var _ultimo_ping := 0
 var _ultima_procura := 0
 var _janelas_ok := false       # na espera ou no menu: pode abrir janela do Android
@@ -173,10 +175,14 @@ func _process(_delta: float) -> void:
 			elif e == "erro" or e == "fechada" or agora - _desde > 8000:
 				_falha(str(_plugin.call("erro")) if e == "erro" else "não abriu")
 		"apresentando", "conectado":
-			var e := str(_plugin.call("estado"))
-			if e != "aberta":
-				_perdeu(str(_plugin.call("erro")))
-				return
+			# (9.0) o estado do USB a cada 250 ms (não a cada quadro): uma
+			# chamada ao Android a menos por quadro na TV Box fraca
+			if agora - _estado_ms >= 250:
+				_estado_ms = agora
+				var e := str(_plugin.call("estado"))
+				if e != "aberta":
+					_perdeu(str(_plugin.call("erro")))
+					return
 			var texto := str(_plugin.call("ler"))
 			if texto != "":
 				for linha in texto.split("\n", false):
@@ -645,6 +651,32 @@ func acertar_porta() -> bool:
 	_send("PORTA:ACERTA")
 	_porta_envio_ms = Time.get_ticks_msec()
 	return true
+
+
+## (13) UMA VEZ POR LIGADA DA TV BOX (a máquina inteira ligou junto, a
+## trava sem energia fechou): PORTA:LIGOU. Se o jogo só reabriu (a TV Box
+## continua ligada desde antes), não manda: a trava pode estar aberta de
+## verdade (modo livre, partida) e o Arduino já sabe onde ela está.
+const LIGOU_MAX_S := 900   # a TV Box ligou há no máximo 15 min
+
+
+func _avisar_ligou() -> void:
+	if _plugin == null or not _plugin.has_method("ligada"):
+		return
+	var p: PoolStringArray = str(_plugin.call("ligada")).split("|")
+	if p.size() < 2:
+		return
+	var id := p[0]
+	if int(p[1]) > LIGOU_MAX_S or _ligou_avisado:
+		return
+	# com o número da ligada (boot_count): uma vez por ligada, mesmo que o
+	# jogo reabra; sem ele: a 1a conexão deste jogo aberto logo ao ligar
+	if id != "-1" and str(Ajustes.valor("arduino", "ligou_id")) == id:
+		return
+	_ligou_avisado = true
+	if id != "-1":
+		Ajustes.definir("arduino", "ligou_id", id)
+	_send("PORTA:LIGOU")
 
 
 ## A versão do firmware (STRIKE_KIDS:5 -> 5; 0 = sem Arduino ou o antigo).

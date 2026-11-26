@@ -43,8 +43,15 @@ import javax.microedition.khronos.opengles.GL10;
  *   - CH340 / CH341: Arduino Nano e Uno "clone" (o mais comum);
  *   - FTDI FT232R / FT231X: Nano original antigo;
  *   - CP2102 / CP2104 (Silicon Labs).
- * Sempre 8N1, com DTR e RTS ligados (no Uno/Nano isso reinicia o Arduino,
- * que responde OLA de novo — o jogo usa isso para saber que é ele).
+ * Sempre 8N1. (9.0) SEM DTR/RTS nos Arduinos que reiniciam com eles (Nano,
+ * Uno, Mega - CH340, FTDI, CP2102 e o 16U2): abrir a serial NÃO reinicia o
+ * Arduino. Antes cada vez que o jogo conectava o Arduino reiniciava; no
+ * reinício (bootloader) o pino do relé fica solto um instante e a trava
+ * podia estalar - a porta "abria e fechava" sozinha e saía de sincronia.
+ * Agora o Arduino nunca reinicia pelo jogo: guarda na memória onde a porta
+ * está e responde PONG ao PING (o jogo se apresenta assim). Só as placas
+ * com USB próprio (Leonardo, Micro, Pro Micro), que não reiniciam com o DTR
+ * e só mandam dados com ele, continuam com DTR ligado.
  *
  * Permissão USB: pedir_permissao() abre a janela do Android; a atividade
  * de encaixe (StrikeArduinoAtivo) com o filtro dos Arduinos faz o Android
@@ -500,7 +507,50 @@ public class StrikeSerial extends GodotPlugin {
 	/** (processo do desenho) o quadro está pronto e vai para a tela. */
 	@Override
 	public void onGLDrawFrame(GL10 gl) {
+		if (!prioridadeFeita) {
+			prioridadeFeita = true;
+			priorizarJogo();
+		}
 		QuadrosDaTv.antesDeTrocar();
+	}
+
+	private boolean prioridadeFeita = false;
+
+	/**
+	 * (9.0) O JOGO NA FRENTE DO PROCESSADOR: no Godot o jogo inteiro (física,
+	 * scripts e desenho) roda nesta linha de execução (a do GLSurfaceView),
+	 * que nasce com prioridade NORMAL - qualquer coisa em segundo plano na
+	 * TV Box (a câmera, o sistema, outro app) dividia o processador com ela
+	 * e o jogo dava uma "lentidão do nada". Ela passa a ter a prioridade que
+	 * o próprio Android dá à linha que desenha a tela dos apps (DISPLAY). E,
+	 * na TV Box que tem, o modo de desempenho constante (sem o processador
+	 * subir e descer de velocidade no meio da partida).
+	 */
+	private void priorizarJogo() {
+		try {
+			android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_DISPLAY);
+			anotar("linha do jogo com prioridade DISPLAY");
+		} catch (Throwable t) {
+			anotar("prioridade: " + t);
+		}
+		final Activity a = getActivity();
+		if (a == null || Build.VERSION.SDK_INT < 24) {
+			return;
+		}
+		a.runOnUiThread(new Runnable() {
+			@Override
+			public void run() {
+				try {
+					android.os.PowerManager pm = (android.os.PowerManager) a.getSystemService(Context.POWER_SERVICE);
+					if (pm != null && pm.isSustainedPerformanceModeSupported()) {
+						a.getWindow().setSustainedPerformanceMode(true);
+						anotar("modo de desempenho constante ligado");
+					}
+				} catch (Throwable t) {
+					anotar("desempenho constante: " + t);
+				}
+			}
+		});
 	}
 
 	@UsedByGodot
@@ -582,6 +632,28 @@ public class StrikeSerial extends GodotPlugin {
 	}
 
 	/** O "Arduino automático" (StrikeAutoOk) está ligado na acessibilidade? */
+	/**
+	 * (13) Quando a TV Box ligou: "<número da ligada>|<segundos desde que
+	 * ligou>". O número muda a cada vez que ela liga (boot_count do Android;
+	 * sem ele, a hora em que ligou) - o jogo avisa o Arduino UMA vez por
+	 * ligada que a trava está fechada (PORTA:LIGOU).
+	 */
+	@UsedByGodot
+	public String ligada() {
+		long seg = SystemClock.elapsedRealtime() / 1000;
+		long id = -1;
+		Activity a = getActivity();
+		if (a != null) {
+			try {
+				id = Settings.Global.getInt(a.getContentResolver(), "boot_count", -1);
+			} catch (Throwable ignored) {
+			}
+		}
+		// (sem o boot_count: -1 - a hora da TV Box sem internet volta para a
+		// mesma data a cada vez que liga e não serve para contar as ligadas)
+		return id + "|" + seg;
+	}
+
 	@UsedByGodot
 	public boolean auto_ok_ligado() {
 		Activity a = getActivity();
@@ -813,6 +885,20 @@ public class StrikeSerial extends GodotPlugin {
 	}
 
 	/** CDC/ACM: Arduinos originais (Uno, Mega, Leonardo...) e CH9102. */
+	/**
+	 * Placa com USB próprio (ATmega32U4/SAMD: Leonardo, Micro, Pro Micro,
+	 * Zero)? Ela não reinicia com o DTR e só manda dados com ele ligado. As
+	 * outras (Uno/Mega com 16U2, Nano Every) reiniciariam: DTR desligado.
+	 */
+	static boolean usbProprio(UsbDevice d) {
+		int v = d.getVendorId();
+		int p = d.getProductId();
+		if (v == 0x1B4F || v == 0x239A) {
+			return true;   // SparkFun / Adafruit (32U4 e SAMD)
+		}
+		return (v == 0x2341 || v == 0x2A03) && ((p & 0x8000) != 0 || p == 0x0036 || p == 0x0037);
+	}
+
 	static final class Cdc extends Porta {
 		Cdc(UsbDevice d, UsbDeviceConnection c) {
 			super(d, c);
@@ -857,10 +943,11 @@ public class StrikeSerial extends GodotPlugin {
 			reservar(dados);
 			pontasDe(dados);
 			int indice = ctrl != null ? ctrl.getId() : 0;
-			// SET_LINE_CODING (8N1) e SET_CONTROL_LINE_STATE (DTR + RTS: o
-			// Leonardo só manda dados com o DTR ligado; o Uno reinicia)
+			// SET_LINE_CODING (8N1) e SET_CONTROL_LINE_STATE: DTR + RTS só
+			// no USB próprio (Leonardo/Micro: sem DTR não mandam dados); no
+			// Uno/Mega (16U2) DESLIGADOS - com eles o Arduino reiniciaria
 			controle(0x21, 0x20, 0, indice, SerialUtil.cdcLinha(baud));
-			controle(0x21, 0x22, 0x0003, indice, null);
+			controle(0x21, 0x22, usbProprio(dispositivo) ? 0x0003 : 0x0000, indice, null);
 		}
 	}
 
@@ -888,7 +975,7 @@ public class StrikeSerial extends GodotPlugin {
 			if (v >= 0x30) {
 				exigir(0x40, 0x9A, 0x2518, 0x00C3, null);     // liga RX/TX, 8 bits
 			}
-			exigir(0x40, 0xA4, (~0x60) & 0xFFFF, 0, null);    // DTR + RTS ligados
+			exigir(0x40, 0xA4, 0xFFFF, 0, null);              // DTR + RTS DESLIGADOS (o Arduino não reinicia)
 		}
 	}
 
@@ -916,7 +1003,7 @@ public class StrikeSerial extends GodotPlugin {
 			exigir(0x40, 0x03, div[0], div[1], null);         // baud
 			exigir(0x40, 0x04, 0x0008, 1, null);              // 8N1
 			controle(0x40, 0x02, 0x0000, 1, null);            // sem controle de fluxo
-			controle(0x40, 0x01, 0x0303, 1, null);            // DTR + RTS ligados
+			controle(0x40, 0x01, 0x0300, 1, null);            // DTR + RTS DESLIGADOS (o Arduino não reinicia)
 			controle(0x40, 0x09, 8, 1, null);                 // entrega a cada 8 ms
 		}
 
@@ -956,7 +1043,7 @@ public class StrikeSerial extends GodotPlugin {
 			byte[] b = new byte[] { (byte) baud, (byte) (baud >> 8), (byte) (baud >> 16), (byte) (baud >> 24) };
 			exigir(0x41, 0x1E, 0, indice, b);                 // baud
 			exigir(0x41, 0x03, 0x0800, indice, null);         // 8N1
-			controle(0x41, 0x07, 0x0303, indice, null);       // DTR + RTS ligados
+			controle(0x41, 0x07, 0x0300, indice, null);       // DTR + RTS DESLIGADOS (o Arduino não reinicia)
 		}
 	}
 }
