@@ -79,6 +79,29 @@ O QUE MUDOU PARA RODAR NA OPENGL ES 2.0
     Godot 4 (nao substitui).
 
 
+FIRMWARE 16: O SENSOR DA CANCELA (HW-201) - O ARDUINO VE A CANCELA
+-------------------------------------------------------------------
+  (o jogo e o mesmo: o APK 8.8.5 serve; grave so o firmware 16)
+  * Um sensor infravermelho HW-201 olha a cancela. FECHADA = ela na frente
+    do sensor (LED "sinal" aceso, OUT em 0). ABERTA = fora da frente (LED
+    apagado, OUT em 1). Fios: VCC -> 5V, GND -> GND, OUT -> A4.
+    Desenhos: arduino/1_RELE_principal/ligacao_sensor_cancela.pdf e o
+    completo ligacao_arduino_rele.pdf (o sensor embaixo do Nano).
+  * O CREDITO diz como a cancela DEVE estar; o SENSOR diz onde ela ESTA.
+    Diferente -> 1 pulso no rele. Igual -> nada. Desligaram jogando, o rele
+    estalou sozinho, empurraram a cancela, um pulso se perdeu: o Arduino
+    ve e corrige com 1 pulso. Ao ligar ele NAO pulsa: le o sensor e espera
+    o jogo (tela inicial). Nunca abre sem credito, nunca fecha com
+    credito, nunca pulsa duas vezes por engano.
+  * Pulsou e a cancela nao chegou em 2,5 s: mais 1 pulso; nem assim, para
+    e avisa (AVISO:PORTA_TRAVOU) - nada de ficar pulsando.
+  * Ajuste (uma vez): parafusinho azul ate o LED "sinal" acender com a
+    cancela fechada e apagar com ela aberta. Menu: "Porta invertida" = NAO.
+  * Sem o sensor: no .ino USAR_SENSOR_TRAVA 0 (volta a lembrar pela EEPROM,
+    como o firmware 15). Sensor montado ao contrario (LED aceso com ela
+    ABERTA): SENSOR_TRAVA_FECHADA_LOW 0.
+
+
 VERSAO 8.8.5 + FIRMWARE 15: DESLIGAR JOGANDO NAO INVERTE A TRAVA
 ----------------------------------------------------------------
   * FIRMWARE 15 (grave no Arduino): a trava desta maquina GUARDA A POSICAO

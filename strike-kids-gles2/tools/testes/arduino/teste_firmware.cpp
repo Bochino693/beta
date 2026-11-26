@@ -23,11 +23,23 @@ int motor() {  // 1 abrindo, -1 fechando, 0 parado/freado
   return PONTE_INVERTIDA ? -s : s;
 }
 int motorBruto() { return pinOut[PONTE_IN1] * 10 + pinOut[PONTE_IN2]; }
+// (16) a CANCELA DE VERDADE da versao do rele de pulso: cada pulso a troca
+// (depois de CANCELA_MOVER_MS, o tempo de ela andar) - se ela funciona; o
+// sensor (HW-201 no A4) mostra onde ela esta
+bool canAberta = false;       // a cancela fisica
+bool canFunciona = true;      // false = presa (o pulso nao a move)
+int canIgnora = 0;            // quantos pulsos ela perde antes de obedecer
+long canTrocaEm = -1;
+const unsigned long CANCELA_MOVER_MS = 400;
 void fisica() {
   if (!presa) portaFisica = constrain(portaFisica + motor(), 0, 1000);
   bool na_aberta = portaFisica >= 1000, na_fechada = portaFisica <= 0;
   pinLevel[FC_ABERTA_PINO] = (na_aberta != (FC_NF != 0)) ? LOW : HIGH;
   pinLevel[FC_FECHADA_PINO] = (na_fechada != (FC_NF != 0)) ? LOW : HIGH;
+#if COM_SENSOR
+  if (canTrocaEm >= 0 && (long)t_ms >= canTrocaEm) { canAberta = !canAberta; canTrocaEm = -1; }
+  pinLevel[SENSOR_TRAVA_PINO] = (canAberta == (SENSOR_TRAVA_FECHADA_LOW != 0)) ? HIGH : LOW;
+#endif
 }
 std::string saida;
 // o rele: quantas vezes ligou (pulsos) e quando foi a ultima
@@ -39,7 +51,10 @@ void rodar(unsigned long ms) {
     bool antes = releLigadoAgora();
     fisica(); loop(); t_ms++;
     bool depois = releLigadoAgora();
-    if (depois && !antes) { pulsos++; pulsoEm = t_ms; pulsoLigadoMs = 0; }
+    if (depois && !antes) {
+      pulsos++; pulsoEm = t_ms; pulsoLigadoMs = 0;
+      if (canFunciona) { if (canIgnora > 0) canIgnora--; else canTrocaEm = (long)(t_ms + CANCELA_MOVER_MS); }
+    }
     if (depois) pulsoLigadoMs++;
   }
   saida += Serial.out; Serial.out.clear();
@@ -76,7 +91,7 @@ int main(int argc, char **argv) {
   iniciar();
   if (c == "tempo") {
     setup(); saida += Serial.out; Serial.out.clear();
-    CONFERE(saida.find("OLA:STRIKE_KIDS:15") != std::string::npos, "OLA ao ligar");
+    CONFERE(saida.find("OLA:STRIKE_KIDS:16") != std::string::npos, "OLA ao ligar");
     rodar(2);
     CONFERE(motor() == -1, "ao ligar o motor fecha a porta");
     long t = ate("PORTA:FECHADA", 3000);
@@ -391,8 +406,8 @@ int main(int argc, char **argv) {
     EEPROM.update(EE_PORTA, 0); EEPROM.update(EE_PORTA + 1, 0xFF);   // (a porta ficou ABERTA)
 #endif
     setup(); pega();
-    const char *lixo[] = {"AT", "ATE0", "AT+CGMM", "AT+CPIN?", "ATI", "OLA:STRIKE_KIDS:15", "PORTA:ABERTA", "PORTA:FECHADA",
-                          "PONG:STRIKE_KIDS:15", "FICHA:0", "INFO:STRIKE_KIDS:15:LEDS=1", "PONTE:TEMPO:1500:FC:0", "PONTE:TEMPO:800X",
+    const char *lixo[] = {"AT", "ATE0", "AT+CGMM", "AT+CPIN?", "ATI", "OLA:STRIKE_KIDS:16", "PORTA:ABERTA", "PORTA:FECHADA",
+                          "PONG:STRIKE_KIDS:16", "FICHA:0", "INFO:STRIKE_KIDS:16:LEDS=1", "PONTE:TEMPO:1500:FC:0", "PONTE:TEMPO:800X",
                           "PORTA:ABREX", "XPING", "PINGS", "CALIBRAR", "S:1", "SENS:00000", "AVISO:SEM_JOGO", "~~##", "+++"};
     for (int k = 0; k < 6; k++) {
       for (const char *l : lixo) { manda(l); rodar(30); }
@@ -410,7 +425,7 @@ int main(int argc, char **argv) {
     // agora o jogo de verdade: tudo funciona
     pega();
     manda("PING"); rodar(5);
-    CONFERE(conta("PONG:STRIKE_KIDS:15") == 1, "o jogo de verdade e atendido");
+    CONFERE(conta("PONG:STRIKE_KIDS:16") == 1, "o jogo de verdade e atendido");
 #if USAR_RELE && RELE_PULSO && !USAR_PONTE_H
 #if PORTA_FECHA_SEM_ENERGIA
     // (14) ligou: a trava esta FECHADA (a EEPROM dizendo "aberta" nao vale)
@@ -607,6 +622,74 @@ int main(int argc, char **argv) {
     // PORTA:LIGOU no meio de um pulso nao muda nada (nunca bagunca o pulso)
     manda("MODO:FICHAS"); manda("PORTA:FECHA"); rodar(170); manda("PORTA:LIGOU"); rodar(3000);
     CONFERE(pulsos == 2 && !releAberta, "PORTA:LIGOU durante o pulso: o pulso termina certo");
+#endif
+  } else if (c == "sensor") {
+#if COM_SENSOR
+    // (16) O SENSOR DA CANCELA: a verdade e o sensor - nada lembrado, nada adivinhado
+    canAberta = false; setup(); pega();
+    rodar(3000);
+    CONFERE(pulsos == 0, "ligou com a cancela fechada: nenhum pulso");
+    manda("PING"); manda("PORTA?"); rodar(50);
+    CONFERE(conta("PORTA:FECHADA") >= 1 && conta("PORTA:ABERTA") == 0, "o sensor diz FECHADA");
+    manda("MODO:FICHAS"); manda("PORTA:FECHA"); rodar(3000);
+    CONFERE(pulsos == 0, "0 credito: ja esta fechada, nenhum pulso");
+    pega();
+    manda("PORTA:ABRE"); rodar(4000);
+    CONFERE(pulsos == 1 && canAberta && conta("PORTA:ABERTA") >= 1, "a ficha: UM pulso abre e o sensor confirma ABERTA");
+    manda("PORTA:FECHA"); rodar(4000);
+    CONFERE(pulsos == 2 && !canAberta, "fim da partida sem credito: UM pulso fecha");
+    // desligou JOGANDO (aberta) e a cancela guardou a posicao
+    manda("PORTA:ABRE"); rodar(4000);
+    int p0 = pulsos; religar(); pega();
+    rodar(2000);
+    CONFERE(pulsos == p0, "ligou com ela aberta: nenhum pulso sozinho");
+    manda("PING"); manda("PORTA?"); rodar(50);
+    CONFERE(conta("PORTA:ABERTA") >= 1, "o sensor diz ABERTA (nada adivinhado)");
+    manda("MODO:FICHAS"); manda("PORTA:FECHA"); rodar(4000);
+    CONFERE(pulsos - p0 == 1 && !canAberta, "desligou jogando: ao ligar, 0 credito -> UM pulso fecha");
+    // a cancela fechou sozinha sem energia: o sensor ve, nenhum pulso
+    manda("PORTA:ABRE"); rodar(4000);
+    canAberta = false; p0 = pulsos; religar(); pega();
+    manda("PING"); manda("PORTA:FECHA"); rodar(4000);
+    CONFERE(pulsos == p0 && !canAberta, "a cancela ja estava fechada ao ligar: nenhum pulso");
+    // o rele estalou sozinho (queda de energia) e a cancela mudou: o sensor ve e UM pulso devolve
+    canAberta = true; p0 = pulsos; rodar(4000);
+    CONFERE(pulsos - p0 == 1 && !canAberta, "a cancela mudou sozinha: o Arduino ve e UM pulso devolve");
+    // 40 ligadas com a cancela em QUALQUER posicao e o jogo pedindo qualquer uma
+    int erros = 0;
+    for (int k = 0; k < 40; k++) {
+      bool quer = (k * 7) % 3 == 0;
+      bool estava = (k * 5) % 4 < 2;
+      canAberta = estava; religar(); pega(); p0 = pulsos;
+      manda("PING"); manda(quer ? "PORTA:ABRE" : "PORTA:FECHA"); rodar(4000);
+      if (canAberta != quer) erros++;
+      if (pulsos - p0 != (estava != quer ? 1 : 0)) erros++;
+    }
+    CONFERE(erros == 0, "40 ligadas, cancela em qualquer posicao: sempre onde o jogo quer, com o minimo de pulsos");
+    // modo livre: abre e fica, sem pulso a toa
+    canAberta = false; religar(); pega(); p0 = pulsos;
+    manda("PING"); manda("MODO:LIVRE"); manda("PORTA:ABRE"); rodar(4000);
+    rodar(600000);
+    CONFERE(pulsos - p0 == 1 && canAberta, "modo livre: UM pulso abre e fica aberta (10 min)");
+#endif
+  } else if (c == "sensor_travou") {
+#if COM_SENSOR
+    // a cancela presa: pulso, espera, mais UM pulso - e avisa (nada de pulsar sem parar)
+    canAberta = false; canFunciona = false; setup(); pega();
+    manda("PING"); manda("MODO:FICHAS"); manda("PORTA:ABRE"); rodar(20000);
+    CONFERE(pulsos == PORTA_TENTATIVAS && conta("AVISO:PORTA_TRAVOU") == 1, "cancela presa: 2 pulsos e o aviso, uma vez");
+    rodar(60000);
+    CONFERE(pulsos == PORTA_TENTATIVAS, "... e nao fica pulsando");
+    // destravaram: o pedido novo vale de novo
+    canFunciona = true; pega();
+    manda("PORTA:FECHA"); rodar(4000);
+    CONFERE(pulsos == PORTA_TENTATIVAS, "o jogo pede fechada (ela esta): nenhum pulso");
+    manda("PORTA:ABRE"); rodar(4000);
+    CONFERE(pulsos == PORTA_TENTATIVAS + 1 && canAberta, "o jogo pede aberta: UM pulso abre");
+    // a cancela perdeu um pulso: o Arduino ve que nao chegou e da mais UM
+    canIgnora = 1; int p0 = pulsos; pega();
+    manda("PORTA:FECHA"); rodar(8000);
+    CONFERE(pulsos - p0 == 2 && !canAberta && conta("AVISO") == 0, "pulso perdido: o Arduino ve e da mais UM (sem aviso)");
 #endif
   } else if (c == "desliga_jogando") {
 #if USAR_RELE && RELE_PULSO && !USAR_PONTE_H && !PORTA_FECHA_SEM_ENERGIA

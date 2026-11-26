@@ -9,6 +9,7 @@ fica na sua pasta, com o codigo, o desenho da montagem e o passo a passo:
         LEIA-ME_RELE.txt                   passo a passo completo
         ligacao_arduino_rele.pdf           desenho da montagem (A3)
         ligacao_arduino_rele.png / .svg    o mesmo desenho (imagem)
+        ligacao_sensor_cancela.pdf / .png  o sensor da cancela (HW-201, A4)
         strike_kids_rele/
             strike_kids_rele.ino           o codigo para gravar no Arduino
     2_PONTE_H/                          <- VERSAO 2: PONTE H
@@ -78,7 +79,7 @@ GRAVAR EM 1 MINUTO (detalhes no LEIA-ME de cada versao)
      Gerenciar bibliotecas). Sem a fita: no .ino, USAR_LEDS 0.
   3. Ferramentas > Placa: Arduino Nano (ou Uno). Nano clone (CH340):
      Processador "ATmega328P (Old Bootloader)". Porta: a COM do Arduino.
-  4. Carregar (seta ->). No Monitor Serial (9600) aparece OLA:STRIKE_KIDS:15.
+  4. Carregar (seta ->). No Monitor Serial (9600) aparece OLA:STRIKE_KIDS:16.
   5. Cabo USB na TV Box e abra o jogo: na PRIMEIRA INSTALACAO (OK no
      controle remoto) marque "Usar por padrao" na janela do Arduino.
 

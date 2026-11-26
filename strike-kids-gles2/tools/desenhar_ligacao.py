@@ -321,7 +321,7 @@ def cabecalho():
     rect(1796, 46, 858, 30, "white", rx=16, op=0.14)
     texto(2225, 102, selo, 42, "white", "bold", "middle", TITULO)
     texto(60, 162, "Arduino **Nano** visto de cima · no **Uno** e no **Pro Mini**: mesmos nomes de pinos · "
-          "no **Mega**: %s · firmware **%s** (versão 3)" % (mega, pasta), 28, "#33415c")
+          "no **Mega**: %s · firmware **%s** (firmware 16)" % (mega, pasta), 28, "#33415c")
     cores = [COR["S1"], COR["S2"], COR["S3"], COR["S4"], COR["S5"]]
     for i, c in enumerate(cores):
         rect(i * W / 5, 190, W / 5 + 1, 12, vertical(c, 0.2))
@@ -436,10 +436,10 @@ def nano():
                    "D10": COR["IN1"], "D11": COR["ENA"], "D12": COR["IN2"]}
     usados_baixo = {"GND": None, "5V": None, "A4": COR["A4"], "A3": COR["A3"], "A2": COR["A2"],
                     "A1": COR["A1"], "A0": COR["A0"]}
-    if VERSAO == "rele":   # D10-D12, A3 e A4 livres (sao da ponte H)
+    if VERSAO == "rele":   # D10-D12 e A3 livres (sao da ponte H); A4 = sensor da cancela
         for nome in ("D10", "D11", "D12"):
             del usados_topo[nome]
-        del usados_baixo["A3"], usados_baixo["A4"]
+        del usados_baixo["A3"]
         usados_topo["D8"], usados_topo["D9"] = COR["D8"], COR["D9"]
     for nome in TOPO:
         x = px(nome)
@@ -873,6 +873,37 @@ def rele():
     texto(px("D12") + 40, 964, "D9 → servo (opcional)", 21, COR["D9"], "bold")
 
 
+def sensor_cancela():
+    """HW-201 (sensor infravermelho) embaixo do Nano: OUT no A4 (firmware 16)."""
+    bx, by, bw, bh = 890, 1438, 250, 100
+    pinos = {"VCC": 930, "GND": 1000, "OUT": 1070}
+    xa4 = px("A4", False)
+    fio([(xa4, Y_BAIXO), (xa4, 1406), (pinos["OUT"], 1406), (pinos["OUT"], 1426)], COR["A4"])
+    for nome, rot, cor in (("VCC", "5V", "#c62828"), ("GND", "GND", "#212121")):
+        fio([(pinos[nome], 1416), (pinos[nome], 1428)], cor, 6)
+        etiqueta(pinos[nome], 1404, rot, cor, tam=17)
+    placa(bx, by, bw, bh, "#1f3f8f", 12)
+    for nome, x in pinos.items():
+        rect(x - 7, by - 14, 14, 18, ouro(), "#6e5600", 1.5, 2)
+        texto(x, by + 26, nome, 15, "white", "bold", "middle")
+    # potenciometro, LEDs (energia e sinal: aceso = cancela FECHADA) e os LEDs IR
+    rect(bx + 22, by + 44, 40, 40, "#2e6fd1", "#123f8c", 1.5, 5)
+    circ(bx + 42, by + 64, 13, "#e8eef7", "#9aa9bd", 1.5)
+    linha(bx + 34, by + 64, bx + 50, by + 64, "#55657a", 3)
+    linha(bx + 42, by + 56, bx + 42, by + 72, "#55657a", 3)
+    circ(bx + 96, by + 56, 6, luz("#ff5252"))
+    circ(bx + 140, by + 56, 13, "#7CFC00", op=0.35, filtro="f_brilho")
+    circ(bx + 140, by + 56, 7, luz("#64dd17"))
+    texto(bx + 140, by + 86, "sinal", 14, "#d6e1f5", "bold", "middle")
+    rect(bx + 168, by + 62, 40, 24, preto(), "#0b0e10", 1.5, 3)
+    rect(bx + bw - 6, by + 14, 30, 30, "#e8f4ff", "#9fb7cc", 2, 14)
+    rect(bx + bw - 6, by + 56, 30, 30, "#1a1a1a", "#000", 2, 14)
+    texto(580, 1458, "SENSOR DA CANCELA", 20, COR["A4"], "bold")
+    texto(580, 1484, "HW-201 · **OUT → A4**", 19, TXT)
+    texto(580, 1508, "LED aceso = **FECHADA**", 19, TXT)
+    texto(580, 1532, "(o Arduino VÊ a cancela)", 18, CINZA)
+
+
 # a fonte de 12 V da versao do rele (a mesma peca da ponte H, noutro lugar)
 RF_X, RF_Y = 3460, 690
 
@@ -905,10 +936,10 @@ def trava():
     texto(tx + tw + 20, ty + 108, "− da trava → − da fonte", 19, TXT, "bold")
     bloco(tx + tw + 20, ty + 160, ["diodo 1N4007 nos fios", "da trava (faixa no +)"], 18, 1.35, CINZA)
     bloco(2790, 836, [
-        "**NO** → + da trava: o relé LIGA com a porta",
-        "ABERTA (RELE_LIGADO_ABERTA 1).",
-        "**Eletroímã** que segura a porta fechada:",
-        "use o **NC** no lugar do NO.",
+        "**Cancela de PULSO** (a desta máquina): cada",
+        "toque do relé (0,2 s) TROCA: abre ↔ fecha.",
+        "O **sensor no A4** confere onde ela está.",
+        "**Relé de NÍVEL** (ligado = aberta): RELE_PULSO 0.",
         "Trava solenoide **esquenta**: no .ino",
         "**RELE_TEMPO_MAX_S 5** (liga 5 s e solta).",
     ], 20, 1.38)
@@ -972,8 +1003,9 @@ def travas():
     x0, y0, w, h = 2360, 1580, 1400, 390
     caixa(x0, y0, w, h, "TRAVAS QUE FUNCIONAM (o mesmo firmware, os mesmos pinos)", RELE_AZUL, 26)
     bloco(x0 + 26, y0 + 100, [
-        "**Trava solenoide 12 V**: COM ← +12 V · NO → trava · no .ino **RELE_TEMPO_MAX_S 5**",
-        "**Eletroímã 12 V** que segura a porta fechada: COM ← +12 V · **NC** → eletroímã",
+        "**Cancela de PULSO** (cada toque abre ou fecha): **RELE_PULSO 1** (padrão) + sensor HW-201 no **A4**",
+        "**Trava solenoide 12 V** (RELE_PULSO 0): COM ← +12 V · NO → trava · **RELE_TEMPO_MAX_S 5**",
+        "**Eletroímã 12 V** (RELE_PULSO 0) que segura a porta fechada: COM ← +12 V · **NC** → ele",
         "**Servo** (MG996R e parecidos): sinal no D9 · fonte 5-6 V própria",
         "**Módulo relé 5 V** (1 canal): IN = D8 · VCC = 5V · GND = GND",
         "Módulo que liga com HIGH (jumper H/L no H): **RELE_LIGA_EM_LOW 0**",
@@ -995,7 +1027,8 @@ def tabela_pinos():
         ("A0", "CONFIGURAÇÃO", COR["A0"]),
         ("A1", "START", COR["A1"]),
         ("A2", "moedeiro (COIN)", COR["A2"]),
-        ("A3, A4", "livres", "#cfd8dc"),
+        ("A4", "sensor da cancela", COR["A4"]),
+        ("A3", "livre", "#cfd8dc"),
         ("5V", "sensores 5 V, relé (VCC)", "#c62828"),
         ("GND", "GND de TUDO", "#212121"),
     ] if VERSAO == "rele" else [
@@ -1063,7 +1096,7 @@ def paineis():
             "2 jogadores).",
             "",
             "Jogo sumiu (cabo solto) com a trava",
-            "aberta: ela FECHA sozinha em 15 s.",
+            "aberta: ela FECHA sozinha em 30 s.",
         ]),
         ("PONTE H NO MENU DO OPERADOR", "#c0392b", [
             "**Porta: tempo do motor** (0,5 a 10 s; 1,5 s de",
@@ -1090,7 +1123,7 @@ def paineis():
             "2_PONTE_H) pela IDE do Arduino (Nano clone:",
             "Processador “ATmega328P (Old Bootloader)”;",
             "biblioteca Adafruit NeoPixel, ou USAR_LEDS 0).",
-            "**2. Monitor Serial a 9600:** OLA:STRIKE_KIDS:3",
+            "**2. Monitor Serial a 9600:** OLA:STRIKE_KIDS:16",
             "e a porta FECHA (PORTA:FECHADA quando chega).",
             "Mande PORTA:ABRE e PORTA:FECHA para testar.",
             "**3. USB na TV Box** e abra o jogo: na janela do",
@@ -1127,24 +1160,24 @@ def paineis():
     ]
     if VERSAO == "rele":
         dados[1:] = [
-            ("RELÉ E SERVO (no começo do .ino)", RELE_AZUL, [
-                "**RELÉ (D8):** liga com a trava ABERTA",
-                "(RELE_LIGADO_ABERTA 1). Ao contrário:",
-                "ponha 0, ou use o NC do relé.",
-                "**Módulo que liga com HIGH:**",
+            ("RELÉ E SENSOR (no começo do .ino)", RELE_AZUL, [
+                "**RELÉ DE PULSO (D8):** RELE_PULSO 1 — cada",
+                "pulso (RELE_PULSO_MS 200) troca a cancela.",
+                "**Módulo que liga com HIGH** (jumper em H):",
                 "RELE_LIGA_EM_LOW 0.",
-                "**Trava solenoide esquenta** se fica",
-                "ligada: RELE_TEMPO_MAX_S 5 (liga 5 s e",
-                "solta; para o jogo ela segue aberta).",
+                "**Relé de NÍVEL** (ligado = aberta):",
+                "RELE_PULSO 0 e RELE_LIGADO_ABERTA 1.",
                 "",
-                "**SERVO (D9):** SERVO_FECHADA 0 e",
-                "SERVO_ABERTA 90 (graus, de 0 a 180).",
-                "**Sem servo ou sem relé:** USAR_SERVO 0",
-                "ou USAR_RELE 0.",
+                "**SENSOR DA CANCELA (A4):** USAR_SENSOR_TRAVA 1",
+                "· LED aceso = fechada: SENSOR_TRAVA_",
+                "FECHADA_LOW 1 · tempo para a cancela chegar:",
+                "PORTA_TEMPO_MOVER_MS 2500 · sem sensor:",
+                "USAR_SENSOR_TRAVA 0 (lembra pela EEPROM).",
                 "",
-                "**Menu do operador:** “Porta invertida”",
-                "troca aberta e fechada. “Tempo do motor” e",
-                "“fim de curso” são só da ponte H.",
+                "**SERVO (D9, opcional):** USAR_SERVO 1,",
+                "SERVO_FECHADA 0 e SERVO_ABERTA 90.",
+                "**Menu: “Porta invertida” = NÃO** (com o",
+                "sensor, quem diz aberta/fechada é ele).",
             ]),
             ("PRIMEIRA VEZ (passo a passo)", "#1f6fb2", [
                 "**1. Grave o strike_kids_rele.ino** (pasta",
@@ -1152,9 +1185,9 @@ def paineis():
                 "(Nano clone: Processador “ATmega328P (Old",
                 "Bootloader)”; biblioteca Adafruit NeoPixel,",
                 "ou USAR_LEDS 0 sem a fita).",
-                "**2. Monitor Serial a 9600:** OLA:STRIKE_KIDS:3.",
-                "Mande PORTA:ABRE (o relé liga, o servo vai",
-                "a 90°) e PORTA:FECHA para testar.",
+                "**2. Monitor Serial a 9600:** OLA:STRIKE_KIDS:16.",
+                "Mande PORTA:ABRE e PORTA:FECHA: a cancela",
+                "anda e o sensor responde PORTA:ABERTA/FECHADA.",
                 "**3. USB na TV Box** e abra o jogo: na janela",
                 "do USB marque “Usar por padrão” e OK.",
                 "**4. CONFIGURAÇÃO → menu do operador:**",
@@ -1185,8 +1218,16 @@ def paineis():
                 "**Teste a trava sem crianças** perto.",
                 "**Esquerda e direita trocadas?** Menu:",
                 "“Sensores invertidos”.",
+                "**Relé liga sozinho sem o Arduino?** Jumper",
+                "em H e RELE_LIGA_EM_LOW 0.",
             ]),
         ]
+        dados[0][2].extend([
+            "",
+            "**Sensor da cancela (A4):** o Arduino **VÊ** se",
+            "ela está aberta ou fechada: desligou jogando,",
+            "relé estalou → ele corrige com 1 toque.",
+        ])
     for (titulo, cor, linhas), w in zip(dados, ws):
         caixa(x, y0, w, h, titulo, cor, 28)
         bloco(x + 28, y0 + 108, linhas, 26, 1.48)
@@ -1215,6 +1256,7 @@ def desenhar(versao, destino):
         rele()
         trava()
         servo_rele()
+        sensor_cancela()
     else:
         ponte_h()
         porta()

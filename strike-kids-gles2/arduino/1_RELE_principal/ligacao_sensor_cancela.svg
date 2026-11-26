@@ -1,0 +1,283 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2400" height="2230" viewBox="0 0 2400 2230">
+<defs>
+<linearGradient id="ouro" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffe28a"/><stop offset="0.5" stop-color="#d4a017"/><stop offset="1" stop-color="#8a6a00"/></linearGradient>
+<linearGradient id="metal" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#9aa7b1"/><stop offset="0.45" stop-color="#eef2f5"/><stop offset="1" stop-color="#7d8a94"/></linearGradient>
+</defs>
+<rect x="0" y="0" width="2400" height="2230" rx="0" fill="white" stroke="none" stroke-width="0" />
+<rect x="0" y="0" width="2400" height="8" rx="0" fill="#1d5fa8" stroke="none" stroke-width="0" />
+<text x="50" y="78" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="52" fill="#1b2a41" text-anchor="start"><tspan font-weight="bold">STRIKE KIDS · SENSOR DA CANCELA (HW-201)</tspan></text>
+<text x="50" y="122" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="28" fill="#5d6d7e" text-anchor="start"><tspan font-weight="normal">firmware </tspan><tspan font-weight="bold">16</tspan><tspan font-weight="normal"> · o Arduino </tspan><tspan font-weight="bold">VÊ</tspan><tspan font-weight="normal"> se a cancela está aberta ou fechada — não lembra, não adivinha, nunca inverte</tspan></text>
+<rect x="50" y="146" width="2300" height="4" rx="0" fill="#e3e8ee" stroke="none" stroke-width="0" />
+<text x="70" y="208" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="26" fill="#1b2a41" text-anchor="start"><tspan font-weight="bold">ARDUINO (a mesma placa da máquina) — fileira de baixo</tspan></text>
+<rect x="76" y="238" width="1000" height="300" rx="24" fill="#000" stroke="none" stroke-width="0" opacity="0.12" />
+<rect x="70" y="230" width="1000" height="300" rx="24" fill="#1d5fa8" stroke="#0f3d70" stroke-width="3" />
+<line x1="190" y1="270" x2="230" y2="390" stroke="#3f7cc4" stroke-width="3" stroke-linecap="round" opacity="0.45"/>
+<line x1="280" y1="270" x2="320" y2="390" stroke="#3f7cc4" stroke-width="3" stroke-linecap="round" opacity="0.45"/>
+<line x1="370" y1="270" x2="410" y2="390" stroke="#3f7cc4" stroke-width="3" stroke-linecap="round" opacity="0.45"/>
+<line x1="460" y1="270" x2="500" y2="390" stroke="#3f7cc4" stroke-width="3" stroke-linecap="round" opacity="0.45"/>
+<line x1="550" y1="270" x2="590" y2="390" stroke="#3f7cc4" stroke-width="3" stroke-linecap="round" opacity="0.45"/>
+<line x1="640" y1="270" x2="680" y2="390" stroke="#3f7cc4" stroke-width="3" stroke-linecap="round" opacity="0.45"/>
+<line x1="730" y1="270" x2="770" y2="390" stroke="#3f7cc4" stroke-width="3" stroke-linecap="round" opacity="0.45"/>
+<line x1="820" y1="270" x2="860" y2="390" stroke="#3f7cc4" stroke-width="3" stroke-linecap="round" opacity="0.45"/>
+<line x1="910" y1="270" x2="950" y2="390" stroke="#3f7cc4" stroke-width="3" stroke-linecap="round" opacity="0.45"/>
+<rect x="450" y="300" width="130" height="130" rx="6" fill="#1b1f23" stroke="#0b0e10" stroke-width="3" />
+<text x="515" y="360" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="18" fill="#aab4bd" text-anchor="middle"><tspan font-weight="bold">ATMEGA</tspan></text>
+<text x="515" y="386" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="18" fill="#aab4bd" text-anchor="middle"><tspan font-weight="bold">328P</tspan></text>
+<text x="830" y="350" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="38" fill="white" text-anchor="middle"><tspan font-weight="bold">ARDUINO NANO</tspan></text>
+<text x="830" y="388" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="21" fill="#cfe3f7" text-anchor="middle"><tspan font-weight="normal">firmware strike_kids_rele.ino · 16</tspan></text>
+<circle cx="140" cy="480" r="15" fill="url(#ouro)" stroke="#7a5c00" stroke-width="2" />
+<circle cx="140" cy="480" r="7" fill="#2b2b2b" stroke="none" stroke-width="0" />
+<text x="140" y="446" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="22" fill="#aed6f1" text-anchor="middle"><tspan font-weight="normal">VIN</tspan></text>
+<circle cx="218" cy="480" r="15" fill="url(#ouro)" stroke="#7a5c00" stroke-width="2" />
+<circle cx="218" cy="480" r="7" fill="#2b2b2b" stroke="none" stroke-width="0" />
+<circle cx="218" cy="480" r="19" fill="none" stroke="#212121" stroke-width="5" />
+<text x="218" y="446" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="22" fill="white" text-anchor="middle"><tspan font-weight="bold">GND</tspan></text>
+<circle cx="296" cy="480" r="15" fill="url(#ouro)" stroke="#7a5c00" stroke-width="2" />
+<circle cx="296" cy="480" r="7" fill="#2b2b2b" stroke="none" stroke-width="0" />
+<text x="296" y="446" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="22" fill="#aed6f1" text-anchor="middle"><tspan font-weight="normal">RST</tspan></text>
+<circle cx="374" cy="480" r="15" fill="url(#ouro)" stroke="#7a5c00" stroke-width="2" />
+<circle cx="374" cy="480" r="7" fill="#2b2b2b" stroke="none" stroke-width="0" />
+<circle cx="374" cy="480" r="19" fill="none" stroke="#c62828" stroke-width="5" />
+<text x="374" y="446" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="22" fill="white" text-anchor="middle"><tspan font-weight="bold">5V</tspan></text>
+<circle cx="452" cy="480" r="15" fill="url(#ouro)" stroke="#7a5c00" stroke-width="2" />
+<circle cx="452" cy="480" r="7" fill="#2b2b2b" stroke="none" stroke-width="0" />
+<text x="452" y="446" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="22" fill="#aed6f1" text-anchor="middle"><tspan font-weight="normal">A7</tspan></text>
+<circle cx="530" cy="480" r="15" fill="url(#ouro)" stroke="#7a5c00" stroke-width="2" />
+<circle cx="530" cy="480" r="7" fill="#2b2b2b" stroke="none" stroke-width="0" />
+<text x="530" y="446" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="22" fill="#aed6f1" text-anchor="middle"><tspan font-weight="normal">A6</tspan></text>
+<circle cx="608" cy="480" r="15" fill="url(#ouro)" stroke="#7a5c00" stroke-width="2" />
+<circle cx="608" cy="480" r="7" fill="#2b2b2b" stroke="none" stroke-width="0" />
+<text x="608" y="446" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="22" fill="#aed6f1" text-anchor="middle"><tspan font-weight="normal">A5</tspan></text>
+<circle cx="686" cy="480" r="15" fill="url(#ouro)" stroke="#7a5c00" stroke-width="2" />
+<circle cx="686" cy="480" r="7" fill="#2b2b2b" stroke="none" stroke-width="0" />
+<circle cx="686" cy="480" r="19" fill="none" stroke="#8d6e63" stroke-width="5" />
+<text x="686" y="446" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="22" fill="white" text-anchor="middle"><tspan font-weight="bold">A4</tspan></text>
+<circle cx="764" cy="480" r="15" fill="url(#ouro)" stroke="#7a5c00" stroke-width="2" />
+<circle cx="764" cy="480" r="7" fill="#2b2b2b" stroke="none" stroke-width="0" />
+<text x="764" y="446" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="22" fill="#aed6f1" text-anchor="middle"><tspan font-weight="normal">A3</tspan></text>
+<circle cx="842" cy="480" r="15" fill="url(#ouro)" stroke="#7a5c00" stroke-width="2" />
+<circle cx="842" cy="480" r="7" fill="#2b2b2b" stroke="none" stroke-width="0" />
+<text x="842" y="446" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="22" fill="#aed6f1" text-anchor="middle"><tspan font-weight="normal">A2</tspan></text>
+<circle cx="920" cy="480" r="15" fill="url(#ouro)" stroke="#7a5c00" stroke-width="2" />
+<circle cx="920" cy="480" r="7" fill="#2b2b2b" stroke="none" stroke-width="0" />
+<text x="920" y="446" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="22" fill="#aed6f1" text-anchor="middle"><tspan font-weight="normal">A1</tspan></text>
+<circle cx="998" cy="480" r="15" fill="url(#ouro)" stroke="#7a5c00" stroke-width="2" />
+<circle cx="998" cy="480" r="7" fill="#2b2b2b" stroke="none" stroke-width="0" />
+<text x="998" y="446" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="22" fill="#aed6f1" text-anchor="middle"><tspan font-weight="normal">A0</tspan></text>
+<text x="70" y="680" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="22" fill="#5d6d7e" text-anchor="start"><tspan font-weight="normal">Os outros fios não mudam: </tspan><tspan font-weight="bold">D8</tspan><tspan font-weight="normal"> → relé · </tspan><tspan font-weight="bold">A2</tspan><tspan font-weight="normal"> moedeiro · </tspan><tspan font-weight="bold">A1</tspan><tspan font-weight="normal"> START · </tspan><tspan font-weight="bold">A0</tspan><tspan font-weight="normal"> configuração ·</tspan></text>
+<text x="70" y="712" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="22" fill="#5d6d7e" text-anchor="start"><tspan font-weight="bold">D2 D3 D4 D5 D7</tspan><tspan font-weight="normal"> sensores da pista · </tspan><tspan font-weight="bold">D6</tspan><tspan font-weight="normal"> fita de LED (opcional)</tspan></text>
+<rect x="1255" y="267" width="520" height="230" rx="16" fill="#000" stroke="none" stroke-width="0" opacity="0.12" />
+<rect x="1250" y="260" width="520" height="230" rx="16" fill="#1f3f8f" stroke="#0e2457" stroke-width="3" />
+<line x1="1310" y1="290" x2="1340" y2="370" stroke="#3753a8" stroke-width="3" stroke-linecap="round" opacity="0.6"/>
+<line x1="1380" y1="290" x2="1410" y2="370" stroke="#3753a8" stroke-width="3" stroke-linecap="round" opacity="0.6"/>
+<line x1="1450" y1="290" x2="1480" y2="370" stroke="#3753a8" stroke-width="3" stroke-linecap="round" opacity="0.6"/>
+<line x1="1520" y1="290" x2="1550" y2="370" stroke="#3753a8" stroke-width="3" stroke-linecap="round" opacity="0.6"/>
+<line x1="1590" y1="290" x2="1620" y2="370" stroke="#3753a8" stroke-width="3" stroke-linecap="round" opacity="0.6"/>
+<rect x="1400" y="300" width="92" height="92" rx="8" fill="#2e6fd1" stroke="#123f8c" stroke-width="2" />
+<circle cx="1446" cy="346" r="30" fill="#e8eef7" stroke="#9aa9bd" stroke-width="2" />
+<line x1="1428" y1="346" x2="1464" y2="346" stroke="#55657a" stroke-width="5" stroke-linecap="round"/>
+<line x1="1446" y1="328" x2="1446" y2="364" stroke="#55657a" stroke-width="5" stroke-linecap="round"/>
+<text x="1446" y="420" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="17" fill="#d6e1f5" text-anchor="middle"><tspan font-weight="normal">ajuste da</tspan></text>
+<text x="1446" y="440" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="17" fill="#d6e1f5" text-anchor="middle"><tspan font-weight="normal">distância</tspan></text>
+<rect x="1520" y="380" width="80" height="50" rx="4" fill="#1b1f23" stroke="#0b0e10" stroke-width="2" />
+<circle cx="1550" cy="312" r="9" fill="#ff5252" stroke="none" stroke-width="0" />
+<text x="1550" y="348" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="15" fill="#d6e1f5" text-anchor="middle"><tspan font-weight="normal">energia</tspan></text>
+<circle cx="1640" cy="312" r="24" fill="#7CFC00" stroke="none" stroke-width="0" opacity="0.35" />
+<circle cx="1640" cy="312" r="10" fill="#7CFC00" stroke="#1b3b1b" stroke-width="1.5" />
+<text x="1640" y="348" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="15" fill="#d6e1f5" text-anchor="middle"><tspan font-weight="bold">sinal</tspan></text>
+<rect x="1766" y="290" width="58" height="52" rx="24" fill="#e8f4ff" stroke="#9fb7cc" stroke-width="2" />
+<rect x="1766" y="380" width="58" height="52" rx="24" fill="#1a1a1a" stroke="#000" stroke-width="2" />
+<text x="1840" y="324" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="17" fill="#5d6d7e" text-anchor="start"><tspan font-weight="normal">emissor IR</tspan></text>
+<text x="1840" y="414" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="17" fill="#5d6d7e" text-anchor="start"><tspan font-weight="normal">receptor</tspan></text>
+<rect x="1204" y="303" width="50" height="14" rx="3" fill="url(#ouro)" stroke="#7a5c00" stroke-width="1.5" />
+<text x="1264" y="318" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="20" fill="white" text-anchor="start"><tspan font-weight="bold">VCC</tspan></text>
+<rect x="1204" y="365" width="50" height="14" rx="3" fill="url(#ouro)" stroke="#7a5c00" stroke-width="1.5" />
+<text x="1264" y="380" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="20" fill="white" text-anchor="start"><tspan font-weight="bold">GND</tspan></text>
+<rect x="1204" y="427" width="50" height="14" rx="3" fill="url(#ouro)" stroke="#7a5c00" stroke-width="1.5" />
+<text x="1264" y="442" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="20" fill="white" text-anchor="start"><tspan font-weight="bold">OUT</tspan></text>
+<text x="1510" y="526" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="22" fill="#1b2a41" text-anchor="middle"><tspan font-weight="bold">HW-201 · sensor infravermelho (3 pinos)</tspan></text>
+<path d="M 686 480 L 686 580 L 1120 580 L 1120 434 L 1204 434" fill="none" stroke="#000" stroke-opacity="0.18" stroke-width="12" stroke-linejoin="round" stroke-linecap="round" transform="translate(2,3)"/>
+<path d="M 686 480 L 686 580 L 1120 580 L 1120 434 L 1204 434" fill="none" stroke="#8d6e63" stroke-width="10" stroke-linejoin="round" stroke-linecap="round"/>
+<path d="M 686 480 L 686 580 L 1120 580 L 1120 434 L 1204 434" fill="none" stroke="white" stroke-opacity="0.35" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round" transform="translate(-1,-2)"/>
+<path d="M 374 480 L 374 610 L 1150 610 L 1150 310 L 1204 310" fill="none" stroke="#000" stroke-opacity="0.18" stroke-width="12" stroke-linejoin="round" stroke-linecap="round" transform="translate(2,3)"/>
+<path d="M 374 480 L 374 610 L 1150 610 L 1150 310 L 1204 310" fill="none" stroke="#c62828" stroke-width="10" stroke-linejoin="round" stroke-linecap="round"/>
+<path d="M 374 480 L 374 610 L 1150 610 L 1150 310 L 1204 310" fill="none" stroke="white" stroke-opacity="0.35" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round" transform="translate(-1,-2)"/>
+<path d="M 218 480 L 218 640 L 1180 640 L 1180 372 L 1204 372" fill="none" stroke="#000" stroke-opacity="0.18" stroke-width="12" stroke-linejoin="round" stroke-linecap="round" transform="translate(2,3)"/>
+<path d="M 218 480 L 218 640 L 1180 640 L 1180 372 L 1204 372" fill="none" stroke="#212121" stroke-width="10" stroke-linejoin="round" stroke-linecap="round"/>
+<path d="M 218 480 L 218 640 L 1180 640 L 1180 372 L 1204 372" fill="none" stroke="white" stroke-opacity="0.35" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round" transform="translate(-1,-2)"/>
+<rect x="618.44" y="538" width="135.12" height="40" rx="9" fill="#8d6e63" stroke="none" stroke-width="0" />
+<text x="686" y="567" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="22" fill="white" text-anchor="middle"><tspan font-weight="bold">A4 → OUT</tspan></text>
+<rect x="306.44" y="538" width="135.12" height="40" rx="9" fill="#c62828" stroke="none" stroke-width="0" />
+<text x="374" y="567" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="22" fill="white" text-anchor="middle"><tspan font-weight="bold">5V → VCC</tspan></text>
+<rect x="143.62" y="538" width="148.76" height="40" rx="9" fill="#212121" stroke="none" stroke-width="0" />
+<text x="218" y="567" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="22" fill="white" text-anchor="middle"><tspan font-weight="bold">GND → GND</tspan></text>
+<rect x="54" y="766" width="640" height="520" rx="18" fill="#000" stroke="none" stroke-width="0" opacity="0.08" />
+<rect x="50" y="760" width="640" height="520" rx="18" fill="white" stroke="#c62828" stroke-width="4" />
+<path d="M 68 760 h 604 v 58 h -604 z" fill="#c62828"/>
+<rect x="50" y="760" width="640" height="58" rx="18" fill="#c62828" stroke="none" stroke-width="0" />
+<rect x="50" y="790" width="640" height="28" rx="0" fill="#c62828" stroke="none" stroke-width="0" />
+<text x="76" y="800" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="27" fill="white" text-anchor="start"><tspan font-weight="bold">CANCELA FECHADA (sem crédito)</tspan></text>
+<rect x="95" y="1107" width="286" height="126.5" rx="8.8" fill="#000" stroke="none" stroke-width="0" opacity="0.12" />
+<rect x="90" y="1100" width="286" height="126.5" rx="8.8" fill="#1f3f8f" stroke="#0e2457" stroke-width="3" />
+<line x1="123" y1="1116.5" x2="139.5" y2="1160.5" stroke="#3753a8" stroke-width="1.65" stroke-linecap="round" opacity="0.6"/>
+<line x1="161.5" y1="1116.5" x2="178" y2="1160.5" stroke="#3753a8" stroke-width="1.65" stroke-linecap="round" opacity="0.6"/>
+<line x1="200" y1="1116.5" x2="216.5" y2="1160.5" stroke="#3753a8" stroke-width="1.65" stroke-linecap="round" opacity="0.6"/>
+<line x1="238.5" y1="1116.5" x2="255" y2="1160.5" stroke="#3753a8" stroke-width="1.65" stroke-linecap="round" opacity="0.6"/>
+<line x1="277" y1="1116.5" x2="293.5" y2="1160.5" stroke="#3753a8" stroke-width="1.65" stroke-linecap="round" opacity="0.6"/>
+<rect x="172.5" y="1122" width="50.6" height="50.6" rx="4.4" fill="#2e6fd1" stroke="#123f8c" stroke-width="2" />
+<circle cx="197.8" cy="1147.3" r="16.5" fill="#e8eef7" stroke="#9aa9bd" stroke-width="2" />
+<line x1="187.9" y1="1147.3" x2="207.7" y2="1147.3" stroke="#55657a" stroke-width="2.75" stroke-linecap="round"/>
+<line x1="197.8" y1="1137.4" x2="197.8" y2="1157.2" stroke="#55657a" stroke-width="2.75" stroke-linecap="round"/>
+<rect x="238.5" y="1166" width="44" height="27.5" rx="2.2" fill="#1b1f23" stroke="#0b0e10" stroke-width="2" />
+<circle cx="255" cy="1128.6" r="4.95" fill="#ff5252" stroke="none" stroke-width="0" />
+<circle cx="304.5" cy="1128.6" r="13.2" fill="#7CFC00" stroke="none" stroke-width="0" opacity="0.35" />
+<circle cx="304.5" cy="1128.6" r="5.5" fill="#7CFC00" stroke="#1b3b1b" stroke-width="1.5" />
+<rect x="372" y="1116.5" width="31.9" height="28.6" rx="13.2" fill="#e8f4ff" stroke="#9fb7cc" stroke-width="2" />
+<rect x="372" y="1166" width="31.9" height="28.6" rx="13.2" fill="#1a1a1a" stroke="#000" stroke-width="2" />
+<rect x="64.7" y="1123.65" width="27.5" height="7.7" rx="3" fill="url(#ouro)" stroke="#7a5c00" stroke-width="1.5" />
+<rect x="64.7" y="1157.75" width="27.5" height="7.7" rx="3" fill="url(#ouro)" stroke="#7a5c00" stroke-width="1.5" />
+<rect x="64.7" y="1191.85" width="27.5" height="7.7" rx="3" fill="url(#ouro)" stroke="#7a5c00" stroke-width="1.5" />
+<rect x="520" y="1010" width="44" height="230" rx="8" fill="url(#metal)" stroke="#6c7a86" stroke-width="3" />
+<text x="542" y="996" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="20" fill="#5d6d7e" text-anchor="middle"><tspan font-weight="bold">cancela</tspan></text>
+<line x1="412" y1="1131" x2="514" y2="1153" stroke="#ff7043" stroke-width="4" stroke-linecap="round" stroke-dasharray="9 6"/>
+<line x1="514" y1="1153" x2="412" y2="1185" stroke="#ff7043" stroke-width="4" stroke-linecap="round" stroke-dasharray="9 6"/>
+<text x="578" y="1161" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="19" fill="#e64a19" text-anchor="start"><tspan font-weight="bold">reflete</tspan></text>
+<text x="578" y="1185" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="19" fill="#e64a19" text-anchor="start"><tspan font-weight="bold">e volta</tspan></text>
+<text x="80" y="872" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="24" fill="#1b2a41" text-anchor="start"><tspan font-weight="normal">LED "sinal" do sensor </tspan><tspan font-weight="bold">ACESO</tspan></text>
+<text x="80" y="908" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="24" fill="#1b2a41" text-anchor="start"><tspan font-weight="normal">OUT = </tspan><tspan font-weight="bold">0</tspan><tspan font-weight="normal"> (LOW) no A4</tspan></text>
+<text x="80" y="944" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="24" fill="#1b2a41" text-anchor="start"><tspan font-weight="normal">o Arduino lê: </tspan><tspan font-weight="bold">FECHADA</tspan></text>
+<rect x="724" y="766" width="640" height="520" rx="18" fill="#000" stroke="none" stroke-width="0" opacity="0.08" />
+<rect x="720" y="760" width="640" height="520" rx="18" fill="white" stroke="#2e7d32" stroke-width="4" />
+<path d="M 738 760 h 604 v 58 h -604 z" fill="#2e7d32"/>
+<rect x="720" y="760" width="640" height="58" rx="18" fill="#2e7d32" stroke="none" stroke-width="0" />
+<rect x="720" y="790" width="640" height="28" rx="0" fill="#2e7d32" stroke="none" stroke-width="0" />
+<text x="746" y="800" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="27" fill="white" text-anchor="start"><tspan font-weight="bold">CANCELA ABERTA (com crédito / livre)</tspan></text>
+<rect x="765" y="1107" width="286" height="126.5" rx="8.8" fill="#000" stroke="none" stroke-width="0" opacity="0.12" />
+<rect x="760" y="1100" width="286" height="126.5" rx="8.8" fill="#1f3f8f" stroke="#0e2457" stroke-width="3" />
+<line x1="793" y1="1116.5" x2="809.5" y2="1160.5" stroke="#3753a8" stroke-width="1.65" stroke-linecap="round" opacity="0.6"/>
+<line x1="831.5" y1="1116.5" x2="848" y2="1160.5" stroke="#3753a8" stroke-width="1.65" stroke-linecap="round" opacity="0.6"/>
+<line x1="870" y1="1116.5" x2="886.5" y2="1160.5" stroke="#3753a8" stroke-width="1.65" stroke-linecap="round" opacity="0.6"/>
+<line x1="908.5" y1="1116.5" x2="925" y2="1160.5" stroke="#3753a8" stroke-width="1.65" stroke-linecap="round" opacity="0.6"/>
+<line x1="947" y1="1116.5" x2="963.5" y2="1160.5" stroke="#3753a8" stroke-width="1.65" stroke-linecap="round" opacity="0.6"/>
+<rect x="842.5" y="1122" width="50.6" height="50.6" rx="4.4" fill="#2e6fd1" stroke="#123f8c" stroke-width="2" />
+<circle cx="867.8" cy="1147.3" r="16.5" fill="#e8eef7" stroke="#9aa9bd" stroke-width="2" />
+<line x1="857.9" y1="1147.3" x2="877.7" y2="1147.3" stroke="#55657a" stroke-width="2.75" stroke-linecap="round"/>
+<line x1="867.8" y1="1137.4" x2="867.8" y2="1157.2" stroke="#55657a" stroke-width="2.75" stroke-linecap="round"/>
+<rect x="908.5" y="1166" width="44" height="27.5" rx="2.2" fill="#1b1f23" stroke="#0b0e10" stroke-width="2" />
+<circle cx="925" cy="1128.6" r="4.95" fill="#ff5252" stroke="none" stroke-width="0" />
+<circle cx="974.5" cy="1128.6" r="5.5" fill="#304030" stroke="#1b3b1b" stroke-width="1.5" />
+<rect x="1042" y="1116.5" width="31.9" height="28.6" rx="13.2" fill="#e8f4ff" stroke="#9fb7cc" stroke-width="2" />
+<rect x="1042" y="1166" width="31.9" height="28.6" rx="13.2" fill="#1a1a1a" stroke="#000" stroke-width="2" />
+<rect x="734.7" y="1123.65" width="27.5" height="7.7" rx="3" fill="url(#ouro)" stroke="#7a5c00" stroke-width="1.5" />
+<rect x="734.7" y="1157.75" width="27.5" height="7.7" rx="3" fill="url(#ouro)" stroke="#7a5c00" stroke-width="1.5" />
+<rect x="734.7" y="1191.85" width="27.5" height="7.7" rx="3" fill="url(#ouro)" stroke="#7a5c00" stroke-width="1.5" />
+<rect x="1190" y="1010" width="44" height="230" rx="8" fill="none" stroke="#b0bec5" stroke-width="3" stroke-dasharray="10 8"/>
+<rect x="1190" y="830" width="44" height="150" rx="8" fill="url(#metal)" stroke="#6c7a86" stroke-width="3" />
+<line x1="1212" y1="1050" x2="1212" y2="992" stroke="#2e7d32" stroke-width="5" stroke-linecap="round"/>
+<path d="M 1212 986 l -14 22 h 28 z" fill="#2e7d32"/>
+<text x="1248" y="880" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="20" fill="#5d6d7e" text-anchor="start"><tspan font-weight="bold">cancela</tspan></text>
+<text x="1248" y="904" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="19" fill="#5d6d7e" text-anchor="start"><tspan font-weight="normal">saiu da</tspan></text>
+<text x="1248" y="926" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="19" fill="#5d6d7e" text-anchor="start"><tspan font-weight="normal">frente</tspan></text>
+<line x1="1082" y1="1131" x2="1345" y2="1131" stroke="#ff7043" stroke-width="4" stroke-linecap="round" stroke-dasharray="9 6" opacity="0.55"/>
+<text x="1248" y="1167" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="19" fill="#e64a19" text-anchor="start"><tspan font-weight="bold">o feixe</tspan></text>
+<text x="1248" y="1191" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="19" fill="#e64a19" text-anchor="start"><tspan font-weight="bold">se perde</tspan></text>
+<text x="750" y="872" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="24" fill="#1b2a41" text-anchor="start"><tspan font-weight="normal">LED "sinal" do sensor </tspan><tspan font-weight="bold">APAGADO</tspan></text>
+<text x="750" y="908" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="24" fill="#1b2a41" text-anchor="start"><tspan font-weight="normal">OUT = </tspan><tspan font-weight="bold">1</tspan><tspan font-weight="normal"> (HIGH) no A4</tspan></text>
+<text x="750" y="944" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="24" fill="#1b2a41" text-anchor="start"><tspan font-weight="normal">o Arduino lê: </tspan><tspan font-weight="bold">ABERTA</tspan></text>
+<rect x="1394" y="766" width="960" height="520" rx="18" fill="#000" stroke="none" stroke-width="0" opacity="0.08" />
+<rect x="1390" y="760" width="960" height="520" rx="18" fill="white" stroke="#37474f" stroke-width="4" />
+<path d="M 1408 760 h 924 v 58 h -924 z" fill="#37474f"/>
+<rect x="1390" y="760" width="960" height="58" rx="18" fill="#37474f" stroke="none" stroke-width="0" />
+<rect x="1390" y="790" width="960" height="28" rx="0" fill="#37474f" stroke="none" stroke-width="0" />
+<text x="1416" y="800" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="27" fill="white" text-anchor="start"><tspan font-weight="bold">AS DUAS PEÇAS: O RELÉ EMPURRA, O SENSOR CONFERE</tspan></text>
+<text x="1420" y="872" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="22" fill="#1b2a41" text-anchor="start"><tspan font-weight="bold">Antes (sem sensor):</tspan><tspan font-weight="normal"> o relé só dá um toque e a trava</tspan></text>
+<text x="1420" y="903.24" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="22" fill="#1b2a41" text-anchor="start"><tspan font-weight="normal">inverte. O Arduino </tspan><tspan font-weight="bold">lembrava</tspan><tspan font-weight="normal"> de cabeça se tinha aberto ou</tspan></text>
+<text x="1420" y="934.48" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="22" fill="#1b2a41" text-anchor="start"><tspan font-weight="normal">fechado. Faltou luz, cabo puxado, relé que estalou sozinho</tspan></text>
+<text x="1420" y="965.72" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="22" fill="#1b2a41" text-anchor="start"><tspan font-weight="normal">→ a lembrança ficava errada e a cancela invertia tudo.</tspan></text>
+<text x="1420" y="996.96" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="22" fill="#1b2a41" text-anchor="start"></text>
+<text x="1420" y="1028.2" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="22" fill="#1b2a41" text-anchor="start"><tspan font-weight="bold">Agora (firmware 16):</tspan><tspan font-weight="normal"> o Arduino </tspan><tspan font-weight="bold">olha</tspan><tspan font-weight="normal"> o sensor a cada</tspan></text>
+<text x="1420" y="1059.44" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="22" fill="#1b2a41" text-anchor="start"><tspan font-weight="normal">instante. O jogo diz como a cancela </tspan><tspan font-weight="bold">deve</tspan><tspan font-weight="normal"> estar (crédito);</tspan></text>
+<text x="1420" y="1090.68" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="22" fill="#1b2a41" text-anchor="start"><tspan font-weight="normal">o sensor diz onde ela </tspan><tspan font-weight="bold">está</tspan><tspan font-weight="normal">. Diferente → </tspan><tspan font-weight="bold">1 toque</tspan><tspan font-weight="normal">.</tspan></text>
+<text x="1420" y="1121.92" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="22" fill="#1b2a41" text-anchor="start"><tspan font-weight="normal">Igual → </tspan><tspan font-weight="bold">nada</tspan><tspan font-weight="normal">. Nunca toca duas vezes por engano,</tspan></text>
+<text x="1420" y="1153.16" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="22" fill="#1b2a41" text-anchor="start"><tspan font-weight="normal">nunca abre sem crédito, nunca fecha com crédito.</tspan></text>
+<text x="1420" y="1184.4" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="22" fill="#1b2a41" text-anchor="start"></text>
+<text x="1420" y="1215.64" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="22" fill="#1b2a41" text-anchor="start"><tspan font-weight="normal">Ao ligar a máquina ele </tspan><tspan font-weight="bold">não toca</tspan><tspan font-weight="normal"> o relé: primeiro lê o</tspan></text>
+<text x="1420" y="1246.88" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="22" fill="#1b2a41" text-anchor="start"><tspan font-weight="normal">sensor e só depois o jogo pede (na tela inicial).</tspan></text>
+<rect x="54" y="1316" width="1320" height="890" rx="18" fill="#000" stroke="none" stroke-width="0" opacity="0.08" />
+<rect x="50" y="1310" width="1320" height="890" rx="18" fill="white" stroke="#1d5fa8" stroke-width="4" />
+<path d="M 68 1310 h 1284 v 58 h -1284 z" fill="#1d5fa8"/>
+<rect x="50" y="1310" width="1320" height="58" rx="18" fill="#1d5fa8" stroke="none" stroke-width="0" />
+<rect x="50" y="1340" width="1320" height="28" rx="0" fill="#1d5fa8" stroke="none" stroke-width="0" />
+<text x="76" y="1350" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="27" fill="white" text-anchor="start"><tspan font-weight="bold">COMO O ARDUINO DECIDE: crédito = como DEVE estar · sensor = onde ESTÁ</tspan></text>
+<rect x="70" y="1386" width="1280" height="50" rx="8" fill="#eef3f9" stroke="none" stroke-width="0" />
+<text x="80" y="1420" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="22" fill="#5d6d7e" text-anchor="start"><tspan font-weight="bold">MOMENTO</tspan></text>
+<text x="520" y="1420" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="22" fill="#5d6d7e" text-anchor="start"><tspan font-weight="bold">O JOGO PEDE</tspan></text>
+<text x="880" y="1420" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="22" fill="#5d6d7e" text-anchor="start"><tspan font-weight="bold">O ARDUINO FAZ</tspan></text>
+<rect x="70" y="1442" width="1280" height="60" rx="6" fill="#f7f9fc" stroke="none" stroke-width="0" />
+<text x="80" y="1480" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="24" fill="#1b2a41" text-anchor="start"><tspan font-weight="bold">Liga a máquina</tspan></text>
+<text x="520" y="1480" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="24" fill="#1b2a41" text-anchor="start"><tspan font-weight="normal">(nada ainda)</tspan></text>
+<text x="880" y="1480" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="24" fill="#1b2a41" text-anchor="start"><tspan font-weight="normal">lê o sensor: já sabe onde ela está</tspan></text>
+<text x="80" y="1544" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="24" fill="#1b2a41" text-anchor="start"><tspan font-weight="bold">Tela inicial, 0 crédito</tspan></text>
+<text x="520" y="1544" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="24" fill="#1b2a41" text-anchor="start"><tspan font-weight="normal">FECHADA</tspan></text>
+<text x="880" y="1544" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="24" fill="#1b2a41" text-anchor="start"><tspan font-weight="normal">aberta? </tspan><tspan font-weight="bold">1 pulso</tspan><tspan font-weight="normal"> · fechada? nada</tspan></text>
+<rect x="70" y="1570" width="1280" height="60" rx="6" fill="#f7f9fc" stroke="none" stroke-width="0" />
+<text x="80" y="1608" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="24" fill="#1b2a41" text-anchor="start"><tspan font-weight="bold">Entrou ficha</tspan></text>
+<text x="520" y="1608" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="24" fill="#1b2a41" text-anchor="start"><tspan font-weight="normal">ABERTA</tspan></text>
+<text x="880" y="1608" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="24" fill="#1b2a41" text-anchor="start"><tspan font-weight="normal">fechada? </tspan><tspan font-weight="bold">1 pulso</tspan><tspan font-weight="normal"> · aberta? nada</tspan></text>
+<text x="80" y="1672" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="24" fill="#1b2a41" text-anchor="start"><tspan font-weight="bold">Bola rolada (com crédito)</tspan></text>
+<text x="520" y="1672" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="24" fill="#1b2a41" text-anchor="start"><tspan font-weight="normal">ABERTA (partida)</tspan></text>
+<text x="880" y="1672" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="24" fill="#1b2a41" text-anchor="start"><tspan font-weight="normal">nada: ela já está aberta</tspan></text>
+<rect x="70" y="1698" width="1280" height="60" rx="6" fill="#f7f9fc" stroke="none" stroke-width="0" />
+<text x="80" y="1736" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="24" fill="#1b2a41" text-anchor="start"><tspan font-weight="bold">Fim da partida, 0 crédito</tspan></text>
+<text x="520" y="1736" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="24" fill="#1b2a41" text-anchor="start"><tspan font-weight="normal">FECHADA</tspan></text>
+<text x="880" y="1736" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="24" fill="#1b2a41" text-anchor="start"><tspan font-weight="bold">1 pulso</tspan><tspan font-weight="normal"> fecha</tspan></text>
+<text x="80" y="1800" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="24" fill="#1b2a41" text-anchor="start"><tspan font-weight="bold">Fim, sobrou crédito</tspan></text>
+<text x="520" y="1800" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="24" fill="#1b2a41" text-anchor="start"><tspan font-weight="normal">ABERTA</tspan></text>
+<text x="880" y="1800" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="24" fill="#1b2a41" text-anchor="start"><tspan font-weight="normal">nada</tspan></text>
+<rect x="70" y="1826" width="1280" height="60" rx="6" fill="#f7f9fc" stroke="none" stroke-width="0" />
+<text x="80" y="1864" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="24" fill="#1b2a41" text-anchor="start"><tspan font-weight="bold">Desligaram jogando</tspan></text>
+<text x="520" y="1864" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="24" fill="#1b2a41" text-anchor="start"><tspan font-weight="normal">ao ligar: FECHADA</tspan></text>
+<text x="880" y="1864" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="24" fill="#1b2a41" text-anchor="start"><tspan font-weight="normal">sensor diz aberta → </tspan><tspan font-weight="bold">1 pulso</tspan></text>
+<text x="80" y="1928" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="24" fill="#1b2a41" text-anchor="start"><tspan font-weight="bold">Modo livre</tspan></text>
+<text x="520" y="1928" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="24" fill="#1b2a41" text-anchor="start"><tspan font-weight="normal">ABERTA sempre</tspan></text>
+<text x="880" y="1928" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="24" fill="#1b2a41" text-anchor="start"><tspan font-weight="bold">1 pulso</tspan><tspan font-weight="normal"> se fechada; depois nada</tspan></text>
+<rect x="70" y="1954" width="1280" height="60" rx="6" fill="#f7f9fc" stroke="none" stroke-width="0" />
+<text x="80" y="1992" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="24" fill="#1b2a41" text-anchor="start"><tspan font-weight="bold">O relé estalou sozinho</tspan></text>
+<text x="520" y="1992" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="24" fill="#1b2a41" text-anchor="start"><tspan font-weight="normal">(o mesmo de antes)</tspan></text>
+<text x="880" y="1992" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="24" fill="#1b2a41" text-anchor="start"><tspan font-weight="normal">o sensor vê → </tspan><tspan font-weight="bold">1 pulso</tspan><tspan font-weight="normal"> devolve</tspan></text>
+<text x="80" y="2056" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="24" fill="#1b2a41" text-anchor="start"><tspan font-weight="bold">Pulso e ela não chegou</tspan></text>
+<text x="520" y="2056" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="24" fill="#1b2a41" text-anchor="start"><tspan font-weight="normal">—</tspan></text>
+<text x="880" y="2056" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="24" fill="#1b2a41" text-anchor="start"><tspan font-weight="normal">2,5 s depois </tspan><tspan font-weight="bold">mais 1 pulso</tspan></text>
+<rect x="70" y="2082" width="1280" height="60" rx="6" fill="#f7f9fc" stroke="none" stroke-width="0" />
+<text x="80" y="2120" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="24" fill="#1b2a41" text-anchor="start"><tspan font-weight="bold">Nem assim chegou</tspan></text>
+<text x="520" y="2120" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="24" fill="#1b2a41" text-anchor="start"><tspan font-weight="normal">—</tspan></text>
+<text x="880" y="2120" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="24" fill="#1b2a41" text-anchor="start"><tspan font-weight="normal">para e avisa: </tspan><tspan font-weight="bold">CANCELA TRAVOU</tspan></text>
+<rect x="1424" y="1316" width="930" height="890" rx="18" fill="#000" stroke="none" stroke-width="0" opacity="0.08" />
+<rect x="1420" y="1310" width="930" height="890" rx="18" fill="white" stroke="#6d4c41" stroke-width="4" />
+<path d="M 1438 1310 h 894 v 58 h -894 z" fill="#6d4c41"/>
+<rect x="1420" y="1310" width="930" height="58" rx="18" fill="#6d4c41" stroke="none" stroke-width="0" />
+<rect x="1420" y="1340" width="930" height="28" rx="0" fill="#6d4c41" stroke="none" stroke-width="0" />
+<text x="1446" y="1350" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="27" fill="white" text-anchor="start"><tspan font-weight="bold">MONTAGEM E AJUSTE (uma vez)</tspan></text>
+<text x="1450" y="1420" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="23" fill="#1b2a41" text-anchor="start"><tspan font-weight="bold">1.</tspan><tspan font-weight="normal"> Prenda o sensor onde a cancela </tspan><tspan font-weight="bold">FECHADA</tspan></text>
+<text x="1450" y="1454.04" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="23" fill="#1b2a41" text-anchor="start"><tspan font-weight="normal">   passa bem na frente dos dois LEDs IR</tspan></text>
+<text x="1450" y="1488.08" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="23" fill="#1b2a41" text-anchor="start"><tspan font-weight="normal">   (2 a 10 cm; aberta, ela sai da frente).</tspan></text>
+<text x="1450" y="1522.12" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="23" fill="#1b2a41" text-anchor="start"><tspan font-weight="bold">2.</tspan><tspan font-weight="normal"> Fios: </tspan><tspan font-weight="bold">VCC → 5V</tspan><tspan font-weight="normal">, </tspan><tspan font-weight="bold">GND → GND</tspan><tspan font-weight="normal">, </tspan><tspan font-weight="bold">OUT → A4</tspan><tspan font-weight="normal">.</tspan></text>
+<text x="1450" y="1556.16" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="23" fill="#1b2a41" text-anchor="start"><tspan font-weight="bold">3.</tspan><tspan font-weight="normal"> Gire o parafusinho azul até o LED "sinal"</tspan></text>
+<text x="1450" y="1590.2" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="23" fill="#1b2a41" text-anchor="start"><tspan font-weight="normal">   </tspan><tspan font-weight="bold">ACENDER</tspan><tspan font-weight="normal"> com a cancela fechada e </tspan><tspan font-weight="bold">APAGAR</tspan></text>
+<text x="1450" y="1624.24" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="23" fill="#1b2a41" text-anchor="start"><tspan font-weight="normal">   com ela aberta.</tspan></text>
+<text x="1450" y="1658.28" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="23" fill="#1b2a41" text-anchor="start"><tspan font-weight="bold">4.</tspan><tspan font-weight="normal"> Grave o </tspan><tspan font-weight="bold">strike_kids_rele.ino</tspan><tspan font-weight="normal"> (firmware 16).</tspan></text>
+<text x="1450" y="1692.32" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="23" fill="#1b2a41" text-anchor="start"><tspan font-weight="normal">   Monitor Serial 9600: </tspan><tspan font-weight="bold">OLA:STRIKE_KIDS:16</tspan><tspan font-weight="normal">;</tspan></text>
+<text x="1450" y="1726.36" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="23" fill="#1b2a41" text-anchor="start"><tspan font-weight="normal">   mande </tspan><tspan font-weight="bold">INFO?</tspan><tspan font-weight="normal">: ...</tspan><tspan font-weight="bold">SENSOR_TRAVA=FECHADA</tspan><tspan font-weight="normal">.</tspan></text>
+<text x="1450" y="1760.4" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="23" fill="#1b2a41" text-anchor="start"><tspan font-weight="bold">5.</tspan><tspan font-weight="normal"> No jogo: menu &gt; </tspan><tspan font-weight="bold">TESTE DA PORTA</tspan><tspan font-weight="normal"> — abra e</tspan></text>
+<text x="1450" y="1794.44" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="23" fill="#1b2a41" text-anchor="start"><tspan font-weight="normal">   feche e veja ABERTA / FECHADA mudarem.</tspan></text>
+<text x="1450" y="1828.48" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="23" fill="#1b2a41" text-anchor="start"><tspan font-weight="bold">6.</tspan><tspan font-weight="normal"> Menu: </tspan><tspan font-weight="bold">Porta invertida = NÃO</tspan><tspan font-weight="normal"> (com o</tspan></text>
+<text x="1450" y="1862.52" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="23" fill="#1b2a41" text-anchor="start"><tspan font-weight="normal">   sensor, quem diz aberta/fechada é ele).</tspan></text>
+<text x="1450" y="1896.56" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="23" fill="#1b2a41" text-anchor="start"></text>
+<text x="1450" y="1930.6" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="23" fill="#1b2a41" text-anchor="start"><tspan font-weight="bold">No .ino (começo):</tspan></text>
+<text x="1450" y="1964.64" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="23" fill="#1b2a41" text-anchor="start"><tspan font-weight="bold">USAR_SENSOR_TRAVA 1</tspan><tspan font-weight="normal"> — com o sensor (padrão)</tspan></text>
+<text x="1450" y="1998.68" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="23" fill="#1b2a41" text-anchor="start"><tspan font-weight="bold">SENSOR_TRAVA_FECHADA_LOW 1</tspan><tspan font-weight="normal"> — LED aceso =</tspan></text>
+<text x="1450" y="2032.72" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="23" fill="#1b2a41" text-anchor="start"><tspan font-weight="normal">   fechada (o seu); ao contrário: </tspan><tspan font-weight="bold">0</tspan></text>
+<text x="1450" y="2066.76" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="23" fill="#1b2a41" text-anchor="start"><tspan font-weight="bold">PORTA_TEMPO_MOVER_MS 2500</tspan><tspan font-weight="normal"> — o tempo que a</tspan></text>
+<text x="1450" y="2100.8" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="23" fill="#1b2a41" text-anchor="start"><tspan font-weight="normal">   cancela leva para chegar</tspan></text>
+<text x="1450" y="2134.84" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="23" fill="#1b2a41" text-anchor="start"><tspan font-weight="bold">USAR_SENSOR_TRAVA 0</tspan><tspan font-weight="normal"> — sem sensor (EEPROM)</tspan></text>
+</svg>
