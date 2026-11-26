@@ -66,11 +66,10 @@
 //     - o jogo avisa: MODO:LIVRE - a porta fica sempre aberta) - mas so depois de o jogo ter
 //     falado pelo menos uma vez desde que o Arduino ligou (ligar o Arduino
 //     antes da TV Box nao da pulso nenhum).
-//   * (12) DESLIGARAM NO MEIO (a maquina ficou sem energia com a porta
-//     aberta): sem energia a trava FECHA - ao ligar, o Arduino sabe que ela
-//     esta fechada e nao da pulso nenhum ate o jogo pedir aberta (ficha ou
-//     modo livre). Reiniciar SEM faltar energia (botao reset) nao confunde:
-//     a memoria comum diz onde ela estava. (PORTA_FECHA_SEM_ENERGIA)
+//   * (14) O ARDUINO LIGOU = A TRAVA ESTA FECHADA, sempre (sem energia ela
+//     fecha; desligaram no meio da partida com ela aberta, nao importa): nenhum
+//     pulso ate o jogo pedir aberta (ficha ou modo livre).
+//     (PORTA_FECHA_SEM_ENERGIA 0: trava que guarda a posicao - EEPROM)
 //   * (12) O JOGO NAO REINICIA MAIS O ARDUINO ao abrir o USB (jogo 8.8.2+,
 //     sem DTR): nada de reinicio a cada conexao.
 //   * (13) A MAQUINA LIGOU: o jogo (8.8.3+) avisa PORTA:LIGOU uma vez por
@@ -142,11 +141,10 @@ const uint8_t SENSOR_PINOS[5] = {2, 3, 4, 5, 7};
 #define RELE_PULSO_MS 200UL       // quanto tempo o rele fica ligado em cada pulso
 #define RELE_DESCANSO_MS 1000UL   // tempo minimo entre dois pulsos (a porta termina de andar)
 #define RELE_FIRME_MS 150UL       // o pedido fica firme este tempo antes do pulso (abre+fecha juntos nao pulsam)
-#define PORTA_FECHA_SEM_ENERGIA 1 // (12) 1 = SEM ENERGIA A TRAVA FICA FECHADA (comando de toque eletronico):
-                                  // a maquina ligou na tomada -> o Arduino SABE que ela esta fechada, mesmo
-                                  // que tenham desligado no meio da partida. Reiniciou SEM faltar energia
-                                  // (botao reset): lembra onde ela estava. 0 = trava que guarda a posicao
-                                  // sem energia: o Arduino lembra pela EEPROM (como ate o firmware 11)
+#define PORTA_FECHA_SEM_ENERGIA 1 // (14) 1 = SEM ENERGIA A TRAVA FICA FECHADA (comando de toque eletronico):
+                                  // o Arduino LIGOU -> a trava esta FECHADA. Sempre, sem adivinhar (o jogo
+                                  // nao reinicia mais o Arduino: ele so liga quando a maquina liga).
+                                  // 0 = trava que guarda a posicao sem energia: lembra pela EEPROM (ate o 11)
 // so com RELE_PULSO 0:
 #define RELE_LIGADO_ABERTA 1      // 1 = rele ligado com a porta aberta; 0 = ligado com ela fechada
 #define RELE_TEMPO_MAX_S 0        // 0 = sem limite. Trava SOLENOIDE comum nao pode ficar
@@ -166,7 +164,7 @@ const uint8_t SENSOR_PINOS[5] = {2, 3, 4, 5, 7};
 #define FICHA_PULSO_MAX_MS 250    // pulso mais longo que isto: fio preso/segurado, nao e ficha
 #define FICHA_REPOUSO_MS 2000UL   // nivel parado este tempo vira o novo repouso
 #define SEM_JOGO_FECHA_MS 30000UL // o jogo falou e sumiu este tempo: fecha a porta
-#define VERSAO "13"
+#define VERSAO "14"
 
 #if USAR_LEDS
 #include <Adafruit_NeoPixel.h>
@@ -227,14 +225,6 @@ bool relePedida = false;        // onde o jogo quer a porta
 unsigned long relePedidoEm = 0; // quando o pedido mudou
 bool releDescansando = false;   // acabou de pulsar: espera RELE_DESCANSO_MS
 uint16_t releTrocas = 0;        // contador de pulsos (par = fechada, impar = aberta)
-// (12) A PORTA NA MEMORIA COMUM (RAM, fora da limpeza do comeco): ela
-// sobrevive a um reinicio SEM faltar energia (botao reset, alguem abrindo a
-// serial) e se apaga quando a energia cai - assim o Arduino sabe se a
-// maquina ficou sem energia (e a trava fechou) ou se so reiniciou.
-#define RAM_MARCA 0x5A3CC3A5UL
-uint32_t ramMarca __attribute__((section(".noinit")));
-uint8_t ramPorta __attribute__((section(".noinit")));
-uint8_t ramPortaNeg __attribute__((section(".noinit")));
 // o vigia do jogo so vale depois de o jogo falar (ligar o Arduino nao mexe na porta)
 bool jogoFalou = false;
 // MODO:LIVRE (o jogo diz): a porta fica sempre aberta - o vigia nunca fecha
@@ -298,18 +288,6 @@ uint16_t lerContador(uint8_t base) {
 void avancarContador(uint8_t base, uint16_t &n) {
   EEPROM.update(base + n % CONT_SLOTS, n / CONT_SLOTS);
   n = (n + 1) % CONT_MOD;
-}
-
-// (12) a posicao da porta guardada na RAM (com a marca e o complemento)
-void lembrarPortaRam(bool aberta) {
-  ramPorta = aberta ? 1 : 0;
-  ramPortaNeg = (uint8_t)~ramPorta;
-  ramMarca = RAM_MARCA;
-}
-
-// a RAM ainda tem a porta? (so se a energia nao caiu desde a ultima vez)
-bool portaRamValida() {
-  return ramMarca == RAM_MARCA && ramPorta <= 1 && (uint8_t)~ramPorta == ramPortaNeg;
 }
 
 // fichas na fila (recebidas do moedeiro e ainda nao confirmadas pelo jogo)
@@ -461,7 +439,6 @@ void tickRele(unsigned long agora) {
   releMudouEm = agora;
   releAberta = relePedida;
   avancarContador(EE_PORTA, releTrocas);   // a posicao nova fica guardada (vale depois de reiniciar)
-  lembrarPortaRam(releAberta);
 #if !USAR_PONTE_H
   confirmarPorta();
 #endif
@@ -474,7 +451,6 @@ void tickRele(unsigned long agora) {
 void releAcertar() {
   releAberta = !releAberta;
   avancarContador(EE_PORTA, releTrocas);
-  lembrarPortaRam(releAberta);
   relePedidoEm = millis();
 }
 #else
@@ -698,7 +674,6 @@ void portaLigou() {
       releAberta = false;
       avancarContador(EE_PORTA, releTrocas);
     }
-    lembrarPortaRam(false);
     relePedida = false;
     relePedidoEm = millis();
     portaAberta = false;
@@ -1043,14 +1018,13 @@ void setup() {
   }
   releAberta = (releTrocas & 1) != 0;
 #if PORTA_FECHA_SEM_ENERGIA
-  // (12) A MAQUINA LIGOU NA TOMADA: sem energia a trava fecha - ela esta
-  // FECHADA, nao importa o que a EEPROM guardou (desligaram no meio da
-  // partida, com a porta aberta). Reiniciou sem faltar energia: a RAM diz
-  // onde ela esta. A EEPROM acompanha (sem pulso nenhum).
-  releAberta = portaRamValida() ? ramPorta != 0 : false;
-  if (((releTrocas & 1) != 0) != releAberta) avancarContador(EE_PORTA, releTrocas);
+  // (14) O ARDUINO LIGOU = A MAQUINA LIGOU: sem energia a trava fecha - ela
+  // esta FECHADA. Sempre, sem adivinhar (no 12 a memoria comum aguentava um
+  // desliga-liga rapido e dizia "aberta": a ficha fechava e o 0 credito
+  // abria). A EEPROM acompanha, sem pulso nenhum.
+  releAberta = false;
+  if (releTrocas & 1) avancarContador(EE_PORTA, releTrocas);
 #endif
-  lembrarPortaRam(releAberta);
   relePedida = releAberta;
   relePedidoEm = millis();
 #if !USAR_PONTE_H

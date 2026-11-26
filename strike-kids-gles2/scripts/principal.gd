@@ -782,9 +782,13 @@ func _input(event: InputEvent) -> void:
 		Sons.tocar("moeda", 0.65)
 		_acordar_trava()
 		_atualizar_atracao()
-		# na espera e no fim a ficha já ABRE a trava: a bola começa
 		if demo or estado in [E.ABERTURA, E.ATRACAO, E.DEMO, E.FIM]:
+			# DEU CRÉDITO: a trava ABRE (a bola desce) - quem começa a partida
+			# é a BOLA rolada (o START é a bola)
 			_porta_da_espera()
+		elif estado == E.PERSONAGEM and not _escolheu_amigo() and Ajustes.jogadores_pagos() >= 2:
+			# a 2a ficha na escolha do amigo: BOB x MIA, os dois jogam
+			_virar_dois_jogadores()
 		return
 	if ArcadeControls.eh_start(event):
 		_start()
@@ -883,12 +887,15 @@ func _bola_comeca() -> bool:
 ## Durante a partida a porta fica aberta (_escolher_jogadores); no fim ela
 ## passa por aqui de novo: fecha se não sobrou crédito.
 ## Chamar de novo com tudo igual não manda nada ao Arduino (ArduinoBridge).
-func _porta_da_espera() -> void:
+func _porta_da_espera(so_tela := false) -> void:
 	var pode := Ajustes.pode_comecar()
 	if Ajustes.modo_livre() or not pode:
 		_trava_dormiu = false
 		_espera_paga_t = 0.0
-	ArduinoBridge.porta(pode and not _trava_dormiu)
+	# A REGRA: modo livre = ABERTA; modo fichas: com crédito ABERTA, sem
+	# crédito FECHADA (a trava "dormiu": fechada até outra ficha/START)
+	if not so_tela:
+		ArduinoBridge.porta(Ajustes.modo_livre() or (pode and not _trava_dormiu))
 	if Ajustes.modo_livre():
 		hud.modo_espera("livre")
 	elif not pode:
@@ -1043,8 +1050,10 @@ func _jogada_recebida(zona: String) -> void:
 func _abertura() -> void:
 	estado = E.ABERTURA
 	Fotos.na_partida(false)
-	# (modo livre, ou com ficha: a porta fica aberta e a bola é o START)
-	_porta_da_espera()
+	# (14) NA ABERTURA A TRAVA NÃO MEXE: ela só é decidida na tela inicial
+	# (atração), com o jogo pronto e o Arduino já sabendo que a máquina
+	# ligou - aqui só os textos da espera
+	_porta_da_espera(true)
 	var s := _novo_seq()
 	hud.atracao(false)
 	hud.mostrar_sensores(false)
@@ -1333,6 +1342,17 @@ func _escolher_personagem() -> void:
 	t.destaque(0.0)
 	r.destaque(0.0)
 	mundo.podios(true, PODIOS, -1)
+
+
+## (14) A 2a ficha chegou na escolha do amigo: os dois jogam (BOB x MIA).
+func _virar_dois_jogadores() -> void:
+	_novo_seq()
+	personagens["bob"].destaque(0.0)
+	personagens["mia"].destaque(0.0)
+	Sons.tocar("selecao")
+	ArduinoBridge.send_led("RED")
+	hud.texto_grande("BOB x MIA!", Color("#FFF6A8"), 1.4, 0.3)
+	_comecar(["bob", "mia"])
 
 
 ## Já tem amigo escolhido (a partida começa em seguida)?

@@ -44,18 +44,21 @@ variante soponte "$PONTE" 's/^#define USAR_SERVO 1/#define USAR_SERVO 0/; s/^#de
 variante rele "$RELE" 's/x/x/'
 # (12) a trava que GUARDA a posicao sem energia: a EEPROM manda (como ate o 11)
 variante releeeprom "$RELE" 's/^#define PORTA_FECHA_SEM_ENERGIA 1 /#define PORTA_FECHA_SEM_ENERGIA 0 /'
+EEPROMV='s/^#define PORTA_FECHA_SEM_ENERGIA 1 /#define PORTA_FECHA_SEM_ENERGIA 0 /'
 NIVEL='s/^#define RELE_PULSO 1 /#define RELE_PULSO 0 /; s/^#define USAR_SERVO 0 /#define USAR_SERVO 1 /'
 variante nivel "$RELE" "$NIVEL"
 variante nivel5 "$RELE" "$NIVEL; s/^#define RELE_TEMPO_MAX_S 0 /#define RELE_TEMPO_MAX_S 5 /"
 variante semleds "$RELE" 's/^#define USAR_LEDS 1/#define USAR_LEDS 0/'
 variante pulsohigh "$RELE" 's/^#define RELE_LIGA_EM_LOW 1 /#define RELE_LIGA_EM_LOW 0 /'
+variante pulsohigheeprom "$RELE" "s/^#define RELE_LIGA_EM_LOW 1 /#define RELE_LIGA_EM_LOW 0 /; $EEPROMV"
+variante semledseeprom "$RELE" "s/^#define USAR_LEDS 1/#define USAR_LEDS 0/; $EEPROMV"
 grep -q '^#define RELE_TEMPO_MAX_S 5 ' "$TMP/fw_nivel5.ino" || { echo "  FALHOU: variante nivel5"; falhou=1; }
 grep -q '^#define RELE_PULSO 0 ' "$TMP/fw_nivel.ino" || { echo "  FALHOU: variante nivel"; falhou=1; }
 grep -q '^#define RELE_LIGA_EM_LOW 0 ' "$TMP/fw_pulsohigh.ino" || { echo "  FALHOU: variante pulsohigh"; falhou=1; }
 grep -q '^#define PORTA_FECHA_SEM_ENERGIA 0 ' "$TMP/fw_releeeprom.ino" || { echo "  FALHOU: variante releeeprom"; falhou=1; }
 for t in "padrao tempo" "padrao ficha_nf" "padrao ficha_na" "fc fim_de_curso" "fc travou" \
          "fcnf fim_de_curso" "inv invertida" "padrao menu" "soponte so_ponte" \
-         "rele pulso" "pulsohigh pulso" "semleds pulso" "releeeprom antigo4" "rele energia" "rele ligou" "releeeprom ligou" "pulsohigh ligou" "releeeprom pulso" "releeeprom intruso" "rele fichas" "padrao fichas" \
+         "releeeprom pulso" "pulsohigheeprom pulso" "semledseeprom pulso" "pulsohigh energia" "semleds energia" "releeeprom antigo4" "rele energia" "rele ligou" "releeeprom ligou" "pulsohigh ligou" "releeeprom intruso" "rele fichas" "padrao fichas" \
          "rele intruso" "pulsohigh intruso" "padrao intruso" \
          "rele livre" "rele pinos" "padrao pinos" \
          "nivel rele" "nivel5 rele" "rele sem_ponte" "semleds sem_ponte" "nivel sem_ponte" \

@@ -79,6 +79,21 @@ O QUE MUDOU PARA RODAR NA OPENGL ES 2.0
     Godot 4 (nao substitui).
 
 
+VERSAO 8.8.4 + FIRMWARE 14: A TRAVA SEGUE O CREDITO, SEM ADIVINHAR
+-------------------------------------------------------------------
+  * FIRMWARE 14 (grave no Arduino): O ARDUINO LIGOU = A TRAVA ESTA
+    FECHADA. Sempre. (No 12/13 a memoria do Arduino aguentava um
+    desliga-liga rapido e dizia "aberta": ao ligar com 0 credito ela abria
+    e a ficha fechava.) O Arduino so liga quando a maquina liga - o jogo nao
+    reinicia mais ele - e sem energia a trava fecha.
+  * NA ABERTURA A TRAVA NAO MEXE: ela so e decidida na TELA INICIAL.
+  * A REGRA: MODO FICHAS - sem credito FECHADA; deu credito ABRE (a bola
+    desce); a BOLA comeca a partida (o START e a bola); fim da partida sem
+    credito FECHA; sobrou credito fica ABERTA. MODO LIVRE - sempre ABERTA.
+  * A 2a FICHA NA ESCOLHA DO AMIGO: BOB x MIA, os dois jogam.
+  * O aviso PORTA:LIGOU (8.8.3) continua, sem depender da hora da TV Box.
+
+
 VERSAO 8.8.3 + FIRMWARE 13: O JOGO DIZ AO ARDUINO QUE A MAQUINA LIGOU
 ---------------------------------------------------------------------
   * A TRAVA ABRIA COM 0 CREDITO DEPOIS DE DESLIGAR NO MEIO DA PARTIDA (e

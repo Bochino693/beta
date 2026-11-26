@@ -133,11 +133,11 @@ Outras pontes (o mesmo firmware, os mesmos pinos):
 
 8. TESTAR SEM O JOGO (Monitor Serial, 9600, "Nova linha")
 ---------------------------------------------------------
-  Ao ligar: OLA:STRIKE_KIDS:13 e o motor FECHA a porta.
+  Ao ligar: OLA:STRIKE_KIDS:14 e o motor FECHA a porta.
     PORTA:ABRE   o motor abre; quando chega: PORTA:ABERTA
     PORTA:FECHA  o motor fecha; quando chega: PORTA:FECHADA
     PONTE?       PONTE:TEMPO:1500:FC:0 (o tempo e o fim de curso em uso)
-    INFO?        INFO:STRIKE_KIDS:13:...:PONTE_H=TEMPO:TEMPO=1500:...
+    INFO?        INFO:STRIKE_KIDS:14:...:PONTE_H=TEMPO:TEMPO=1500:...
                  (ou PONTE_H=FIM_DE_CURSO)
     TESTE:1 / TESTE:0 / CALIBRA   os sensores (igual a versao 1)
   AVISO:PORTA_TRAVOU = com fim de curso, a porta nao chegou (algo

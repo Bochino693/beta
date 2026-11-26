@@ -105,6 +105,7 @@ var _falhou := {}              # nome -> ms (não tenta de novo logo)
 var _desde := 0
 var _ultimo_rx := 0
 var _estado_ms := 0
+var _ligou_avisado := false    # (14) PORTA:LIGOU já foi neste jogo aberto
 var _ultimo_ping := 0
 var _ultima_procura := 0
 var _janelas_ok := false       # na espera ou no menu: pode abrir janela do Android
@@ -670,9 +671,15 @@ func _avisar_ligou() -> void:
 	if p.size() < 2:
 		return
 	var id := p[0]
-	if int(p[1]) > LIGOU_MAX_S or str(Ajustes.valor("arduino", "ligou_id")) == id:
+	if int(p[1]) > LIGOU_MAX_S or _ligou_avisado:
 		return
-	Ajustes.definir("arduino", "ligou_id", id)
+	# com o número da ligada (boot_count): uma vez por ligada, mesmo que o
+	# jogo reabra; sem ele: a 1a conexão deste jogo aberto logo ao ligar
+	if id != "-1" and str(Ajustes.valor("arduino", "ligou_id")) == id:
+		return
+	_ligou_avisado = true
+	if id != "-1":
+		Ajustes.definir("arduino", "ligou_id", id)
 	_send("PORTA:LIGOU")
 
 

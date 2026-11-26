@@ -649,9 +649,8 @@ public class StrikeSerial extends GodotPlugin {
 			} catch (Throwable ignored) {
 			}
 		}
-		if (id < 0) {
-			id = (System.currentTimeMillis() / 1000 - seg) / 120;
-		}
+		// (sem o boot_count: -1 - a hora da TV Box sem internet volta para a
+		// mesma data a cada vez que liga e não serve para contar as ligadas)
 		return id + "|" + seg;
 	}
 
