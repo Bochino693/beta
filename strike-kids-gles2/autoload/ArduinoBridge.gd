@@ -555,6 +555,10 @@ func _conectou(fw: String) -> void:
 		# quem é o jogo, antes de tudo: as fichas da fila já podem vir
 		_send("FICHAS:SYNC")
 		enviar_ponte()   # antes da porta: ela já anda no tempo/fim de curso do menu
+		# (13) A MÁQUINA ACABOU DE LIGAR: sem energia a trava fecha sozinha -
+		# ela está FECHADA agora. O Arduino passa a saber disso (sem pulso)
+		# antes de qualquer pedido; daqui em diante o crédito manda nela.
+		_avisar_ligou()
 		# a porta (e o modo) vão pelo _andar_porta (só o que o jogo já decidiu)
 		_porta_enviada = -1
 		_modo_enviado = ""
@@ -650,6 +654,26 @@ func acertar_porta() -> bool:
 	_send("PORTA:ACERTA")
 	_porta_envio_ms = Time.get_ticks_msec()
 	return true
+
+
+## (13) UMA VEZ POR LIGADA DA TV BOX (a máquina inteira ligou junto, a
+## trava sem energia fechou): PORTA:LIGOU. Se o jogo só reabriu (a TV Box
+## continua ligada desde antes), não manda: a trava pode estar aberta de
+## verdade (modo livre, partida) e o Arduino já sabe onde ela está.
+const LIGOU_MAX_S := 900   # a TV Box ligou há no máximo 15 min
+
+
+func _avisar_ligou() -> void:
+	if _plugin == null or not _plugin.has_method("ligada"):
+		return
+	var p: PoolStringArray = str(_plugin.call("ligada")).split("|")
+	if p.size() < 2:
+		return
+	var id := p[0]
+	if int(p[1]) > LIGOU_MAX_S or str(Ajustes.valor("arduino", "ligou_id")) == id:
+		return
+	Ajustes.definir("arduino", "ligou_id", id)
+	_send("PORTA:LIGOU")
 
 
 ## A versão do firmware (STRIKE_KIDS:5 -> 5; 0 = sem Arduino ou o antigo).

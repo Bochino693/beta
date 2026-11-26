@@ -55,7 +55,7 @@ grep -q '^#define RELE_LIGA_EM_LOW 0 ' "$TMP/fw_pulsohigh.ino" || { echo "  FALH
 grep -q '^#define PORTA_FECHA_SEM_ENERGIA 0 ' "$TMP/fw_releeeprom.ino" || { echo "  FALHOU: variante releeeprom"; falhou=1; }
 for t in "padrao tempo" "padrao ficha_nf" "padrao ficha_na" "fc fim_de_curso" "fc travou" \
          "fcnf fim_de_curso" "inv invertida" "padrao menu" "soponte so_ponte" \
-         "rele pulso" "pulsohigh pulso" "semleds pulso" "releeeprom antigo4" "rele energia" "releeeprom pulso" "releeeprom intruso" "rele fichas" "padrao fichas" \
+         "rele pulso" "pulsohigh pulso" "semleds pulso" "releeeprom antigo4" "rele energia" "rele ligou" "releeeprom ligou" "pulsohigh ligou" "releeeprom pulso" "releeeprom intruso" "rele fichas" "padrao fichas" \
          "rele intruso" "pulsohigh intruso" "padrao intruso" \
          "rele livre" "rele pinos" "padrao pinos" \
          "nivel rele" "nivel5 rele" "rele sem_ponte" "semleds sem_ponte" "nivel sem_ponte" \

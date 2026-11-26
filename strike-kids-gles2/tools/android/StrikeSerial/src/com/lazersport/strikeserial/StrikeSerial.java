@@ -507,7 +507,50 @@ public class StrikeSerial extends GodotPlugin {
 	/** (processo do desenho) o quadro está pronto e vai para a tela. */
 	@Override
 	public void onGLDrawFrame(GL10 gl) {
+		if (!prioridadeFeita) {
+			prioridadeFeita = true;
+			priorizarJogo();
+		}
 		QuadrosDaTv.antesDeTrocar();
+	}
+
+	private boolean prioridadeFeita = false;
+
+	/**
+	 * (9.0) O JOGO NA FRENTE DO PROCESSADOR: no Godot o jogo inteiro (física,
+	 * scripts e desenho) roda nesta linha de execução (a do GLSurfaceView),
+	 * que nasce com prioridade NORMAL - qualquer coisa em segundo plano na
+	 * TV Box (a câmera, o sistema, outro app) dividia o processador com ela
+	 * e o jogo dava uma "lentidão do nada". Ela passa a ter a prioridade que
+	 * o próprio Android dá à linha que desenha a tela dos apps (DISPLAY). E,
+	 * na TV Box que tem, o modo de desempenho constante (sem o processador
+	 * subir e descer de velocidade no meio da partida).
+	 */
+	private void priorizarJogo() {
+		try {
+			android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_DISPLAY);
+			anotar("linha do jogo com prioridade DISPLAY");
+		} catch (Throwable t) {
+			anotar("prioridade: " + t);
+		}
+		final Activity a = getActivity();
+		if (a == null || Build.VERSION.SDK_INT < 24) {
+			return;
+		}
+		a.runOnUiThread(new Runnable() {
+			@Override
+			public void run() {
+				try {
+					android.os.PowerManager pm = (android.os.PowerManager) a.getSystemService(Context.POWER_SERVICE);
+					if (pm != null && pm.isSustainedPerformanceModeSupported()) {
+						a.getWindow().setSustainedPerformanceMode(true);
+						anotar("modo de desempenho constante ligado");
+					}
+				} catch (Throwable t) {
+					anotar("desempenho constante: " + t);
+				}
+			}
+		});
 	}
 
 	@UsedByGodot
@@ -589,6 +632,29 @@ public class StrikeSerial extends GodotPlugin {
 	}
 
 	/** O "Arduino automático" (StrikeAutoOk) está ligado na acessibilidade? */
+	/**
+	 * (13) Quando a TV Box ligou: "<número da ligada>|<segundos desde que
+	 * ligou>". O número muda a cada vez que ela liga (boot_count do Android;
+	 * sem ele, a hora em que ligou) - o jogo avisa o Arduino UMA vez por
+	 * ligada que a trava está fechada (PORTA:LIGOU).
+	 */
+	@UsedByGodot
+	public String ligada() {
+		long seg = SystemClock.elapsedRealtime() / 1000;
+		long id = -1;
+		Activity a = getActivity();
+		if (a != null) {
+			try {
+				id = Settings.Global.getInt(a.getContentResolver(), "boot_count", -1);
+			} catch (Throwable ignored) {
+			}
+		}
+		if (id < 0) {
+			id = (System.currentTimeMillis() / 1000 - seg) / 120;
+		}
+		return id + "|" + seg;
+	}
+
 	@UsedByGodot
 	public boolean auto_ok_ligado() {
 		Activity a = getActivity();

@@ -190,7 +190,7 @@ OUTRA TRAVA (solenoide / eletroima que fica LIGADO com a porta aberta):
 8. TESTAR SEM O JOGO (Monitor Serial da IDE)
 --------------------------------------------
 Ferramentas > Monitor Serial, 9600 baud, "Nova linha". Ao abrir aparece:
-    OLA:STRIKE_KIDS:12
+    OLA:STRIKE_KIDS:13
 (o rele NAO clica ao ligar). Mande (digite e Enter, em MAIUSCULAS ou
 minusculas, exatamente assim - o que for escrito diferente e ignorado):
     PORTA:ABRE   1 pulso (um clique) e a resposta PORTA:ABERTA
@@ -198,7 +198,7 @@ minusculas, exatamente assim - o que for escrito diferente e ignorado):
     PORTA:FECHA  1 pulso e PORTA:FECHADA
     PORTA:ACERTA a porta de verdade esta ao contrario: troca so a
                  lembranca do Arduino (sem pulso)
-    INFO?        INFO:STRIKE_KIDS:12:LEDS=1:SERVO=0:RELE=8:PONTE_H=0:
+    INFO?        INFO:STRIKE_KIDS:13:LEDS=1:SERVO=0:RELE=8:PONTE_H=0:
                  REPOUSO=HHHHH:PULSO=1:FILA=0
                  (PONTE_H=0 = esta versao; PULSO=1 = rele de pulso;
                  FILA = fichas esperando o jogo)

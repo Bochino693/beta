@@ -79,6 +79,23 @@ O QUE MUDOU PARA RODAR NA OPENGL ES 2.0
     Godot 4 (nao substitui).
 
 
+VERSAO 8.8.3 + FIRMWARE 13: O JOGO DIZ AO ARDUINO QUE A MAQUINA LIGOU
+---------------------------------------------------------------------
+  * A TRAVA ABRIA COM 0 CREDITO DEPOIS DE DESLIGAR NO MEIO DA PARTIDA (e
+    fechava com a ficha): desligada e ligada LOGO, a memoria do Arduino
+    aguentava o instante sem energia e ele ainda achava a trava aberta. Agora
+    o JOGO avisa: a TV Box acabou de ligar (a maquina inteira ligou junto) ->
+    PORTA:LIGOU: o Arduino passa a saber que a trava esta FECHADA (sem
+    energia ela fecha), sem pulso. Uma vez por ligada da TV Box (o jogo so
+    reabrindo no meio do dia nao avisa). Daqui em diante o CREDITO manda:
+    0 credito = fechada; ficha = abre (1 pulso); fim da partida sem credito
+    = fecha (1 pulso). MODO LIVRE = sempre aberta. GRAVE O FIRMWARE 13.
+  * O JOGO NA FRENTE DO PROCESSADOR: a linha do jogo no Android com a
+    prioridade de desenho de tela (DISPLAY) - o que roda em segundo plano
+    na TV Box nao divide mais o processador com a partida. Na TV Box que
+    tem: modo de desempenho constante.
+
+
 VERSAO 8.8.2 + FIRMWARE 12: A TRAVA SEMPRE CERTA E O JOGO SEM TRANCOS
 ---------------------------------------------------------------------
   * A TRAVA ABRIA SOZINHA AO LIGAR (com 0 credito) E FICAVA AO CONTRARIO:

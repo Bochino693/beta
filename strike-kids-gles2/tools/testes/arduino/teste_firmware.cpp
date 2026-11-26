@@ -76,7 +76,7 @@ int main(int argc, char **argv) {
   iniciar();
   if (c == "tempo") {
     setup(); saida += Serial.out; Serial.out.clear();
-    CONFERE(saida.find("OLA:STRIKE_KIDS:12") != std::string::npos, "OLA ao ligar");
+    CONFERE(saida.find("OLA:STRIKE_KIDS:13") != std::string::npos, "OLA ao ligar");
     rodar(2);
     CONFERE(motor() == -1, "ao ligar o motor fecha a porta");
     long t = ate("PORTA:FECHADA", 3000);
@@ -392,8 +392,8 @@ int main(int argc, char **argv) {
     lembrarPortaRam(true);   // (12) e o Arduino reiniciou SEM faltar energia
 #endif
     setup(); pega();
-    const char *lixo[] = {"AT", "ATE0", "AT+CGMM", "AT+CPIN?", "ATI", "OLA:STRIKE_KIDS:12", "PORTA:ABERTA", "PORTA:FECHADA",
-                          "PONG:STRIKE_KIDS:12", "FICHA:0", "INFO:STRIKE_KIDS:12:LEDS=1", "PONTE:TEMPO:1500:FC:0", "PONTE:TEMPO:800X",
+    const char *lixo[] = {"AT", "ATE0", "AT+CGMM", "AT+CPIN?", "ATI", "OLA:STRIKE_KIDS:13", "PORTA:ABERTA", "PORTA:FECHADA",
+                          "PONG:STRIKE_KIDS:13", "FICHA:0", "INFO:STRIKE_KIDS:13:LEDS=1", "PONTE:TEMPO:1500:FC:0", "PONTE:TEMPO:800X",
                           "PORTA:ABREX", "XPING", "PINGS", "CALIBRAR", "S:1", "SENS:00000", "AVISO:SEM_JOGO", "~~##", "+++"};
     for (int k = 0; k < 6; k++) {
       for (const char *l : lixo) { manda(l); rodar(30); }
@@ -411,7 +411,7 @@ int main(int argc, char **argv) {
     // agora o jogo de verdade: tudo funciona
     pega();
     manda("PING"); rodar(5);
-    CONFERE(conta("PONG:STRIKE_KIDS:12") == 1, "o jogo de verdade e atendido");
+    CONFERE(conta("PONG:STRIKE_KIDS:13") == 1, "o jogo de verdade e atendido");
 #if USAR_RELE && RELE_PULSO && !USAR_PONTE_H
     manda("PORTA:ABRE"); rodar(2000);
     CONFERE(pulsos == 0 && conta("PORTA:ABERTA") == 1, "jogo pede aberta (ja estava): sem pulso");
@@ -579,6 +579,38 @@ int main(int argc, char **argv) {
       if (pulsos != p0 || releAberta) erros++;
     }
     CONFERE(erros == 0, "10 vezes desligada no meio da partida: sempre fechada e sem pulso a toa");
+#endif
+  } else if (c == "ligou") {
+#if USAR_RELE && RELE_PULSO && !USAR_PONTE_H
+    // (13) O QUE ACONTECEU NA MAQUINA: partida (porta aberta), desligaram e
+    // ligaram LOGO (a memoria do Arduino aguentou o instante sem energia e
+    // ainda dizia "aberta"); a trava, sem energia, FECHOU. O jogo liga junto
+    // com a maquina e avisa PORTA:LIGOU: o Arduino passa a saber que ela
+    // esta fechada - 0 credito nao abre nada, a ficha abre com UM pulso.
+    setup(); pega();
+    manda("PING"); manda("MODO:FICHAS"); manda("PORTA:ABRE"); rodar(2000);
+    CONFERE(pulsos == 1, "partida: a porta abriu (1 pulso)");
+    pulsos = 0; religar(); pega();             // reinicio com a RAM ainda dizendo "aberta"
+    manda("PORTA?"); rodar(50);
+    CONFERE(conta("PORTA:ABERTA") >= 1, "(a memoria ainda dizia aberta)");
+    pega();
+    manda("PING"); manda("PORTA:LIGOU"); rodar(50);
+    CONFERE(conta("PORTA:FECHADA") >= 1 && pulsos == 0, "PORTA:LIGOU: sabe que esta FECHADA, sem pulso");
+    manda("MODO:FICHAS"); manda("PORTA:FECHA"); rodar(3000);
+    CONFERE(pulsos == 0, "0 credito: NAO abre (era o erro da maquina)");
+    manda("PORTA:ABRE"); rodar(2000);
+    CONFERE(pulsos == 1, "a ficha: UM pulso abre");
+    manda("PORTA:FECHA"); rodar(2000);
+    CONFERE(pulsos == 2, "fim da partida sem credito: UM pulso fecha");
+    // modo livre: liga, PORTA:LIGOU (fechada) e o jogo pede aberta: UM pulso
+    pulsos = 0; religar(); pega();
+    manda("PING"); manda("PORTA:LIGOU"); manda("MODO:LIVRE"); manda("PORTA:ABRE"); rodar(2000);
+    CONFERE(pulsos == 1 && releAberta, "modo livre: abre com UM pulso e fica aberta");
+    rodar(600000);
+    CONFERE(pulsos == 1, "modo livre: 10 min e continua aberta, sem pulso");
+    // PORTA:LIGOU no meio de um pulso nao muda nada (nunca bagunca o pulso)
+    manda("MODO:FICHAS"); manda("PORTA:FECHA"); rodar(170); manda("PORTA:LIGOU"); rodar(3000);
+    CONFERE(pulsos == 2 && !releAberta, "PORTA:LIGOU durante o pulso: o pulso termina certo");
 #endif
   } else if (c == "antigo4") {
 #if USAR_RELE && RELE_PULSO && !USAR_PONTE_H
