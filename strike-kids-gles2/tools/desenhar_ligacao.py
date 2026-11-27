@@ -321,7 +321,7 @@ def cabecalho():
     rect(1796, 46, 858, 30, "white", rx=16, op=0.14)
     texto(2225, 102, selo, 42, "white", "bold", "middle", TITULO)
     texto(60, 162, "Arduino **Nano** visto de cima · no **Uno** e no **Pro Mini**: mesmos nomes de pinos · "
-          "no **Mega**: %s · firmware **%s** (firmware 17)" % (mega, pasta), 28, "#33415c")
+          "no **Mega**: %s · firmware **%s** (firmware 18)" % (mega, pasta), 28, "#33415c")
     cores = [COR["S1"], COR["S2"], COR["S3"], COR["S4"], COR["S5"]]
     for i, c in enumerate(cores):
         rect(i * W / 5, 190, W / 5 + 1, 12, vertical(c, 0.2))
@@ -874,7 +874,7 @@ def rele():
 
 
 def sensor_cancela():
-    """HW-201 (sensor infravermelho) embaixo do Nano: OUT no A4 (firmware 17)."""
+    """HW-201 (sensor infravermelho) embaixo do Nano: OUT no A4 (firmware 18)."""
     bx, by, bw, bh = 890, 1438, 250, 100
     pinos = {"VCC": 930, "GND": 1000, "OUT": 1070}
     xa4 = px("A4", False)
@@ -1123,7 +1123,7 @@ def paineis():
             "2_PONTE_H) pela IDE do Arduino (Nano clone:",
             "Processador “ATmega328P (Old Bootloader)”;",
             "biblioteca Adafruit NeoPixel, ou USAR_LEDS 0).",
-            "**2. Monitor Serial a 9600:** OLA:STRIKE_KIDS:17",
+            "**2. Monitor Serial a 9600:** OLA:STRIKE_KIDS:18",
             "e a porta FECHA (PORTA:FECHADA quando chega).",
             "Mande PORTA:ABRE e PORTA:FECHA para testar.",
             "**3. USB na TV Box** e abra o jogo: na janela do",
@@ -1170,8 +1170,8 @@ def paineis():
                 "",
                 "**SENSOR DA CANCELA (A4):** USAR_SENSOR_TRAVA 1",
                 "· LED aceso = fechada: SENSOR_TRAVA_",
-                "FECHADA_LOW 1 · tempo para a cancela chegar:",
-                "PORTA_TEMPO_MOVER_MS 2500 · sem sensor:",
+                "FECHADA_LOW 1 · tempo para o feixe ver:",
+                "PORTA_TEMPO_MOVER_MS 4000 · sem sensor:",
                 "USAR_SENSOR_TRAVA 0 (lembra pela EEPROM).",
                 "",
                 "**SERVO (D9, opcional):** USAR_SERVO 1,",
@@ -1185,7 +1185,7 @@ def paineis():
                 "(Nano clone: Processador “ATmega328P (Old",
                 "Bootloader)”; biblioteca Adafruit NeoPixel,",
                 "ou USAR_LEDS 0 sem a fita).",
-                "**2. Monitor Serial a 9600:** OLA:STRIKE_KIDS:17.",
+                "**2. Monitor Serial a 9600:** OLA:STRIKE_KIDS:18.",
                 "Mande PORTA:ABRE e PORTA:FECHA: a cancela",
                 "anda e o sensor responde PORTA:ABERTA/FECHADA.",
                 "**3. USB na TV Box** e abra o jogo: na janela",
@@ -1224,9 +1224,9 @@ def paineis():
         ]
         dados[0][2].extend([
             "",
-            "**Sensor da cancela (A4):** o **CRÉDITO** manda;",
-            "o sensor só confere quando o crédito muda e",
-            "ao ligar. Mão no feixe = nada.",
+            "**Sensor da cancela (A4):** o **CRÉDITO** manda,",
+            "o feixe confere: UM pulso por pedido. Regule:",
+            "LED aceso **só** com a cancela fechada.",
         ])
     for (titulo, cor, linhas), w in zip(dados, ws):
         caixa(x, y0, w, h, titulo, cor, 28)

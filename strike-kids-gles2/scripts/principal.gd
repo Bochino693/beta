@@ -1053,10 +1053,10 @@ func _jogada_recebida(zona: String) -> void:
 # ================================================================ abertura e atração
 func _abertura() -> void:
 	estado = E.ABERTURA
-	# (14) NA ABERTURA A TRAVA NÃO MEXE: ela só é decidida na tela inicial
-	# (atração), com o jogo pronto e o Arduino já sabendo que a máquina
-	# ligou - aqui só os textos da espera
-	_porta_da_espera(true)
+	# (8.8.6) A CANCELA JÁ NA ABERTURA: o crédito manda desde o primeiro
+	# instante (ao ligar não há crédito: modo fichas -> FECHADA; modo livre
+	# -> ABERTA). O Arduino confere com o feixe e dá UM pulso só se precisar.
+	_porta_da_espera()
 	var s := _novo_seq()
 	hud.atracao(false)
 	hud.mostrar_sensores(false)
@@ -2004,6 +2004,12 @@ func _finalizar_jogada() -> void:
 	if not demo:
 		res = placar.registrar(n)
 		hud.atualizar_placar(placar)
+		if placar.seria_fim(bool(res["fim_rodada"])) and not placar.pede_desempate():
+			# (8.8.6) a ÚLTIMA BOLA DA PARTIDA: a cancela já fecha AGORA (na
+			# tela do resultado), sem crédito - as bolas que voltam ficam
+			# presas. Sobrou crédito (ou modo livre): fica aberta.
+			_trava_dormiu = false
+			ArduinoBridge.porta(Ajustes.modo_livre() or Ajustes.pode_comecar())
 	else:
 		if n == _em_pe_antes.size() and n == 10:
 			res["tipo"] = "strike"

@@ -460,6 +460,7 @@ func _acao() -> void:
 			_porta = true
 			# (começa como a porta está: entrar no teste não dá pulso)
 			_porta_antes = ArduinoBridge.porta_quer
+			ArduinoBridge.pedir_feixe()
 			_entrar_no_teste()
 			_mostrar_porta()
 		"camera":
@@ -577,9 +578,17 @@ func _mostrar_porta() -> void:
 		t += ("(o Arduino confirmou)" if confirmada == pedida else "(esperando o Arduino...)") + "\n\n"
 		if ArduinoBridge.aviso == "PORTA_TRAVOU":
 			t += "A PORTA NÃO CHEGOU: confira o motor, a ponte H e o fim de curso\n\n"
+		if ArduinoBridge.tem_feixe:
+			t += "FEIXE DA CANCELA: %s\n" % _texto_feixe()
+			if not ArduinoBridge.feixe_ok:
+				t += "O FEIXE NÃO VIU A CANCELA MEXER: regule o sensor (parafusinho azul):\nLED ACESO só com a cancela FECHADA e APAGADO com ela ABERTA\n"
+			t += "\n"
 		t += _texto_ponte() + "\n\n"
 		t += "C ou START: abre / fecha\nCONFIGURAÇÃO: sai (a porta volta como estava)\n\n"
-		if ArduinoBridge.rele_de_pulso():
+		if ArduinoBridge.rele_de_pulso() and ArduinoBridge.tem_feixe and ArduinoBridge.feixe_ok:
+			t += "Mudanças mandadas: %d\n" % ArduinoBridge.porta_pulsos
+			t += "Z ou B: CONFERIR AGORA com o feixe (ao contrário do crédito = 1 pulso)."
+		elif ArduinoBridge.rele_de_pulso():
 			t += "Mudanças mandadas (1 pulso cada): %d\n" % ArduinoBridge.porta_pulsos
 			t += "A porta de verdade está AO CONTRÁRIO do que diz aqui?\nZ ou B: ACERTAR (o relé dá o pulso que falta)."
 		else:
@@ -588,6 +597,17 @@ func _mostrar_porta() -> void:
 		Compat.tamanho_rotulo(_teste_rotulo, int(30 * u))
 		t += "SEM O ARDUINO\n%s\n\n%s\n\nCONFIGURAÇÃO ou START sai" % [ArduinoBridge.status, _relatorio_arduino()]
 	_teste_rotulo.text = t
+
+
+## (8.8.6) O feixe da cancela agora, em palavras: "LED ACESO -> FECHADA".
+func _texto_feixe() -> String:
+	var f: String = ArduinoBridge.feixe
+	if f == "":
+		return "(esperando o Arduino...)"
+	var partes := f.split(":")
+	if partes.size() < 2:
+		return f
+	return "LED %s -> o Arduino entende %s" % [partes[0], partes[1]]
 
 
 ## A porta como o Arduino está usando: a versão do RELÉ (arduino/1_RELE_principal,

@@ -65,7 +65,7 @@ for t in "padrao tempo" "padrao ficha_nf" "padrao ficha_na" "fc fim_de_curso" "f
          "rele livre" "rele pinos" "padrao pinos" \
          "nivel rele" "nivel5 rele" "relesemsensor sem_ponte" "semleds sem_ponte" "nivel sem_ponte" \
          "rele ficha_nf" "rele ficha_na" "rele ficha_pulso" "padrao ficha_pulso" \
-         "rele sensor" "rele sensor_travou" "rele sensor_mao" "pulsohighsensor sensor" "pulsohighsensor sensor_travou" "pulsohighsensor sensor_mao"; do
+         "rele sensor" "rele sensor_travou" "rele sensor_mao" "rele sozinho" "pulsohighsensor sensor" "pulsohighsensor sensor_travou" "pulsohighsensor sensor_mao" "relesemsensor sozinho"; do
   set -- $t
   "$TMP/t_$1" "$2" || falhou=1
 done

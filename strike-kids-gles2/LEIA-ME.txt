@@ -79,6 +79,40 @@ O QUE MUDOU PARA RODAR NA OPENGL ES 2.0
     Godot 4 (nao substitui).
 
 
+VERSAO 8.8.6 + FIRMWARE 18: A CANCELA SEGUE O CREDITO, SEM ERRO
+-----------------------------------------------------------------
+  O defeito do firmware 17 na maquina: ligou com a cancela ABERTA e 0
+  credito e ela nao fechou; a ficha FECHOU; logo depois ela ABRIU; zerou o
+  credito e ela nao fechou. Isso e exatamente o que acontece quando o
+  feixe le "FECHADA" o tempo todo (LED do sensor sempre aceso: mal
+  regulado ou vendo outra coisa): o Arduino achava que ja estava fechada,
+  a ficha deu o pulso (fechou), o feixe nao mudou e o 17 deu um SEGUNDO
+  pulso (abriu).
+  * FIRMWARE 18:
+    - UM PULSO POR PEDIDO, NUNCA DOIS: depois do pulso o feixe tem que
+      mudar; nao mudou em 4 s -> o feixe nao enxerga: nenhum segundo
+      pulso, o Arduino segue pela memoria (EEPROM) e avisa
+      (AVISO:FEIXE_NAO_VIU). Regulou o feixe: ele volta a valer sozinho.
+    - O feixe so decide PARADO (0,4 s): bola passando nao engana.
+    - ANTES DO JOGO: ligou e o jogo nao falou em 10 s (TV carregando) ->
+      o proprio Arduino acerta: sem ficha -> FECHADA; modo livre ->
+      ABERTA; ficha posta enquanto a TV carrega -> ABERTA.
+    - Mao no feixe fora de um pedido: nada (como no 17).
+    - FEIXE? e as linhas FEIXE:ACESO:FECHADA / FEIXE:APAGADO:ABERTA: o
+      jogo mostra o feixe ao vivo.
+  * JOGO 8.8.6:
+    - A cancela ja e decidida na ABERTURA (antes da tela inicial).
+    - ULTIMA BOLA DA PARTIDA: a cancela fecha ali mesmo (na tela do
+      resultado) se nao sobrou credito - as bolas que voltam ficam presas.
+    - "Porta invertida" nao vale com o feixe (deixava a cancela sempre ao
+      contrario do credito).
+    - TESTE DA PORTA: mostra o feixe ao vivo ("LED ACESO -> o Arduino
+      entende FECHADA") e o aviso "O FEIXE NAO VIU A CANCELA MEXER";
+      Z ou B = conferir agora.
+  * REGULE O FEIXE (uma vez): cancela FECHADA -> LED "sinal" ACESO;
+    cancela ABERTA -> LED APAGADO. Confira no TESTE DA PORTA.
+
+
 FIRMWARE 17: O CREDITO MANDA, O FEIXE SO CONFERE
 ------------------------------------------------
   (o jogo e o mesmo: o APK 8.8.5 serve; grave so o firmware 17)

@@ -90,6 +90,12 @@ func avancar(fim_rodada: bool) -> String:
 	return "rodada"
 
 
+## (8.8.6) A jogada que acabou de ser registrada é a ÚLTIMA da partida?
+## (sem mexer em nada: o avancar() é que passa a vez)
+func seria_fim(fim_rodada: bool) -> bool:
+	return fim_rodada and jogador_atual + 1 >= jogadores.size() and rodada_atual + 1 >= rodadas
+
+
 ## Empate de 2 jogadores no fim das rodadas (e a extra ainda não foi jogada).
 func pede_desempate() -> bool:
 	return jogadores.size() == 2 and not desempate and vencedor() == -1

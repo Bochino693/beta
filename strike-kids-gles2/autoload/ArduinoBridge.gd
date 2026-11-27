@@ -98,6 +98,10 @@ var porta_quer := false        # o que o jogo pediu
 var porta_pulsos := 0          # mudanças de porta mandadas desde que o jogo abriu (teste da porta)
 var aviso := ""                # último AVISO: do Arduino (PORTA_TRAVOU...); a porta chegou = ""
 var ponte := ""                # o que o Arduino usa na ponte H: "TEMPO:1500:FC:0" ("" = não disse)
+var tem_feixe := false         # (8.8.6) o Arduino tem o FEIXE da cancela (firmware 16+: INFO ...:SENSOR_TRAVA=)
+var feixe := ""                # o que o feixe vê agora (só para mostrar): "ACESO:FECHADA" / "APAGADO:ABERTA"
+var feixe_ok := true           # o feixe viu a cancela mexer no último pulso (AVISO:FEIXE_NAO_VIU = não)
+var _conectou_ms := 0
 var _plugin: Object
 var _fase := "procurando"      # procurando | abrindo | apresentando | conectado
 var _candidatos: Array = []
@@ -489,7 +493,7 @@ func _receber(linha: String, agora: int) -> void:
 			_contar_ficha()
 		"PORTA:ABERTA", "PORTA:FECHADA":
 			var aberta := linha == "PORTA:ABERTA"
-			porta_aberta = aberta != bool(Ajustes.valor("arduino", "porta_invertida"))
+			porta_aberta = aberta != _invertida()
 			aviso = ""
 			emit_signal("mudou")
 		_:
@@ -503,12 +507,28 @@ func _receber(linha: String, agora: int) -> void:
 				emit_signal("mudou")
 			elif linha.begins_with("INFO:"):
 				info = linha.substr(5)
+				if info.find(":SENSOR_TRAVA=") >= 0:
+					tem_feixe = true
+				if info.find(":FEIXE=NAO_VIU") >= 0:
+					feixe_ok = false
+				elif info.find(":FEIXE=OK") >= 0:
+					feixe_ok = true
+				emit_signal("mudou")
+			elif linha.begins_with("FEIXE:"):
+				# (8.8.6) o que o feixe da cancela vê - só para MOSTRAR (quem
+				# decide a cancela é o crédito; o Arduino confere)
+				feixe = linha.substr(6)
+				tem_feixe = true
 				emit_signal("mudou")
 			elif linha.begins_with("PONTE:"):
 				ponte = linha.substr(6)
 				emit_signal("mudou")
 			elif linha.begins_with("AVISO:"):
 				aviso = linha.substr(6)
+				if aviso == "FEIXE_NAO_VIU":
+					feixe_ok = false
+				elif aviso == "FEIXE_OK":
+					feixe_ok = true
 				if aviso == "SEM_JOGO":
 					# o jogo ficou parado tempo demais e o Arduino fechou a
 					# porta: o pedido do jogo vai de novo
@@ -553,6 +573,10 @@ func _conectou(fw: String) -> void:
 	if fw.begins_with("STRIKE_KIDS"):
 		_set_status("Arduino conectado (%s): sensores, botão e porta OK" % tipo)
 		ponte = ""
+		info = ""
+		feixe = ""
+		tem_feixe = false
+		_conectou_ms = Time.get_ticks_msec()
 		# quem é o jogo, antes de tudo: as fichas da fila já podem vir
 		_send("FICHAS:SYNC")
 		enviar_ponte()   # antes da porta: ela já anda no tempo/fim de curso do menu
@@ -562,6 +586,7 @@ func _conectou(fw: String) -> void:
 		_send("TESTE:1" if _teste else "TESTE:0")
 		_send("INFO?")
 		_send("PORTA?")
+		_send("FEIXE?")
 	else:
 		_set_status("Arduino com o firmware ANTIGO (só LEDs): grave o arduino 1_RELE_principal (ou 2_PONTE_H)")
 	_send(_led_state)
@@ -615,6 +640,10 @@ func reenviar_porta() -> void:
 func _andar_porta(agora: int) -> void:
 	if not _porta_decidida or not completo():
 		return
+	# (8.8.6) a porta só sai depois de o Arduino dizer quem é (INFO): com o
+	# feixe, "porta invertida" não vale - antes de saber, nada vai
+	if info == "" and agora - _conectou_ms < 2000:
+		return
 	# o MODO vai antes da porta (firmware 7: no modo livre o vigia do
 	# Arduino nunca fecha a porta - nem com o jogo parado ou a TV em espera)
 	var modo := "MODO:LIVRE" if Ajustes.modo_livre() else "MODO:FICHAS"
@@ -637,8 +666,21 @@ func _andar_porta(agora: int) -> void:
 func _enviar_porta(agora: int) -> void:
 	_porta_enviada = 1 if porta_quer else 0
 	_porta_envio_ms = agora
-	var abre := porta_quer != bool(Ajustes.valor("arduino", "porta_invertida"))
+	var abre := porta_quer != _invertida()
 	_send("PORTA:ABRE" if abre else "PORTA:FECHA")
+
+
+## "Porta invertida" do menu. (8.8.6) COM O FEIXE ela não vale: o feixe diz
+## onde a cancela está de verdade - inverter o pedido deixaria a cancela
+## sempre ao contrário do crédito.
+func _invertida() -> bool:
+	return bool(Ajustes.valor("arduino", "porta_invertida")) and not tem_feixe
+
+
+## (8.8.6) TESTE DA PORTA: o que o feixe vê agora.
+func pedir_feixe() -> void:
+	if completo():
+		_send("FEIXE?")
 
 
 ## Relé de PULSO: a porta de verdade está ao contrário do que o jogo mostra
