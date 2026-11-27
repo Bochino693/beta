@@ -161,6 +161,13 @@ const uint8_t SENSOR_PINOS[5] = {2, 3, 4, 5, 7};
 // Arduino segue pela MEMORIA (EEPROM, cada pulso troca): desligaram
 // jogando (aberta) -> ao ligar, sem credito, UM pulso fecha - antes mesmo
 // do jogo abrir. Feixe mal regulado (sempre aceso) nunca mais engana.
+// (20) FEIXE E MEMORIA DISCORDAM e o feixe ainda nao provou: o Arduino nao
+// escolhe as cegas - da UM pulso de TESTE e o proprio feixe responde quem
+// estava certo: mudou -> o feixe enxerga (provou); nao mudou -> valia a
+// memoria. Se o pulso de teste foi para o lado errado, UM pulso acerta. O
+// fim e SEMPRE a cancela onde o credito manda (ligou aberta sem credito ->
+// fecha, com o feixe bom ou ruim). Ja provado: vale o feixe; ja mostrou
+// que nao ve: vale a memoria.
 #define USAR_SENSOR_TRAVA 1       // 1 = tem o sensor da cancela; 0 = sem sensor (lembra pela EEPROM)
 #define SENSOR_TRAVA_PINO A4      // OUT do sensor
 #define SENSOR_TRAVA_FECHADA_LOW 1 // HW-201: OUT em 0 (LED ACESO) com a cancela na frente (fechada); o contrario: 0
@@ -192,7 +199,7 @@ const uint8_t SENSOR_PINOS[5] = {2, 3, 4, 5, 7};
 #define FICHA_PULSO_MAX_MS 250    // pulso mais longo que isto: fio preso/segurado, nao e ficha
 #define FICHA_REPOUSO_MS 2000UL   // nivel parado este tempo vira o novo repouso
 #define SEM_JOGO_FECHA_MS 30000UL // o jogo falou e sumiu este tempo: fecha a porta
-#define VERSAO "19"
+#define VERSAO "20"
 
 #if USAR_LEDS
 #include <Adafruit_NeoPixel.h>
@@ -265,6 +272,10 @@ bool travaAntes = false;        // o feixe no instante do pulso
 uint8_t travaPulsos = 0;        // pulsos neste pedido (no maximo PORTA_PULSOS_MAX)
 bool feixeOk = false;           // (19) o feixe JA PROVOU que enxerga a cancela andar (EEPROM)
 bool memoriaValida = false;     // (18) nesta ligada a memoria ja bateu com o feixe
+bool feixeCego = false;         // (20) num pulso o feixe nao mudou: ele nao ve a cancela (EEPROM 0xF0)
+bool travaTeste = false;        // (20) o ultimo pulso foi o de TESTE (feixe e memoria discordavam)
+bool travaPeloFeixe = false;    // ... e foi dado porque o FEIXE dizia que ela nao estava no lugar
+bool travaAlvo = false;         // para onde foi o ultimo pulso
 // (18) o Arduino sozinho, antes de o jogo falar
 unsigned long ligouEm = 0;
 bool sozinhoFeito = false;
@@ -307,7 +318,7 @@ bool comandoDoJogo(const char *c);
 #define EE_PORTA_ANTIGA 6  // firmware 4: 0xA1 = porta aberta (lido uma vez e passado para o contador)
 #define EE_FEIXE 7         // (18) 0xF0 = o feixe nao viu a cancela mudar (segue pela memoria)
 #define EE_MODO 8          // (18) 0x4C = modo livre (o Arduino sozinho, ao ligar, sabe o modo)
-#define EE_VERSAO 9        // (19) a primeira vez deste firmware: a memoria comeca FECHADA (grave com ela fechada)
+#define EE_VERSAO 9        // (19/20) a primeira vez deste firmware (o 19 ou o 20 guardam aqui)
 // EE_FEIXE: 0x00 = o feixe ja provou que ve a cancela andar; 0xF0 = num pulso
 // ele nao mudou; outro (0xFF, novo) = ainda nao provou
 
@@ -534,6 +545,7 @@ void tickRele(unsigned long agora) {
       travaVigiando = false;
       if (!feixeOk) {               // (19) mudou junto com o pulso: o feixe PROVOU
         feixeOk = true;
+        feixeCego = false;
         EEPROM.update(EE_FEIXE, 0);
         Serial.println(F("AVISO:FEIXE_OK"));
       }
@@ -551,35 +563,51 @@ void tickRele(unsigned long agora) {
     }
     if (agora - releMudouEm < PORTA_TEMPO_MOVER_MS) return;
     // o rele pulsou e o feixe NAO MUDOU: o feixe nao enxerga a cancela.
-    // NUNCA outro pulso: a cancela andou (o rele funciona) - vale a memoria.
+    // A cancela andou (o rele funciona). Onde ela esta agora: se o pulso foi
+    // o de TESTE dado pela palavra do feixe, ela estava onde a MEMORIA dizia
+    // (o feixe e que errou) e o pulso a tirou do lugar -> UM pulso acerta.
     travaVigiando = false;
     feixeOk = false;
+    feixeCego = true;
     EEPROM.update(EE_FEIXE, 0xF0);
-    if (!travaConferir) {
-      travaPulsos = 0;
-      confirmarPorta();
-    }
     Serial.println(F("AVISO:FEIXE_NAO_VIU"));
+    {
+      bool agoraAberta = (travaTeste && travaPeloFeixe) ? !travaAlvo : travaAlvo;
+      crenca(agoraAberta);
+      memoriaValida = true;
+      if (!travaConferir) {
+        if (agoraAberta == relePedida) {
+          travaPulsos = 0;
+          confirmarPorta();
+        } else {
+          travaPedido(relePedida);   // o pulso que acerta (agora pela memoria)
+        }
+      }
+    }
     return;
   }
   if (!travaConferir) return;      // sem pedido: o feixe nao mexe em nada
   if (agora - relePedidoEm < RELE_FIRME_MS) return;
   bool onde = releAberta;          // a memoria
-  if (feixeOk) {
-    bool parado = travaLeitura == travaFirme && agora - travaMudouEm >= SENSOR_TRAVA_DECIDE_MS;
-    if (!parado && agora - travaConferirDesde < SENSOR_TRAVA_ESPERA_MAX_MS) return;   // bola passando: espera
-    if (parado) {
-      if (travaFirme == releAberta) memoriaValida = true;
-      // o feixe diz onde ela esta - menos quando a memoria ja conferida
-      // nesta ligada diz que ela JA esta onde o credito manda: ai o feixe
-      // tapado (mao, bola parada) nao manda pulso nenhum
-      else if (!memoriaValida || relePedida != releAberta) onde = travaFirme;
-      if (onde == travaFirme) memoriaValida = true;
+  bool teste = false;
+  bool parado = travaLeitura == travaFirme && agora - travaMudouEm >= SENSOR_TRAVA_DECIDE_MS;
+  if (!feixeCego && !parado && agora - travaConferirDesde < SENSOR_TRAVA_ESPERA_MAX_MS) return;   // bola passando: espera
+  if (parado && !feixeCego) {
+    if (travaFirme == releAberta) {
+      memoriaValida = true;        // feixe e memoria concordam
+    } else if (memoriaValida && relePedida == releAberta) {
+      // a memoria ja conferida nesta ligada diz que ela JA esta onde o
+      // credito manda: o feixe tapado (mao, bola parada) nao manda nada
+    } else if (feixeOk) {
+      onde = travaFirme;           // o feixe que ja provou manda
+      memoriaValida = true;
+    } else {
+      teste = true;                // (20) discordam e o feixe nao provou: o pulso de TESTE tira a duvida
     }
   }
   travaConferir = false;
-  crenca(onde);
-  if (onde == relePedida) {        // ja esta onde o credito manda: nada
+  if (!teste) crenca(onde);
+  if (!teste && onde == relePedida) {   // ja esta onde o credito manda: nada
     travaPulsos = 0;
     confirmarPorta();
     return;
@@ -588,9 +616,12 @@ void tickRele(unsigned long agora) {
     Serial.println(F("AVISO:PORTA_TRAVOU"));
     return;
   }
-  releEscrever(true);              // ao contrario do credito: UM pulso
+  releEscrever(true);              // ao contrario do credito (ou o de TESTE): UM pulso
   releMudouEm = agora;
   travaPulsos++;
+  travaTeste = teste;
+  travaPeloFeixe = teste && travaFirme != relePedida;
+  travaAlvo = relePedida;
   travaAntes = travaFirme;
   crenca(relePedida);
   travaVigiando = true;
@@ -1061,7 +1092,7 @@ bool comandoDoJogo(const char *c) {
     // (18) ACERTAR: o feixe enxerga -> confere agora; nao enxerga -> a
     // memoria estava ao contrario: troca a memoria e confere (UM pulso acerta)
     if (!travaVigiando) {
-      if (!feixeOk) crenca(!releAberta);
+      if (feixeCego) crenca(!releAberta);
       memoriaValida = false;      // o feixe decide (se ele enxerga)
       travaPulsos = 0;
       travaPedido(relePedida);
@@ -1217,13 +1248,16 @@ void setup() {
     EEPROM.update(EE_PORTA_ANTIGA, 0xA0);
   }
   releAberta = (releTrocas & 1) != 0;
-  if (EEPROM.read(EE_VERSAO) != 19) {
-    // (19) a PRIMEIRA VEZ deste firmware: a memoria comeca FECHADA (grave
-    // com a cancela fechada) e o feixe ainda tem que provar que enxerga
-    releAberta = false;
-    if (releTrocas & 1) avancarContador(EE_PORTA, releTrocas);
+  if (EEPROM.read(EE_VERSAO) != 20) {
+    // (19/20) a PRIMEIRA VEZ deste firmware: o feixe volta a "ainda nao
+    // provou" (no 19 um feixe regulado depois podia ter ficado como cego).
+    // Vindo de antes do 19, a memoria comeca FECHADA (grave com ela fechada).
+    if (EEPROM.read(EE_VERSAO) != 19) {
+      releAberta = false;
+      if (releTrocas & 1) avancarContador(EE_PORTA, releTrocas);
+    }
     EEPROM.update(EE_FEIXE, 0xFF);
-    EEPROM.update(EE_VERSAO, 19);
+    EEPROM.update(EE_VERSAO, 20);
   }
 #if PORTA_FECHA_SEM_ENERGIA
   // (14) O ARDUINO LIGOU = A MAQUINA LIGOU: sem energia a trava fecha - ela
@@ -1278,7 +1312,8 @@ void setup() {
   // (do jogo, ou o do proprio Arduino se o jogo nao falar em 10 s)
   travaLeitura = travaFirme = sensorTravaAberta();
   travaMudouEm = millis();
-  feixeOk = EEPROM.read(EE_FEIXE) == 0;   // (19) so vale o feixe que ja provou
+  feixeOk = EEPROM.read(EE_FEIXE) == 0;   // (19) o feixe que ja provou
+  feixeCego = EEPROM.read(EE_FEIXE) == 0xF0;
   relePedida = feixeOk ? travaFirme : releAberta;
   portaAberta = relePedida;
   travaConferir = travaVigiando = false;

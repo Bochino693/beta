@@ -79,6 +79,28 @@ O QUE MUDOU PARA RODAR NA OPENGL ES 2.0
     Godot 4 (nao substitui).
 
 
+VERSAO 8.8.7 + FIRMWARE 20: LIGOU SEM CREDITO -> FECHADA, ANTES DA ABERTURA
+--------------------------------------------------------------------------
+  O teste na maquina com o 19: o jogo iniciou sem credito com a cancela
+  ABERTA (feixe apagado, vendo certo) e ela ficou aberta. O 19 so confiava
+  no feixe depois de ele "provar" num pulso; ate la valia a memoria, que
+  dizia fechada.
+  * FIRMWARE 20: feixe e memoria discordam e o feixe ainda nao provou ->
+    UM pulso de TESTE e o proprio feixe responde quem estava certo (mudou:
+    o feixe enxerga; nao mudou: valia a memoria). Se o teste foi para o
+    lado errado, UM pulso acerta. O fim e SEMPRE a cancela onde o credito
+    manda - com feixe bom, feixe cego (sempre aceso) ou fio do feixe solto.
+    Feixe ja provado: vale ele. Ja mostrou que nao ve: vale a memoria.
+    A primeira vez do 20 o feixe volta a "nao provou".
+  * JOGO 8.8.7: a capa (tela de carregamento) so sai depois de o Arduino
+    confirmar a cancela onde o credito manda (ao abrir nao ha credito:
+    modo fichas -> FECHADA). No maximo 15 s; sem Arduino, segue na hora.
+  * Testado no PC: ligou aberta sem credito (feixe bom e memoria fechada,
+    o caso da maquina) -> UM pulso fecha antes da abertura; e mais 7
+    desencontros de feixe/memoria, todos terminando fechada; a ficha abre,
+    o fim fecha.
+
+
 FIRMWARE 19 (COM O JOGO 8.8.6): O FEIXE SO VALE DEPOIS DE PROVAR
 -----------------------------------------------------------------
   O teste na maquina: 4 fichas, partida inteira, sobraram 2, outra

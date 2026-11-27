@@ -102,6 +102,8 @@ var tem_feixe := false         # (8.8.6) o Arduino tem o FEIXE da cancela (firmw
 var feixe := ""                # o que o feixe vê agora (só para mostrar): "ACESO:FECHADA" / "APAGADO:ABERTA"
 var feixe_ok := true           # o feixe viu a cancela mexer no último pulso (AVISO:FEIXE_NAO_VIU = não)
 var _conectou_ms := 0
+var _porta_confirmada_ms := -1  # (8.8.7) quando chegou o último PORTA:ABERTA/FECHADA
+const ESPERA_ARDUINO_CARREGANDO_MS := 8000   # a tela de carregamento espera o Arduino conectar até aqui
 var _plugin: Object
 var _fase := "procurando"      # procurando | abrindo | apresentando | conectado
 var _candidatos: Array = []
@@ -494,6 +496,7 @@ func _receber(linha: String, agora: int) -> void:
 		"PORTA:ABERTA", "PORTA:FECHADA":
 			var aberta := linha == "PORTA:ABERTA"
 			porta_aberta = aberta != _invertida()
+			_porta_confirmada_ms = Time.get_ticks_msec()
 			aviso = ""
 			emit_signal("mudou")
 		_:
@@ -681,6 +684,19 @@ func _enviar_porta(agora: int) -> void:
 ## sempre ao contrário do crédito.
 func _invertida() -> bool:
 	return bool(Ajustes.valor("arduino", "porta_invertida")) and not tem_feixe
+
+
+## (8.8.7) A TELA DE CARREGAMENTO ESPERA ISTO: a cancela ainda não foi
+## confirmada pelo Arduino no lugar do crédito. Sem o plugin (PC): nunca.
+## Arduino ainda não conectou: espera os primeiros segundos do jogo.
+func porta_conferindo() -> bool:
+	if _plugin == null:
+		return false
+	if not completo():
+		return Time.get_ticks_msec() < ESPERA_ARDUINO_CARREGANDO_MS
+	if not _porta_decidida or _porta_enviada < 0 or (1 if porta_quer else 0) != _porta_enviada:
+		return true
+	return _porta_confirmada_ms < _porta_envio_ms or porta_aberta != porta_quer
 
 
 ## (8.8.6) TESTE DA PORTA: o que o feixe vê agora.

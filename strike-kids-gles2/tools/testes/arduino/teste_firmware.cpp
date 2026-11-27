@@ -31,6 +31,7 @@ bool canFunciona = true;      // false = presa (o pulso nao a move)
 int canIgnora = 0;            // quantos pulsos ela perde antes de obedecer
 long canTrocaEm = -1;
 bool maoNoFeixe = false;      // (17) mao (bola, sujeira) na frente do sensor: ele le FECHADA
+bool feixeSolto = false;      // (20) o fio do OUT solto: o pull-up le sempre ABERTA
 const unsigned long CANCELA_MOVER_MS = 400;
 void fisica() {
   if (!presa) portaFisica = constrain(portaFisica + motor(), 0, 1000);
@@ -41,6 +42,7 @@ void fisica() {
   if (canTrocaEm >= 0 && (long)t_ms >= canTrocaEm) { canAberta = !canAberta; canTrocaEm = -1; }
   bool visto = canAberta && !maoNoFeixe;
   pinLevel[SENSOR_TRAVA_PINO] = (visto == (SENSOR_TRAVA_FECHADA_LOW != 0)) ? HIGH : LOW;
+  if (feixeSolto) pinLevel[SENSOR_TRAVA_PINO] = HIGH;
 #endif
 }
 std::string saida;
@@ -92,10 +94,10 @@ int main(int argc, char **argv) {
   std::string c = argc > 1 ? argv[1] : "";
   iniciar();
   // (19) o firmware ja rodou antes nesta EEPROM (so o cenario primeira_vez comeca do zero)
-  if (c != "primeira_vez") EEPROM.update(EE_VERSAO, 19);
+  if (c != "primeira_vez") EEPROM.update(EE_VERSAO, 20);
   if (c == "tempo") {
     setup(); saida += Serial.out; Serial.out.clear();
-    CONFERE(saida.find("OLA:STRIKE_KIDS:19") != std::string::npos, "OLA ao ligar");
+    CONFERE(saida.find("OLA:STRIKE_KIDS:20") != std::string::npos, "OLA ao ligar");
     rodar(2);
     CONFERE(motor() == -1, "ao ligar o motor fecha a porta");
     long t = ate("PORTA:FECHADA", 3000);
@@ -410,8 +412,8 @@ int main(int argc, char **argv) {
     EEPROM.update(EE_PORTA, 0); EEPROM.update(EE_PORTA + 1, 0xFF);   // (a porta ficou ABERTA)
 #endif
     setup(); pega();
-    const char *lixo[] = {"AT", "ATE0", "AT+CGMM", "AT+CPIN?", "ATI", "OLA:STRIKE_KIDS:19", "PORTA:ABERTA", "PORTA:FECHADA",
-                          "PONG:STRIKE_KIDS:19", "FICHA:0", "INFO:STRIKE_KIDS:19:LEDS=1", "PONTE:TEMPO:1500:FC:0", "PONTE:TEMPO:800X",
+    const char *lixo[] = {"AT", "ATE0", "AT+CGMM", "AT+CPIN?", "ATI", "OLA:STRIKE_KIDS:20", "PORTA:ABERTA", "PORTA:FECHADA",
+                          "PONG:STRIKE_KIDS:20", "FICHA:0", "INFO:STRIKE_KIDS:20:LEDS=1", "PONTE:TEMPO:1500:FC:0", "PONTE:TEMPO:800X",
                           "PORTA:ABREX", "XPING", "PINGS", "CALIBRAR", "S:1", "SENS:00000", "AVISO:SEM_JOGO", "~~##", "+++"};
     for (int k = 0; k < 6; k++) {
       for (const char *l : lixo) { manda(l); rodar(30); }
@@ -432,7 +434,7 @@ int main(int argc, char **argv) {
     // agora o jogo de verdade: tudo funciona
     pega();
     manda("PING"); rodar(5);
-    CONFERE(conta("PONG:STRIKE_KIDS:19") == 1, "o jogo de verdade e atendido");
+    CONFERE(conta("PONG:STRIKE_KIDS:20") == 1, "o jogo de verdade e atendido");
 #if USAR_RELE && RELE_PULSO && !USAR_PONTE_H
 #if PORTA_FECHA_SEM_ENERGIA
     // (14) ligou: a trava esta FECHADA (a EEPROM dizendo "aberta" nao vale)
@@ -760,7 +762,7 @@ int main(int argc, char **argv) {
     // de pulso a mais. Com o feixe CEGO (sempre "fechada") e com o feixe BOM.
     for (int cego = 1; cego >= 0; cego--) {
       for (int k = 0; k < 1024; k++) EEPROM.m[k] = 0xFF;
-      EEPROM.update(EE_VERSAO, 19);
+      EEPROM.update(EE_VERSAO, 20);
       canAberta = false; canFunciona = true; canIgnora = 0; maoNoFeixe = cego; pulsos = 0;
       setup(); pega();
       auto vivo = [&](unsigned long ms) { for (unsigned long k = 0; k < ms; k += 2000) { manda("PING"); rodar(ms - k < 2000 ? ms - k : 2000); } };
@@ -785,22 +787,75 @@ int main(int argc, char **argv) {
       printf("  %s: ok ate aqui (pulsos=%d)\n", qual, pulsos);
     }
 #endif
+  } else if (c == "liga_aberta") {
+#if COM_SENSOR
+    // (20) O DEFEITO DO 19: ligou SEM CREDITO com a cancela ABERTA, o feixe
+    // vendo certo (APAGADO = aberta), mas ainda sem ter provado, e a memoria
+    // dizendo FECHADA -> o 19 deixava aberta. Agora: UM pulso de TESTE fecha
+    // e o feixe prova. E os outros desencontros: sempre termina certo.
+    struct Caso { const char *nome; bool aberta; bool memoria; bool cego; bool solto; int pulsos; };
+    const Caso casos[] = {
+      {"feixe bom, aberta, memoria FECHADA (o defeito do 19)", true, false, false, false, 1},
+      {"feixe bom, aberta, memoria aberta", true, true, false, false, 1},
+      {"feixe bom, fechada, memoria ABERTA (rele estalou desligado)", false, true, false, false, 2},
+      {"feixe bom, fechada, memoria fechada", false, false, false, false, 0},
+      {"feixe CEGO (sempre aceso), aberta, memoria aberta", true, true, true, false, 1},
+      {"feixe CEGO, fechada, memoria fechada", false, false, true, false, 0},
+      {"fio do feixe SOLTO, fechada, memoria fechada", false, false, false, true, 2},
+      {"fio do feixe SOLTO, aberta, memoria aberta", true, true, false, true, 1},
+    };
+    for (const Caso &k : casos) {
+      for (int a = 0; a < 1024; a++) EEPROM.m[a] = 0xFF;
+      EEPROM.update(EE_VERSAO, 20);
+      if (k.memoria) { uint16_t n = lerContador(EE_PORTA); avancarContador(EE_PORTA, n); }
+      canAberta = k.aberta; canFunciona = true; canIgnora = 0; maoNoFeixe = k.cego; feixeSolto = k.solto;
+      int p0 = pulsos;
+      setup(); pega();
+      rodar(9000);
+      CONFERE(pulsos == p0, "nada nos primeiros 10 s");
+      rodar(16000);                  // o Arduino sozinho (TV carregando): sem credito -> FECHADA
+      bool ok1 = !canAberta && pulsos - p0 == k.pulsos;
+      manda("PING"); manda("MODO:FICHAS"); manda("PORTA:FECHA");   // o jogo conectou (carregando): 0 credito
+      for (int t = 0; t < 8; t++) { manda("PING"); rodar(1000); }
+      bool ok2 = !canAberta && pulsos - p0 == k.pulsos;
+      manda("PORTA:ABRE");                                          // a ficha
+      for (int t = 0; t < 12; t++) { manda("PING"); rodar(1000); }
+      bool ok3 = canAberta && pulsos - p0 == k.pulsos + 1;
+      manda("PORTA:FECHA");                                         // fim da partida
+      for (int t = 0; t < 12; t++) { manda("PING"); rodar(1000); }
+      bool ok4 = !canAberta && pulsos - p0 == k.pulsos + 2;
+      printf("  %-60s ligou->%s (%d pulsos)  ficha->%s  fim->%s\n", k.nome, ok1 ? "FECHADA" : "ERRADO", pulsos - p0 - 2,
+             ok3 ? "ABERTA" : "ERRADO", ok4 ? "FECHADA" : "ERRADO");
+      CONFERE(ok1 && ok2, k.nome);
+      CONFERE(ok3, "... a ficha abre com UM pulso");
+      CONFERE(ok4, "... o fim fecha com UM pulso");
+    }
+    maoNoFeixe = false; feixeSolto = false;
+#endif
   } else if (c == "primeira_vez") {
 #if USAR_RELE && RELE_PULSO && !USAR_PONTE_H
     // (19) gravou o firmware novo por cima (a memoria velha dizia ABERTA): ele comeca FECHADA
     EEPROM.update(EE_PORTA, 0); EEPROM.update(EE_PORTA + 1, 0xFF);   // memoria velha: aberta
     EEPROM.update(EE_FEIXE, 0);                                       // feixe "provado" no firmware velho
     setup(); pega();
-    CONFERE(!releAberta && EEPROM.read(EE_VERSAO) == 19, "primeira vez do 19: a memoria comeca FECHADA");
+    CONFERE(!releAberta && EEPROM.read(EE_VERSAO) == 20, "primeira vez (vindo de antes do 19): a memoria comeca FECHADA");
 #if COM_SENSOR
-    CONFERE(!feixeOk, "primeira vez do 19: o feixe ainda tem que provar");
+    CONFERE(!feixeOk && !feixeCego, "primeira vez: o feixe ainda nao provou");
 #endif
     manda("PING"); manda("INFO?"); rodar(50);
 #if COM_SENSOR
     CONFERE(conta(":FEIXE=NAO_PROVADO") == 1, "INFO: o feixe ainda nao provou");
 #endif
     religar(); pega();
-    CONFERE(EEPROM.read(EE_VERSAO) == 19, "da segunda vez em diante: a memoria fica como estava");
+    CONFERE(EEPROM.read(EE_VERSAO) == 20, "da segunda vez em diante: a memoria fica como estava");
+    // vindo do 19 (memoria aberta, feixe marcado cego): a memoria fica, o feixe volta a "nao provou"
+    EEPROM.update(EE_VERSAO, 19); EEPROM.update(EE_FEIXE, 0xF0);
+    { uint16_t n = lerContador(EE_PORTA); if (!(n & 1)) avancarContador(EE_PORTA, n); }
+    religar(); pega();
+    CONFERE(releAberta && EEPROM.read(EE_VERSAO) == 20, "vindo do 19: a memoria (aberta) fica");
+#if COM_SENSOR
+    CONFERE(!feixeOk && !feixeCego, "vindo do 19: o feixe volta a 'nao provou' (no 19 podia ter ficado como cego)");
+#endif
 #endif
   } else if (c == "sozinho") {
 #if USAR_RELE && RELE_PULSO && !USAR_PONTE_H

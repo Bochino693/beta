@@ -310,6 +310,13 @@ func _ready() -> void:
 
 
 func _preparado() -> void:
+	# (8.8.7) A CANCELA ANTES DA ABERTURA: a capa (tela de carregamento) só
+	# sai depois de o Arduino confirmar a cancela onde o crédito manda (ao
+	# abrir o jogo não há crédito: modo fichas -> FECHADA). No máximo 15 s;
+	# sem Arduino, segue na hora.
+	var limite := Time.get_ticks_msec() + 15000
+	while ArduinoBridge.porta_conferindo() and Time.get_ticks_msec() < limite:
+		yield(get_tree(), "idle_frame")
 	_preparando = false
 	# (o ensaio geral já ligou; garantido, se a preparação acabou sem ele)
 	_mostrar_3d(true)
