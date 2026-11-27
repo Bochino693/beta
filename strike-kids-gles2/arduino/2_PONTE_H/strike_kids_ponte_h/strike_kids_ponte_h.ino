@@ -153,20 +153,20 @@ const uint8_t SENSOR_PINOS[5] = {2, 3, 4, 5, 7};
 // cancela), o Arduino segue pela memoria (EEPROM) e avisa o jogo
 // (AVISO:FEIXE_NAO_VIU - aparece na tela). Fora de uma conferencia o feixe
 // NAO MEXE EM NADA: mao, bola ou sujeira na frente = nada.
-// O Arduino tambem conta ao jogo o que o feixe ve (FEIXE:ACESO:FECHADA /
-// FEIXE:APAGADO:ABERTA) - so para o TESTE DA PORTA mostrar.
+// O Arduino conta ao jogo o que o feixe ve quando ele pergunta (FEIXE? ->
+// FEIXE:ACESO:FECHADA / FEIXE:APAGADO:ABERTA) - so para o TESTE DA PORTA.
 // (19) O FEIXE SO VALE DEPOIS DE PROVAR: ele so passa a mandar depois de
 // MUDAR junto com um pulso do rele (prova que enxerga a cancela andar -
 // fica guardado na EEPROM). Ate provar, e se ele nao mudar num pulso, o
 // Arduino segue pela MEMORIA (EEPROM, cada pulso troca): desligaram
-// jogando (aberta) -> ao ligar, sem credito, UM pulso fecha - antes mesmo
-// do jogo abrir. Feixe mal regulado (sempre aceso) nunca mais engana.
+// jogando (aberta) -> ao ligar, o jogo pede (sem credito: FECHADA) e UM
+// pulso fecha. Feixe mal regulado (sempre aceso) nunca mais engana.
 // (20) FEIXE E MEMORIA DISCORDAM e o feixe ainda nao provou: o Arduino nao
 // escolhe as cegas - da UM pulso de TESTE e o proprio feixe responde quem
 // estava certo: mudou -> o feixe enxerga (provou); nao mudou -> valia a
 // memoria. Se o pulso de teste foi para o lado errado, UM pulso acerta. O
-// fim e SEMPRE a cancela onde o credito manda (ligou aberta sem credito ->
-// fecha, com o feixe bom ou ruim). Ja provado: vale o feixe; ja mostrou
+// fim e SEMPRE a cancela onde o credito manda (o jogo pediu fechada e ela
+// estava aberta -> fecha, com o feixe bom ou ruim). Ja provado: vale o feixe; ja mostrou
 // que nao ve: vale a memoria.
 #define USAR_SENSOR_TRAVA 1       // 1 = tem o sensor da cancela; 0 = sem sensor (lembra pela EEPROM)
 #define SENSOR_TRAVA_PINO A4      // OUT do sensor
@@ -176,10 +176,9 @@ const uint8_t SENSOR_PINOS[5] = {2, 3, 4, 5, 7};
 #define SENSOR_TRAVA_ESPERA_MAX_MS 5000UL // feixe piscando sem parar: depois disto decide pela memoria
 #define PORTA_TEMPO_MOVER_MS 4000UL      // depois do pulso: o tempo para o feixe ver a cancela mudar
 #define PORTA_PULSOS_MAX 3               // trava de seguranca: no maximo 3 pulsos por pedido
-// (18) O ARDUINO SOZINHO, ANTES DO JOGO: ligou e o jogo nao falou em 10 s
-// (a TV Box ainda carregando) -> ele mesmo acerta a cancela pelo credito:
-// sem ficha na fila -> FECHADA (modo livre, guardado da ultima vez -> ABERTA).
-#define ARDUINO_SOZINHO_MS 10000UL
+// (21) SO O JOGO MANDA NA CANCELA: o Arduino NAO mexe nela sozinho ao ligar
+// (quem sabe os creditos - guardados - e o jogo; ele pede assim que conecta,
+// ainda na tela de carregamento). O 18-20 fechavam sozinhos em 10 s.
 // so com RELE_PULSO 0:
 #define RELE_LIGADO_ABERTA 1      // 1 = rele ligado com a porta aberta; 0 = ligado com ela fechada
 #define RELE_TEMPO_MAX_S 0        // 0 = sem limite. Trava SOLENOIDE comum nao pode ficar
@@ -199,7 +198,7 @@ const uint8_t SENSOR_PINOS[5] = {2, 3, 4, 5, 7};
 #define FICHA_PULSO_MAX_MS 250    // pulso mais longo que isto: fio preso/segurado, nao e ficha
 #define FICHA_REPOUSO_MS 2000UL   // nivel parado este tempo vira o novo repouso
 #define SEM_JOGO_FECHA_MS 30000UL // o jogo falou e sumiu este tempo: fecha a porta
-#define VERSAO "20"
+#define VERSAO "21"
 
 #if USAR_LEDS
 #include <Adafruit_NeoPixel.h>
@@ -276,9 +275,6 @@ bool feixeCego = false;         // (20) num pulso o feixe nao mudou: ele nao ve 
 bool travaTeste = false;        // (20) o ultimo pulso foi o de TESTE (feixe e memoria discordavam)
 bool travaPeloFeixe = false;    // ... e foi dado porque o FEIXE dizia que ela nao estava no lugar
 bool travaAlvo = false;         // para onde foi o ultimo pulso
-// (18) o Arduino sozinho, antes de o jogo falar
-unsigned long ligouEm = 0;
-bool sozinhoFeito = false;
 // o vigia do jogo so vale depois de o jogo falar (ligar o Arduino nao mexe na porta)
 bool jogoFalou = false;
 // MODO:LIVRE (o jogo diz): a porta fica sempre aberta - o vigia nunca fecha
@@ -496,8 +492,7 @@ void tickSensorTrava(unsigned long agora) {
     travaMudouEm = agora;
   }
   if (travaLeitura != travaFirme && agora - travaMudouEm >= SENSOR_TRAVA_FILTRO_MS) {
-    travaFirme = travaLeitura;
-    if (jogoFalou) relatarFeixe();
+    travaFirme = travaLeitura;   // (21) ao jogo so quando ele pede (FEIXE?): nada na serial durante as jogadas
   }
 }
 
@@ -1227,8 +1222,6 @@ void setup() {
   jogoFalou = false;
   modoLivre = EEPROM.read(EE_MODO) == 0x4C;   // (18) o ultimo modo que o jogo disse
   ultimoComando = millis();
-  ligouEm = millis();
-  sozinhoFeito = false;
   recebidas = confirmadas = 0;   // fila vazia ao ligar (so ficha posta agora vale)
   protocoloFicha = jogoAntigo = fichaAvisada = false;
   portaAberta = false;
@@ -1248,16 +1241,20 @@ void setup() {
     EEPROM.update(EE_PORTA_ANTIGA, 0xA0);
   }
   releAberta = (releTrocas & 1) != 0;
-  if (EEPROM.read(EE_VERSAO) != 20) {
-    // (19/20) a PRIMEIRA VEZ deste firmware: o feixe volta a "ainda nao
-    // provou" (no 19 um feixe regulado depois podia ter ficado como cego).
-    // Vindo de antes do 19, a memoria comeca FECHADA (grave com ela fechada).
-    if (EEPROM.read(EE_VERSAO) != 19) {
-      releAberta = false;
-      if (releTrocas & 1) avancarContador(EE_PORTA, releTrocas);
+  {
+    // (19-21) a PRIMEIRA VEZ deste firmware. Vindo de antes do 19: a memoria
+    // comeca FECHADA (grave com ela fechada). Vindo do 19: o feixe volta a
+    // "ainda nao provou" (la um feixe regulado depois podia ficar como cego).
+    // Vindo do 20: fica tudo como estava.
+    uint8_t ver = EEPROM.read(EE_VERSAO);
+    if (ver != 21) {
+      if (ver != 19 && ver != 20) {
+        releAberta = false;
+        if (releTrocas & 1) avancarContador(EE_PORTA, releTrocas);
+      }
+      if (ver != 20) EEPROM.update(EE_FEIXE, 0xFF);
+      EEPROM.update(EE_VERSAO, 21);
     }
-    EEPROM.update(EE_FEIXE, 0xFF);
-    EEPROM.update(EE_VERSAO, 20);
   }
 #if PORTA_FECHA_SEM_ENERGIA
   // (14) O ARDUINO LIGOU = A MAQUINA LIGOU: sem energia a trava fecha - ela
@@ -1364,18 +1361,6 @@ void loop() {
 #endif
 #if USAR_PONTE_H
   tickPonte(agora);
-#endif
-  // (18) O ARDUINO SOZINHO, ANTES DO JOGO: ligou e o jogo ainda nao falou
-  // (a TV Box carregando): o credito manda - sem ficha na fila -> FECHADA
-  // (modo livre -> ABERTA); ficha posta agora -> ABERTA.
-#if USAR_RELE || USAR_PONTE_H
-  if (!jogoFalou && agora - ligouEm >= ARDUINO_SOZINHO_MS) {
-    bool alvo = modoLivre || fichasNaFila() > 0;
-    if (!sozinhoFeito || alvo != portaAberta) {
-      sozinhoFeito = true;
-      porta(alvo);
-    }
-  }
 #endif
   // VIGIA DO JOGO: o jogo falou e depois sumiu com a porta aberta -> fecha.
   // (Antes de o jogo falar a primeira vez nao vale: ligar o Arduino, ou a

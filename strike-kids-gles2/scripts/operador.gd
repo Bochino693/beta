@@ -304,6 +304,11 @@ static func _ler_campo(caminho: String, prefixo: String) -> String:
 	return valor
 
 
+## (8.8.8) TESTE DA PORTA: o feixe ao vivo - o Arduino só conta quando o
+## jogo pergunta (nada na serial durante as jogadas).
+var _feixe_t := 0.0
+
+
 func _arduino_mudou() -> void:
 	if _teste:
 		_mostrar_teste("")
@@ -701,6 +706,11 @@ func _camera_relatorio(aviso: String) -> void:
 
 
 func _process(delta: float) -> void:
+	if _porta:
+		_feixe_t += delta
+		if _feixe_t >= 0.5:
+			_feixe_t = 0.0
+			ArduinoBridge.pedir_feixe()
 	if not _camera:
 		return
 	_camera_t += delta

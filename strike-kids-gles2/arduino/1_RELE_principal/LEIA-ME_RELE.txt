@@ -4,7 +4,7 @@ Pasta arduino/1_RELE_principal/:
   strike_kids_rele/strike_kids_rele.ino   o codigo para gravar no Arduino
   ligacao_arduino_rele.pdf                o desenho da montagem (A3, imprima)
   ligacao_arduino_rele.png / .svg         o mesmo desenho em imagem
-  ligacao_sensor_cancela.pdf / .png       o SENSOR DA CANCELA (firmware 20)
+  ligacao_sensor_cancela.pdf / .png       o SENSOR DA CANCELA (firmware 21)
   LEIA-ME_RELE.txt                        este passo a passo
 
 
@@ -35,7 +35,7 @@ Obrigatorio:
   - 1 trava solenoide 12 V (fechadura eletrica) OU 1 eletroima 12 V
   - 1 diodo 1N4007 (protege o rele e o Arduino do pico da bobina da trava)
   - 1 sensor infravermelho HW-201 (3 pinos: VCC, GND, OUT) - o SENSOR DA
-    CANCELA: o credito manda, o feixe confere (firmware 20)
+    CANCELA: o credito manda, o feixe confere (firmware 21)
   - 1 fonte 12 V, 2 A ou mais (trava + moedeiro)
   - 1 botao CONFIGURACAO (entra e sai do menu do operador)
 Opcional:
@@ -64,7 +64,7 @@ Opcional:
   A0    botao CONFIGURACAO (o outro fio no GND)
   A1    botao START (o outro fio no GND)          opcional
   A2    COIN do moedeiro                          opcional (modo fichas)
-  A4    OUT do sensor da cancela (HW-201)         firmware 20
+  A4    OUT do sensor da cancela (HW-201)         firmware 21
   5V    VCC do modulo rele e do sensor da cancela; + dos sensores de 5 V
   GND   GND de TUDO: rele, sensores, botoes, moedeiro, fontes, servo
   D10, D11, D12 e A3 ficam LIVRES (sao da ponte H na outra versao).
@@ -91,7 +91,7 @@ porta / trava que alterna a cada toque - RELE_PULSO 1).
       NO do rele   ------------>  o outro fio da entrada (o "botao")
       NC do rele: solto
 
-O SENSOR DA CANCELA (firmware 20): O CREDITO MANDA, O FEIXE CONFERE
+O SENSOR DA CANCELA (firmware 21): O CREDITO MANDA, O FEIXE CONFERE
   Um sensor infravermelho HW-201 preso onde a cancela FECHADA passa bem
   na frente dele (2 a 10 cm; aberta, ela sai da frente). Desenho:
   ligacao_sensor_cancela.pdf (e no desenho completo, embaixo do Nano).
@@ -123,12 +123,12 @@ O SENSOR DA CANCELA (firmware 20): O CREDITO MANDA, O FEIXE CONFERE
     MEXER" no TESTE DA PORTA. Regulou o feixe: no proximo pulso ele ve a
     cancela mudar e volta a valer sozinho.
   - Mao, bola ou sujeira na frente do feixe fora de um pedido: NADA.
-  - ANTES DO JOGO: ligou a maquina e o jogo nao falou em 10 s (a TV Box
-    carregando) -> o proprio Arduino acerta a cancela pelo credito: sem
-    ficha -> FECHADA (modo livre, guardado da ultima vez -> ABERTA); ficha
-    posta enquanto a TV carrega -> ABERTA.
-  - Desligaram jogando: ao ligar, 0 credito -> o feixe ve aberta e UM
-    pulso fecha (em 10 s, antes mesmo do jogo abrir).
+  - (21) SO O JOGO MANDA: ao ligar o Arduino NAO mexe na cancela; o jogo
+    (creditos guardados) pede ja na tela de carregamento: com credito ->
+    ABERTA; sem credito -> FECHADA.
+  - Desligaram jogando: os creditos ficam guardados (jogo 8.8.8). Ao ligar
+    o jogo pede: sobrou credito -> continua ABERTA (nenhum pulso); sem
+    credito -> UM pulso fecha, ainda na tela de carregamento.
   - O jogo (8.8.6) ja fecha a cancela na ULTIMA BOLA da partida (na tela
     do resultado) - as bolas que voltam ficam presas. Sobrou credito:
     fica aberta.
@@ -245,7 +245,7 @@ OUTRA TRAVA (solenoide / eletroima que fica LIGADO com a porta aberta):
 8. TESTAR SEM O JOGO (Monitor Serial da IDE)
 --------------------------------------------
 Ferramentas > Monitor Serial, 9600 baud, "Nova linha". Ao abrir aparece:
-    OLA:STRIKE_KIDS:20
+    OLA:STRIKE_KIDS:21
 (o rele NAO clica ao ligar). Mande (digite e Enter, em MAIUSCULAS ou
 minusculas, exatamente assim - o que for escrito diferente e ignorado):
     PORTA:ABRE   1 pulso (um clique) e a resposta PORTA:ABERTA
@@ -254,7 +254,7 @@ minusculas, exatamente assim - o que for escrito diferente e ignorado):
     PORTA:ACERTA (sem sensor) a porta esta ao contrario: troca so a
                  lembranca do Arduino (sem pulso). Com o sensor:
                  CONFERE AGORA (ao contrario do pedido -> 1 pulso)
-    INFO?        INFO:STRIKE_KIDS:20:LEDS=1:SERVO=0:RELE=8:PONTE_H=0:
+    INFO?        INFO:STRIKE_KIDS:21:LEDS=1:SERVO=0:RELE=8:PONTE_H=0:
                  REPOUSO=HHHHH:PULSO=1:FILA=0:SENSOR_TRAVA=FECHADA:FEIXE=OK
                  (SENSOR_TRAVA = o que o sensor ve agora; FEIXE=OK (ja
                  provou), NAO_PROVADO (ainda nao) ou NAO_VIU (num pulso

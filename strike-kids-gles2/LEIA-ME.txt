@@ -79,6 +79,27 @@ O QUE MUDOU PARA RODAR NA OPENGL ES 2.0
     Godot 4 (nao substitui).
 
 
+VERSAO 8.8.8 + FIRMWARE 21: OS CREDITOS FICAM GUARDADOS; SO O JOGO MANDA
+-------------------------------------------------------------------------
+  O teste na maquina com 8.8.7/20: 5 fichas, a partida gastou 2, desligou
+  e ligou -> a cancela FECHOU (o jogo comecava com 0 credito e o Arduino
+  fechava sozinho em 10 s).
+  * JOGO 8.8.8: OS CREDITOS FICAM GUARDADOS (no arquivo de ajustes, a cada
+    ficha, partida e "zerar creditos"). Ao ligar o jogo le quantos tem e
+    pede a cancela ja na tela de carregamento: com credito -> continua
+    ABERTA; sem credito -> FECHADA. (Ate a 8.8.7 o jogo zerava os
+    creditos ao ligar.)
+  * FIRMWARE 21: SO O JOGO MANDA NA CANCELA - o Arduino nao mexe nela
+    sozinho ao ligar (o 18-20 fechavam em 10 s, antes de o jogo dizer
+    quantos creditos tinha). O vigia continua: o jogo falou e SUMIU com a
+    cancela aberta (modo fichas) -> fecha em 30 s.
+  * O feixe so vai ao jogo quando ele pergunta (TESTE DA PORTA): nada na
+    serial durante as jogadas.
+  * "Fechar a trava sem jogar" (menu, 3 min de fabrica): com credito e
+    ninguem jogando esse tempo, a trava fecha ate outra ficha ou o START.
+    Para NUNCA fechar com credito: ponha 0.
+
+
 VERSAO 8.8.7 + FIRMWARE 20: LIGOU SEM CREDITO -> FECHADA, ANTES DA ABERTURA
 --------------------------------------------------------------------------
   O teste na maquina com o 19: o jogo iniciou sem credito com a cancela

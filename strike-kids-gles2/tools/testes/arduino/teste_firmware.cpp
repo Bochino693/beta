@@ -94,10 +94,10 @@ int main(int argc, char **argv) {
   std::string c = argc > 1 ? argv[1] : "";
   iniciar();
   // (19) o firmware ja rodou antes nesta EEPROM (so o cenario primeira_vez comeca do zero)
-  if (c != "primeira_vez") EEPROM.update(EE_VERSAO, 20);
+  if (c != "primeira_vez") EEPROM.update(EE_VERSAO, 21);
   if (c == "tempo") {
     setup(); saida += Serial.out; Serial.out.clear();
-    CONFERE(saida.find("OLA:STRIKE_KIDS:20") != std::string::npos, "OLA ao ligar");
+    CONFERE(saida.find("OLA:STRIKE_KIDS:21") != std::string::npos, "OLA ao ligar");
     rodar(2);
     CONFERE(motor() == -1, "ao ligar o motor fecha a porta");
     long t = ate("PORTA:FECHADA", 3000);
@@ -412,8 +412,8 @@ int main(int argc, char **argv) {
     EEPROM.update(EE_PORTA, 0); EEPROM.update(EE_PORTA + 1, 0xFF);   // (a porta ficou ABERTA)
 #endif
     setup(); pega();
-    const char *lixo[] = {"AT", "ATE0", "AT+CGMM", "AT+CPIN?", "ATI", "OLA:STRIKE_KIDS:20", "PORTA:ABERTA", "PORTA:FECHADA",
-                          "PONG:STRIKE_KIDS:20", "FICHA:0", "INFO:STRIKE_KIDS:20:LEDS=1", "PONTE:TEMPO:1500:FC:0", "PONTE:TEMPO:800X",
+    const char *lixo[] = {"AT", "ATE0", "AT+CGMM", "AT+CPIN?", "ATI", "OLA:STRIKE_KIDS:21", "PORTA:ABERTA", "PORTA:FECHADA",
+                          "PONG:STRIKE_KIDS:21", "FICHA:0", "INFO:STRIKE_KIDS:21:LEDS=1", "PONTE:TEMPO:1500:FC:0", "PONTE:TEMPO:800X",
                           "PORTA:ABREX", "XPING", "PINGS", "CALIBRAR", "S:1", "SENS:00000", "AVISO:SEM_JOGO", "~~##", "+++"};
     for (int k = 0; k < 6; k++) {
       for (const char *l : lixo) { manda(l); rodar(30); }
@@ -421,10 +421,7 @@ int main(int argc, char **argv) {
     }
     rodar(300000);
     printf("  %d linhas de fora em 7 minutos -> pulsos=%d\n", 6 * (int)(sizeof lixo / sizeof lixo[0]), pulsos);
-    // (18) o lixo nao e o jogo: com a memoria ABERTA e sem jogo, em 10 s o
-    // Arduino sozinho fecha (0 credito) - UM pulso, e so
-    const int sozinho = (USAR_RELE && RELE_PULSO && !USAR_PONTE_H && !PORTA_FECHA_SEM_ENERGIA) ? 1 : 0;
-    CONFERE(pulsos == sozinho, "o que nao e do jogo nao da pulso no rele (so o Arduino sozinho fecha, sem credito)");
+    CONFERE(pulsos == 0, "o que nao e do jogo nao da pulso no rele");
     CONFERE(conta("AVISO") == 0, "o que nao e do jogo nao liga o vigia (nada de SEM_JOGO)");
     CONFERE(conta("CAL:OK") == 0, "CALIBRAR (errado) nao calibra");
     CONFERE(!jogoFalou, "o vigia continua esperando o jogo de verdade");
@@ -434,7 +431,7 @@ int main(int argc, char **argv) {
     // agora o jogo de verdade: tudo funciona
     pega();
     manda("PING"); rodar(5);
-    CONFERE(conta("PONG:STRIKE_KIDS:20") == 1, "o jogo de verdade e atendido");
+    CONFERE(conta("PONG:STRIKE_KIDS:21") == 1, "o jogo de verdade e atendido");
 #if USAR_RELE && RELE_PULSO && !USAR_PONTE_H
 #if PORTA_FECHA_SEM_ENERGIA
     // (14) ligou: a trava esta FECHADA (a EEPROM dizendo "aberta" nao vale)
@@ -445,12 +442,10 @@ int main(int argc, char **argv) {
     manda("PORTA:FECHA"); rodar(2000);
     pulsos = 1;
 #else
-    manda("PORTA:FECHA"); rodar(2000);
-    CONFERE(pulsos == 1 && conta("PORTA:FECHADA") == 1, "jogo pede fechada (o Arduino sozinho ja fechou): sem pulso a mais");
     manda("PORTA:ABRE"); rodar(2000);
-    CONFERE(pulsos == 2 && conta("PORTA:ABERTA") == 1, "jogo pede aberta: um pulso");
+    CONFERE(pulsos == 0 && conta("PORTA:ABERTA") == 1, "jogo pede aberta (ja estava): sem pulso");
     manda("PORTA:FECHA"); rodar(2000);
-    pulsos = 1;
+    CONFERE(pulsos == 1 && conta("PORTA:FECHADA") == 1, "jogo pede fechada: um pulso");
 #endif
     // lixo no meio da partida tambem nao conta como o jogo falando
     pega();
@@ -469,7 +464,6 @@ int main(int argc, char **argv) {
     rodar(300000);
     CONFERE(pulsos == 0, "ao energizar (sem jogo) o rele nao mexe");
     CONFERE(conta("AVISO") == 0, "sem jogo desde o comeco: nenhum aviso");
-    pega();   // ((18) em 10 s o Arduino sozinho conferiu: ja estava fechada, so confirmou)
     // 2. o jogo conecta e pede FECHADA (modo fichas, sem credito): ja esta
     manda("PING"); manda("FICHAS:SYNC"); manda("PORTA:FECHA"); manda("INFO?");
     rodar(500);
@@ -521,48 +515,46 @@ int main(int argc, char **argv) {
     // (o PORTA? conta como o jogo falando: o vigia passa a valer)
     CONFERE(conta("PORTA:ABERTA") == 1, "reiniciou: lembra que a porta ficou aberta");
     religar(); pega();
-    rodar(9000);
-    CONFERE(pulsos == 3, "reiniciou aberta e sem jogo: nada nos primeiros 10 s");
-    rodar(291000);
-    CONFERE(pulsos == 4 && !releAberta && conta("AVISO") == 0, "(18) sem jogo e sem credito: o Arduino sozinho FECHA (um pulso) e para");
+    rodar(300000);
+    CONFERE(pulsos == 3 && conta("AVISO") == 0, "(21) reiniciou aberta e sem jogo: 5 minutos sem pulso (so o jogo manda)");
     manda("PING"); manda("PORTA:ABRE"); rodar(1000);
-    CONFERE(pulsos == 5 && conta("PORTA:ABERTA") == 1, "o jogo voltou querendo aberta: um pulso abre");
+    CONFERE(pulsos == 3 && conta("PORTA:ABERTA") == 1, "o jogo voltou querendo aberta (creditos guardados): sem pulso");
     // 8. o jogo SOME com a porta aberta: fecha sozinha, com UM pulso
     pega();
     rodar(SEM_JOGO_FECHA_MS - 2000);
-    CONFERE(pulsos == 5, "ainda dentro do tempo do vigia");
+    CONFERE(pulsos == 3, "ainda dentro do tempo do vigia");
     rodar(4000);
-    CONFERE(pulsos == 6 && conta("AVISO:SEM_JOGO") == 1 && conta("PORTA:FECHADA") == 1, "jogo sumiu: um pulso fecha");
+    CONFERE(pulsos == 4 && conta("AVISO:SEM_JOGO") == 1 && conta("PORTA:FECHADA") == 1, "jogo sumiu: um pulso fecha");
     rodar(600000);
-    CONFERE(pulsos == 6 && conta("AVISO:SEM_JOGO") == 1, "10 minutos sem jogo: nada mais");
+    CONFERE(pulsos == 4 && conta("AVISO:SEM_JOGO") == 1, "10 minutos sem jogo: nada mais");
     // 9. o jogo volta (modo livre: quer aberta): um pulso
     pega();
     manda("PING"); manda("PORTA:ABRE"); rodar(1000);
-    CONFERE(pulsos == 7 && conta("PORTA:ABERTA") == 1, "o jogo voltou: um pulso abre");
+    CONFERE(pulsos == 5 && conta("PORTA:ABERTA") == 1, "o jogo voltou: um pulso abre");
     // 10. com PING chegando (jogo vivo) a porta fica aberta para sempre
     for (int i = 0; i < 300; i++) { manda("PING"); rodar(2000); }
-    CONFERE(pulsos == 7, "10 minutos com o jogo vivo: aberta, sem pulso");
+    CONFERE(pulsos == 5, "10 minutos com o jogo vivo: aberta, sem pulso");
     // 11. ACERTAR: a porta de verdade esta ao contrario (mexeram com a mao)
     manda("PORTA:FECHA"); rodar(3000);
-    CONFERE(pulsos == 8, "fecha");
+    CONFERE(pulsos == 6, "fecha");
     pega();
     manda("PORTA:ACERTA"); rodar(5);
     CONFERE(conta("PORTA:ABERTA") == 1, "acertar: o Arduino passa a lembrar aberta, sem pulso na hora");
     rodar(3000);
-    CONFERE(pulsos == 9 && conta("PORTA:FECHADA") == 1, "o jogo quer fechada: um pulso acerta");
+    CONFERE(pulsos == 7 && conta("PORTA:FECHADA") == 1, "o jogo quer fechada: um pulso acerta");
     // 12. linha pela metade (ruido) nao estraga o proximo comando
     pega();
     for (const char *p = "PORTA:AB"; *p; p++) Serial.in.push_back(*p);
     rodar(200);
     manda("PORTA:ABRE"); rodar(1000);
-    CONFERE(pulsos == 10 && conta("PORTA:ABERTA") == 1, "lixo no serial: o comando seguinte vale");
+    CONFERE(pulsos == 8 && conta("PORTA:ABERTA") == 1, "lixo no serial: o comando seguinte vale");
     // 13. DESGASTE DA EEPROM: 2000 trocas de porta espalhadas por 32 enderecos
     int antes[1024]; memcpy(antes, EEPROM.gravacoes, sizeof antes);
     for (int i = 0; i < 2000; i++) {
       manda(i % 2 ? "PORTA:ABRE" : "PORTA:FECHA"); manda("PING");
       rodar(RELE_PULSO_MS + RELE_DESCANSO_MS + RELE_FIRME_MS + 50);
     }
-    CONFERE(pulsos == 2010, "2000 trocas = 2000 pulsos");
+    CONFERE(pulsos == 2008, "2000 trocas = 2000 pulsos");
     int pior = 0;
     for (int a = 0; a < 1024; a++) pior = max(pior, EEPROM.gravacoes[a] - antes[a]);
     printf("  2000 pulsos: o endereco mais gravado levou %d gravacoes\n", pior);
@@ -704,7 +696,11 @@ int main(int argc, char **argv) {
     pega();
     for (int k = 0; k < 20; k++) { manda("PING"); maoNoFeixe = true; rodar(1500); maoNoFeixe = false; rodar(1500); }
     CONFERE(pulsos == 1 && canAberta && conta("PORTA:") == 0, "com credito: mao no feixe 20x -> NENHUM pulso");
-    CONFERE(conta("FEIXE:ACESO:FECHADA") == 20 && conta("FEIXE:APAGADO:ABERTA") == 20, "o jogo ve o feixe (so para mostrar)");
+    CONFERE(conta("FEIXE:") == 0, "(21) nada do feixe na serial durante as jogadas");
+    maoNoFeixe = true; rodar(500); manda("FEIXE?"); rodar(20); maoNoFeixe = false;
+    CONFERE(conta("FEIXE:ACESO:FECHADA") == 1, "FEIXE? (TESTE DA PORTA): o feixe ao vivo");
+    rodar(500); manda("FEIXE?"); rodar(20);
+    CONFERE(conta("FEIXE:APAGADO:ABERTA") == 1, "FEIXE?: apagado = aberta");
     maoNoFeixe = true; vivo(60000); manda("PORTA:ABRE"); vivo(60000);
     CONFERE(pulsos == 1 && canAberta && conta("PORTA:FECHADA") == 0, "mao parada no feixe + o jogo repetindo o pedido: NENHUM pulso");
     maoNoFeixe = false; vivo(3000);
@@ -756,34 +752,36 @@ int main(int argc, char **argv) {
 #endif
   } else if (c == "usuario") {
 #if COM_SENSOR
-    // (19) O TESTE DA MAQUINA: 4 fichas, uma partida inteira, sobraram 2,
-    // outra partida e DESLIGARAM NO MEIO (aberta). Ao ligar, 0 credito: a
-    // cancela tem que FECHAR logo, antes do jogo abrir; a ficha abre; nada
-    // de pulso a mais. Com o feixe CEGO (sempre "fechada") e com o feixe BOM.
+    // (21) O TESTE DA MAQUINA: 5 fichas, a partida gastou 2 (sobraram 3),
+    // DESLIGARAM NO MEIO e ligaram. Ao ligar o Arduino NAO mexe sozinho; o
+    // jogo (creditos guardados: 3) pede ABERTA -> continua aberta, nenhum
+    // pulso. Acabaram os creditos -> UM pulso fecha. Feixe CEGO e feixe BOM.
     for (int cego = 1; cego >= 0; cego--) {
       for (int k = 0; k < 1024; k++) EEPROM.m[k] = 0xFF;
-      EEPROM.update(EE_VERSAO, 20);
-      canAberta = false; canFunciona = true; canIgnora = 0; maoNoFeixe = cego; pulsos = 0;
+      EEPROM.update(EE_VERSAO, 21);
+      canAberta = false; canFunciona = true; canIgnora = 0; maoNoFeixe = cego; feixeSolto = false; pulsos = 0;
       setup(); pega();
       auto vivo = [&](unsigned long ms) { for (unsigned long k = 0; k < ms; k += 2000) { manda("PING"); rodar(ms - k < 2000 ? ms - k : 2000); } };
       const char *qual = cego ? "feixe CEGO" : "feixe BOM";
       manda("PING"); manda("MODO:FICHAS"); manda("PORTA:FECHA"); vivo(5000);
       CONFERE(pulsos == 0 && !canAberta, "ligou fechada, 0 credito: nada");
-      manda("PORTA:ABRE"); vivo(6000);                 // 4 fichas: abre
-      CONFERE(pulsos == 1 && canAberta, "4 fichas: UM pulso abre");
-      vivo(120000);                                     // partida 1 (aberta); sobraram 2: continua aberta
-      CONFERE(pulsos == 1 && canAberta, "partida inteira e sobrou credito: aberta, nenhum pulso");
-      vivo(60000);                                      // partida 2 no meio...
+      manda("PORTA:ABRE"); vivo(6000);                 // 5 fichas: abre
+      CONFERE(pulsos == 1 && canAberta, "5 fichas: UM pulso abre");
+      vivo(120000);                                     // a partida (gastou 2, sobraram 3): aberta
+      CONFERE(pulsos == 1 && canAberta, "partida: aberta, nenhum pulso");
       int p0 = pulsos;
-      religar(); pega();                                // DESLIGARAM NO MEIO (aberta) e ligaram
-      rodar(15000);                                     // a TV Box carregando: o jogo calado
-      CONFERE(!canAberta && pulsos - p0 == 1, cego ? "feixe CEGO: ligou aberta sem jogo -> em 10 s o Arduino FECHA pela memoria" : "feixe BOM: ligou aberta sem jogo -> em 10 s o Arduino FECHA");
-      manda("PING"); manda("MODO:FICHAS"); manda("PORTA:FECHA"); vivo(6000);   // o jogo abriu com 0 credito
-      CONFERE(!canAberta && pulsos - p0 == 1, "o jogo abriu com 0: ja fechada, nenhum pulso");
-      manda("PORTA:ABRE"); vivo(10000);                // uma ficha
-      CONFERE(canAberta && pulsos - p0 == 2, "uma ficha: UM pulso abre - e fica");
+      religar(); pega();                                // DESLIGARAM NO MEIO e ligaram
+      rodar(60000);                                     // a TV Box carregando: o jogo calado
+      CONFERE(canAberta && pulsos == p0, "ligou: o Arduino NAO mexe sozinho (continua aberta)");
+      manda("PING"); manda("MODO:FICHAS"); manda("PORTA:ABRE"); vivo(8000);   // o jogo abriu com 3 creditos guardados
+      CONFERE(canAberta && pulsos == p0, "o jogo abriu com 3 creditos: ABERTA, nenhum pulso");
       vivo(60000);
-      CONFERE(canAberta && pulsos - p0 == 2, "... e nada de fechar/abrir depois");
+      manda("PORTA:FECHA"); vivo(8000);                // acabaram os creditos
+      CONFERE(!canAberta && pulsos - p0 == 1, "acabaram os creditos: UM pulso fecha");
+      int p1 = pulsos;
+      religar(); pega(); rodar(30000);                  // desligou sem credito e ligou
+      manda("PING"); manda("MODO:FICHAS"); manda("PORTA:FECHA"); vivo(8000);
+      CONFERE(!canAberta && pulsos == p1, "ligou sem credito (fechada): nada");
       printf("  %s: ok ate aqui (pulsos=%d)\n", qual, pulsos);
     }
 #endif
@@ -811,13 +809,12 @@ int main(int argc, char **argv) {
       canAberta = k.aberta; canFunciona = true; canIgnora = 0; maoNoFeixe = k.cego; feixeSolto = k.solto;
       int p0 = pulsos;
       setup(); pega();
-      rodar(9000);
-      CONFERE(pulsos == p0, "nada nos primeiros 10 s");
-      rodar(16000);                  // o Arduino sozinho (TV carregando): sem credito -> FECHADA
-      bool ok1 = !canAberta && pulsos - p0 == k.pulsos;
+      rodar(60000);
+      CONFERE(pulsos == p0, "(21) ligou e o jogo ainda nao falou: o Arduino nao mexe");
       manda("PING"); manda("MODO:FICHAS"); manda("PORTA:FECHA");   // o jogo conectou (carregando): 0 credito
-      for (int t = 0; t < 8; t++) { manda("PING"); rodar(1000); }
-      bool ok2 = !canAberta && pulsos - p0 == k.pulsos;
+      for (int t = 0; t < 14; t++) { manda("PING"); rodar(1000); }
+      bool ok1 = !canAberta && pulsos - p0 == k.pulsos;
+      bool ok2 = ok1;
       manda("PORTA:ABRE");                                          // a ficha
       for (int t = 0; t < 12; t++) { manda("PING"); rodar(1000); }
       bool ok3 = canAberta && pulsos - p0 == k.pulsos + 1;
@@ -838,7 +835,7 @@ int main(int argc, char **argv) {
     EEPROM.update(EE_PORTA, 0); EEPROM.update(EE_PORTA + 1, 0xFF);   // memoria velha: aberta
     EEPROM.update(EE_FEIXE, 0);                                       // feixe "provado" no firmware velho
     setup(); pega();
-    CONFERE(!releAberta && EEPROM.read(EE_VERSAO) == 20, "primeira vez (vindo de antes do 19): a memoria comeca FECHADA");
+    CONFERE(!releAberta && EEPROM.read(EE_VERSAO) == 21, "primeira vez (vindo de antes do 19): a memoria comeca FECHADA");
 #if COM_SENSOR
     CONFERE(!feixeOk && !feixeCego, "primeira vez: o feixe ainda nao provou");
 #endif
@@ -847,44 +844,37 @@ int main(int argc, char **argv) {
     CONFERE(conta(":FEIXE=NAO_PROVADO") == 1, "INFO: o feixe ainda nao provou");
 #endif
     religar(); pega();
-    CONFERE(EEPROM.read(EE_VERSAO) == 20, "da segunda vez em diante: a memoria fica como estava");
+    CONFERE(EEPROM.read(EE_VERSAO) == 21, "da segunda vez em diante: a memoria fica como estava");
     // vindo do 19 (memoria aberta, feixe marcado cego): a memoria fica, o feixe volta a "nao provou"
     EEPROM.update(EE_VERSAO, 19); EEPROM.update(EE_FEIXE, 0xF0);
     { uint16_t n = lerContador(EE_PORTA); if (!(n & 1)) avancarContador(EE_PORTA, n); }
     religar(); pega();
-    CONFERE(releAberta && EEPROM.read(EE_VERSAO) == 20, "vindo do 19: a memoria (aberta) fica");
+    CONFERE(releAberta && EEPROM.read(EE_VERSAO) == 21, "vindo do 19: a memoria (aberta) fica");
 #if COM_SENSOR
     CONFERE(!feixeOk && !feixeCego, "vindo do 19: o feixe volta a 'nao provou' (no 19 podia ter ficado como cego)");
+    // vindo do 20 (feixe ja provado, memoria aberta): fica TUDO como estava
+    EEPROM.update(EE_VERSAO, 20); EEPROM.update(EE_FEIXE, 0);
+    religar(); pega();
+    CONFERE(releAberta && feixeOk && EEPROM.read(EE_VERSAO) == 21, "vindo do 20: memoria e feixe provado ficam");
 #endif
 #endif
   } else if (c == "sozinho") {
 #if USAR_RELE && RELE_PULSO && !USAR_PONTE_H
-    // (18) ANTES DO JOGO: ligou e o jogo nao falou em 10 s -> o Arduino
-    // acerta a cancela pelo credito (sem ficha: FECHADA; ficha posta: ABERTA)
+    // (21) SO O JOGO MANDA: ligou e o jogo nao falou (a TV Box carregando,
+    // ficha posta, o que for) -> o Arduino NAO mexe na cancela
     setup(); pega();
     manda("PING"); manda("MODO:FICHAS"); manda("PORTA:ABRE"); rodar(5000);
     CONFERE(releAberta, "jogando: aberta");
     int p0 = pulsos;
-    religar(); pega();   // desligou jogando; a TV Box ainda carregando
-    rodar(9000);
-    CONFERE(pulsos == p0, "ligou: nada nos primeiros 10 s");
-    rodar(6000);
-    CONFERE(pulsos - p0 == 1 && !releAberta, "jogo calado 10 s, 0 credito: o Arduino sozinho FECHA (UM pulso)");
-#if COM_SENSOR
-    CONFERE(!canAberta, "... e o feixe ve fechada");
-#endif
+    religar(); pega();
     rodar(120000);
-    CONFERE(pulsos - p0 == 1, "... e nao mexe mais");
+    CONFERE(pulsos == p0 && releAberta, "ligou e o jogo calado 2 min: nenhum pulso (continua aberta)");
     pinLevel[FICHA_PINO] = LOW; rodar(50); pinLevel[FICHA_PINO] = HIGH; rodar(6000);
-    CONFERE(pulsos - p0 == 2 && releAberta, "ficha posta com a TV Box carregando: o Arduino ABRE (o credito manda)");
-#if COM_SENSOR
-    CONFERE(canAberta, "... e o feixe ve aberta");
-    // modo livre (guardado): ligou sem o jogo -> ABRE
-    manda("PING"); manda("MODO:LIVRE"); rodar(100);
-    canAberta = false; p0 = pulsos; religar(); pega();
-    rodar(15000);
-    CONFERE(pulsos - p0 == 1 && canAberta, "modo livre guardado: ligou sem o jogo -> o Arduino ABRE");
-#endif
+    CONFERE(pulsos == p0, "ficha posta com a TV Box carregando: o Arduino guarda a ficha e nao mexe");
+    manda("PING"); manda("FICHAS:SYNC"); rodar(600);
+    CONFERE(conta("FICHA:0") >= 1, "o jogo conectou: a ficha guardada chega");
+    manda("PORTA:FECHA"); rodar(6000);
+    CONFERE(pulsos - p0 == 1 && !releAberta, "o jogo pediu fechada: UM pulso");
 #endif
   } else if (c == "desliga_jogando") {
 #if USAR_RELE && RELE_PULSO && !USAR_PONTE_H && !PORTA_FECHA_SEM_ENERGIA

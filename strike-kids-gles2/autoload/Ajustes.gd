@@ -97,13 +97,12 @@ var creditos := 0
 func _ready() -> void:
 	pause_mode = Node.PAUSE_MODE_PROCESS
 	_cfg.load(ARQUIVO)
-	# O JOGO SEMPRE COMEÇA COM 0 CRÉDITO: um crédito que sobrou de antes
-	# abria a trava assim que o jogo abria (o relé pulsava ao ligar). A
-	# trava só abre com ficha NOVA - inclusive a posta com a TV Box ainda
-	# ligando, que o Arduino guarda e entrega quando o jogo conecta.
-	creditos = 0
-	if _cfg.has_section_key("caixa", "creditos"):
-		_cfg.erase_section_key("caixa", "creditos")
+	# (8.8.8) OS CRÉDITOS FICAM GUARDADOS: desligou com crédito (no meio da
+	# partida ou na espera) -> ao ligar o jogo lê quantos tem e a cancela
+	# continua ABERTA; sem crédito, FECHADA. Quem manda na cancela é o jogo
+	# (o Arduino não mexe sozinho). A ficha posta com a TV Box ainda ligando
+	# o Arduino guarda e entrega quando o jogo conecta.
+	creditos = Compat.imax(0, int(_cfg.get_value("caixa", "creditos", 0)))
 	_medir_de_novo()
 
 
@@ -320,6 +319,7 @@ func adicionar_credito() -> void:
 	if modo_livre():
 		return
 	creditos += 1
+	_guardar_creditos()
 	contar("moedas")
 
 
@@ -336,7 +336,14 @@ func instalacao_atual() -> bool:
 ## Menu do operador: ZERAR CRÉDITOS (fichas de teste, crédito esquecido).
 func zerar_creditos() -> void:
 	creditos = 0
+	_guardar_creditos()
 	emit_signal("mudaram")
+
+
+## (8.8.8) Os créditos ficam no arquivo de ajustes: desligar não perde nada.
+func _guardar_creditos() -> void:
+	_cfg.set_value("caixa", "creditos", creditos)
+	_salvar()
 
 
 ## Modo fichas: minutos com crédito e sem ninguém jogar até a trava fechar
@@ -364,6 +371,7 @@ func jogadores_pagos() -> int:
 func gastar_creditos(jogadores: int) -> void:
 	if not modo_livre():
 		creditos = Compat.imax(0, creditos - _fichas_por_jogador() * jogadores)
+		_guardar_creditos()
 
 
 # ---------------------------------------------------------------- recorde
