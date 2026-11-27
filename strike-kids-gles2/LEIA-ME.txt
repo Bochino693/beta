@@ -79,6 +79,27 @@ O QUE MUDOU PARA RODAR NA OPENGL ES 2.0
     Godot 4 (nao substitui).
 
 
+FIRMWARE 19 (COM O JOGO 8.8.6): O FEIXE SO VALE DEPOIS DE PROVAR
+-----------------------------------------------------------------
+  O teste na maquina: 4 fichas, partida inteira, sobraram 2, outra
+  partida, DESLIGOU NO MEIO e ligou: o jogo abriu com 0 credito e a
+  cancela ficou ABERTA; a ficha FECHOU e depois ABRIU. De novo o feixe
+  nao mudando quando a cancela anda (le "fechada" sempre).
+  * O FEIXE SO MANDA DEPOIS DE PROVAR que enxerga: ele tem que MUDAR junto
+    com um pulso do rele (fica guardado na EEPROM). Ate provar - e se num
+    pulso ele nao mudar - o Arduino segue pela MEMORIA (EEPROM: cada
+    pulso troca). Desligou no meio (aberta) -> ao ligar, sem credito, UM
+    pulso fecha em 10 s, ANTES do jogo abrir. A ficha abre com UM pulso e
+    fica. Nunca o segundo pulso.
+  * A PRIMEIRA VEZ do firmware 19 a memoria comeca FECHADA: grave o
+    Arduino com a cancela FECHADA.
+  * JOGO 8.8.6: o pedido da cancela sai ja na TELA DE CARREGAMENTO (assim
+    que o Arduino conecta), alem da abertura, de cada ficha e da ultima
+    bola da partida (fecha no resultado se nao sobrou credito).
+  * Testado no PC o caso exato, com o feixe CEGO e com o feixe BOM: fecha
+    ao ligar, a ficha abre, nenhum pulso a mais.
+
+
 VERSAO 8.8.6 + FIRMWARE 18: A CANCELA SEGUE O CREDITO, SEM ERRO
 -----------------------------------------------------------------
   O defeito do firmware 17 na maquina: ligou com a cancela ABERTA e 0

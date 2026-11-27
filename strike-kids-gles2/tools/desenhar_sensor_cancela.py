@@ -1,4 +1,4 @@
-"""Desenha a folha do SENSOR DA CANCELA (firmware 18): o HW-201 (sensor
+"""Desenha a folha do SENSOR DA CANCELA (firmware 19): o HW-201 (sensor
 infravermelho) no Arduino, a cancela fechada e aberta na frente dele e a
 regra que o Arduino segue (credito x onde a cancela esta).
 
@@ -101,8 +101,8 @@ def etiqueta(x, y, t, fundo, cor="white", tam=24):
 def cabecalho():
     rect(0, 0, W, 8, "#1d5fa8")
     texto(50, 78, "STRIKE KIDS · SENSOR DA CANCELA (HW-201)", 52, TXT, "bold")
-    texto(50, 122, "firmware **18** · o **CRÉDITO MANDA**, o feixe **confere** — UM pulso por pedido, "
-                   "nunca dois · mão no feixe não mexe em nada", 28, CINZA)
+    texto(50, 122, "firmware **19** · o **CRÉDITO MANDA** · o feixe só vale depois de **provar** que vê a cancela "
+                   "andar · UM pulso por pedido, nunca dois", 28, CINZA)
     rect(50, 146, W - 100, 4, "#e3e8ee")
 
 
@@ -124,7 +124,7 @@ def nano():
     texto(NX + 445, NY + 130, "ATMEGA", 18, "#aab4bd", "bold", "middle")
     texto(NX + 445, NY + 156, "328P", 18, "#aab4bd", "bold", "middle")
     texto(NX + 760, NY + 120, "ARDUINO NANO", 38, "white", "bold", "middle")
-    texto(NX + 760, NY + 158, "firmware strike_kids_rele.ino · 18", 21, "#cfe3f7", "normal", "middle")
+    texto(NX + 760, NY + 158, "firmware strike_kids_rele.ino · 19", 21, "#cfe3f7", "normal", "middle")
     yb = NY + NH - 50
     usados = {"5V": VERM, "GND": PRETO, "A4": MARROM}
     for nome in PINOS_BAIXO:
@@ -247,12 +247,12 @@ def porque():
         "fechado. Faltou luz, cabo puxado, relé que estalou sozinho",
         "→ a lembrança ficava errada e a cancela invertia tudo.",
         "",
-        "**Agora (firmware 18): o CRÉDITO MANDA.** A cada pedido",
-        "o feixe **parado** diz onde ela está: certa → **nada**;",
-        "ao contrário → **1 toque**. O feixe não mudou depois do",
-        "toque → ele não enxerga: **nunca 2º toque**, segue pela",
-        "memória e avisa. **REGULE:** LED aceso **só** com ela",
-        "fechada (aceso sempre = o Arduino acha que está fechada).",
+        "**Agora (firmware 19): o CRÉDITO MANDA.** O feixe só vale",
+        "depois de **provar** (mudar junto com um toque); até lá,",
+        "e se ele não mudar, vale a **memória**. Certa → **nada**;",
+        "ao contrário → **1 toque**, **nunca 2**. Desligou aberta →",
+        "ao ligar, sem crédito, **fecha antes do jogo abrir**.",
+        "**REGULE:** LED aceso **só** com a cancela fechada.",
     ], 22, 1.42)
 
 
@@ -298,8 +298,8 @@ def ajustes():
         "**3.** Gire o parafusinho azul até o LED \"sinal\"",
         "   **ACENDER** com a cancela fechada e **APAGAR**",
         "   com ela aberta.",
-        "**4.** Grave o **strike_kids_rele.ino** (firmware 18).",
-        "   Monitor Serial 9600: **OLA:STRIKE_KIDS:18**;",
+        "**4.** Grave o **strike_kids_rele.ino** (firmware 19)",
+        "   com a cancela FECHADA. Serial: **OLA:STRIKE_KIDS:19**;",
         "   mande **INFO?**: ...**SENSOR_TRAVA=FECHADA**.",
         "**5.** Menu > **TESTE DA PORTA**: C abre / fecha;",
         "   **Z ou B** = conferir agora com o sensor.",

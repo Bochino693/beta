@@ -91,9 +91,11 @@ void religar() {
 int main(int argc, char **argv) {
   std::string c = argc > 1 ? argv[1] : "";
   iniciar();
+  // (19) o firmware ja rodou antes nesta EEPROM (so o cenario primeira_vez comeca do zero)
+  if (c != "primeira_vez") EEPROM.update(EE_VERSAO, 19);
   if (c == "tempo") {
     setup(); saida += Serial.out; Serial.out.clear();
-    CONFERE(saida.find("OLA:STRIKE_KIDS:18") != std::string::npos, "OLA ao ligar");
+    CONFERE(saida.find("OLA:STRIKE_KIDS:19") != std::string::npos, "OLA ao ligar");
     rodar(2);
     CONFERE(motor() == -1, "ao ligar o motor fecha a porta");
     long t = ate("PORTA:FECHADA", 3000);
@@ -387,7 +389,7 @@ int main(int argc, char **argv) {
     int p0 = pulsos;
     CONFERE(conta("PORTA:ABERTA") == 1, "modo livre: abre");
     rodar(600000);
-    CONFERE(pulsos == p0 && conta("AVISO") == 0, "modo livre: 10 min sem o jogo e a porta continua aberta (sem pulso)");
+    CONFERE(pulsos == p0 && conta("AVISO:SEM_JOGO") == 0, "modo livre: 10 min sem o jogo e a porta continua aberta (sem pulso)");
     // o jogo volta no modo livre: sem pulso
     manda("PING"); manda("MODO:LIVRE"); manda("PORTA:ABRE"); rodar(2000);
     CONFERE(pulsos == p0, "o jogo voltou no modo livre: sem pulso");
@@ -408,8 +410,8 @@ int main(int argc, char **argv) {
     EEPROM.update(EE_PORTA, 0); EEPROM.update(EE_PORTA + 1, 0xFF);   // (a porta ficou ABERTA)
 #endif
     setup(); pega();
-    const char *lixo[] = {"AT", "ATE0", "AT+CGMM", "AT+CPIN?", "ATI", "OLA:STRIKE_KIDS:18", "PORTA:ABERTA", "PORTA:FECHADA",
-                          "PONG:STRIKE_KIDS:18", "FICHA:0", "INFO:STRIKE_KIDS:18:LEDS=1", "PONTE:TEMPO:1500:FC:0", "PONTE:TEMPO:800X",
+    const char *lixo[] = {"AT", "ATE0", "AT+CGMM", "AT+CPIN?", "ATI", "OLA:STRIKE_KIDS:19", "PORTA:ABERTA", "PORTA:FECHADA",
+                          "PONG:STRIKE_KIDS:19", "FICHA:0", "INFO:STRIKE_KIDS:19:LEDS=1", "PONTE:TEMPO:1500:FC:0", "PONTE:TEMPO:800X",
                           "PORTA:ABREX", "XPING", "PINGS", "CALIBRAR", "S:1", "SENS:00000", "AVISO:SEM_JOGO", "~~##", "+++"};
     for (int k = 0; k < 6; k++) {
       for (const char *l : lixo) { manda(l); rodar(30); }
@@ -430,7 +432,7 @@ int main(int argc, char **argv) {
     // agora o jogo de verdade: tudo funciona
     pega();
     manda("PING"); rodar(5);
-    CONFERE(conta("PONG:STRIKE_KIDS:18") == 1, "o jogo de verdade e atendido");
+    CONFERE(conta("PONG:STRIKE_KIDS:19") == 1, "o jogo de verdade e atendido");
 #if USAR_RELE && RELE_PULSO && !USAR_PONTE_H
 #if PORTA_FECHA_SEM_ENERGIA
     // (14) ligou: a trava esta FECHADA (a EEPROM dizendo "aberta" nao vale)
@@ -645,6 +647,7 @@ int main(int argc, char **argv) {
     pega();
     manda("PORTA:ABRE"); vivo(5000);
     CONFERE(pulsos == 1 && canAberta && conta("PORTA:ABERTA") >= 1, "a ficha: UM pulso abre e o feixe confirma");
+    CONFERE(conta("AVISO:FEIXE_OK") == 1, "(19) o feixe mudou junto com o pulso: PROVOU que enxerga");
     manda("PORTA:FECHA"); vivo(5000);
     CONFERE(pulsos == 2 && !canAberta, "fim da partida sem credito: UM pulso fecha");
     // desligou JOGANDO (aberta): ao ligar, 0 credito -> UM pulso fecha
@@ -680,7 +683,7 @@ int main(int argc, char **argv) {
       if (pulsos - p0 != (estava != quer ? 1 : 0)) erros++;
     }
     CONFERE(erros == 0, "40 ligadas, cancela em qualquer posicao: sempre onde o credito manda, com o minimo de pulsos");
-    CONFERE(conta("AVISO") == 0, "nenhum aviso com o feixe bom");
+    CONFERE(conta("AVISO:FEIXE_NAO_VIU") == 0 && conta("AVISO:PORTA_TRAVOU") == 0, "nenhum aviso de problema com o feixe bom");
     // modo livre: abre e fica (10 min)
     canAberta = false; religar(); pega(); p0 = pulsos;
     manda("PING"); manda("MODO:LIVRE"); manda("PORTA:ABRE"); rodar(5000);
@@ -748,6 +751,56 @@ int main(int argc, char **argv) {
     canFunciona = false; p0 = pulsos; pega();
     manda("PORTA:FECHA"); vivo(60000);
     CONFERE(pulsos - p0 == 1 && conta("AVISO:FEIXE_NAO_VIU") == 1, "cancela presa: UM pulso e o aviso, uma vez");
+#endif
+  } else if (c == "usuario") {
+#if COM_SENSOR
+    // (19) O TESTE DA MAQUINA: 4 fichas, uma partida inteira, sobraram 2,
+    // outra partida e DESLIGARAM NO MEIO (aberta). Ao ligar, 0 credito: a
+    // cancela tem que FECHAR logo, antes do jogo abrir; a ficha abre; nada
+    // de pulso a mais. Com o feixe CEGO (sempre "fechada") e com o feixe BOM.
+    for (int cego = 1; cego >= 0; cego--) {
+      for (int k = 0; k < 1024; k++) EEPROM.m[k] = 0xFF;
+      EEPROM.update(EE_VERSAO, 19);
+      canAberta = false; canFunciona = true; canIgnora = 0; maoNoFeixe = cego; pulsos = 0;
+      setup(); pega();
+      auto vivo = [&](unsigned long ms) { for (unsigned long k = 0; k < ms; k += 2000) { manda("PING"); rodar(ms - k < 2000 ? ms - k : 2000); } };
+      const char *qual = cego ? "feixe CEGO" : "feixe BOM";
+      manda("PING"); manda("MODO:FICHAS"); manda("PORTA:FECHA"); vivo(5000);
+      CONFERE(pulsos == 0 && !canAberta, "ligou fechada, 0 credito: nada");
+      manda("PORTA:ABRE"); vivo(6000);                 // 4 fichas: abre
+      CONFERE(pulsos == 1 && canAberta, "4 fichas: UM pulso abre");
+      vivo(120000);                                     // partida 1 (aberta); sobraram 2: continua aberta
+      CONFERE(pulsos == 1 && canAberta, "partida inteira e sobrou credito: aberta, nenhum pulso");
+      vivo(60000);                                      // partida 2 no meio...
+      int p0 = pulsos;
+      religar(); pega();                                // DESLIGARAM NO MEIO (aberta) e ligaram
+      rodar(15000);                                     // a TV Box carregando: o jogo calado
+      CONFERE(!canAberta && pulsos - p0 == 1, cego ? "feixe CEGO: ligou aberta sem jogo -> em 10 s o Arduino FECHA pela memoria" : "feixe BOM: ligou aberta sem jogo -> em 10 s o Arduino FECHA");
+      manda("PING"); manda("MODO:FICHAS"); manda("PORTA:FECHA"); vivo(6000);   // o jogo abriu com 0 credito
+      CONFERE(!canAberta && pulsos - p0 == 1, "o jogo abriu com 0: ja fechada, nenhum pulso");
+      manda("PORTA:ABRE"); vivo(10000);                // uma ficha
+      CONFERE(canAberta && pulsos - p0 == 2, "uma ficha: UM pulso abre - e fica");
+      vivo(60000);
+      CONFERE(canAberta && pulsos - p0 == 2, "... e nada de fechar/abrir depois");
+      printf("  %s: ok ate aqui (pulsos=%d)\n", qual, pulsos);
+    }
+#endif
+  } else if (c == "primeira_vez") {
+#if USAR_RELE && RELE_PULSO && !USAR_PONTE_H
+    // (19) gravou o firmware novo por cima (a memoria velha dizia ABERTA): ele comeca FECHADA
+    EEPROM.update(EE_PORTA, 0); EEPROM.update(EE_PORTA + 1, 0xFF);   // memoria velha: aberta
+    EEPROM.update(EE_FEIXE, 0);                                       // feixe "provado" no firmware velho
+    setup(); pega();
+    CONFERE(!releAberta && EEPROM.read(EE_VERSAO) == 19, "primeira vez do 19: a memoria comeca FECHADA");
+#if COM_SENSOR
+    CONFERE(!feixeOk, "primeira vez do 19: o feixe ainda tem que provar");
+#endif
+    manda("PING"); manda("INFO?"); rodar(50);
+#if COM_SENSOR
+    CONFERE(conta(":FEIXE=NAO_PROVADO") == 1, "INFO: o feixe ainda nao provou");
+#endif
+    religar(); pega();
+    CONFERE(EEPROM.read(EE_VERSAO) == 19, "da segunda vez em diante: a memoria fica como estava");
 #endif
   } else if (c == "sozinho") {
 #if USAR_RELE && RELE_PULSO && !USAR_PONTE_H

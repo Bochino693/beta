@@ -4,7 +4,7 @@ Pasta arduino/1_RELE_principal/:
   strike_kids_rele/strike_kids_rele.ino   o codigo para gravar no Arduino
   ligacao_arduino_rele.pdf                o desenho da montagem (A3, imprima)
   ligacao_arduino_rele.png / .svg         o mesmo desenho em imagem
-  ligacao_sensor_cancela.pdf / .png       o SENSOR DA CANCELA (firmware 18)
+  ligacao_sensor_cancela.pdf / .png       o SENSOR DA CANCELA (firmware 19)
   LEIA-ME_RELE.txt                        este passo a passo
 
 
@@ -35,7 +35,7 @@ Obrigatorio:
   - 1 trava solenoide 12 V (fechadura eletrica) OU 1 eletroima 12 V
   - 1 diodo 1N4007 (protege o rele e o Arduino do pico da bobina da trava)
   - 1 sensor infravermelho HW-201 (3 pinos: VCC, GND, OUT) - o SENSOR DA
-    CANCELA: o credito manda, o feixe confere (firmware 18)
+    CANCELA: o credito manda, o feixe confere (firmware 19)
   - 1 fonte 12 V, 2 A ou mais (trava + moedeiro)
   - 1 botao CONFIGURACAO (entra e sai do menu do operador)
 Opcional:
@@ -64,7 +64,7 @@ Opcional:
   A0    botao CONFIGURACAO (o outro fio no GND)
   A1    botao START (o outro fio no GND)          opcional
   A2    COIN do moedeiro                          opcional (modo fichas)
-  A4    OUT do sensor da cancela (HW-201)         firmware 18
+  A4    OUT do sensor da cancela (HW-201)         firmware 19
   5V    VCC do modulo rele e do sensor da cancela; + dos sensores de 5 V
   GND   GND de TUDO: rele, sensores, botoes, moedeiro, fontes, servo
   D10, D11, D12 e A3 ficam LIVRES (sao da ponte H na outra versao).
@@ -91,7 +91,7 @@ porta / trava que alterna a cada toque - RELE_PULSO 1).
       NO do rele   ------------>  o outro fio da entrada (o "botao")
       NC do rele: solto
 
-O SENSOR DA CANCELA (firmware 18): O CREDITO MANDA, O FEIXE CONFERE
+O SENSOR DA CANCELA (firmware 19): O CREDITO MANDA, O FEIXE CONFERE
   Um sensor infravermelho HW-201 preso onde a cancela FECHADA passa bem
   na frente dele (2 a 10 cm; aberta, ela sai da frente). Desenho:
   ligacao_sensor_cancela.pdf (e no desenho completo, embaixo do Nano).
@@ -108,6 +108,10 @@ O SENSOR DA CANCELA (firmware 18): O CREDITO MANDA, O FEIXE CONFERE
     livre: sempre ABERTA). Cada pedido do jogo e uma CONFERENCIA: o feixe
     PARADO (0,4 s: bola passando nao engana) diz onde ela esta; ja esta
     certa -> nada; ao contrario -> UM pulso.
+  - (19) O FEIXE SO VALE DEPOIS DE PROVAR: ele tem que MUDAR junto com um
+    pulso do rele (prova que enxerga a cancela andar; fica na EEPROM). Ate
+    la o Arduino segue pela MEMORIA (EEPROM, cada pulso troca). A primeira
+    vez do firmware 19 a memoria comeca FECHADA: grave com ela FECHADA.
   - UM PULSO SO: depois do pulso o feixe tem que MUDAR. Nao mudou em 4 s
     -> o feixe nao enxerga a cancela: NENHUM segundo pulso (no firmware
     17 era esse segundo pulso que reabria a cancela), o Arduino segue
@@ -237,7 +241,7 @@ OUTRA TRAVA (solenoide / eletroima que fica LIGADO com a porta aberta):
 8. TESTAR SEM O JOGO (Monitor Serial da IDE)
 --------------------------------------------
 Ferramentas > Monitor Serial, 9600 baud, "Nova linha". Ao abrir aparece:
-    OLA:STRIKE_KIDS:18
+    OLA:STRIKE_KIDS:19
 (o rele NAO clica ao ligar). Mande (digite e Enter, em MAIUSCULAS ou
 minusculas, exatamente assim - o que for escrito diferente e ignorado):
     PORTA:ABRE   1 pulso (um clique) e a resposta PORTA:ABERTA
@@ -246,10 +250,11 @@ minusculas, exatamente assim - o que for escrito diferente e ignorado):
     PORTA:ACERTA (sem sensor) a porta esta ao contrario: troca so a
                  lembranca do Arduino (sem pulso). Com o sensor:
                  CONFERE AGORA (ao contrario do pedido -> 1 pulso)
-    INFO?        INFO:STRIKE_KIDS:18:LEDS=1:SERVO=0:RELE=8:PONTE_H=0:
+    INFO?        INFO:STRIKE_KIDS:19:LEDS=1:SERVO=0:RELE=8:PONTE_H=0:
                  REPOUSO=HHHHH:PULSO=1:FILA=0:SENSOR_TRAVA=FECHADA:FEIXE=OK
-                 (SENSOR_TRAVA = o que o sensor ve agora; FEIXE=OK ou
-                 NAO_VIU = se ele viu a cancela mexer no ultimo pulso)
+                 (SENSOR_TRAVA = o que o sensor ve agora; FEIXE=OK (ja
+                 provou), NAO_PROVADO (ainda nao) ou NAO_VIU (num pulso
+                 ele nao mudou: o Arduino segue pela memoria))
     FEIXE?       FEIXE:ACESO:FECHADA ou FEIXE:APAGADO:ABERTA (o LED do
                  sensor e o que o Arduino entende)
                  (PONTE_H=0 = esta versao; PULSO=1 = rele de pulso;
