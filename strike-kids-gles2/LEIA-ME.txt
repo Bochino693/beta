@@ -79,6 +79,26 @@ O QUE MUDOU PARA RODAR NA OPENGL ES 2.0
     Godot 4 (nao substitui).
 
 
+FIRMWARE 17: O CREDITO MANDA, O FEIXE SO CONFERE
+------------------------------------------------
+  (o jogo e o mesmo: o APK 8.8.5 serve; grave so o firmware 17)
+  * No firmware 16 o Arduino seguia o sensor o tempo todo: mao (ou bola)
+    na frente do feixe -> ele achava que a cancela tinha mudado e pulsava
+    (abria e fechava sozinho). CORRIGIDO: agora o CREDITO MANDA.
+      tem credito -> ABERTA      nao tem credito -> FECHADA
+      (modo livre -> sempre ABERTA)
+  * O feixe so e olhado quando o credito MUDA (entrou ficha, acabou a
+    partida, o jogo sumiu 30 s) e no primeiro pedido depois de ligar: a
+    cancela ja esta onde o credito manda -> nada; ao contrario -> 1 pulso
+    (e confere se chegou). Fora disso o feixe nao mexe em nada.
+  * Ligou a maquina sem credito e o feixe apagado (cancela aberta) -> 1
+    pulso fecha. Entrou ficha e o feixe aceso (cancela fechada) -> 1 pulso
+    abre. Ja estava certo -> nenhum pulso.
+  * TESTE DA PORTA > Z ou B (ACERTAR) = conferir agora com o feixe.
+  * Testado no PC: mao entrando e saindo do feixe 40 vezes, mao parada 2
+    minutos, com e sem credito -> nenhum pulso.
+
+
 FIRMWARE 16: O SENSOR DA CANCELA (HW-201) - O ARDUINO VE A CANCELA
 -------------------------------------------------------------------
   (o jogo e o mesmo: o APK 8.8.5 serve; grave so o firmware 16)

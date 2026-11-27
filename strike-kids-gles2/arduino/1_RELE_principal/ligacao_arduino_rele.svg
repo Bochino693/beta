@@ -130,7 +130,7 @@
 <rect x="1790" y="40" width="870" height="92" rx="22" fill="url(#g1)" stroke="#11354d" stroke-width="2" filter="url(#f_sombra_leve)"/>
 <rect x="1796" y="46" width="858" height="30" rx="16" fill="white" stroke="none" stroke-width="0" opacity="0.14"/>
 <text x="2225" y="102" font-family="Fredoka, DejaVu Sans, Arial, sans-serif" font-size="42" font-weight="bold" fill="white" text-anchor="middle">VERSÃO DO RELÉ (sem ponte H)</text>
-<text x="60" y="162" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="28" font-weight="normal" fill="#33415c" text-anchor="start">Arduino <tspan font-weight="bold">Nano</tspan> visto de cima · no <tspan font-weight="bold">Uno</tspan> e no <tspan font-weight="bold">Pro Mini</tspan>: mesmos nomes de pinos · no <tspan font-weight="bold">Mega</tspan>: servo no D11 · firmware <tspan font-weight="bold">arduino/1_RELE_principal</tspan> (firmware 16)</text>
+<text x="60" y="162" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="28" font-weight="normal" fill="#33415c" text-anchor="start">Arduino <tspan font-weight="bold">Nano</tspan> visto de cima · no <tspan font-weight="bold">Uno</tspan> e no <tspan font-weight="bold">Pro Mini</tspan>: mesmos nomes de pinos · no <tspan font-weight="bold">Mega</tspan>: servo no D11 · firmware <tspan font-weight="bold">arduino/1_RELE_principal</tspan> (firmware 17)</text>
 <rect x="0" y="190" width="761" height="12" rx="0" fill="url(#g2)" stroke="none" stroke-width="0"/>
 <rect x="760" y="190" width="761" height="12" rx="0" fill="url(#g3)" stroke="none" stroke-width="0"/>
 <rect x="1520" y="190" width="761" height="12" rx="0" fill="url(#g4)" stroke="none" stroke-width="0"/>
@@ -901,7 +901,7 @@
 <text x="580" y="1458" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="20" font-weight="bold" fill="#6d4c41" text-anchor="start">SENSOR DA CANCELA</text>
 <text x="580" y="1484" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="19" font-weight="normal" fill="#1b2a41" text-anchor="start">HW-201 · <tspan font-weight="bold">OUT → A4</tspan></text>
 <text x="580" y="1508" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="19" font-weight="normal" fill="#1b2a41" text-anchor="start">LED aceso = <tspan font-weight="bold">FECHADA</tspan></text>
-<text x="580" y="1532" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="18" font-weight="normal" fill="#5d6d7e" text-anchor="start">(o Arduino VÊ a cancela)</text>
+<text x="580" y="1532" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="18" font-weight="normal" fill="#5d6d7e" text-anchor="start">(confere quando o crédito muda)</text>
 <path d="M 1870 1170 L 1956 1170" fill="none" stroke="white" stroke-width="26" stroke-linejoin="round" stroke-linecap="round"/>
 <path d="M 1870 1170 L 1956 1170" fill="none" stroke="#53585c" stroke-width="19" stroke-linejoin="round" stroke-linecap="round"/>
 <path d="M 1870 1170 L 1956 1170" fill="none" stroke="#8a9399" stroke-width="16" stroke-linejoin="round" stroke-linecap="round"/>
@@ -1322,9 +1322,9 @@
 <text x="68" y="2647.48" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="26" font-weight="normal" fill="#1b2a41" text-anchor="start">2 jogadores).</text>
 <text x="68" y="2705.2" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="26" font-weight="normal" fill="#1b2a41" text-anchor="start">Jogo sumiu (cabo solto) com a trava</text>
 <text x="68" y="2743.68" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="26" font-weight="normal" fill="#1b2a41" text-anchor="start">aberta: ela FECHA sozinha em 30 s.</text>
-<text x="68" y="2801.4" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="26" font-weight="normal" fill="#1b2a41" text-anchor="start"><tspan font-weight="bold">Sensor da cancela (A4):</tspan> o Arduino <tspan font-weight="bold">VÊ</tspan> se</text>
-<text x="68" y="2839.88" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="26" font-weight="normal" fill="#1b2a41" text-anchor="start">ela está aberta ou fechada: desligou jogando,</text>
-<text x="68" y="2878.36" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="26" font-weight="normal" fill="#1b2a41" text-anchor="start">relé estalou → ele corrige com 1 toque.</text>
+<text x="68" y="2801.4" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="26" font-weight="normal" fill="#1b2a41" text-anchor="start"><tspan font-weight="bold">Sensor da cancela (A4):</tspan> o <tspan font-weight="bold">CRÉDITO</tspan> manda;</text>
+<text x="68" y="2839.88" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="26" font-weight="normal" fill="#1b2a41" text-anchor="start">o sensor só confere quando o crédito muda e</text>
+<text x="68" y="2878.36" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="26" font-weight="normal" fill="#1b2a41" text-anchor="start">ao ligar. Mão no feixe = nada.</text>
 <rect x="960" y="2020" width="940" height="940" rx="20" fill="white" stroke="#1a5276" stroke-width="5" filter="url(#f_sombra)"/>
 <path d="M 960 2040 Q 960 2020 980 2020 H 1880 Q 1900 2020 1900 2040 V 2076 H 960 Z" fill="url(#g72)" stroke="none" stroke-width="0" stroke-linejoin="round"/>
 <rect x="963" y="2023" width="934" height="22" rx="16" fill="white" stroke="none" stroke-width="0" opacity="0.12"/>
@@ -1353,7 +1353,7 @@
 <text x="1948" y="2204.96" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="26" font-weight="normal" fill="#1b2a41" text-anchor="start">(Nano clone: Processador “ATmega328P (Old</text>
 <text x="1948" y="2243.44" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="26" font-weight="normal" fill="#1b2a41" text-anchor="start">Bootloader)”; biblioteca Adafruit NeoPixel,</text>
 <text x="1948" y="2281.92" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="26" font-weight="normal" fill="#1b2a41" text-anchor="start">ou USAR_LEDS 0 sem a fita).</text>
-<text x="1948" y="2320.4" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="26" font-weight="normal" fill="#1b2a41" text-anchor="start"><tspan font-weight="bold">2. Monitor Serial a 9600:</tspan> OLA:STRIKE_KIDS:16.</text>
+<text x="1948" y="2320.4" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="26" font-weight="normal" fill="#1b2a41" text-anchor="start"><tspan font-weight="bold">2. Monitor Serial a 9600:</tspan> OLA:STRIKE_KIDS:17.</text>
 <text x="1948" y="2358.88" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="26" font-weight="normal" fill="#1b2a41" text-anchor="start">Mande PORTA:ABRE e PORTA:FECHA: a cancela</text>
 <text x="1948" y="2397.36" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="26" font-weight="normal" fill="#1b2a41" text-anchor="start">anda e o sensor responde PORTA:ABERTA/FECHADA.</text>
 <text x="1948" y="2435.84" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="26" font-weight="normal" fill="#1b2a41" text-anchor="start"><tspan font-weight="bold">3. USB na TV Box</tspan> e abra o jogo: na janela</text>

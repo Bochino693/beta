@@ -6,7 +6,7 @@
 <rect x="0" y="0" width="2400" height="2230" rx="0" fill="white" stroke="none" stroke-width="0" />
 <rect x="0" y="0" width="2400" height="8" rx="0" fill="#1d5fa8" stroke="none" stroke-width="0" />
 <text x="50" y="78" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="52" fill="#1b2a41" text-anchor="start"><tspan font-weight="bold">STRIKE KIDS · SENSOR DA CANCELA (HW-201)</tspan></text>
-<text x="50" y="122" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="28" fill="#5d6d7e" text-anchor="start"><tspan font-weight="normal">firmware </tspan><tspan font-weight="bold">16</tspan><tspan font-weight="normal"> · o Arduino </tspan><tspan font-weight="bold">VÊ</tspan><tspan font-weight="normal"> se a cancela está aberta ou fechada — não lembra, não adivinha, nunca inverte</tspan></text>
+<text x="50" y="122" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="28" fill="#5d6d7e" text-anchor="start"><tspan font-weight="normal">firmware </tspan><tspan font-weight="bold">17</tspan><tspan font-weight="normal"> · o </tspan><tspan font-weight="bold">CRÉDITO MANDA</tspan><tspan font-weight="normal">, o sensor </tspan><tspan font-weight="bold">só confere</tspan><tspan font-weight="normal"> quando o crédito muda — mão no feixe não mexe em nada</tspan></text>
 <rect x="50" y="146" width="2300" height="4" rx="0" fill="#e3e8ee" stroke="none" stroke-width="0" />
 <text x="70" y="208" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="26" fill="#1b2a41" text-anchor="start"><tspan font-weight="bold">ARDUINO (a mesma placa da máquina) — fileira de baixo</tspan></text>
 <rect x="76" y="238" width="1000" height="300" rx="24" fill="#000" stroke="none" stroke-width="0" opacity="0.12" />
@@ -24,7 +24,7 @@
 <text x="515" y="360" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="18" fill="#aab4bd" text-anchor="middle"><tspan font-weight="bold">ATMEGA</tspan></text>
 <text x="515" y="386" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="18" fill="#aab4bd" text-anchor="middle"><tspan font-weight="bold">328P</tspan></text>
 <text x="830" y="350" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="38" fill="white" text-anchor="middle"><tspan font-weight="bold">ARDUINO NANO</tspan></text>
-<text x="830" y="388" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="21" fill="#cfe3f7" text-anchor="middle"><tspan font-weight="normal">firmware strike_kids_rele.ino · 16</tspan></text>
+<text x="830" y="388" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="21" fill="#cfe3f7" text-anchor="middle"><tspan font-weight="normal">firmware strike_kids_rele.ino · 17</tspan></text>
 <circle cx="140" cy="480" r="15" fill="url(#ouro)" stroke="#7a5c00" stroke-width="2" />
 <circle cx="140" cy="480" r="7" fill="#2b2b2b" stroke="none" stroke-width="0" />
 <text x="140" y="446" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="22" fill="#aed6f1" text-anchor="middle"><tspan font-weight="normal">VIN</tspan></text>
@@ -195,14 +195,12 @@
 <text x="1420" y="934.48" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="22" fill="#1b2a41" text-anchor="start"><tspan font-weight="normal">fechado. Faltou luz, cabo puxado, relé que estalou sozinho</tspan></text>
 <text x="1420" y="965.72" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="22" fill="#1b2a41" text-anchor="start"><tspan font-weight="normal">→ a lembrança ficava errada e a cancela invertia tudo.</tspan></text>
 <text x="1420" y="996.96" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="22" fill="#1b2a41" text-anchor="start"></text>
-<text x="1420" y="1028.2" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="22" fill="#1b2a41" text-anchor="start"><tspan font-weight="bold">Agora (firmware 16):</tspan><tspan font-weight="normal"> o Arduino </tspan><tspan font-weight="bold">olha</tspan><tspan font-weight="normal"> o sensor a cada</tspan></text>
-<text x="1420" y="1059.44" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="22" fill="#1b2a41" text-anchor="start"><tspan font-weight="normal">instante. O jogo diz como a cancela </tspan><tspan font-weight="bold">deve</tspan><tspan font-weight="normal"> estar (crédito);</tspan></text>
-<text x="1420" y="1090.68" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="22" fill="#1b2a41" text-anchor="start"><tspan font-weight="normal">o sensor diz onde ela </tspan><tspan font-weight="bold">está</tspan><tspan font-weight="normal">. Diferente → </tspan><tspan font-weight="bold">1 toque</tspan><tspan font-weight="normal">.</tspan></text>
-<text x="1420" y="1121.92" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="22" fill="#1b2a41" text-anchor="start"><tspan font-weight="normal">Igual → </tspan><tspan font-weight="bold">nada</tspan><tspan font-weight="normal">. Nunca toca duas vezes por engano,</tspan></text>
-<text x="1420" y="1153.16" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="22" fill="#1b2a41" text-anchor="start"><tspan font-weight="normal">nunca abre sem crédito, nunca fecha com crédito.</tspan></text>
-<text x="1420" y="1184.4" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="22" fill="#1b2a41" text-anchor="start"></text>
-<text x="1420" y="1215.64" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="22" fill="#1b2a41" text-anchor="start"><tspan font-weight="normal">Ao ligar a máquina ele </tspan><tspan font-weight="bold">não toca</tspan><tspan font-weight="normal"> o relé: primeiro lê o</tspan></text>
-<text x="1420" y="1246.88" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="22" fill="#1b2a41" text-anchor="start"><tspan font-weight="normal">sensor e só depois o jogo pede (na tela inicial).</tspan></text>
+<text x="1420" y="1028.2" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="22" fill="#1b2a41" text-anchor="start"><tspan font-weight="bold">Agora (firmware 17): o CRÉDITO MANDA.</tspan><tspan font-weight="normal"> Só quando o</tspan></text>
+<text x="1420" y="1059.44" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="22" fill="#1b2a41" text-anchor="start"><tspan font-weight="normal">crédito muda (entrou ficha, acabou a partida) e ao ligar</tspan></text>
+<text x="1420" y="1090.68" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="22" fill="#1b2a41" text-anchor="start"><tspan font-weight="normal">o Arduino </tspan><tspan font-weight="bold">olha</tspan><tspan font-weight="normal"> o sensor: a cancela já está onde o</tspan></text>
+<text x="1420" y="1121.92" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="22" fill="#1b2a41" text-anchor="start"><tspan font-weight="normal">crédito manda → </tspan><tspan font-weight="bold">nada</tspan><tspan font-weight="normal">; está ao contrário → </tspan><tspan font-weight="bold">1 toque</tspan><tspan font-weight="normal">.</tspan></text>
+<text x="1420" y="1153.16" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="22" fill="#1b2a41" text-anchor="start"><tspan font-weight="normal">Fora disso o sensor </tspan><tspan font-weight="bold">não mexe em nada</tspan><tspan font-weight="normal">: mão, bola ou</tspan></text>
+<text x="1420" y="1184.4" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="22" fill="#1b2a41" text-anchor="start"><tspan font-weight="normal">sujeira na frente do feixe → </tspan><tspan font-weight="bold">nada acontece</tspan><tspan font-weight="normal">.</tspan></text>
 <rect x="54" y="1316" width="1320" height="890" rx="18" fill="#000" stroke="none" stroke-width="0" opacity="0.08" />
 <rect x="50" y="1310" width="1320" height="890" rx="18" fill="white" stroke="#1d5fa8" stroke-width="4" />
 <path d="M 68 1310 h 1284 v 58 h -1284 z" fill="#1d5fa8"/>
@@ -213,45 +211,48 @@
 <text x="80" y="1420" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="22" fill="#5d6d7e" text-anchor="start"><tspan font-weight="bold">MOMENTO</tspan></text>
 <text x="520" y="1420" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="22" fill="#5d6d7e" text-anchor="start"><tspan font-weight="bold">O JOGO PEDE</tspan></text>
 <text x="880" y="1420" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="22" fill="#5d6d7e" text-anchor="start"><tspan font-weight="bold">O ARDUINO FAZ</tspan></text>
-<rect x="70" y="1442" width="1280" height="60" rx="6" fill="#f7f9fc" stroke="none" stroke-width="0" />
+<rect x="70" y="1444" width="1280" height="56" rx="6" fill="#f7f9fc" stroke="none" stroke-width="0" />
 <text x="80" y="1480" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="24" fill="#1b2a41" text-anchor="start"><tspan font-weight="bold">Liga a máquina</tspan></text>
 <text x="520" y="1480" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="24" fill="#1b2a41" text-anchor="start"><tspan font-weight="normal">(nada ainda)</tspan></text>
 <text x="880" y="1480" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="24" fill="#1b2a41" text-anchor="start"><tspan font-weight="normal">lê o sensor: já sabe onde ela está</tspan></text>
-<text x="80" y="1544" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="24" fill="#1b2a41" text-anchor="start"><tspan font-weight="bold">Tela inicial, 0 crédito</tspan></text>
-<text x="520" y="1544" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="24" fill="#1b2a41" text-anchor="start"><tspan font-weight="normal">FECHADA</tspan></text>
-<text x="880" y="1544" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="24" fill="#1b2a41" text-anchor="start"><tspan font-weight="normal">aberta? </tspan><tspan font-weight="bold">1 pulso</tspan><tspan font-weight="normal"> · fechada? nada</tspan></text>
-<rect x="70" y="1570" width="1280" height="60" rx="6" fill="#f7f9fc" stroke="none" stroke-width="0" />
-<text x="80" y="1608" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="24" fill="#1b2a41" text-anchor="start"><tspan font-weight="bold">Entrou ficha</tspan></text>
-<text x="520" y="1608" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="24" fill="#1b2a41" text-anchor="start"><tspan font-weight="normal">ABERTA</tspan></text>
-<text x="880" y="1608" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="24" fill="#1b2a41" text-anchor="start"><tspan font-weight="normal">fechada? </tspan><tspan font-weight="bold">1 pulso</tspan><tspan font-weight="normal"> · aberta? nada</tspan></text>
-<text x="80" y="1672" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="24" fill="#1b2a41" text-anchor="start"><tspan font-weight="bold">Bola rolada (com crédito)</tspan></text>
-<text x="520" y="1672" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="24" fill="#1b2a41" text-anchor="start"><tspan font-weight="normal">ABERTA (partida)</tspan></text>
-<text x="880" y="1672" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="24" fill="#1b2a41" text-anchor="start"><tspan font-weight="normal">nada: ela já está aberta</tspan></text>
-<rect x="70" y="1698" width="1280" height="60" rx="6" fill="#f7f9fc" stroke="none" stroke-width="0" />
-<text x="80" y="1736" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="24" fill="#1b2a41" text-anchor="start"><tspan font-weight="bold">Fim da partida, 0 crédito</tspan></text>
-<text x="520" y="1736" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="24" fill="#1b2a41" text-anchor="start"><tspan font-weight="normal">FECHADA</tspan></text>
-<text x="880" y="1736" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="24" fill="#1b2a41" text-anchor="start"><tspan font-weight="bold">1 pulso</tspan><tspan font-weight="normal"> fecha</tspan></text>
-<text x="80" y="1800" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="24" fill="#1b2a41" text-anchor="start"><tspan font-weight="bold">Fim, sobrou crédito</tspan></text>
-<text x="520" y="1800" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="24" fill="#1b2a41" text-anchor="start"><tspan font-weight="normal">ABERTA</tspan></text>
-<text x="880" y="1800" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="24" fill="#1b2a41" text-anchor="start"><tspan font-weight="normal">nada</tspan></text>
-<rect x="70" y="1826" width="1280" height="60" rx="6" fill="#f7f9fc" stroke="none" stroke-width="0" />
-<text x="80" y="1864" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="24" fill="#1b2a41" text-anchor="start"><tspan font-weight="bold">Desligaram jogando</tspan></text>
-<text x="520" y="1864" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="24" fill="#1b2a41" text-anchor="start"><tspan font-weight="normal">ao ligar: FECHADA</tspan></text>
-<text x="880" y="1864" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="24" fill="#1b2a41" text-anchor="start"><tspan font-weight="normal">sensor diz aberta → </tspan><tspan font-weight="bold">1 pulso</tspan></text>
-<text x="80" y="1928" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="24" fill="#1b2a41" text-anchor="start"><tspan font-weight="bold">Modo livre</tspan></text>
-<text x="520" y="1928" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="24" fill="#1b2a41" text-anchor="start"><tspan font-weight="normal">ABERTA sempre</tspan></text>
-<text x="880" y="1928" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="24" fill="#1b2a41" text-anchor="start"><tspan font-weight="bold">1 pulso</tspan><tspan font-weight="normal"> se fechada; depois nada</tspan></text>
-<rect x="70" y="1954" width="1280" height="60" rx="6" fill="#f7f9fc" stroke="none" stroke-width="0" />
-<text x="80" y="1992" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="24" fill="#1b2a41" text-anchor="start"><tspan font-weight="bold">O relé estalou sozinho</tspan></text>
-<text x="520" y="1992" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="24" fill="#1b2a41" text-anchor="start"><tspan font-weight="normal">(o mesmo de antes)</tspan></text>
-<text x="880" y="1992" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="24" fill="#1b2a41" text-anchor="start"><tspan font-weight="normal">o sensor vê → </tspan><tspan font-weight="bold">1 pulso</tspan><tspan font-weight="normal"> devolve</tspan></text>
-<text x="80" y="2056" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="24" fill="#1b2a41" text-anchor="start"><tspan font-weight="bold">Pulso e ela não chegou</tspan></text>
-<text x="520" y="2056" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="24" fill="#1b2a41" text-anchor="start"><tspan font-weight="normal">—</tspan></text>
-<text x="880" y="2056" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="24" fill="#1b2a41" text-anchor="start"><tspan font-weight="normal">2,5 s depois </tspan><tspan font-weight="bold">mais 1 pulso</tspan></text>
-<rect x="70" y="2082" width="1280" height="60" rx="6" fill="#f7f9fc" stroke="none" stroke-width="0" />
-<text x="80" y="2120" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="24" fill="#1b2a41" text-anchor="start"><tspan font-weight="bold">Nem assim chegou</tspan></text>
-<text x="520" y="2120" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="24" fill="#1b2a41" text-anchor="start"><tspan font-weight="normal">—</tspan></text>
-<text x="880" y="2120" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="24" fill="#1b2a41" text-anchor="start"><tspan font-weight="normal">para e avisa: </tspan><tspan font-weight="bold">CANCELA TRAVOU</tspan></text>
+<text x="80" y="1540" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="24" fill="#1b2a41" text-anchor="start"><tspan font-weight="bold">Tela inicial, 0 crédito</tspan></text>
+<text x="520" y="1540" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="24" fill="#1b2a41" text-anchor="start"><tspan font-weight="normal">FECHADA</tspan></text>
+<text x="880" y="1540" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="24" fill="#1b2a41" text-anchor="start"><tspan font-weight="normal">aberta? </tspan><tspan font-weight="bold">1 pulso</tspan><tspan font-weight="normal"> · fechada? nada</tspan></text>
+<rect x="70" y="1564" width="1280" height="56" rx="6" fill="#f7f9fc" stroke="none" stroke-width="0" />
+<text x="80" y="1600" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="24" fill="#1b2a41" text-anchor="start"><tspan font-weight="bold">Entrou ficha</tspan></text>
+<text x="520" y="1600" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="24" fill="#1b2a41" text-anchor="start"><tspan font-weight="normal">ABERTA</tspan></text>
+<text x="880" y="1600" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="24" fill="#1b2a41" text-anchor="start"><tspan font-weight="normal">fechada? </tspan><tspan font-weight="bold">1 pulso</tspan><tspan font-weight="normal"> · aberta? nada</tspan></text>
+<text x="80" y="1660" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="24" fill="#1b2a41" text-anchor="start"><tspan font-weight="bold">Bola rolada (com crédito)</tspan></text>
+<text x="520" y="1660" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="24" fill="#1b2a41" text-anchor="start"><tspan font-weight="normal">ABERTA (partida)</tspan></text>
+<text x="880" y="1660" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="24" fill="#1b2a41" text-anchor="start"><tspan font-weight="normal">nada: ela já está aberta</tspan></text>
+<rect x="70" y="1684" width="1280" height="56" rx="6" fill="#f7f9fc" stroke="none" stroke-width="0" />
+<text x="80" y="1720" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="24" fill="#1b2a41" text-anchor="start"><tspan font-weight="bold">Fim da partida, 0 crédito</tspan></text>
+<text x="520" y="1720" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="24" fill="#1b2a41" text-anchor="start"><tspan font-weight="normal">FECHADA</tspan></text>
+<text x="880" y="1720" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="24" fill="#1b2a41" text-anchor="start"><tspan font-weight="bold">1 pulso</tspan><tspan font-weight="normal"> fecha</tspan></text>
+<text x="80" y="1780" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="24" fill="#1b2a41" text-anchor="start"><tspan font-weight="bold">Fim, sobrou crédito</tspan></text>
+<text x="520" y="1780" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="24" fill="#1b2a41" text-anchor="start"><tspan font-weight="normal">ABERTA</tspan></text>
+<text x="880" y="1780" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="24" fill="#1b2a41" text-anchor="start"><tspan font-weight="normal">nada</tspan></text>
+<rect x="70" y="1804" width="1280" height="56" rx="6" fill="#f7f9fc" stroke="none" stroke-width="0" />
+<text x="80" y="1840" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="24" fill="#1b2a41" text-anchor="start"><tspan font-weight="bold">Desligaram jogando</tspan></text>
+<text x="520" y="1840" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="24" fill="#1b2a41" text-anchor="start"><tspan font-weight="normal">ao ligar: FECHADA</tspan></text>
+<text x="880" y="1840" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="24" fill="#1b2a41" text-anchor="start"><tspan font-weight="normal">sensor diz aberta → </tspan><tspan font-weight="bold">1 pulso</tspan></text>
+<text x="80" y="1900" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="24" fill="#1b2a41" text-anchor="start"><tspan font-weight="bold">Modo livre</tspan></text>
+<text x="520" y="1900" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="24" fill="#1b2a41" text-anchor="start"><tspan font-weight="normal">ABERTA sempre</tspan></text>
+<text x="880" y="1900" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="24" fill="#1b2a41" text-anchor="start"><tspan font-weight="bold">1 pulso</tspan><tspan font-weight="normal"> se fechada; depois nada</tspan></text>
+<rect x="70" y="1924" width="1280" height="56" rx="6" fill="#f7f9fc" stroke="none" stroke-width="0" />
+<text x="80" y="1960" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="24" fill="#1b2a41" text-anchor="start"><tspan font-weight="bold">Mão / bola no feixe</tspan></text>
+<text x="520" y="1960" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="24" fill="#1b2a41" text-anchor="start"><tspan font-weight="normal">(nada mudou)</tspan></text>
+<text x="880" y="1960" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="24" fill="#1b2a41" text-anchor="start"><tspan font-weight="bold">nada</tspan><tspan font-weight="normal"> — o sensor não manda</tspan></text>
+<text x="80" y="2020" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="24" fill="#1b2a41" text-anchor="start"><tspan font-weight="bold">Cancela mudou sozinha</tspan></text>
+<text x="520" y="2020" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="24" fill="#1b2a41" text-anchor="start"><tspan font-weight="normal">(nada mudou)</tspan></text>
+<text x="880" y="2020" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="24" fill="#1b2a41" text-anchor="start"><tspan font-weight="normal">nada; acerta no próximo crédito</tspan></text>
+<rect x="70" y="2044" width="1280" height="56" rx="6" fill="#f7f9fc" stroke="none" stroke-width="0" />
+<text x="80" y="2080" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="24" fill="#1b2a41" text-anchor="start"><tspan font-weight="bold">Pulso e ela não chegou</tspan></text>
+<text x="520" y="2080" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="24" fill="#1b2a41" text-anchor="start"><tspan font-weight="normal">—</tspan></text>
+<text x="880" y="2080" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="24" fill="#1b2a41" text-anchor="start"><tspan font-weight="normal">2,5 s depois </tspan><tspan font-weight="bold">mais 1 pulso</tspan></text>
+<text x="80" y="2140" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="24" fill="#1b2a41" text-anchor="start"><tspan font-weight="bold">Nem assim chegou</tspan></text>
+<text x="520" y="2140" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="24" fill="#1b2a41" text-anchor="start"><tspan font-weight="normal">—</tspan></text>
+<text x="880" y="2140" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="24" fill="#1b2a41" text-anchor="start"><tspan font-weight="normal">para e avisa: </tspan><tspan font-weight="bold">CANCELA TRAVOU</tspan></text>
 <rect x="1424" y="1316" width="930" height="890" rx="18" fill="#000" stroke="none" stroke-width="0" opacity="0.08" />
 <rect x="1420" y="1310" width="930" height="890" rx="18" fill="white" stroke="#6d4c41" stroke-width="4" />
 <path d="M 1438 1310 h 894 v 58 h -894 z" fill="#6d4c41"/>
@@ -265,11 +266,11 @@
 <text x="1450" y="1556.16" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="23" fill="#1b2a41" text-anchor="start"><tspan font-weight="bold">3.</tspan><tspan font-weight="normal"> Gire o parafusinho azul até o LED "sinal"</tspan></text>
 <text x="1450" y="1590.2" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="23" fill="#1b2a41" text-anchor="start"><tspan font-weight="normal">   </tspan><tspan font-weight="bold">ACENDER</tspan><tspan font-weight="normal"> com a cancela fechada e </tspan><tspan font-weight="bold">APAGAR</tspan></text>
 <text x="1450" y="1624.24" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="23" fill="#1b2a41" text-anchor="start"><tspan font-weight="normal">   com ela aberta.</tspan></text>
-<text x="1450" y="1658.28" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="23" fill="#1b2a41" text-anchor="start"><tspan font-weight="bold">4.</tspan><tspan font-weight="normal"> Grave o </tspan><tspan font-weight="bold">strike_kids_rele.ino</tspan><tspan font-weight="normal"> (firmware 16).</tspan></text>
-<text x="1450" y="1692.32" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="23" fill="#1b2a41" text-anchor="start"><tspan font-weight="normal">   Monitor Serial 9600: </tspan><tspan font-weight="bold">OLA:STRIKE_KIDS:16</tspan><tspan font-weight="normal">;</tspan></text>
+<text x="1450" y="1658.28" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="23" fill="#1b2a41" text-anchor="start"><tspan font-weight="bold">4.</tspan><tspan font-weight="normal"> Grave o </tspan><tspan font-weight="bold">strike_kids_rele.ino</tspan><tspan font-weight="normal"> (firmware 17).</tspan></text>
+<text x="1450" y="1692.32" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="23" fill="#1b2a41" text-anchor="start"><tspan font-weight="normal">   Monitor Serial 9600: </tspan><tspan font-weight="bold">OLA:STRIKE_KIDS:17</tspan><tspan font-weight="normal">;</tspan></text>
 <text x="1450" y="1726.36" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="23" fill="#1b2a41" text-anchor="start"><tspan font-weight="normal">   mande </tspan><tspan font-weight="bold">INFO?</tspan><tspan font-weight="normal">: ...</tspan><tspan font-weight="bold">SENSOR_TRAVA=FECHADA</tspan><tspan font-weight="normal">.</tspan></text>
-<text x="1450" y="1760.4" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="23" fill="#1b2a41" text-anchor="start"><tspan font-weight="bold">5.</tspan><tspan font-weight="normal"> No jogo: menu &gt; </tspan><tspan font-weight="bold">TESTE DA PORTA</tspan><tspan font-weight="normal"> — abra e</tspan></text>
-<text x="1450" y="1794.44" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="23" fill="#1b2a41" text-anchor="start"><tspan font-weight="normal">   feche e veja ABERTA / FECHADA mudarem.</tspan></text>
+<text x="1450" y="1760.4" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="23" fill="#1b2a41" text-anchor="start"><tspan font-weight="bold">5.</tspan><tspan font-weight="normal"> Menu &gt; </tspan><tspan font-weight="bold">TESTE DA PORTA</tspan><tspan font-weight="normal">: C abre / fecha;</tspan></text>
+<text x="1450" y="1794.44" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="23" fill="#1b2a41" text-anchor="start"><tspan font-weight="normal">   </tspan><tspan font-weight="bold">Z ou B</tspan><tspan font-weight="normal"> = conferir agora com o sensor.</tspan></text>
 <text x="1450" y="1828.48" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="23" fill="#1b2a41" text-anchor="start"><tspan font-weight="bold">6.</tspan><tspan font-weight="normal"> Menu: </tspan><tspan font-weight="bold">Porta invertida = NÃO</tspan><tspan font-weight="normal"> (com o</tspan></text>
 <text x="1450" y="1862.52" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="23" fill="#1b2a41" text-anchor="start"><tspan font-weight="normal">   sensor, quem diz aberta/fechada é ele).</tspan></text>
 <text x="1450" y="1896.56" font-family="DejaVu Sans, Verdana, Arial, sans-serif" font-size="23" fill="#1b2a41" text-anchor="start"></text>

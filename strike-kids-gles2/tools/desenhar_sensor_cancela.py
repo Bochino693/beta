@@ -1,4 +1,4 @@
-"""Desenha a folha do SENSOR DA CANCELA (firmware 16): o HW-201 (sensor
+"""Desenha a folha do SENSOR DA CANCELA (firmware 17): o HW-201 (sensor
 infravermelho) no Arduino, a cancela fechada e aberta na frente dele e a
 regra que o Arduino segue (credito x onde a cancela esta).
 
@@ -101,8 +101,8 @@ def etiqueta(x, y, t, fundo, cor="white", tam=24):
 def cabecalho():
     rect(0, 0, W, 8, "#1d5fa8")
     texto(50, 78, "STRIKE KIDS · SENSOR DA CANCELA (HW-201)", 52, TXT, "bold")
-    texto(50, 122, "firmware **16** · o Arduino **VÊ** se a cancela está aberta ou fechada — "
-                   "não lembra, não adivinha, nunca inverte", 28, CINZA)
+    texto(50, 122, "firmware **17** · o **CRÉDITO MANDA**, o sensor **só confere** quando o crédito muda — "
+                   "mão no feixe não mexe em nada", 28, CINZA)
     rect(50, 146, W - 100, 4, "#e3e8ee")
 
 
@@ -124,7 +124,7 @@ def nano():
     texto(NX + 445, NY + 130, "ATMEGA", 18, "#aab4bd", "bold", "middle")
     texto(NX + 445, NY + 156, "328P", 18, "#aab4bd", "bold", "middle")
     texto(NX + 760, NY + 120, "ARDUINO NANO", 38, "white", "bold", "middle")
-    texto(NX + 760, NY + 158, "firmware strike_kids_rele.ino · 16", 21, "#cfe3f7", "normal", "middle")
+    texto(NX + 760, NY + 158, "firmware strike_kids_rele.ino · 17", 21, "#cfe3f7", "normal", "middle")
     yb = NY + NH - 50
     usados = {"5V": VERM, "GND": PRETO, "A4": MARROM}
     for nome in PINOS_BAIXO:
@@ -247,14 +247,12 @@ def porque():
         "fechado. Faltou luz, cabo puxado, relé que estalou sozinho",
         "→ a lembrança ficava errada e a cancela invertia tudo.",
         "",
-        "**Agora (firmware 16):** o Arduino **olha** o sensor a cada",
-        "instante. O jogo diz como a cancela **deve** estar (crédito);",
-        "o sensor diz onde ela **está**. Diferente → **1 toque**.",
-        "Igual → **nada**. Nunca toca duas vezes por engano,",
-        "nunca abre sem crédito, nunca fecha com crédito.",
-        "",
-        "Ao ligar a máquina ele **não toca** o relé: primeiro lê o",
-        "sensor e só depois o jogo pede (na tela inicial).",
+        "**Agora (firmware 17): o CRÉDITO MANDA.** Só quando o",
+        "crédito muda (entrou ficha, acabou a partida) e ao ligar",
+        "o Arduino **olha** o sensor: a cancela já está onde o",
+        "crédito manda → **nada**; está ao contrário → **1 toque**.",
+        "Fora disso o sensor **não mexe em nada**: mão, bola ou",
+        "sujeira na frente do feixe → **nada acontece**.",
     ], 22, 1.42)
 
 
@@ -275,14 +273,15 @@ def regra():
         ("Fim, sobrou crédito", "ABERTA", "nada"),
         ("Desligaram jogando", "ao ligar: FECHADA", "sensor diz aberta → **1 pulso**"),
         ("Modo livre", "ABERTA sempre", "**1 pulso** se fechada; depois nada"),
-        ("O relé estalou sozinho", "(o mesmo de antes)", "o sensor vê → **1 pulso** devolve"),
+        ("Mão / bola no feixe", "(nada mudou)", "**nada** — o sensor não manda"),
+        ("Cancela mudou sozinha", "(nada mudou)", "nada; acerta no próximo crédito"),
         ("Pulso e ela não chegou", "—", "2,5 s depois **mais 1 pulso**"),
         ("Nem assim chegou", "—", "para e avisa: **CANCELA TRAVOU**"),
     ]
     for i, (m, p, f) in enumerate(linhas):
-        ly = yy + 60 + i * 64
+        ly = yy + 60 + i * 60
         if i % 2 == 0:
-            rect(x + 20, ly - 38, w - 40, 60, "#f7f9fc", rx=6)
+            rect(x + 20, ly - 36, w - 40, 56, "#f7f9fc", rx=6)
         texto(cols[0], ly, m, 24, TXT, "bold")
         texto(cols[1], ly, p, 24, TXT)
         texto(cols[2], ly, f, 24, TXT)
@@ -299,11 +298,11 @@ def ajustes():
         "**3.** Gire o parafusinho azul até o LED \"sinal\"",
         "   **ACENDER** com a cancela fechada e **APAGAR**",
         "   com ela aberta.",
-        "**4.** Grave o **strike_kids_rele.ino** (firmware 16).",
-        "   Monitor Serial 9600: **OLA:STRIKE_KIDS:16**;",
+        "**4.** Grave o **strike_kids_rele.ino** (firmware 17).",
+        "   Monitor Serial 9600: **OLA:STRIKE_KIDS:17**;",
         "   mande **INFO?**: ...**SENSOR_TRAVA=FECHADA**.",
-        "**5.** No jogo: menu > **TESTE DA PORTA** — abra e",
-        "   feche e veja ABERTA / FECHADA mudarem.",
+        "**5.** Menu > **TESTE DA PORTA**: C abre / fecha;",
+        "   **Z ou B** = conferir agora com o sensor.",
         "**6.** Menu: **Porta invertida = NÃO** (com o",
         "   sensor, quem diz aberta/fechada é ele).",
         "",

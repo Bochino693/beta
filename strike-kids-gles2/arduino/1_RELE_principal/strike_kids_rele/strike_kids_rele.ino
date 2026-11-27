@@ -148,10 +148,14 @@ const uint8_t SENSOR_PINOS[5] = {2, 3, 4, 5, 7};
                                   // 1 = trava que FECHA sozinha sem energia: ao ligar ela esta fechada
 // (16) SENSOR DA CANCELA (infravermelho HW-201: VCC no 5V, GND no GND, OUT no
 // A4). A cancela FECHADA fica na frente dele (o LED do sensor ACENDE, o OUT
-// vai a 0); ABERTA, sai da frente (LED apagado). Com ele o Arduino VE onde a
-// cancela esta - nao lembra, nao adivinha: ao ligar ja sabe; so da pulso se
-// o sensor mostra a cancela diferente do que o jogo pediu; depois do pulso
-// confere se ela chegou (se nao, mais UM pulso; se nem assim, avisa o jogo).
+// vai a 0); ABERTA, sai da frente (LED apagado).
+// (17) O CREDITO MANDA, O SENSOR SO CONFERE. O sensor so e olhado numa
+// CONFERENCIA: quando o jogo pede uma posicao NOVA (entrou credito -> ABRE;
+// acabou o credito -> FECHA; modo livre -> ABRE) e no primeiro pedido depois
+// de ligar. Na conferencia: o sensor ja mostra a cancela onde o credito
+// manda -> nada; mostra o contrario -> UM pulso e confere se ela chegou (se
+// nao, mais UM pulso; se nem assim, avisa o jogo). Fora da conferencia o
+// sensor NAO MEXE EM NADA: mao, bola ou sujeira na frente do feixe = nada.
 #define USAR_SENSOR_TRAVA 1       // 1 = tem o sensor da cancela; 0 = sem sensor (lembra pela EEPROM)
 #define SENSOR_TRAVA_PINO A4      // OUT do sensor
 #define SENSOR_TRAVA_FECHADA_LOW 1 // HW-201: OUT em 0 com a cancela na frente (fechada); o contrario: 0
@@ -177,7 +181,7 @@ const uint8_t SENSOR_PINOS[5] = {2, 3, 4, 5, 7};
 #define FICHA_PULSO_MAX_MS 250    // pulso mais longo que isto: fio preso/segurado, nao e ficha
 #define FICHA_REPOUSO_MS 2000UL   // nivel parado este tempo vira o novo repouso
 #define SEM_JOGO_FECHA_MS 30000UL // o jogo falou e sumiu este tempo: fecha a porta
-#define VERSAO "16"
+#define VERSAO "17"
 
 #if USAR_LEDS
 #include <Adafruit_NeoPixel.h>
@@ -244,7 +248,9 @@ bool travaLeitura = false;      // aberta agora (sem filtro)
 bool travaFirme = false;        // aberta (filtrada): onde a cancela ESTA
 unsigned long travaMudouEm = 0;
 uint8_t travaTentativas = 0;    // pulsos seguidos sem a cancela chegar
-bool travaAvisou = false;
+bool travaConferir = false;     // (17) conferencia aberta (pedido novo do jogo): o sensor vale
+bool travaPrimeiro = true;      // (17) o primeiro pedido depois de ligar sempre confere
+bool travaOk = true;            // (17) a ultima conferencia achou a cancela no lugar
 // o vigia do jogo so vale depois de o jogo falar (ligar o Arduino nao mexe na porta)
 bool jogoFalou = false;
 // MODO:LIVRE (o jogo diz): a porta fica sempre aberta - o vigia nunca fecha
@@ -440,7 +446,8 @@ bool sensorTravaAberta() {
   return SENSOR_TRAVA_FECHADA_LOW ? !baixo : baixo;
 }
 
-// le o sensor (com filtro); a cancela mudou de verdade: o jogo fica sabendo
+// le o sensor (com filtro). (17) So GUARDA a leitura: quem decide e a
+// conferencia (tickRele) - mao na frente do feixe nao vira pulso nem aviso.
 void tickSensorTrava(unsigned long agora) {
   bool l = sensorTravaAberta();
   if (l != travaLeitura) {
@@ -449,9 +456,6 @@ void tickSensorTrava(unsigned long agora) {
   }
   if (travaLeitura != travaFirme && agora - travaMudouEm >= SENSOR_TRAVA_FILTRO_MS) {
     travaFirme = travaLeitura;
-    releAberta = travaFirme;
-    if (travaFirme == relePedida) travaAvisou = false;
-    Serial.println(travaFirme ? F("PORTA:ABERTA") : F("PORTA:FECHADA"));
   }
 }
 #endif
@@ -473,27 +477,30 @@ void tickRele(unsigned long agora) {
     return;
   }
 #if COM_SENSOR
-  // (16) COM O SENSOR: a verdade e o sensor. O pulso acabou: espera a
+  // (17) O CREDITO MANDA, O SENSOR SO CONFERE. O pulso acabou: espera a
   // cancela chegar (o sensor mostrar) ou o tempo de ela andar.
   if (releDescansando) {
     if (agora - releMudouEm < RELE_DESCANSO_MS) return;
-    if (travaFirme != relePedida && agora - releMudouEm < PORTA_TEMPO_MOVER_MS) return;
+    if (travaConferir && travaFirme != relePedida && agora - releMudouEm < PORTA_TEMPO_MOVER_MS) return;
     releDescansando = false;
   }
-  releAberta = travaFirme;
-  if (relePedida == travaFirme) {   // a cancela esta onde o jogo quer: nada
-    travaTentativas = 0;
-    return;
-  }
+  if (!travaConferir) return;      // sem pedido novo do jogo: o sensor nao mexe em nada
   if (agora - relePedidoEm < RELE_FIRME_MS) return;
-  if (travaTentativas >= PORTA_TENTATIVAS) {   // pulsou e ela nao veio: para e avisa
-    if (!travaAvisou) {
-      travaAvisou = true;
-      Serial.println(F("AVISO:PORTA_TRAVOU"));
-    }
+  if (travaFirme == relePedida) {  // a cancela esta onde o credito manda: pronto
+    travaConferir = false;
+    travaOk = true;
+    travaTentativas = 0;
+    releAberta = travaFirme;
+    confirmarPorta();
     return;
   }
-  releEscrever(true);
+  if (travaTentativas >= PORTA_TENTATIVAS) {   // pulsou e ela nao veio: para e avisa
+    travaConferir = false;
+    travaOk = false;
+    Serial.println(F("AVISO:PORTA_TRAVOU"));
+    return;
+  }
+  releEscrever(true);              // ela esta ao contrario do credito: UM pulso
   releMudouEm = agora;
   travaTentativas++;
   return;
@@ -705,12 +712,22 @@ void porta(bool abrir) {
 #endif
 #if USAR_RELE
 #if RELE_PULSO
+#if COM_SENSOR
+  // (17) pedido NOVO (ou o primeiro depois de ligar, ou o anterior nao
+  // chegou): abre a conferencia. Pedido repetido: so confirma.
+  if (abrir != relePedida || travaPrimeiro || (!travaConferir && !travaOk)) {
+    travaPrimeiro = false;
+    relePedida = abrir;
+    relePedidoEm = millis();
+    travaConferir = true;
+    travaTentativas = 0;
+  }
+#else
   if (abrir != relePedida) {
     relePedida = abrir;
     relePedidoEm = millis();
-    travaTentativas = 0;
-    travaAvisou = false;
   }
+#endif
 #else
   bool ligar = RELE_LIGADO_ABERTA ? abrir : !abrir;
   if (ligar && !releLigado) releMudouEm = millis();
@@ -719,6 +736,8 @@ void porta(bool abrir) {
 #endif
 #if USAR_PONTE_H
   ponteIr(abrir);    // confirma (PORTA:ABERTA/FECHADA) quando a porta chegar
+#elif COM_SENSOR
+  if (!travaConferir) confirmarPorta();   // pedido repetido e ja conferido (senao, a conferencia confirma)
 #elif USAR_RELE && RELE_PULSO
   if (abrir == releAberta) confirmarPorta();   // ja esta la: confirma sem pulso (senao, o pulso confirma)
 #else
@@ -729,7 +748,7 @@ void porta(bool abrir) {
 // a porta como ela esta (rele de pulso: onde o ultimo pulso a deixou)
 bool portaDeVerdade() {
 #if COM_SENSOR
-  return travaFirme;
+  return releAberta;   // (17) onde a ultima conferencia achou a cancela (o sensor ao vivo: INFO?)
 #elif USAR_RELE && RELE_PULSO && !USAR_PONTE_H
   return releAberta;
 #else
@@ -953,10 +972,16 @@ bool comandoDoJogo(const char *c) {
     portaLigou();
 #if USAR_RELE && RELE_PULSO
   } else if (!strcmp(c, "PORTA:ACERTA")) {
-#if !COM_SENSOR
-    releAcertar();   // (com o sensor a cancela ja e lida: nada a acertar)
-#endif
+#if COM_SENSOR
+    // (17) com o sensor, ACERTAR = CONFERIR AGORA: o sensor diz onde ela
+    // esta e, se for o contrario do credito, UM pulso (a conferencia confirma)
+    travaConferir = true;
+    travaTentativas = 0;
+    relePedidoEm = millis();
+#else
+    releAcertar();
     Serial.println(portaDeVerdade() ? F("PORTA:ABERTA") : F("PORTA:FECHADA"));
+#endif
 #endif
   } else if (!strcmp(c, "MODO:LIVRE")) {
     modoLivre = true;
@@ -1144,11 +1169,16 @@ void setup() {
   // depois do pull-up assentar (e do repouso dos sensores carregado)
   for (uint8_t i = 0; i < 5; i++) assentarEntrada(sensores[i]);
 #if COM_SENSOR
-  // (16) ao ligar, o sensor ja diz onde a cancela esta: nenhum pulso
+  // (16) ao ligar, o sensor ja diz onde a cancela esta: nenhum pulso.
+  // (17) O primeiro pedido do jogo (a tela inicial: credito ou nao) confere.
   travaLeitura = travaFirme = sensorTravaAberta();
   travaMudouEm = millis();
   releAberta = relePedida = travaFirme;
   portaAberta = travaFirme;
+  travaPrimeiro = true;
+  travaConferir = false;
+  travaOk = true;
+  travaTentativas = 0;
 #endif
   for (uint8_t i = 0; i < 2; i++) assentarEntrada(botoes[i]);
   // a ficha: o nivel de agora e o repouso (NA ou NF); so um pulso CERTO conta
