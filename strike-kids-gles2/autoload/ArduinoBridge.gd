@@ -139,11 +139,6 @@ var _ultima_ficha := -1
 
 func _ready() -> void:
 	pause_mode = Node.PAUSE_MODE_PROCESS
-	# (8.8.6) A CANCELA JÁ NA TELA DE CARREGAMENTO: o crédito manda desde o
-	# primeiro instante (ao abrir o jogo não há crédito: modo fichas ->
-	# FECHADA; modo livre -> ABERTA). Assim que o Arduino conectar o pedido
-	# vai, e ele confere (feixe que provou ou a memória) - UM pulso se precisar.
-	porta(Ajustes.modo_livre() or Ajustes.pode_comecar())
 	if OS.get_name() != "Android":
 		_set_status("Arduino: no PC o teclado faz tudo (A S D F G = sensores, 1 = START, 9 = configuração)")
 		return
@@ -585,7 +580,13 @@ func _conectou(fw: String) -> void:
 		# quem é o jogo, antes de tudo: as fichas da fila já podem vir
 		_send("FICHAS:SYNC")
 		enviar_ponte()   # antes da porta: ela já anda no tempo/fim de curso do menu
-		# a porta (e o modo) vão pelo _andar_porta (só o que o jogo já decidiu)
+		# (8.8.6) A CANCELA JÁ NA TELA DE CARREGAMENTO: o Arduino conectou e
+		# o jogo ainda não decidiu -> o crédito manda já (ao abrir o jogo não
+		# há crédito: modo fichas -> FECHADA; modo livre -> ABERTA). O Arduino
+		# confere (o feixe que provou ou a memória) - UM pulso se precisar.
+		if not _porta_decidida:
+			porta(Ajustes.modo_livre() or Ajustes.pode_comecar())
+		# a porta (e o modo) vão pelo _andar_porta
 		_porta_enviada = -1
 		_modo_enviado = ""
 		_send("TESTE:1" if _teste else "TESTE:0")

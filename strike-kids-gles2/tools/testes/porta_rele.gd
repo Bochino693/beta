@@ -253,7 +253,9 @@ func _rodar() -> void:
 		erro("o jogo não mandou FICHAS:SYNC")
 	# a espera decide a porta: livre = aberta, fichas sem crédito = fechada
 	var quer := livre
-	var n := 0 if ard.rele_aberta == quer else 1
+	# (8.8.6) a porta já é acertada na tela de carregamento: conta desde como
+	# ela estava ao ligar
+	var n := 0 if caso.ends_with("aberta") == quer else 1
 	yield(conferir("ligou (%s)" % caso, n, quer), "completed")
 	# ... e fica assim: 12 s de espera sem um pulso
 	yield(esperar(12.0), "completed")
