@@ -4,6 +4,7 @@ Pasta arduino/1_RELE_principal/:
   strike_kids_rele/strike_kids_rele.ino   o codigo para gravar no Arduino
   ligacao_arduino_rele.pdf                o desenho da montagem (A3, imprima)
   ligacao_arduino_rele.png / .svg         o mesmo desenho em imagem
+  ligacao_sensor_cancela.pdf / .png       o SENSOR DA CANCELA (firmware 17)
   LEIA-ME_RELE.txt                        este passo a passo
 
 
@@ -33,6 +34,8 @@ Obrigatorio:
     NO / COM / NC)
   - 1 trava solenoide 12 V (fechadura eletrica) OU 1 eletroima 12 V
   - 1 diodo 1N4007 (protege o rele e o Arduino do pico da bobina da trava)
+  - 1 sensor infravermelho HW-201 (3 pinos: VCC, GND, OUT) - o SENSOR DA
+    CANCELA: confere a cancela quando o credito muda (firmware 17)
   - 1 fonte 12 V, 2 A ou mais (trava + moedeiro)
   - 1 botao CONFIGURACAO (entra e sai do menu do operador)
 Opcional:
@@ -61,9 +64,10 @@ Opcional:
   A0    botao CONFIGURACAO (o outro fio no GND)
   A1    botao START (o outro fio no GND)          opcional
   A2    COIN do moedeiro                          opcional (modo fichas)
-  5V    VCC do modulo rele; + dos sensores de 5 V
+  A4    OUT do sensor da cancela (HW-201)         firmware 17
+  5V    VCC do modulo rele e do sensor da cancela; + dos sensores de 5 V
   GND   GND de TUDO: rele, sensores, botoes, moedeiro, fontes, servo
-  D10, D11, D12, A3 e A4 ficam LIVRES (sao da ponte H na outra versao).
+  D10, D11, D12 e A3 ficam LIVRES (sao da ponte H na outra versao).
 
 Sensores: o sinal no pino e o - no GND (o pino ja tem pull-up). Cores
 comuns: marrom = +, azul = -, preto = sinal. Sensor de 12 V: o + na fonte
@@ -86,6 +90,41 @@ porta / trava que alterna a cada toque - RELE_PULSO 1).
       COM do rele  ------------>  um fio da entrada de comando da porta
       NO do rele   ------------>  o outro fio da entrada (o "botao")
       NC do rele: solto
+
+O SENSOR DA CANCELA (firmware 17): O CREDITO MANDA, O SENSOR SO CONFERE
+  Um sensor infravermelho HW-201 preso onde a cancela FECHADA passa bem
+  na frente dele (2 a 10 cm; aberta, ela sai da frente). Desenho:
+  ligacao_sensor_cancela.pdf (e no desenho completo, embaixo do Nano).
+      VCC do sensor  ------------>  5V do Arduino
+      GND do sensor  ------------>  GND do Arduino
+      OUT do sensor  ------------>  A4 do Arduino
+  - Cancela FECHADA: na frente do sensor, LED "sinal" ACESO, OUT = 0.
+    Cancela ABERTA: fora da frente, LED APAGADO, OUT = 1.
+    Gire o parafusinho azul do sensor ate ficar assim (uma vez).
+  - O CREDITO MANDA: tem credito -> ABERTA; nao tem -> FECHADA (modo
+    livre: sempre ABERTA). O sensor so e olhado numa CONFERENCIA: quando
+    o credito muda (entrou ficha, acabou a partida, o jogo sumiu 30 s) e
+    no primeiro pedido do jogo depois de ligar. Na conferencia: a cancela
+    ja esta onde o credito manda -> nada; esta ao contrario -> 1 pulso.
+  - FORA DA CONFERENCIA O SENSOR NAO MEXE EM NADA: mao, bola ou sujeira na
+    frente do feixe nao abre nem fecha a cancela (firmware 16 abria e
+    fechava - corrigido no 17).
+  - Desligaram jogando: ao ligar, 0 credito -> a conferencia ve a cancela
+    aberta e 1 pulso fecha. A cancela mudou sozinha no meio do jogo: fica
+    assim ate o proximo credito (ou o ACERTAR do TESTE DA PORTA, que
+    confere na hora).
+  - Ao ligar, o Arduino NAO pulsa: le o sensor e espera o pedido do jogo
+    (na tela inicial).
+  - Pulsou e a cancela nao chegou em 2,5 s (PORTA_TEMPO_MOVER_MS): mais 1
+    pulso. Nem assim: para e avisa AVISO:PORTA_TRAVOU (no maximo 2
+    pulsos seguidos - PORTA_TENTATIVAS 2). O proximo pedido do jogo
+    (abre/fecha) tenta de novo.
+  - O Arduino responde PORTA:ABERTA / PORTA:FECHADA quando a conferencia
+    acaba (a cancela onde o credito manda). INFO? mostra o sensor ao vivo.
+  - Menu do operador: "Porta invertida" = NAO (quem diz e o sensor).
+  - Sem o sensor: USAR_SENSOR_TRAVA 0 (o Arduino volta a lembrar pela
+    EEPROM, como no firmware 15). LED aceso com a cancela ABERTA:
+    SENSOR_TRAVA_FECHADA_LOW 0.
 
 O QUE O ARDUINO GARANTE (firmware 5):
   - AO LIGAR O ARDUINO O RELE NAO MEXE - nem na tomada, nem quando o jogo
@@ -123,8 +162,8 @@ O QUE O ARDUINO GARANTE (firmware 5):
     Alimente o modulo rele pelo 5V do proprio Arduino (nao por outra
     fonte): com o Arduino sem energia e o modulo ligado em outra fonte, o
     pino do Arduino puxa o IN para baixo e o rele LIGA.
-  - Na PRIMEIRA GRAVACAO deixe a porta FECHADA (o Arduino comeca contando
-    "fechada"). Se um dia a porta ficar ao contrario do que o jogo mostra
+  - (SEM o sensor) Na PRIMEIRA GRAVACAO deixe a porta FECHADA (o Arduino
+    comeca contando "fechada"). Se um dia a porta ficar ao contrario do que o jogo mostra
     (alguem mexeu com a mao): menu > TESTE DA PORTA > Z ou B (ACERTAR).
 
 OUTRA TRAVA (solenoide / eletroima que fica LIGADO com a porta aberta):
@@ -164,6 +203,11 @@ OUTRA TRAVA (solenoide / eletroima que fica LIGADO com a porta aberta):
   RELE_FIRME_MS 150      o pedido fica firme este tempo antes do pulso
   RELE_LIGADO_ABERTA 1   (so NIVEL) rele ligado com a porta ABERTA
   RELE_TEMPO_MAX_S 0     (so NIVEL) 0 = sem limite; trava solenoide: 5
+  USAR_SENSOR_TRAVA 1    1 = tem o sensor da cancela no A4; 0 = sem sensor
+  SENSOR_TRAVA_FECHADA_LOW 1  LED aceso (OUT 0) = FECHADA; ao contrario: 0
+  PORTA_TEMPO_MOVER_MS 2500   tempo para a cancela chegar depois do pulso
+  PORTA_TENTATIVAS 2     pulsos seguidos sem ela chegar: para e avisa
+  PORTA_FECHA_SEM_ENERGIA 0   (sem sensor) 0 = a trava guarda a posicao
   SERVO_FECHADA 0        angulo do servo com a porta fechada
   SERVO_ABERTA 90        angulo do servo com a porta aberta
   SERVO_GRAUS_POR_S 240  velocidade do servo
@@ -190,16 +234,18 @@ OUTRA TRAVA (solenoide / eletroima que fica LIGADO com a porta aberta):
 8. TESTAR SEM O JOGO (Monitor Serial da IDE)
 --------------------------------------------
 Ferramentas > Monitor Serial, 9600 baud, "Nova linha". Ao abrir aparece:
-    OLA:STRIKE_KIDS:15
+    OLA:STRIKE_KIDS:17
 (o rele NAO clica ao ligar). Mande (digite e Enter, em MAIUSCULAS ou
 minusculas, exatamente assim - o que for escrito diferente e ignorado):
     PORTA:ABRE   1 pulso (um clique) e a resposta PORTA:ABERTA
                  mande de novo: so a resposta, SEM pulso
     PORTA:FECHA  1 pulso e PORTA:FECHADA
-    PORTA:ACERTA a porta de verdade esta ao contrario: troca so a
-                 lembranca do Arduino (sem pulso)
-    INFO?        INFO:STRIKE_KIDS:15:LEDS=1:SERVO=0:RELE=8:PONTE_H=0:
-                 REPOUSO=HHHHH:PULSO=1:FILA=0
+    PORTA:ACERTA (sem sensor) a porta esta ao contrario: troca so a
+                 lembranca do Arduino (sem pulso). Com o sensor:
+                 CONFERE AGORA (ao contrario do pedido -> 1 pulso)
+    INFO?        INFO:STRIKE_KIDS:17:LEDS=1:SERVO=0:RELE=8:PONTE_H=0:
+                 REPOUSO=HHHHH:PULSO=1:FILA=0:SENSOR_TRAVA=FECHADA
+                 (SENSOR_TRAVA = o que o sensor ve agora)
                  (PONTE_H=0 = esta versao; PULSO=1 = rele de pulso;
                  FILA = fichas esperando o jogo)
     TESTE:1      os sensores ao vivo: SENS:00000 (1 = bola passando)
@@ -268,12 +314,18 @@ Com a porta aberta e sem nenhum comando por 30 s, ela fecha sozinha
     com HIGH: RELE_LIGA_EM_LOW 0.
   - O rele clica mas a trava nao mexe: + da fonte 12 V no COM, + da trava
     no NO, - da trava no - da fonte.
-  - A porta esta ao contrario (aberta quando a tela diz fechada): menu >
-    TESTE DA PORTA > Z ou B (ACERTAR). Com o rele de NIVEL: "Porta
+  - A porta esta ao contrario (aberta quando a tela diz fechada): com o
+    sensor, confira o LED "sinal" (aceso so com ela FECHADA) e "Porta
+    invertida" = NAO. Sem sensor: menu > TESTE DA PORTA > Z ou B (ACERTAR). Com o rele de NIVEL: "Porta
     invertida" (ou RELE_LIGADO_ABERTA 0 no .ino).
   - O rele da 2 pulsos seguidos: a entrada da porta e de NIVEL (fica
     ligada enquanto aberta) - use RELE_PULSO 0.
   - A trava esquenta (rele de nivel): RELE_TEMPO_MAX_S 5.
+  - AVISO:PORTA_TRAVOU / a cancela nao chega: algo segurando a cancela,
+    o sensor fora do lugar (o LED nao muda) ou PORTA_TEMPO_MOVER_MS curto
+    para a sua cancela (ponha 4000).
+  - O rele liga sozinho com o Arduino sem energia (cabo tirado, TV Box
+    desligando): jumper do modulo em H e RELE_LIGA_EM_LOW 0.
   - O Arduino reinicia quando a trava liga: falta o diodo 1N4007 na trava
     ou os GND nao estao todos juntos.
   - Sensor sempre aceso ou nunca acende: CALIBRAR SENSORES com a pista
